@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/images/logo.png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css" 
+  integrity="sha512-t7Few9xlddEmgd3oKZQahkNI4dS6l80+eGEzFQiqtyVYdvcSG2D3Iub77R20BdotfRPA9caaRkg1tyaJiPmO0g==" 
+  crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <title>ReklaMap</title>
+  <link rel="stylesheet" href="/css/areas.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo-section">
+      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
+      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
+    </div>
+    <nav class="nav-menu">
+      <a href="/admin/map/index.html" class="nav-item active">Map</a>
+      <a href="/admin/complaints/all.html" class="nav-item">Complaints</a>
+      <a href="/admin/database/beneficiaries.html" class="nav-item">Database</a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- Header -->
+    <header class="page-header">
+      <h1>SJC (St. Joseph - San Simon - Sta. Catalina)</h1>
+    </header>
+
+    <div class="map-layout">
+
+    <div class="map-section">
+      <div id="map-container">
+      <div class="map-legend" aria-hidden="false">
+        <div><span class="legend-color block1"></span> BLOCK 1</div>
+        <div><span class="legend-color block2"></span> BLOCK 2</div>
+        <div><span class="legend-color block3"></span> BLOCK 3</div>
+      </div>
+    </div>
+
+    </div>
+
+    <!-- Info + Table -->
+    <div class="side-panel">
+      <!-- Info Card -->
+      <div class="info-card">
+        <h2>De Mesa, Liwayway</h2>
+        <div class="info-grid">
+          <div class="info-left">
+            <p>54 Samonte, Block 5</p>
+            <p>09123456789</p>
+          </div>
+          <div class="info-right">
+            <p>Blocks: 5</p>
+            <p>Members: 35</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Residents List -->
+      <div class="list-table">
+
+  <!-- Table --><!-- Example layout before database -->
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+         <th>Block 
+            <button class="filter-btn" aria-label="Filter Block">&#x25BC;</button>
+            <ul class="filter-menu" hidden>
+              <li data-filter="all">All</li>
+              <li data-filter="1">Block 1</li>
+              <li data-filter="2">Block 2</li>
+              <li data-filter="3">Block 3</li>
+              <li data-filter="4">Block 4</li>
+              <li data-filter="5">Block 5</li>
+            </ul>
+          </th>
+        <th>Lot No.</th>
+        <th>Area</th>
+      </tr>
+    </thead>
+    <tbody id="resident-table">
+      <tr><td>Mahal Domingo</td><td>1</td><td>1</td><td>41</td></tr>
+      <tr><td>Bituin Lozano</td><td>1</td><td>2</td><td>23</td></tr>
+      <tr><td>Araw Mendoza</td><td>5</td><td>3</td><td>58</td></tr>
+      <tr><td>Kalinaw Torres</td><td>3</td><td>6</td><td>29</td></tr>
+      <tr><td>Bayani Lopez</td><td>2</td><td>5</td><td>62</td></tr>
+      <td>Kalinaw Torres</td><td>1</td><td>6</td><td>29</td></tr> <tr>
+      <td>Giliw Pascual</td><td>2</td><td>7</td><td>44</td></tr> <tr>
+      <td>Silangan Rivera</td><td>3</td><td>8</td><td>53</td></tr> <tr>
+      <td>Bunso Carreon</td><td>5</td><td>9</td><td>21</td></tr> <tr>
+      <td>Makisig Del Mundo</td><td>2</td><td>10</td><td>38</td></tr> <tr>
+      <td>Maria Clara</td><td>3</td><td>11</td><td>60</td></tr> <tr>
+      <td>Ligaya Fernandez</td><td>3</td><td>12</td><td>25</td></tr> <tr>
+      <td>Mayumi Navarro</td><td>5</td><td>13</td><td>49</td></tr> <tr>
+      <td>Tala Soriano</td><td>1</td><td>14</td><td>34</td></tr> <tr>
+      <td>Amihan Cruz</td><td>4</td><td>15</td><td>27</td></tr> <tr>
+      <td>Liwayway Aquino</td><td>4</td><td>16</td><td>63</td></tr> <tr>
+      <td>Dalisay Gutierrez</td><td>4</td><td>17</td><td>31</td></tr> <tr>
+      <td>Hiyas Salazar</td><td>4</td><td>18</td><td>55</td></tr> <tr>
+      <td>Hiyas Salazar</td><td>2</td><td>17</td><td>45</td></tr> </tbody> </table> </div>
+    </tbody>
+  </table>
+
+    <!-- Stats -->
+    <div class="stats-section">
+      <div class="stat-card">
+        <i class="bi bi-graph-up-arrow"></i>
+        <div>
+          <h3>0</h3>
+          <p>Complaints</p>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <i class="bi bi-person-exclamation"></i>
+        <div>
+          <h3>0</h3>
+          <p>On Going</p>   
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <i class="bi bi-person-x"></i>
+        <div>
+         <h3>0</h3>
+          <p>Unresolved</p>
+        </div>
+      </div>
+    </div>
+
+  <!-- Tooltip for hover -->
+  <div id="tooltip" class="tooltip"></div>
+
+<script>
+(function () {
+  const container = document.getElementById('map-container');
+  const tooltip = document.getElementById('tooltip');
+  const residentTable = document.getElementById('resident-table');
+
+  if (!container) {
+    console.error('No #map-container found');
+    return;
+  }
+
+  function clearSvgSelection() {
+    container.querySelectorAll('svg g').forEach(g => {
+      g.classList.remove('selected-area');
+      g.querySelectorAll('path, rect, polygon, circle').forEach(el => {
+        if (el.dataset.origFill !== undefined) {
+          el.setAttribute('fill', el.dataset.origFill);
+        }
+      });
+    });
+  }
+
+  function highlightSvgArea(areaEl) {
+    clearSvgSelection();
+    if (!areaEl) return;
+    areaEl.classList.add('selected-area');
+
+    areaEl.querySelectorAll('path, rect, polygon, circle').forEach(el => {
+      if (el.id && el.id.startsWith('Vector')) {
+        if (el.dataset.origFill === undefined) {
+          el.dataset.origFill = el.getAttribute('fill') || '';
+        }
+        el.setAttribute('fill', '#29a745'); 
+      }
+    });
+  }
+
+
+  function highlightRow(block, lot) {
+    residentTable.querySelectorAll('tr').forEach(r => r.classList.remove('highlight'));
+
+    // Find matching row (block in col index 1, lot in col index 2)
+    const rows = Array.from(residentTable.querySelectorAll('tr'));
+    const match = rows.find(row => {
+      const rowBlock = row.children[1]?.textContent.trim();
+      const rowLot = row.children[2]?.textContent.trim();
+      return String(rowBlock) === String(block) && String(rowLot) === String(lot);
+    });
+
+    if (match) {
+      match.classList.add('highlight');
+      match.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    const svgGroups = Array.from(container.querySelectorAll('svg g'));
+    const matchArea = svgGroups.find(g => {
+      const aBlock = g.getAttribute('block') || g.dataset.block || parseBlockFromId(g.id);
+      const aLot = g.getAttribute('lot') || g.dataset.lot || '';
+      return String(aBlock) === String(block) && String(aLot) === String(lot);
+    });
+
+    if (matchArea) highlightSvgArea(matchArea);
+    else clearSvgSelection();
+  }
+
+  function parseBlockFromId(id) {
+    if (!id) return null;
+    const m = id.match(/B\s*?(\d+)/i) || id.match(/B(\d+)/i);
+    return m ? m[1] : null;
+  }
+
+  fetch('/admin/map/svg/sjc.svg')
+    .then(res => res.text())
+    .then(svgText => {
+      container.insertAdjacentHTML('afterbegin', svgText);
+
+      const svgGroups = container.querySelectorAll('svg g');
+      svgGroups.forEach(g => {
+        g.querySelectorAll('path, rect, polygon, circle').forEach(el => {
+          el.dataset.origFill = el.getAttribute('fill') ?? '';
+        });
+
+        // tooltip
+        g.addEventListener('mousemove', e => {
+          const b = g.getAttribute('block') || g.dataset.block || parseBlockFromId(g.id) || 'N/A';
+          const l = g.getAttribute('lot') || g.dataset.lot || 'N/A';
+          tooltip.innerHTML = `<strong>Lot ${l}</strong><br>Block: ${b}`;
+
+          tooltip.classList.add('visible');
+
+          let left = e.clientX + 12;
+          let top  = e.clientY + 12;
+
+          requestAnimationFrame(() => {
+            const rect = tooltip.getBoundingClientRect();
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            const margin = 8;
+
+            if (left + rect.width + margin > vw) {
+              left = Math.max(margin, vw - rect.width - margin);
+            }
+            if (top + rect.height + margin > vh) {
+              top = Math.max(margin, vh - rect.height - margin);
+            }
+
+            tooltip.style.left = left + 'px';
+            tooltip.style.top  = top  + 'px';
+          });
+        });
+
+        g.addEventListener('mouseleave', () => {
+          tooltip.classList.remove('visible');
+          tooltip.style.left = '-9999px';
+          tooltip.style.top = '-9999px';
+        });
+
+
+        // click: highlight row + svg area
+        g.addEventListener('click', () => {
+          const lot = g.getAttribute('lot') || g.dataset.lot;
+          let block = g.getAttribute('block') || g.dataset.block || parseBlockFromId(g.id);
+          if (!block && g.id) block = parseBlockFromId(g.id);
+          if (!block || !lot) return;
+          highlightRow(block, lot);
+        });
+      });
+    })
+    .catch(err => console.error('Error loading SVG:', err));
+
+  // Dropdown & table interactions (unchanged)
+  const filterBtn = document.querySelector('.filter-btn');
+  const filterMenu = document.querySelector('.filter-menu');
+
+  filterBtn?.addEventListener('click', e => {
+    e.stopPropagation();
+    filterMenu.hidden = !filterMenu.hidden;
+  });
+
+  filterMenu?.addEventListener('click', e => {
+    if (e.target.tagName === 'LI') {
+      const filterValue = e.target.dataset.filter;
+      Array.from(residentTable.querySelectorAll('tr')).forEach(row => {
+        const block = row.children[1]?.textContent.trim();
+        row.style.display = (filterValue === 'all' || block === filterValue) ? '' : 'none';
+      });
+      filterMenu.hidden = true;
+    }
+  });
+
+  document.addEventListener('click', () => {
+    if (filterMenu) filterMenu.hidden = true;
+  });
+
+  // clicking a table row highlights SVG
+  residentTable.addEventListener('click', e => {
+    const tr = e.target.closest('tr');
+    if (!tr) return;
+    const block = tr.children[1]?.textContent.trim();
+    const lot = tr.children[2]?.textContent.trim();
+    if (block && lot) highlightRow(block, lot);
+  });
+
+})();
+</script>
+
+<style>
+.legend-color.block1 { background:#899B98; }
+.legend-color.block2 { background:#BFCFCC; }
+.legend-color.block3 { background:#E1E6E5; }
+</style>
+
+</body>
+</html>
