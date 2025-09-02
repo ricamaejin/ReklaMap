@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css" 
+  integrity="sha512-t7Few9xlddEmgd3oKZQahkNI4dS6l80+eGEzFQiqtyVYdvcSG2D3Iub77R20BdotfRPA9caaRkg1tyaJiPmO0g==" 
+  crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="icon" type="image/png" href="/images/logo.png">
+  <title>ReklaMap</title>
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo-section">
+      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
+      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
+    </div>
+    <nav class="nav-menu">
+      <a href="/admin/map/index.html" class="nav-item">Map</a>
+      <a href="/admin/complaints/all.html" class="nav-item active">Complaints</a>
+      <a href="/admin/database/beneficiaries.html" class="nav-item">Database</a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <h1>Complaints</h1>
+    
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card">
+        <i class="bi bi-graph-up-arrow"></i>
+        <div>
+          <h2>0</h2>
+          <p>Complaints</p>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <i class="bi bi-person-exclamation"></i>
+        <div>
+          <h2>0</h2>
+          <p>On Going</p>   
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <i class="bi bi-person-x"></i>
+        <div>
+         <h2>0</h2>
+          <p>Unresolved</p>
+        </div>
+      </div>
+    </div>
+        
+    <!-- Tabs -->
+    <div class="tabs">
+      <a href="all.html"> All</a>
+      <a href="pending.html">Pending</a>
+      <a href="ongoing.html">On Going</a>
+      <a href="resolved.html" class="active">Resolved</a>
+      <a href="assigned.html">Assigned</a>
+      <a href="invalid.html">Invalid</a>
+    </div>
+
+    <!-- Table -->
+    <table class="complaints-table">
+      <thead>
+        <tr>
+          <th>Date Submitted</th>
+          <th>Complainant</th>
+          <th>Type of Complaint</th>
+          <th>HOA</th>
+          <th>Address</th>
+          <th>Action Needed</th>
+          <th>Priority Level</th>
+        </tr>
+      </thead>
+        
+      <tbody>
+      <!-- Example layout before database -->
+        <tr>
+          <td>6/19/2025</td>
+          <td>John Doe Smith</td>
+          <td>Lot Dispute</td>
+          <td>Alley I - Sta Catalina HOA</td>
+          <td>Sta Catalina, Block 8</td>
+          <td>Investigation</td>
+          <td><button>severe</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</body>
+</html>
