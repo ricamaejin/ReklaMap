@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/images/logo.png">
+  <title>ReklaMap</title>
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo-section">
+      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
+      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
+    </div>
+    <nav class="nav-menu">
+      <a href="/admin/map/index.html" class="nav-item ">Map</a>
+      <a href="/admin/complaints/all.html" class="nav-item">Complaints</a>
+      <a href="/admin/database/beneficiaries.html" class="nav-item active">Database</a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="header">
+      <h1>Data</h1>
+      <hr class="header-line">
+    </header>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <a href="beneficiaries.html" class="tab">Beneficiaries</a>
+      <a href="policies.html" class="tab active">Policies</a>
+    </div>
+
+    <!-- Table -->
+    <div class="poli-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Policy Code</th>
+            <th>Law</th>
+            <th>Section Number</th>
+            <th>Description</th>
+            <th>Applicable Issue</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Example layout before database, Magdadatabase ba dito or direct na dito? -->
+           <tr>
+            <td>NGC-01</td>
+            <td>RA 9207</td>
+            <td>Section 2</td>
+            <td>Declares State policy to develop NGC land into organized, equitable housing and urban area.</td>
+            <td>Land Ownership</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+
+</body>
+</html>
