@@ -26,7 +26,7 @@
     Logged in as: <span class="username">Smith, John Doe</span>
     <button class="dropdown-toggle">▼</button>
     <div class="dropdown-menu">
-      <a href="#">Logout</a>
+      <a href="/portal/index.html">Logout</a>
     </div>
   </div>
 
@@ -107,7 +107,7 @@
     <script>
       const tooltip = document.getElementById("tooltip");
 
-        document.querySelectorAll("hoa_map.svg").forEach(area => {
+        document.querySelectorAll("/admin/map/svg/hoa_map.svg").forEach(area => {
             area.addEventListener("mousemove", (e) => {
                 tooltip.innerHTML = `
                     <strong>${area.dataset.name}</strong><br>
