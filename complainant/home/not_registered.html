@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/images/logo.png">
+  <title>ReklaMap</title>
+  <link rel="stylesheet" href="/css/complainants.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo-section">
+      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
+      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
+    </div>
+    <nav class="nav-menu">
+        <a href="/complainant/home/dashboard.html" class="nav-item active">Home</a>
+        <a href="/complainant/complaints/submitted_complaints.html" class="nav-item">Complaints</a>
+    </nav>
+  </aside>
+  
+  <!-- User Dropdown -->
+  <div class="user-dropdown">
+    Logged in as: <span class="username">Smith, John Doe</span>
+    <button class="dropdown-toggle">▼</button>
+    <div class="dropdown-menu">
+      <a href="#">View Profile</a>
+      <a href="/portal/index.html">Logout</a>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="main">
+    <!-- Profile Card -->
+    <section class="profile-card">
+      <h2>Smith, John Doe</h2>
+      <p>jdsmith@gmail.com</p>
+    </section>
+
+    <!-- Register Section -->
+    <section class="register-card">
+      <h2>Register</h2>
+      <p>
+        In order to ensure that we can properly address your concerns, you are required to 
+        register your information before submitting a complaint. This allows us to verify 
+        your identity and follow up with you regarding the outcome of your submission.
+      </p>
+      <h3>Select Category</h3>
+
+      <div class="category" onclick="location.href='/complainant/home/mem-reg.html'">
+        <h4>HOA Member</h4>
+        <p>An individual who is officially registered with the Homeowners Association (HOA) 
+        and has all the rights and responsibilities that come with membership.</p>
+      </div>
+
+      <div class="category" onclick="location.href='/complainant/home/fam_reg.html'">
+        <h4>Family of a HOA Member</h4>
+        <p>Someone who is not an HOA member themselves but has a close family member—such 
+        as a parent, spouse, or sibling—who is a registered HOA member.</p>
+      </div>
+
+      <div class="category" onclick="location.href='/complainant/home/non-mem_reg.html'">
+        <h4>Non-Member</h4>
+        <p>A person who is not part of the HOA and does not have any immediate family members 
+        who are members of the HOA.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Dropdown Script -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const dropdown = document.querySelector(".user-dropdown");
+      const toggle = dropdown.querySelector(".dropdown-toggle");
+
+      toggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle("active");
+      });
+
+      // Close when clicking outside
+      document.addEventListener("click", () => {
+        dropdown.classList.remove("active");
+      });
+    });
+  </script>
+
+</body>
+</html>
