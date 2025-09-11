@@ -97,7 +97,7 @@
 
             // Click: navigate to details
             area.addEventListener('click', () => {
-              window.location.href = `/admin/map/details.html?area=${encodeURIComponent(area.id)}`;
+              window.location.href = `/admin/map/details.html?area=${encodeURIComponent(area.id)}`; // to access sjc sa map, change to ../map/sjc.html; tbd fix to access all maps
             });
           });
         })
