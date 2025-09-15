@@ -3,22 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/png" href="/images/logo.png">
+  <link rel="icon" type="image/png" href="../../images/logo.png">
   <title>ReklaMap</title>
-  <link rel="stylesheet" href="/css/admin.css">
+  <link rel="stylesheet" href="../../css/admin.css">
 </head>
 <body>
 
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="logo-section">
-      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
+      <img src="../../images/logo.png" alt="ReklaMap Logo" class="logo">
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/admin/map/index.html" class="nav-item active">Map</a>
-      <a href="/admin/complaints/all.html" class="nav-item">Complaints</a>
-      <a href="/admin/database/beneficiaries.html" class="nav-item">Database</a>
+      <a href="../map/index.html" class="nav-item active">Map</a>
+      <a href="../complaints/all.html" class="nav-item">Complaints</a>
+      <a href="../database/beneficiaries.html" class="nav-item">Database</a>
     </nav>
   </aside>
   
@@ -26,7 +26,7 @@
     Logged in as: <span class="username">Smith, John Doe</span>
     <button class="dropdown-toggle">▼</button>
     <div class="dropdown-menu">
-      <a href="/portal/index.html">Logout</a>
+      <a href="../../portal/index.html">Logout</a>
     </div>
   </div>
 
@@ -58,7 +58,7 @@
       };
 
       // Load the SVG map
-      fetch('/admin/map/svg/hoa_map.svg') // adjust path if needed
+      fetch('../map/svg/hoa_map.svg') // adjust path if needed
         .then(res => res.text())
         .then(svg => {
           const container = document.getElementById('map-container');
@@ -97,7 +97,7 @@
 
             // Click: navigate to details
             area.addEventListener('click', () => {
-              window.location.href = `/admin/map/details.html?area=${encodeURIComponent(area.id)}`;
+              window.location.href = `/admin/map/details.html?area=${encodeURIComponent(area.id)}`; // to access sjc sa map, change to ../map/sjc.html; tbd fix to access all maps
             });
           });
         })

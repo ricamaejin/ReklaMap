@@ -6,22 +6,22 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css" 
   integrity="sha512-t7Few9xlddEmgd3oKZQahkNI4dS6l80+eGEzFQiqtyVYdvcSG2D3Iub77R20BdotfRPA9caaRkg1tyaJiPmO0g==" 
   crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <link rel="icon" type="image/png" href="/images/logo.png">
+  <link rel="icon" type="image/png" href="../../images/logo.png">
   <title>ReklaMap</title>
-  <link rel="stylesheet" href="/css/admin.css">
+  <link rel="stylesheet" href="../../css/admin.css">
 </head>
 <body>
 
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="logo-section">
-      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
+      <img src="../../images/logo.png" alt="ReklaMap Logo" class="logo">
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/admin/map/index.html" class="nav-item">Map</a>
-      <a href="/admin/complaints/all.html" class="nav-item active">Complaints</a>
-      <a href="/admin/database/beneficiaries.html" class="nav-item">Database</a>
+      <a href="../map/index.html" class="nav-item">Map</a> <!-- dahil ba sjc.html to atm -->
+      <a href="../complaints/all.html" class="nav-item active">Complaints</a>
+      <a href="../database/beneficiaries.html" class="nav-item">Database</a>
     </nav>
   </aside>
 
@@ -61,38 +61,44 @@
       <a href="all.html"> All</a>
       <a href="pending.html">Pending</a>
       <a href="ongoing.html">On Going</a>
-      <a href="resolved.html" class="active">Resolved</a>
+      <a href="resolved.html">Resolved</a>
       <a href="assigned.html">Assigned</a>
-      <a href="invalid.html">Invalid</a>
+      <a href="invalid.html" class="active">Invalid</a>
     </div>
 
-    <!-- Table -->
+    <!--Table-->
     <table class="complaints-table">
       <thead>
         <tr>
           <th>Date Submitted</th>
           <th>Complainant</th>
           <th>Type of Complaint</th>
-          <th>HOA</th>
+          <th>HOA Association</th>
           <th>Address</th>
-          <th>Action Needed</th>
-          <th>Priority Level</th>
+          <th></th> <!-- Empty header for button column -->
         </tr>
       </thead>
-        
       <tbody>
-      <!-- Example layout before database -->
+        <!-- Example layout before database -->
+        <tr>
+          <td>6/19/2025</td>
+          <td>John Doe Smith</td>
+          <td>Unauthorized Occupation</td>
+          <td>Doña Juana Elementary School</td>
+          <td>Doña Juana Block 8</td>
+          <td><button class="reason-btn">Reason</button></td>
+        </tr>
         <tr>
           <td>6/19/2025</td>
           <td>John Doe Smith</td>
           <td>Lot Dispute</td>
           <td>Alley I - Sta Catalina HOA</td>
           <td>Sta Catalina, Block 8</td>
-          <td>Investigation</td>
-          <td><button>severe</button></td>
+          <td><button class="reason-btn">Reason</button></td>
         </tr>
       </tbody>
     </table>
+
   </div>
 
 </body>
