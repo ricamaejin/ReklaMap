@@ -3,21 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/png" href="../../images/logo.png">
+  <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
-  <link rel="stylesheet" href="../../css/complainants.css">
+  <link rel="stylesheet" href="/css/complainants.css">
 </head>
 <body>
 
   <!-- Sidebar -->
     <aside class="sidebar">
         <div class="logo-section">
-        <img src="../../images/logo.png" alt="ReklaMap Logo" class="logo">
+        <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
         <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
         </div>
         <nav class="nav-menu">
-        <a href="../home/dashboard.html" class="nav-item active">Home</a>
-        <a href="../complaints/submitted_complaints.html" class="nav-item">Complaints</a>
+        <a href="/complainant/home/dashboard.html" class="nav-item active">Home</a>
+        <a href="/complainant/complaints/submitted_complaints.html" class="nav-item">Complaints</a>
         </nav>
     </aside>
 
@@ -27,7 +27,7 @@
       <h1 id="page-title" class="page-title">Non-HOA Member Registration</h1>
 
       <!-- TOP: registrant basic fields -->
-      <form action="../home/registered.php" method="post" autocomplete="off" novalidate> <!--Kayo na bahala pano nyo connect pero ganto advoce ng gpt php talaga ang suggested, i can send the code ng php na sinabi ni gpt if want nyo tho di ko yun natry irun-->
+      <form action="/complainant/home/registered.php" method="post" autocomplete="off" novalidate> <!--Kayo na bahala pano nyo connect pero ganto advoce ng gpt php talaga ang suggested, i can send the code ng php na sinabi ni gpt if want nyo tho di ko yun natry irun-->
         <div class="form-grid" aria-hidden="false">
           <label>Last Name<input type="text" name="reg_last"></label>
           <label>First Name<input type="text" name="reg_first"></label>
@@ -141,13 +141,21 @@
 
         <!-- upload signature + disclaimer -->
         <div class="upload-section">
-            <p class="disclaimer">
+          <p class="disclaimer">
             This signature will serve as your official compliance item. It confirms that the
             information you provided is accurate to the best of your knowledge and that you agree to
             the terms of the submission process. Make sure your signature is legible and matches
             your registered name. 
-            </p>
-            <button type="button" class="upload-btn">Upload Signature</button>
+          </p>
+
+          <!-- Hidden file input -->
+          <input type="file" id="signatureInput" accept="image/*" style="display:none;" />
+
+          <!-- Upload button -->
+          <button type="button" class="upload-btn" onclick="document.getElementById('signatureInput').click()">Upload Signature</button>
+
+          <!-- File name preview -->
+          <span id="signatureFileName" style="margin-left:10px; font-style:italic;"></span>
         </div>
 
          <!-- actions -->
@@ -165,6 +173,16 @@
     otherCheck.addEventListener('change', function() {
       otherText.style.display = this.checked ? 'inline-block' : 'none';
       if (!this.checked) otherText.value = "";
+    });
+    const sigInput = document.getElementById("signatureInput");
+    const sigFileName = document.getElementById("signatureFileName");
+
+    sigInput.addEventListener("change", function () {
+      if (this.files.length > 0) {
+        sigFileName.textContent = "✔ " + this.files[0].name;
+      } else {
+        sigFileName.textContent = "";
+      }
     });
   </script>
 </body>

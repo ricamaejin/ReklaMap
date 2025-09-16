@@ -111,7 +111,7 @@ body {
 
 /* Map card (white canvas with grey border) */
 .map-card{
-  flex:1;                 /
+  flex:1;                 
   background:#fff;
   border:2px solid #aebdcb;
   border-radius:6px;

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/images/logo.png">
+  <title>ReklaMap</title>
+  <link rel="stylesheet" href="/css/complainants.css">
+</head>
+<body>
+  <style>
+  :root{
+    
+    --field-bg:#f6fbff;
+  }
+
+  /* Main area */
+
+  /* Block/Lot pairs */
+  .pairs{
+    margin-top:8px;border:1px dashed rgba(0,0,0,0.06);padding:12px;border-radius:4px;background:var(--field-bg);
+  }
+  .pair-row{
+    display:flex;gap:12px;align-items:flex-end;margin-bottom:8px;
+  }
+  .pair-row .col{display:flex;flex-direction:column;flex:1}
+  .pair-row label.small{font-weight:600;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .pair-row input[type="text"]{
+    padding:8px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white;
+  }
+  .pair-row button.remove{
+    height:36px;padding:6px 8px;border-radius:4px;border:1px solid rgba(0,0,0,0.08);background:#fff;cursor:pointer;
+  }
+  .pair-controls{display:flex;gap:8px;align-items:center;margin-top:6px}
+  .btn{
+    display:inline-block;padding:8px 12px;border-radius:6px;border:none;cursor:pointer;font-weight:700;
+  }
+  .btn.add{background:#eef6ff;color:var(--accent-strong);border:1px solid #cfe2ff}
+  .btn.small{padding:6px 10px;font-size:13px}
+
+</style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo-section">
+      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
+      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
+    </div>
+    <nav class="nav-menu">
+      <a href="/complainant/home/dashboard.html" class="nav-item active">Map</a>
+      <a href="/complainant/complaints/" class="nav-item">Complaints</a>
+    </nav>
+  </aside>
+
+  <!-- Main Form -->
+  <div class="main">
+    <div class="form-container">
+      <h1>COMPLAINT FORM</h1>
+      <div class="instructions">
+        <p><strong>INSTRUCTION</strong></p>
+        <ul>
+          <li>Complete the application form properly and legibly.</li>
+          <li>For checkbox items (☑), you may select more than one option if applicable.</li>
+          <li>For radio button items (◉), please select only one option.</li>
+          <li>If a field or question does not apply to you or you do not know the answer, write “N/A” (Not Applicable).</li>
+          <li>Ensure all required fields are filled before submitting the form.</li>
+        </ul>
+      </div>
+
+      <!-- Section 1 -->
+      <div class="section-header">LOT DETAILS AND CLAIM:</div>
+
+        <p>1. What are the specific block and lot numbers involved in the overlap?<p>
+        <div class="pairs" id="pairsContainer" aria-live="polite">
+          <!-- rows will be added here -->
+        </div>
+        <div class="pair-controls">
+          <button type="button" class="btn add small" id="addPairBtn" style="margin-bottom: 12px;">+ Add</button>
+          <span style="color:var(--muted);font-size:13px;margin-left:8px"><i style="font-size: 14px; font-weight: normal; color: grey;">(If more than one area is affected, list all applicable pairs.)</i></span>
+        </div>
+
+        <p>2. What is the current status of the lot?<p>
+        <label><input type="radio" name="current_status" value="residing"> I am currently residing or building on the lot</label>
+        <label><input type="radio" name="current_status" value="built_by_other"> Someone else has built or is using part of the same lot</label>
+        <label><input type="radio" name="current_status" value="no_one_using"> No one is using the lot, but another person also claims it</label>
+        <label><input type="radio" name="current_status" value="multiple_structures" style="margin-bottom: 12px;"> There are multiple structures claiming the same lot area</label>
+
+        <p>3. How long have you been assigned to or occupying this lot?<p>
+        <label><input type="radio" name="occupancy_duration" > Less than 1 year</label>
+        <label><input type="radio" name="occupancy_duration" > 1–3 years</label>
+        <label><input type="radio" name="occupancy_duration" > 3–5 years</label>
+        <label><input type="radio" name="occupancy_duration" style="margin-bottom: 12px;"> More than 5 years</label>
+
+        <p>4. What shows that your lot is overlapping with another claim? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+        <label><input type="checkbox" name="evidence" value="survey"> Official subdivision or site survey shows overlapping lot boundaries</label>
+        <label><input type="checkbox" name="evidence" value="lot_in_docs"> My lot number or coordinates appear in someone else’s documents</label>
+        <label><input type="checkbox" name="evidence" value="structure_on_space"> There is another structure on my assigned space</label>
+        <label><input type="checkbox" name="evidence" value="markers"> Markers or fences show mismatched or shared boundary lines</label>
+        <label><input type="checkbox" name="evidence" value="advice" style="margin-bottom: 12px;"> HOA, NGC, or an LGU unit advised me that my lot is overlapping</label>
+
+        <p>5. How did you discover the overlap? <span class="help"> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></span></p>
+        <label><input type="checkbox" name="discover" value="informed_by_officer"> I was informed by an NHA, NGC, or barangay officer</label>
+        <label><input type="checkbox" name="discover" value="saw_structure"> I saw a structure already built partially or fully on my lot</label>
+        <label><input type="checkbox" name="discover" value="verbal_warning"> I received a verbal warning or notice from another claimant</label>
+        <label><input type="checkbox" name="discover" value="compared_docs"> I compared documents and noticed the same block/lot number</label>
+        <label><input type="checkbox" name="discover" value="advised_survey" style="margin-bottom: 12px;"> I was advised during a survey, inspection, or mapping activity</label>
+
+        <p>6. When did the construction begin?</p>
+        <label><input type="radio" name="construction_timeframe" value="<3m"> Less than 3 months</label>
+        <label><input type="radio" name="construction_timeframe" value="3-6m"> 3–6 months</label>
+        <label><input type="radio" name="construction_timeframe" value="6-12m"> 6–12 months</label>
+        <label><input type="radio" name="construction_timeframe" value=">1y"> Over a year</label>
+        <label><input type="radio" name="construction_timeframe" value="not_sure" style="margin-bottom: 12px;"> Not sure</label>
+          
+        <p>7. Who else is involved in this overlap?</p>
+        <label><input type="radio" name="who_else" value="official_beneficiary"> An officially listed beneficiary with their own documents</label>
+        <label><input type="radio" name="who_else" value="relative_of_beneficiary"> A relative of the listed beneficiary (not on paper)</label>
+        <label><input type="radio" name="who_else" value="private_claimant"> A private claimant not from the community</label>
+        <label><input type="radio" name="who_else" value="prev_occupant"> A structure built by a previous occupant</label>
+        <label><input type="radio" name="who_else" value="unknown" style="margin-bottom: 12px;"> I do not know who the other claimant is</label>
+
+        <p>8. What is the name of the involved person?</p>
+        <input type="text" id="involved_person_name" placeholder="Enter name (if known)">
+
+        <p>9. What do you know about the other party’s claim?  <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+        <label><input type="checkbox" name="other_claim" value="different_doc"> They showed a different assignment document</label>
+        <label><input type="checkbox" name="other_claim" value="refused_to_vacate"> They refused to vacate or adjust</label>
+        <label><input type="checkbox" name="other_claim" value="structure_covers"> Their structure covers part of my lot</label>
+        <label><input type="checkbox" name="other_claim" value="no_docs_seen" style="margin-bottom: 12px;"> I have not seen any documents from their side</label>
+
+        <p>10. Have you reported this to any office or authority?</p>
+          <label><input type="radio" name="reported_to" value="barangay"> Yes – Barangay</label>
+          <label><input type="radio" name="reported_to" value="hoa"> Yes – HOA</label>
+          <label><input type="radio" name="reported_to" value="ngc"> Yes – NGC</label>
+          <label><input type="radio" name="reported_to" value="no_first_time" style="margin-bottom: 12px;"> No – This is the first time</label>
+
+        <p>11. Was a site inspection or verification done?</p>
+        <label><input type="radio" name="inspection" value="barangay"> Yes – by Barangay</label>
+        <label><input type="radio" name="inspection" value="hoa"> Yes – by HOA</label>
+        <label><input type="radio" name="inspection" value="ngc"> Yes – by NGC</label>
+        <label><input type="radio" name="inspection" value="no"> No</label>
+        <label><input type="radio" name="inspection" value="not_sure" style="margin-bottom: 12px;"> Not sure</label>
+
+        <p>12. What was the result of the report or inspection?</p>
+        <label><input type="radio" name="report_result" value="other_vacate"> The other party was advised to vacate</label>
+        <label><input type="radio" name="report_result" value="gather_docs"> I was advised to gather more documents</label>
+        <label><input type="radio" name="report_result" value="no_action"> No action was taken</label>
+        <label><input type="radio" name="report_result" value="under_investigation"> The issue is still under investigation</label>
+        <label><input type="radio" name="report_result" value="overlapping_assign" style="margin-bottom: 12px;"> I was told the lot has overlapping assignments</label>
+
+        <p>13. What has the overlap issue caused or affected?</p>
+        <label><input type="radio" name="impact" value="cannot_build"> I cannot build or renovate due to the boundary issue</label>
+        <label><input type="radio" name="impact" value="conflict_with_family"> I am in conflict with another family over the lot</label>
+        <label><input type="radio" name="impact" value="threats_or_eviction"> I received threats or was told to leave</label>
+        <label><input type="radio" name="impact" value="lost_use"> I lost use of part/all of the land I was assigned</label>
+        <label><input type="radio" name="impact" value="public_path" style="margin-bottom: 12px;"> A public path or neighbor's property is also affected</label>
+
+        <!-- Section 2 -->
+        <p style="font-weight: bold;">Please describe what happened briefly, including how you found out about the issue.</p>
+        <textarea></textarea>
+
+        <!-- Section 3 -->
+        <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
+        <div class="consent">
+          By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
+        </div>
+
+        <div class="signature">
+          <input type="file" id="signatureInput" accept="image/*" style="display:none;" />
+          <button type="button" class="upload-btn" onclick="document.getElementById('signatureInput').click()">Upload Signature</button>
+          <span id="signatureFileName" style="margin-left:10px;  font-style:italic;"></span>
+        </div>
+      </div>
+    </div>
+
+<script>
+/* ========== Dynamic Block/Lot pairs ========== */
+(function(){
+  const pairsContainer = document.getElementById('pairsContainer');
+  const addPairBtn = document.getElementById('addPairBtn');
+
+  // Create one initial pair
+  function createPairRow(block = '', lot = '') {
+    const row = document.createElement('div');
+    row.className = 'pair-row';
+
+    const colBlock = document.createElement('div');
+    colBlock.className = 'col';
+    const lblBlock = document.createElement('label');
+    lblBlock.className = 'small';
+    lblBlock.textContent = 'Block No.';
+    const inputBlock = document.createElement('input');
+    inputBlock.type = 'text';
+    inputBlock.name = 'block_no[]';
+    inputBlock.value = block;
+    inputBlock.placeholder = 'Block No.';
+    colBlock.appendChild(lblBlock);
+    colBlock.appendChild(inputBlock);
+
+    const colLot = document.createElement('div');
+    colLot.className = 'col';
+    const lblLot = document.createElement('label');
+    lblLot.className = 'small';
+    lblLot.textContent = 'Lot No.';
+    const inputLot = document.createElement('input');
+    inputLot.type = 'text';
+    inputLot.name = 'lot_no[]';
+    inputLot.value = lot;
+    inputLot.placeholder = 'Lot No.';
+    colLot.appendChild(lblLot);
+    colLot.appendChild(inputLot);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'remove';
+    removeBtn.textContent = 'Remove';
+    removeBtn.onclick = () => {
+      pairsContainer.removeChild(row);
+      updateRemoveButtons();
+    };
+
+    row.appendChild(colBlock);
+    row.appendChild(colLot);
+    row.appendChild(removeBtn);
+
+    return row;
+  }
+
+  function updateRemoveButtons() {
+    const rows = pairsContainer.querySelectorAll('.pair-row');
+    rows.forEach((r, idx) => {
+      const btn = r.querySelector('button.remove');
+      // disable remove if only one row left
+      btn.disabled = rows.length === 1;
+      btn.style.opacity = btn.disabled ? 0.45 : 1;
+      btn.style.cursor = btn.disabled ? 'not-allowed' : 'pointer';
+    });
+  }
+
+  // initial
+  pairsContainer.appendChild(createPairRow());
+  updateRemoveButtons();
+
+  addPairBtn.addEventListener('click', () => {
+    pairsContainer.appendChild(createPairRow());
+    updateRemoveButtons();
+    // focus on new block input
+    const rows = pairsContainer.querySelectorAll('.pair-row');
+    const last = rows[rows.length-1];
+    last.querySelector('input[name="block_no[]"]').focus();
+  });
+})();
+
+/* ========== Generic 'Other' handler (if you add any radios with data-other-target) ========== */
+/* The form above does not require "Other" fields, but this handler is generic:
+   - Add data-other-target="ID" to a radio to show an input with that ID when selected.
+   - Add data-text-selects="RADIO_ID" to an input to auto-select its radio as you type.
+*/
+(function(){
+  // show/hide logic per radio group
+  function handleGroup(name){
+    const radios = Array.from(document.querySelectorAll(`input[type=radio][name="${name}"]`));
+    if(!radios.length) return;
+    radios.forEach(r=> r.addEventListener('change', () => {
+      // hide any other-target inputs in this group
+      radios.forEach(rr=>{
+        const t = rr.dataset.otherTarget;
+        if(t){
+          const el = document.getElementById(t);
+          if(!el) return;
+          if(rr.checked){
+            el.style.display = '';
+          } else {
+            el.style.display = 'none';
+            if(el.tagName.toLowerCase()==='input' || el.tagName.toLowerCase()==='textarea'){
+              el.value='';
+            }
+          }
+        }
+      });
+    }));
+  }
+
+  // collect unique radio group names
+  const radioNames = new Set();
+  document.querySelectorAll('input[type=radio]').forEach(r=>{
+    if(r.name) radioNames.add(r.name);
+  });
+  radioNames.forEach(handleGroup);
+
+  // auto-select corresponding radio if text is typed
+  document.querySelectorAll('[data-text-selects]').forEach(input => {
+    const radioId = input.dataset.textSelects;
+    const radio = document.getElementById(radioId);
+    if(!radio) return;
+    input.addEventListener('input', () => {
+      radio.checked = true;
+      radio.dispatchEvent(new Event('change', {bubbles:true}));
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/images/logo.png">
+  <title>ReklaMap</title>
+  <link rel="stylesheet" href="/css/complainants.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo-section">
+      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
+      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
+    </div>
+    <nav class="nav-menu">
+      <a href="/complainant/home/dashboard.html" class="nav-item active">Map</a>
+      <a href="/complainant/complaints/" class="nav-item">Complaints</a>
+    </nav>
+  </aside>
+  
+
+  <!-- Main Form -->
+  <div class="main">
+    <div class="form-container">
+      <h1>COMPLAINT FORM</h1>
+      <div class="instructions">
+        <p><strong>INSTRUCTION</strong></p>
+        <ul>
+          <li>Complete the application form properly and legibly.</li>
+          <li>For checkbox items (☑), you may select more than one option if applicable.</li>
+          <li>For radio button items (◉), please select only one option.</li>
+          <li>If a field or question does not apply to you or you do not know the answer, write “N/A” (Not Applicable).</li>
+          <li>Ensure all required fields are filled before submitting the form.</li>
+        </ul>
+      </div>
+
+      <!-- Section 1 -->
+      <div class="section-header">LOT DETAILS AND CLAIM:</div>
+      <p>1. How did you come into possession of the lot?</p>
+      <label><input type="radio" name="possession"> I was officially assigned the lot by NGCHDP/NHA</label>
+      <label><input type="radio" name="possession"> The lot was passed on to me by a family member</label>
+      <label><input type="radio" name="possession"> I purchased the lot from another occupant</label>
+      <label><input type="radio" name="possession"> I have been living here since the NCC project started</label>
+      <label><input type="radio" name="possession"> I relocated here after demolition/displacement elsewhere</label>
+      <label><input type="radio" name="possession"> I was verbally promised the lot by a former officer or neighbor</label>
+      <label><input type="radio" name="possession" value="other" id="possessionOther" style="margin-bottom: 12px;"> Other</label>
+      <input type="text" id="possessionOtherText" placeholder="Please specify" style="display:none;">
+
+
+      <p>2. What is the nature of the ownership conflict?</p>
+      <label><input type="radio" name="conflict"> Someone else has a contract for the same lot</label>
+      <label><input type="radio" name="conflict"> Someone else is claiming my assigned lot</label>
+      <label><input type="radio" name="conflict"> I was assigned a different lot than what I was told</label>
+      <label><input type="radio" name="conflict"> My lot is not reflected in the masterlist</label>
+      <label><input type="radio" name="conflict"> My name was removed or replaced in the beneficiary list</label>
+      <label><input type="radio" name="conflict"> Lot was illegally sold or reassigned to someone else</label>
+      <label><input type="radio" name="conflict"> A family member/relative is claiming the lot I currently occupy</label>
+      <label><input type="radio" name="conflict" style="margin-bottom: 12px;"> My assigned lot details (e.g., lot no., area) are incorrect in the records</label>
+
+      <p>3. When did the dispute start?</p>
+      <input style="width: 20%; padding: 8px; margin-top: 6px;  margin-left: 15px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;" type="date">
+
+      <p>4. What led you to raise this complaint?</p>
+      <label><input type="radio" name="reason"> I was asked to vacate the lot I’ve been occupying</label>
+      <label><input type="radio" name="reason"> I was denied access to a lot I believe was assigned to me</label>
+      <label><input type="radio" name="reason"> I received notice that someone else is the rightful owner</label>
+      <label><input type="radio" name="reason"> I attempted to build on the lot and was stopped</label>
+      <label><input type="radio" name="reason"> I discovered another person listed in official records for my lot</label>
+      <label><input type="radio" name="reason" value="other" id="reasonOther" style="margin-bottom: 12px;"> Other</label>
+      <input type="text" id="reasonOtherText" placeholder="Please specify" style="display:none;">
+
+      <p>5. Have you reported this to any authority? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+      <label><input type="checkbox"> Barangay</label>
+      <label><input type="checkbox"> HOA</label>
+      <label><input type="checkbox"> NGC</label>
+      <label><input type="checkbox" style="margin-bottom: 12px;"> None</label>
+
+      <p>6. What was the result of that report?</p>
+      <label><input type="radio" name="result"> The other party was asked to vacate</label>
+      <label><input type="radio" name="result"> The agency asked for more documentation</label>
+      <label><input type="radio" name="result"> No action was taken</label>
+      <label><input type="radio" name="result"> Still under investigation</label>
+      <label><input type="radio" name="result"> I was told I have no valid claim</label>
+      <label><input type="radio" name="result" value="other" id="resultOther" style="margin-bottom: 12px;"> Other</label>
+      <input type="text" id="resultOtherText" placeholder="Please specify" style="display:none;">
+
+
+      <!-- Section 2 -->
+      <div class="section-header">PERSONS INVOLVED (IF ANY)</div>
+      <p>1. Name of opposing claimant?</p>
+      <input type="text" style="margin-bottom: 12px;" placeholder="Enter name (if known)">
+      <p>2. Relationship with person involved?</p>
+      <input type="text" style="margin-bottom: 12px;" placeholder="Relationship to the individual (if applicable)">
+      <p>3. Do they reside on the disputed lot?</p>
+      <label><input type="radio" name="reside"> Yes</label>
+      <label><input type="radio" name="reside"> No</label>
+      <label><input type="radio" name="reside" style="margin-bottom: 12px;"> Not sure</label>
+      <p>4. Do they claim to have legal documents?</p>
+      <label><input type="radio" name="docs"> Yes</label>
+      <label><input type="radio" name="docs"> No</label>
+      <label><input type="radio" name="docs" style="margin-bottom: 12px;"> Not sure</label>
+
+      <p style="font-weight: bold;">Please describe what happened briefly, including how you found out about the issue.</p>
+      <textarea></textarea>
+
+      <!-- Section 3 -->
+      <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
+      <div class="consent">
+        By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
+      </div>
+
+      <div class="signature">
+        <input type="file" id="signatureInput" accept="image/*" style="display:none;" />
+        <button type="button" class="upload-btn" onclick="document.getElementById('signatureInput').click()">Upload Signature</button>
+        <span id="signatureFileName" style="margin-left:10px;  font-style:italic;"></span>
+      </div>
+    </div>
+  </div>
+
+
+<script>
+  function setupOtherRadio(radioId, textId, groupName) {
+    const otherRadio = document.getElementById(radioId);
+    const otherText = document.getElementById(textId);
+    const radios = document.querySelectorAll(`input[name="${groupName}"]`);
+
+    radios.forEach(radio => {
+      radio.addEventListener('change', function () {
+        if (otherRadio.checked) {
+          otherText.style.display = 'inline-block';
+        } else {
+          otherText.style.display = 'none';
+          otherText.value = '';
+        }
+      });
+    });
+  }
+
+  // Apply to all "Other" groups
+  setupOtherRadio("possessionOther", "possessionOtherText", "possession");
+  setupOtherRadio("reasonOther", "reasonOtherText", "reason");
+  setupOtherRadio("resultOther", "resultOtherText", "result");
+
+  function handleFileInputChange(inputId, fileNameDisplayId) {
+  const sigInput = document.getElementById(inputId);
+  const sigFileName = document.getElementById(fileNameDisplayId);
+
+  sigInput.addEventListener("change", function () {
+    if (this.files.length > 0) {
+      sigFileName.textContent = "✔ " + this.files[0].name;
+    } else {
+      sigFileName.textContent = "";
+    }
+  });
+}
+</script>
+</body>
+</html>

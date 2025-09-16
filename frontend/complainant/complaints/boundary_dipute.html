@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/images/logo.png">
+  <title>ReklaMap</title>
+  <link rel="stylesheet" href="/css/complainants.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo-section">
+      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
+      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
+    </div>
+    <nav class="nav-menu">
+      <a href="/complainant/home/dashboard.html" class="nav-item active">Map</a>
+      <a href="/complainant/complaints/" class="nav-item">Complaints</a>
+    </nav>
+  </aside>
+  
+
+  <!-- Main Form -->
+  <div class="main">
+    <div class="form-container">
+      <h1>COMPLAINT FORM</h1>
+      <div class="instructions">
+        <p><strong>INSTRUCTION</strong></p>
+        <ul>
+          <li>Complete the application form properly and legibly.</li>
+          <li>For checkbox items (☑), you may select more than one option if applicable.</li>
+          <li>For radio button items (◉), please select only one option.</li>
+          <li>If a field or question does not apply to you or you do not know the answer, write “N/A” (Not Applicable).</li>
+          <li>Ensure all required fields are filled before submitting the form.</li>
+        </ul>
+      </div>
+
+      <!-- Section 1 -->
+      <div class="section-header">LOT DETAILS AND CLAIM:</div>
+      <p>1. What is the nature of the boundary issue?</p>
+      <label><input type="radio" name="possession"> A neighbor has extended their house or structure over your boundary line</label>
+      <label><input type="radio" name="possession"> Fencing or wall installed by neighbor overlaps into your property</label>
+      <label><input type="radio" name="possession"> Construction within your claimed boundary</label>
+      <label><input type="radio" name="possession"> Demolition of shared property (wall, fence, structure) without consent</label>
+      <label><input type="radio" name="possession"> Dispute over land markers or monuments (e.g., mohon removed)</label>
+      <label><input type="radio" name="possession"> Unpermitted expansion of structures beyond lot boundaries</label>
+      <label><input type="radio" name="possession" style="margin-bottom: 12px;"> Encroachment affecting access to utilities (e.g., water, drainage, electricity)</label>
+
+
+      <p>2. How long has this encroachment existed?</p>
+      <label><input type="radio" name="conflict"> Less than 1 month</label>
+      <label><input type="radio" name="conflict"> 1-6 months</label>
+      <label><input type="radio" name="conflict"> More than 6 months</label>
+      <label><input type="radio" name="conflict" style="margin-bottom: 12px;"> Unknown</label>
+
+      <p>3. Has the encroaching structure already been built or is it under construction?</p>
+      <label><input type="radio" name="reason"> Fully constructed</label>
+      <label><input type="radio" name="reason"> Partially constructed</label>
+      <label><input type="radio" name="reason"> Ongoing construction</label>
+      <label><input type="radio" name="reason" style="margin-bottom: 12px;"> Structure was removed but boundary still contested</label>
+      
+      <p>4. Were you given any prior notice before the structure crossed into your property?</p>
+      <label><input type="radio" name="reason"> Yes</label>
+      <label><input type="radio" name="reason" style="margin-bottom: 12px;"> No</label>
+      
+      <p>5. Have you discussed or confronted the other party about the boundary issue?</p>
+      <label><input type="radio" name="reason"> Yes</label>
+      <label><input type="radio" name="reason" style="margin-bottom: 12px;"> No</label>
+
+      <p>6. Has the dispute led to any of the following? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+      <label><input type="checkbox"> Threats or harassment</label>
+      <label><input type="checkbox"> Physical altercation</label>
+      <label><input type="checkbox"> Demolition or forced entry</label>
+      <label><input type="checkbox"> Property damage</label>
+      <label><input type="checkbox" style="margin-bottom: 12px;"> None</label>
+
+      <p>7. Have you discussed or confronted the other party about the boundary issue?</p>
+      <label><input type="radio" name="reason" value="yes" id="reasonYes"> Yes</label>
+      <div id="reasonDetails" style="display: none; margin-left: 22px;">
+        <p>Date Reported</p>
+        <input id="reasonDateInput" type="date" style="width: 20%; padding: 8px; margin-top: 6px; margin-left: 18px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;"/>
+      </div>
+      <label><input type="radio" name="reason" value="no"> No</label>
+
+      <p>8. Is there an ongoing development or government housing project in the area?</p>
+      <label><input type="radio" name="reason"> Yes</label>
+      <label><input type="radio" name="reason"> No</label>
+      <label><input type="radio" name="reason" style="margin-bottom: 12px;"> Not sure</label>
+
+
+      <!-- Section 2 -->
+      <p style="font-weight: bold;">Please describe what happened briefly, including how you found out about the issue.</p>
+      <textarea></textarea>
+
+      <!-- Section 3 -->
+      <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
+      <div class="consent">
+        By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
+      </div>
+
+      <div class="signature">
+        <input type="file" id="signatureInput" accept="image/*" style="display:none;" />
+        <button type="button" class="upload-btn" onclick="document.getElementById('signatureInput').click()">Upload Signature</button>
+        <span id="signatureFileName" style="margin-left:10px;  font-style:italic;"></span>
+      </div>
+    </div>
+  </div>
+
+
+<script>
+  function setupConditionalDisplay(radioYesId, containerId, groupName) {
+  const yesRadio = document.getElementById(radioYesId);
+  const container = document.getElementById(containerId);
+  const radios = document.querySelectorAll(`input[name="${groupName}"]`);
+
+  radios.forEach(radio => {
+    radio.addEventListener("change", function () {
+      if (yesRadio.checked) {
+        container.style.display = "block";
+      } else {
+        container.style.display = "none";
+        const input = container.querySelector("input");
+        if (input) input.value = "";
+      }
+    });
+  });
+} 
+
+  // Apply to all "Other & Conditional" groups
+  setupConditionalDisplay("reasonYes", "reasonDetails", "reason");
+
+
+  function handleFileInputChange(inputId, fileNameDisplayId) {
+  const sigInput = document.getElementById(inputId);
+  const sigFileName = document.getElementById(fileNameDisplayId);
+
+  sigInput.addEventListener("change", function () {
+    if (this.files.length > 0) {
+      sigFileName.textContent = "✔ " + this.files[0].name;
+    } else {
+      sigFileName.textContent = "";
+    }
+  });
+}
+</script>
+</body>
+</html>
