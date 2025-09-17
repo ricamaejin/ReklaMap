@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/png" href="/images/logo.png">
+  <link rel="icon" type="image/png" href="../../images/logo.png">
   <title>ReklaMap</title>
-  <link rel="stylesheet" href="/css/complainants.css">
+  <link rel="stylesheet" href="../../css/complainants.css">
 </head>
 <body style="background-image: url('/images/65hs.png');
   background-repeat: no-repeat;
@@ -16,12 +16,12 @@
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="logo-section">
-      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
+      <img src="../../images/logo.png" alt="ReklaMap Logo" class="logo">
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/complainant/home/dashboard.html" class="nav-item active">Map</a>
-      <a href="/complainant/complaints/" class="nav-item">Complaints</a>
+      <a href="../../complainant/home/dashboard.html" class="nav-item active">Map</a>
+      <a href="../../complainant/complaints/submitted_complaints.html" class="nav-item">Complaints</a>
     </nav>
   </aside>  
   
@@ -31,7 +31,7 @@
         <button class="dropdown-toggle">▼</button>
         <div class="dropdown-menu">
         <a href="#">View Profile</a>
-        <a href="#">Logout</a>
+        <a href="../../portal/index.html">Logout</a>
         </div>
     </div>
 
@@ -48,6 +48,7 @@
     <section class="status-card">
       <div class="card-inner">
         <!-- CASE 1: No Complaint Yet -->
+        <p style="text-align: justify;">ReklaMap is connected to the Urban Settlement Assistance Department, making it easy for you to report and track land-related complaints. Whether it's a boundary issue, land misuse, or unauthorized activity, your complaint goes straight to the right authorities for quick action.</p> <br>
         <div class="status-header">Status</div>
 
         <!-- CASE 1: No Complaint Yet -->
@@ -90,7 +91,7 @@
     <hr>
 
     <label for="type">Type of Complaint:</label>
-    <select id="type" onchange="updateComplaintDesc()">
+    <select style="margin-left: 0px;" id="type" onchange="updateComplaintDesc()">
       <option value="" disabled selected hidden>Select Type of Complaint</option>
       <option value="Overlapping">Overlapping</option>
       <option value="Lot Dispute">Lot Dispute</option>
@@ -120,11 +121,14 @@ const complaints = {
     "Tumutukoy ito sa sitwasyon kung saan ang dalawang lote o higit pa ay naitalaga sa iisang bahagi ng lupa dahil sa pagkakamali sa ginawang survey o plano ng pagkakahati ng lupa. Dahil dito, ang opisyal na hangganan ng mga lote ay nagkakasalubong o nagkapatong, kaya’t nagkakaroon ng higit sa isang taong nabigyan ng dokumento (gaya ng titulo o sertipiko ng pagkakaloob ng lote) para sa parehong lugar. Ang ganitong kaso ay nagdudulot ng kalituhan, pagkaantala sa pagpoproseso ng pagmamay-ari, at alitan kung sino ang may karapatang gamitin o manatili sa lupa.",
   "Lot Dispute": "Refers to situations where there is a conflict involving the lot officially assigned to you. This may include cases where someone else is claiming, occupying, or using your lot; where your name does not appear on the beneficiary list; or where there are errors, overlapping claims, or internal family disputes about who has rightful use or ownership of the lot.\n\n" +
     "Tumutukoy ito sa mga sitwasyon kung saan may alitan o hindi pagkakaunawaan tungkol sa lote na opisyal na naitalaga sa iyo. Kabilang dito ang mga kaso kung saan may ibang taong umaangkin, gumagamit, o nakatira sa iyong lote; kapag hindi nakalista ang iyong pangalan sa talaan ng mga benepisyaryo; o kapag may pagkakamali sa dokumento, magkapatong na pag-aangkin, o alitang pampamilya tungkol sa kung sino ang may karapatang gumamit o magmay-ari ng lote.",
-  "Boundary Dispute": "A disagreement between neighboring landowners regarding the exact location of property lines or boundaries, often caused by inaccurate surveys, unclear titles, or encroachments.",
-  "Pathway Dispute": "",
+  "Boundary Dispute": "A disagreement between neighboring landowners regarding the exact location of property lines or boundaries, often caused by inaccurate surveys, unclear titles, or encroachments.\n\n" +
+    "Hindi pagkakaunawaan sa pagitan ng magkatabing may-ari ng lupa tungkol sa tiyak na lokasyon ng hangganan ng ari-arian, na madalas na dulot ng maling survey, hindi malinaw na titulo, o paglabag sa hangganan.",  
+  "Pathway Dispute": "Refers to conflicts that arise when residents or neighbors disagree over the use, access, or ownership of a pathway. These disputes typically involve blocked passageways, claims of private vs. public access, or disagreements over shared right-of-way.\n\n" +
+    "Tumutukoy sa mga alitan na nagaganap kapag hindi nagkakasundo ang mga residente o kapitbahay sa paggamit, pag-access, o pagmamay-ari ng isang daanan. Karaniwan itong kaugnay ng mga hinarang na daanan, pagtatalo kung pribado o pampubliko ang access, o hindi pagkakasundo sa karapatang gamitin ang daanan.",
   "Unauthorized Occupation": "Refers to cases where a person is living in, using, or constructing on a lot without legal authority or official assignment. This includes individuals who are not listed as beneficiaries, do not hold valid documents, or have occupied the property without permission from the rightful owner or approval from government housing authorities.\n\n" +
     "Tumutukoy ito sa mga kaso kung saan may taong naninirahan, gumagamit, o nagtatayo sa isang lote nang walang legal na pahintulot o opisyal na pagkakatalaga. Kasama rito ang mga indibidwal na hindi nakalista bilang benepisyaryo, walang wastong dokumento, o sumakop sa lupa nang walang pahintulot mula sa tunay na may-ari o awtorisasyon mula sa ahensyang nangangasiwa sa pabahay ng pamahalaan.",
-  "Illegal Construction": "Occurs when a person illegally occupies or builds structures on land that belongs to another individual or the government without proper authorization.",
+  "Illegal Construction": "Occurs when a person illegally occupies or builds structures on land that belongs to another individual or the government without proper authorization.\n\n" +
+    "Nangyayari kapag ang isang tao ay iligal na sumakop o nagtayo ng mga istruktura sa lupang pagmamay-ari ng ibang tao o ng pamahalaan nang walang tamang pahintulot."
 };
 
 
