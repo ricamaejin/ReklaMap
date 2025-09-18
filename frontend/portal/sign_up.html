@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/png" href="/images/logo.png">
+  <link rel="icon" type="image/png" href="../images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css" 
   integrity="sha512-t7Few9xlddEmgd3oKZQahkNI4dS6l80+eGEzFQiqtyVYdvcSG2D3Iub77R20BdotfRPA9caaRkg1tyaJiPmO0g==" 
   crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="../css/styles.css" />
 </head>
 <body>
   <div class="header">
-    <img src="/images/logo.png" alt="ReklaMap Logo" class="logo" />
-    <a href="/portal/index.html" class="title">
+    <img src="../images/logo.png" alt="ReklaMap Logo" class="logo" />
+    <a href="../portal/index.html" class="title">
       <span class="blue-text">Rekla</span><span class="green-text">Map</span>
     </a>
   </div>
@@ -23,24 +23,25 @@
       <div class="input-wrapper-signup">
         <h2 class="login-title-signup">COMPLAINANT SIGN UP</h2>
 
+  <form action="http://localhost:3000/signup" method="POST">
     <div class="input-group-signup black-group">
       <i class="bi bi-person-fill"></i>
-      <input type="text" placeholder="First Name" class="black-input" />
+      <input type="text" name="firstName" placeholder="First Name" class="black-input" required/>
     </div>
 
     <div class="input-group-signup black-group">
       <i class="bi bi-person-fill"></i>
-      <input type="text" placeholder="Last Name" class="black-input"/>
+      <input type="text" name="lastName" placeholder="Last Name" class="black-input" required />
     </div>
 
     <div class="input-group-signup blue-group">
       <i class="bi bi-person-fill"></i>
-      <input type="email" placeholder="Email Address" class="blue-input" />
+      <input type="email" name="email" placeholder="Email Address" class="blue-input" required/>
     </div>
 
     <div class="input-group-signup shadow-group">
       <i class="bi bi-unlock2-fill"></i>
-      <input type="password" placeholder="Password" class="shadow-input" />
+      <input type="password" name="password" placeholder="Password" class="shadow-input" required/>
     </div>
   </div>
 
@@ -49,10 +50,10 @@
     </p>
       
     <div class="btn-wrapper">
-      <a href=".html" class="login-btn">SIGN IN</a>
+      <button type="submit" class="login-btn">SIGN UP</button>
         </div>
     </div>
-
+  </form>
   </div>
 </div>
 </body>
