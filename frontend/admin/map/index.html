@@ -1,19 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/png" href="../../images/logo.png">
+  <link rel="icon" type="image/png" href="../../images/logo.png" />
   <title>ReklaMap</title>
-  <link rel="stylesheet" href="../../css/admin.css">
+  <link rel="stylesheet" href="../../css/admin.css" />
 </head>
 <body>
-
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="logo-section">
-      <img src="../../images/logo.png" alt="ReklaMap Logo" class="logo">
-      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
+      <img src="../../images/logo.png" alt="ReklaMap Logo" class="logo" />
+      <span class="title">
+        <span class="blue-text">Rekla</span><span class="green-text">Map</span>
+      </span>
     </div>
     <nav class="nav-menu">
       <a href="../map/index.html" class="nav-item active">Map</a>
@@ -21,8 +22,9 @@
       <a href="../database/beneficiaries.html" class="nav-item">Database</a>
     </nav>
   </aside>
-  
- <div class="user-dropdown">
+
+  <!-- User Dropdown -->
+  <div class="user-dropdown">
     Logged in as: <span class="username">Smith, John Doe</span>
     <button class="dropdown-toggle">▼</button>
     <div class="dropdown-menu">
@@ -34,12 +36,16 @@
   <main class="main-content">
     <header class="main-header">
       <h1>National Government Center Areas</h1>
-      <p>RA 9207, passed in 2003, authorized the disposition of 422 hectares in the <br> NGC, granting land ownership to 5,678 residents of Barangay Holy Spirit</br> and other nearby communities. </br></p>
+      <p>
+        RA 9207, passed in 2003, authorized the disposition of 422 hectares in the <br />
+        NGC, granting land ownership to 5,678 residents of Barangay Holy Spirit <br />
+        and other nearby communities.
+      </p>
     </header>
 
     <!-- Search -->
     <div class="search-bar">
-      <input type="text" placeholder="Search">
+      <input type="text" placeholder="Search" />
       <button>Search</button>
     </div>
 
@@ -50,39 +56,43 @@
 
     <!-- Tooltip for hover -->
     <div id="tooltip" class="tooltip"></div>
+  </main>
 
-    <script>
-      // Example data for each area in the SVG
-      const areaData = {
-        
-      };
+  <script>
+    // Example data for each area in the SVG
+    const areaData = {
+      // Example:
+      // "area1": { name: "Area 1", beneficiaries: 120, complaints: 8, resolved: 5 },
+    };
 
-      // Load the SVG map
-      fetch('../map/svg/hoa_map.svg') // adjust path if needed
+    function initMap() {
+      fetch('../map/svg/hoa_map.svg')
         .then(res => res.text())
         .then(svg => {
           const container = document.getElementById('map-container');
           container.innerHTML = svg;
 
           const tooltip = document.getElementById('tooltip');
+          const svgEl = container.querySelector('svg');
 
-          // Loop through all paths in the SVG
+          // Loop through all group areas
           container.querySelectorAll('g').forEach(area => {
-            const name = area.getAttribute('name')?.toLowerCase();
-            if (name && areaData[name]) {
-              const { name, beneficiaries, complaints, resolved } = areaData[name];
+            const areaName = area.getAttribute('name')?.toLowerCase();
+
+            if (areaName && areaData[areaName]) {
+              const { name, beneficiaries, complaints, resolved } = areaData[areaName];
               area.dataset.name = name;
               area.dataset.beneficiaries = beneficiaries;
               area.dataset.complaints = complaints;
               area.dataset.resolved = resolved;
             }
 
-            // Hover: show tooltip
+            // Tooltip on hover
             area.addEventListener('mousemove', e => {
               tooltip.style.left = e.pageX + 12 + 'px';
               tooltip.style.top = e.pageY + 12 + 'px';
               tooltip.innerHTML = `
-                <strong>${area.dataset.name}</strong><br>
+                <strong>${area.dataset.name || 'Unknown'}</strong><br>
                 Beneficiaries: ${area.dataset.beneficiaries || 'N/A'}<br>
                 Complaints: ${area.dataset.complaints || 'N/A'}<br>
                 Resolved: ${area.dataset.resolved || 'N/A'}
@@ -90,63 +100,80 @@
               tooltip.style.display = 'block';
             });
 
-            // Hover out: hide tooltip
+            // Hide tooltip when leaving
             area.addEventListener('mouseleave', () => {
               tooltip.style.display = 'none';
             });
 
-            // Click: navigate to details
+            // Click navigation
             area.addEventListener('click', () => {
-              window.location.href = `/admin/map/details.html?area=${encodeURIComponent(area.id)}`; // to access sjc sa map, change to ../map/sjc.html; tbd fix to access all maps
+              const target = area.getAttribute('name') || area.id || "unknown";
+              window.location.href = `/admin/map/details.html?area=${encodeURIComponent(target)}`;
+            });
+          });
+
+          // Zoom effect on hover with mouse-follow 
+          container.querySelectorAll('g').forEach(area => {
+            let zoomTimeout;
+
+            area.addEventListener('mouseenter', (e) => {
+              zoomTimeout = setTimeout(() => {
+                const rect = svgEl.getBoundingClientRect();
+                const offsetX = e.clientX - rect.left; 
+                const offsetY = e.clientY - rect.top;
+
+                const percentX = (offsetX / rect.width) * 100;
+                const percentY = (offsetY / rect.height) * 100;
+
+                svgEl.style.transition = "transform 0.8s ease-in-out";
+                svgEl.style.transformOrigin = `${percentX}% ${percentY}%`;
+                svgEl.style.transform = "scale(1.5)";
+              }, 200);
+            });
+
+            area.addEventListener('mousemove', (e) => {
+              // update origin as the mouse moves while zoomed in
+              if (svgEl.style.transform === "scale(1.5)") {
+                const rect = svgEl.getBoundingClientRect();
+                const offsetX = e.clientX - rect.left; 
+                const offsetY = e.clientY - rect.top;
+
+                const percentX = (offsetX / rect.width) * 100;
+                const percentY = (offsetY / rect.height) * 100;
+
+                svgEl.style.transformOrigin = `${percentX}% ${percentY}%`;
+              }
+            });
+
+            area.addEventListener('mouseleave', () => {
+              clearTimeout(zoomTimeout);
+              svgEl.style.transform = "scale(1)";
             });
           });
         })
-        .catch(err => console.error("Error loading SVG:", err));
-    </script>
-
-    <script>
-      const tooltip = document.getElementById("tooltip");
-
-        document.querySelectorAll("/admin/map/svg/hoa_map.svg").forEach(area => {
-            area.addEventListener("mousemove", (e) => {
-                tooltip.innerHTML = `
-                    <strong>${area.dataset.name}</strong><br>
-                    Population: ${area.dataset.population}<br>
-                    Status: ${area.dataset.status}
-                `;
-                tooltip.style.top = (e.pageY + 10) + "px";
-                tooltip.style.left = (e.pageX + 10) + "px";
-                tooltip.classList.add("show");
-            });
-
-            area.addEventListener("mouseleave", () => {
-                tooltip.classList.remove("show");
-            });
-        });
-    </script>
-
-    <script>
-      document.addEventListener("DOMContentLoaded", () => {
-        const dropdown = document.querySelector(".user-dropdown");
-        const toggle = dropdown.querySelector(".dropdown-toggle");
-
-        toggle.addEventListener("click", (e) => {
-          e.stopPropagation();
-          dropdown.classList.toggle("active");
-        });
-
-        // Close when clicking outside
-        document.addEventListener("click", () => {
-          dropdown.classList.remove("active");
-        });
-      });
-    </script>
-
-  </body>
-
-  <style>
-    .main-content{
-      margin-top: 30px;
+      .catch(err => console.error("Error loading SVG:", err));
     }
-  </style>
+
+    // Function to initialize dropdown
+    function initDropdown() {
+      const dropdown = document.querySelector(".user-dropdown");
+      const toggle = dropdown.querySelector(".dropdown-toggle");
+
+      toggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle("active");
+      });
+
+      document.addEventListener("click", () => {
+        dropdown.classList.remove("active");
+      });
+    }
+
+    // Run everything on DOM load
+    document.addEventListener("DOMContentLoaded", () => {
+      initMap();
+      initDropdown();
+    });
+  </script>
+</body>
 </html>
