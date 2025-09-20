@@ -1236,3 +1236,23 @@ input[type="radio"], input[type="checkbox"] {
   width: 100%;
   box-sizing: border-box;
 }
+
+/* Complaint Invalid Details */
+.complaint-item {
+  text-align: center;
+  font-size: 16px;
+  font-weight: bold;
+  color: #083048;
+  margin-top: 30px;
+}
+
+.complaint-item button {
+  background: none;
+  border: none;
+  color: red;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 16px;
+
+}

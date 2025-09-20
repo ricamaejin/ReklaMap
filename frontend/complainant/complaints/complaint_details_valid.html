@@ -24,15 +24,13 @@
   <main class="main-content">
     <header class="header"><h1>Complaint</h1></header>
 
-    <div class="complaint-layout" style="margin-top: 30px;">
+    <div class="complaint-layout">
       <!-- Complaint Form Placeholder -->
       <!-- TODO BACKEND: Populate complaint-form div with complaint details from DB -->
       <div class="complaint-form">Complaint form data will load here...</div>
 
       <!-- Right Panel -->
       <div class="right-panel">
-        <div class="map-card">Map / Asset details here...</div>
-        <button class="action-btn" onclick="openComplaint()">Action</button>
 
         <!-- TODO BACKEND: Replace static timeline entries with timeline data from DB -->
         <div class="timeline">
@@ -48,102 +46,11 @@
             <p>Upon inspection, the staff verified the complaint’s validity...</p>
           </div>
         </div>
-        <!-- TODO BACKEND: Direct the button so that it will go to the complaint tab: resolved -->
-        <button class="resolved-btn">Resolved</button>
+        <a href="../../complainant/complaints/submitted_complaints.html">
+            <button class="resolved-btn">Close</button>
+        </a>
       </div>
-    </div>
-
-    <!-- RECOMMENDED ACTION MODAL -->
-    <div class="modal-overlay" id="recommendModal" style="display:none;">
-      <div class="modal">
-        <div class="modal-header">
-          <h2>Recommended Action</h2>
-        </div>
-        <hr>
-
-        <!-- Recommendation Description -->
-        <!-- TODO BACKEND: Replace static description from backend -->
-        <textarea style="margin-left: 0px;">Based on system analysis, we recommend the following action:</textarea>
-
-        <div class="modal-footer">
-          <button class="btn-save" onclick="proceedToAction()">Proceed</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ACTION MODAL -->
-    <div class="modal-overlay" id="modal">
-      <div class="modal">
-        <div class="modal-header">
-          <h2>Action</h2>
-          <div id="datetime"><div id="date"></div><div id="time"></div></div>
-        </div>
-        <hr>
-
-        <label for="type">Type of Action:</label>
-        <div class="type-action-row">
-        <select id="type" name="actionType" aria-label="Type of Action">
-            <option value="" disabled selected hidden>Select Action</option>
-            <option value="Inspection">Inspection</option>
-            <option value="Send Invitation">Send Invitation</option>
-            <option value="Mediation">Mediation</option>
-            <option value="Other">Other</option>
-        </select>
-        <input type="text" id="actionOther" name="actionOther" placeholder="Specify" style="display:none;" />
-        </div>
-
-
-        <label>Assigned to:</label>
-        <select>
-          <option value="" disabled selected hidden>Select Staff</option>
-          <option>Staff A</option>
-          <option>Staff B</option>
-        </select>
-
-        <label>Description:</label>
-        <textarea></textarea>
-
-        <label>File:</label>
-        <div class="file-upload"><button onclick="openFiles()">Upload</button></div>
-
-        <div class="modal-footer">
-          <button class="btn-cancel" onclick="closeComplaint()">Cancel</button>
-          <button class="btn-save">Save</button> 
-          <!-- TODO BACKEND: When user clicks Save, send action data (type, specify if other, staff, description, file) to server and save in database -->
-        </div>
-      </div>
-    </div>
-
-    <!-- FILES MODAL -->
-    <div id="filesModal" class="files-modal-overlay" style="display:none;">
-      <div class="files-modal">
-        <div class="files-header">
-          <h2>Files</h2><div id="filesDateTime"></div>
-        </div>
-        <hr>
-
-        <div class="file-tabs">
-          <span class="tab active" data-tab="uploaded">Uploaded</span>
-          <span class="tab" data-tab="downloadable">Downloadable</span>
-        </div>
-
-        <!-- TODO BACKEND: Fetch uploaded files for this complaint and display them in .uploaded-list -->
-        <div class="file-list uploaded-list">
-          <div class="file-row"><span>Mediation - First Notice.pdf</span><button class="download-btn">Download ⬇</button></div>
-        </div>
-
-        <div class="file-list downloadable-list" style="display:none;">
-          <div class="file-row">
-            <span>Upload new file:</span>
-            <!-- TODO BACKEND: Handle file uploads from userFileInput and store in server -->
-            <input type="file" id="userFileInput" accept=".pdf,.jpeg,.jpg,.png" />
-          </div>
-          <div id="userFilesContainer"></div>
-        </div>
-
-        <div class="files-footer"><button class="close-btn" onclick="closeFiles()">Close</button></div>
-      </div>
-    </div>
+    </div>    
   </main>
 
   <script>

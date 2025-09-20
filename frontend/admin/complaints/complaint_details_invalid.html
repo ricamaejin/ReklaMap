@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="../../images/logo.png">
+  <title>ReklaMap</title>
+  <link rel="stylesheet" href="../../css/complainants.css">
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo-section">
+      <img src="../../images/logo.png" alt="ReklaMap Logo" class="logo">
+      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
+    </div>
+    <nav class="nav-menu">
+      <a href="../../complainant/home/dashboard.html" class="nav-item">Map</a>
+      <a href="../../complainant/complaints/submitted_complaints.html" class="nav-item active">Complaints</a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="header"><h1>Complaint</h1></header>
+
+    <div class="complaint-layout" style="margin-top: 30px;">
+      <!-- Complaint Form Placeholder -->
+      <!-- TODO BACKEND: Populate complaint-form div with complaint details from DB -->
+      <div class="complaint-form">Complaint form data will load here...</div>
+
+      <!-- Right Panel -->
+      <div class="right-panel">
+
+        <!-- TODO BACKEND: Replace static timeline entries with timeline data from DB -->
+        <div class="timeline">
+          <div class="timeline-entry">
+            <h4>6/19/2025 - Send Invitation 
+              <button class="file-btn" data-pdf="sample.pdf"></button> 
+              <span>Josie Rosal</span>
+            </h4>
+            <p>An invitation has been sent...</p>
+          </div>
+          <div class="timeline-entry">
+            <h4>6/13/2025 - Assessment <span>Josie Rosal</span></h4>
+            <p>Upon inspection, the staff verified the complaint’s validity...</p>
+          </div>
+        </div>
+        <a href="../../admin/complaints/all.html">
+            <button class="resolved-btn">Close</button>
+        </a>
+      </div>
+    </div>
