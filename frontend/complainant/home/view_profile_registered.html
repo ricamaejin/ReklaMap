@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/images/logo.png">
+  <title>ReklaMap</title>
+  <link rel="stylesheet" href="../../css/complainants.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo-section">
+        <img src="../../images/logo.png" alt="ReklaMap Logo" class="logo">
+        <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
+        </div>
+        <nav class="nav-menu">
+        <a href="/complainant/home/dashboard.html" class="nav-item active">Home</a>
+        <a href="/complainant/complaints/submitted_complaints.html" class="nav-item">Complaints</a>
+        </nav>
+    </aside>
+
+  <!-- User Dropdown -->
+    <div class="user-dropdown">
+        Logged in as: <span class="username">Smith, John Doe</span>
+        <button class="dropdown-toggle">▼</button>
+        <div class="dropdown-menu">
+        <a href="#">View Profile</a>
+        <a href="#">Logout</a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main">
+<div style="align-self: flex-start;">
+  <h1 style="color:#083048; margin-top: 25px; margin-left: 80px;">Profile</h1>
+</div>
+        <!-- Profile Card -->
+        <section class="profile-card">
+        <h2>Smith, John Doe</h2>
+        <p>jdsmith@gmail.com</p>
+        </section>
+
+        <article style="margin-top: 5px;" class="card" role="main">
+        <h1 id="page-title" class="page-title">Information</h1>
+
+      <!-- TOP: registrant basic fields -->
+      <form autocomplete="off" novalidate>
+        
+        </form>
+  </main>
+
+  <!-- Dropdown Script -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const dropdown = document.querySelector(".user-dropdown");
+      const toggle = dropdown.querySelector(".dropdown-toggle");
+
+      toggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle("active");
+      });
+
+      document.addEventListener("click", () => {
+        dropdown.classList.remove("active");
+      });
+    });
+  </script>
+
+</body>
+</html>
