@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="../../images/logo.png">
+  <title>ReklaMap</title>
+  <link rel="stylesheet" href="../../css/complainants.css">
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo-section">
+      <img src="../../images/logo.png" alt="ReklaMap Logo" class="logo">
+      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
+    </div>
+    <nav class="nav-menu">
+      <a href="../../complainant/home/dashboard.html" class="nav-item">Map</a>
+      <a href="../../complainant/complaints/submitted_complaints.html" class="nav-item active">Complaints</a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="header"><h1>Complaint</h1></header>
+
+    <div class="complaint-layout">
+      <!-- Complaint Form Placeholder -->
+      <!-- TODO BACKEND: Populate complaint-form div with complaint details from DB -->
+      <div class="complaint-form">Complaint form data will load here...</div>
+
+      <!-- Right Panel -->
+      <div class="right-panel">
+
+        <!-- TODO BACKEND: Replace static timeline entries with timeline data from DB -->
+        <div class="timeline">
+          <div class="timeline-entry">
+            <h4>6/19/2025 - Send Invitation 
+              <button class="file-btn" data-pdf="sample.pdf"></button> 
+              <span>Josie Rosal</span>
+            </h4>
+            <p>An invitation has been sent...</p>
+          </div>
+          <div class="timeline-entry">
+            <h4>6/13/2025 - Assessment <span>Josie Rosal</span></h4>
+            <p>Upon inspection, the staff verified the complaint’s validity...</p>
+          </div>
+        </div>
+        <a href="../../complainant/complaints/submitted_complaints.html">
+            <button class="resolved-btn">Close</button>
+        </a>
+      </div>
+    </div>    
+  </main>
+
+  <script>
+  (function () {
+    const modal = document.getElementById('modal');               // Action modal
+    const recommendModal = document.getElementById("recommendModal"); // Recommended modal
+    const dateEl = document.getElementById('datetime');
+    const select = document.getElementById('type');
+    const actionOther = document.getElementById('actionOther');
+    let interval = null;
+
+    // Update date & time inside Action modal
+    function updateComplaintDateTime() {
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-US', {
+        weekday: 'short', year: 'numeric', month: 'long', day: 'numeric'
+      });
+      const timeStr = now.toLocaleTimeString('en-US', {
+        hour: '2-digit', minute: '2-digit', hour12: true
+      });
+      dateEl.innerHTML = `${dateStr}<br>${timeStr}`;
+    }
+
+    // Step 1: When clicking "Action" button → open Recommended first
+    function openComplaint() {
+      recommendModal.style.display = "flex";
+    }
+
+    // Close Recommended modal
+    function closeRecommend() {
+      recommendModal.style.display = "none";
+    }
+
+    // Step 2: From Recommended → proceed to Action modal
+    function proceedToAction() {
+      recommendModal.style.display = "none";
+      modal.style.display = 'flex';
+      updateComplaintDateTime();
+      if (!interval) interval = setInterval(updateComplaintDateTime, 1000);
+      select.value = "";
+      actionOther.style.display = "none";
+    }
+
+    // Close Action modal
+    function closeComplaint() {
+      modal.style.display = 'none';
+      if (interval) { clearInterval(interval); interval = null; }
+    }
+
+    // "Other" option in Action modal
+    select.addEventListener("change", () => {
+      actionOther.style.display = (select.value === "Other") ? "inline-block" : "none";
+    });
+
+    // Click outside closes modals
+    modal.addEventListener('click', e => { if (e.target === modal) closeComplaint(); });
+    recommendModal.addEventListener("click", e => { if (e.target === recommendModal) closeRecommend(); });
+
+    // Expose globally so your buttons can call them
+    window.openComplaint = openComplaint;
+    window.closeComplaint = closeComplaint;
+    window.proceedToAction = proceedToAction;
+    window.closeRecommend = closeRecommend;
+    window.updateComplaintDateTime = updateComplaintDateTime;
+  })();
+
+  /* Timeline: Open PDF */
+  document.querySelectorAll('.file-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pdfUrl = btn.getAttribute('data-pdf'); // replace with actual file paths
+      if (pdfUrl) window.open(pdfUrl, '_blank');
+      else alert("No PDF linked yet.");
+    });
+  });
+
+  /* Files Modal */
+  function openFiles() {
+    const modal = document.getElementById("filesModal");
+    modal.style.display = "flex";
+    updateFilesDateTime();
+  }
+  function closeFiles() {
+    document.getElementById("filesModal").style.display = "none";
+  }
+  function updateFilesDateTime() {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', {
+      weekday: 'short', year: 'numeric', month: 'long', day: 'numeric'
+    });
+    const timeStr = now.toLocaleTimeString('en-US', {
+      hour: '2-digit', minute: '2-digit', hour12: true
+    });
+    document.getElementById("filesDateTime").innerHTML = `${dateStr}<br>${timeStr}`;
+  }
+  document.getElementById("filesModal").addEventListener("click", e => {
+    if (e.target.id === "filesModal") closeFiles();
+  });
+
+  /* Switch tabs */
+  document.querySelectorAll('.file-tabs .tab').forEach(tab => {
+    tab.addEventListener('click', function () {
+      document.querySelectorAll('.file-tabs .tab').forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      const target = this.getAttribute('data-tab');
+      document.querySelector('.uploaded-list').style.display = target === "uploaded" ? "block" : "none";
+      document.querySelector('.downloadable-list').style.display = target === "downloadable" ? "block" : "none";
+    });
+  });
+
+  /* User file uploads*/
+  document.getElementById("userFileInput").addEventListener("change", function (e) {
+    const file = e.target.files[0];
+    if (file) {
+      const fileRow = document.createElement("div");
+      fileRow.className = "file-row";
+
+      // Create a blob URL so it can be downloaded
+      const url = URL.createObjectURL(file);
+
+      fileRow.innerHTML = `
+        <span>${file.name}</span>
+        <a href="${url}" download="${file.name}" class="download-btn">Download ⬇</a>
+      `;
+
+      document.getElementById("userFilesContainer").appendChild(fileRow);
+    }
+  });
+  </script>
+</body>
+</html>

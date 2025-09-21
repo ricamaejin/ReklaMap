@@ -23,24 +23,25 @@
       <div class="input-wrapper-signup">
         <h2 class="login-title-signup">COMPLAINANT SIGN UP</h2>
 
+  <form action="http://localhost:3000/signup" method="POST">
     <div class="input-group-signup black-group">
       <i class="bi bi-person-fill"></i>
-      <input type="text" placeholder="First Name" class="black-input" />
+      <input type="text" name="firstName" placeholder="First Name" class="black-input" required/>
     </div>
 
     <div class="input-group-signup black-group">
       <i class="bi bi-person-fill"></i>
-      <input type="text" placeholder="Last Name" class="black-input"/>
+      <input type="text" name="lastName" placeholder="Last Name" class="black-input" required />
     </div>
 
     <div class="input-group-signup blue-group">
       <i class="bi bi-person-fill"></i>
-      <input type="email" placeholder="Email Address" class="blue-input" />
+      <input type="email" name="email" placeholder="Email Address" class="blue-input" required/>
     </div>
 
     <div class="input-group-signup shadow-group">
       <i class="bi bi-unlock2-fill"></i>
-      <input type="password" placeholder="Password" class="shadow-input" />
+      <input type="password" name="password" placeholder="Password" class="shadow-input" required/>
     </div>
   </div>
 
@@ -49,10 +50,10 @@
     </p>
       
     <div class="btn-wrapper">
-      <a href=".html" class="login-btn">SIGN IN</a>
+      <button type="submit" class="login-btn">SIGN UP</button>
         </div>
     </div>
-
+  </form>
   </div>
 </div>
 </body>

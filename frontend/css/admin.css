@@ -116,7 +116,7 @@ body {
   border: none;
   font-size: 14px;
   cursor: pointer;
-  color: #001241;
+  color: #4caf50;
 }
 
 .dropdown-menu {
@@ -221,6 +221,19 @@ body {
 .map-section svg path:hover {
   fill: #4caf50; /* Highlight on hover */
   transform: scale(1);
+}
+
+#map-container {
+  overflow: hidden;
+  width: 100%;
+  height: 600px;      /* fixed height so you see zoom effect */
+  position: relative;
+}
+
+#map-container svg {
+  width: 100%;
+  height: 100%;
+  transition: transform 0.8s ease-in-out;
 }
 
 /* Tooltip styling */

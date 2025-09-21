@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/images/logo.png">
+  <title>ReklaMap</title>
+  <link rel="stylesheet" href="/css/complainants.css">
+</head>
+<body>
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/images/logo.png">
+  <title>ReklaMap</title>
+  <link rel="stylesheet" href="/css/complainants.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo-section">
+      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
+      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
+    </div>
+    <nav class="nav-menu">
+      <a href="/complainant/home/dashboard.html" class="nav-item active">Map</a>
+      <a href="/complainant/complaints/" class="nav-item">Complaints</a>
+    </nav>
+  </aside>
+  
+ <div class="user-dropdown">
+    Logged in as: <span class="username">Smith, John Doe</span>
+    <button class="dropdown-toggle">▼</button>
+    <div class="dropdown-menu">
+      <a href="#">View Profile</a>
+      <a href="/portal/index.html">Logout</a>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="main-header">
+      <h1>National Government Center Areas</h1>
+      <p>RA 9207, passed in 2003, authorized the disposition of 422 hectares in the <br> 
+         NGC, granting land ownership to 5,678 residents of Barangay Holy Spirit</br> 
+         and other nearby communities. </br></p>
+    </header>
+
+    <!-- Status Card -->
+    <section class="card">
+      <div class="card-inner">
+        <div class="status-header">Status</div>
+
+        <!-- CASE 1: No Complaint Yet -->
+        <div class="no-complaint">
+          <p>No complaint yet.</p>
+          <button class="add-btn" onclick="openComplaint()">Add Complaint</button>
+        </div>
+
+        <!-- CASE 2: Complaint Exists -->
+        <div class="complaint-list hidden">
+          <div class="status-item">
+            <span class="dot"></span>
+            <div class="status-text">
+              <strong>6/19/2025 - Send Invitation</strong><br>
+              <span>An invitation has been sent to the involved person/s for further action or discussion.</span>
+            </div>
+          </div>
+          <div class="status-item">
+            <span class="dot"></span>
+            <div class="status-text">
+              <strong>6/18/2025 - Reviewed</strong><br>
+              <span>Your complaint is under evaluation by the authorities.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <div class="modal-header">
+      <h2>Action</h2>
+      <div id="datetime">
+        <div id="date"></div>
+        <div id="time"></div>
+      </div>
+    </div>
+    
+    <hr>
+
+    <!-- Type of Action  -->
+    <label for="type">Type of Action:</label>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <select id="type" name="actionType" aria-label="Type of Action">
+        <option value="" disabled selected hidden>Select Action</option>
+        <option value="Inspection">Inspection</option>
+        <option value="Send Invitation">Send Invitation</option>
+        <option value="Mediation">Mediation</option>
+        <option value="Other">Other</option>
+      </select>
+
+      <input
+        type="text"
+        id="actionOther"
+        name="actionOther"
+        placeholder="Specify"
+        style="display: none;"
+        aria-hidden="true"
+        />
+    </div>
+
+      <label>Assigned to:</label>
+      <select>
+        <option value="" disabled selected hidden>Select Staff</option>
+        <option>Staff A</option>
+        <option>Staff B</option>
+        <option>Staff B</option>
+      </select>
+
+      <label>Description:</label>
+      <textarea></textarea>
+
+      <label>File:</label>
+      <div class="file-upload">
+        <button>Upload</button>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+     (function () {
+    const modal = document.getElementById('modal');       // overlay element
+    const datetimeEl = document.getElementById('datetime');
+    let datetimeInterval = null;
+
+    function updateDateTime() {
+      const now = new Date();
+
+      // format date
+      const dateStr = now.toLocaleDateString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+
+      // format time (Asia/Manila timezone)
+      const timeStr = now.toLocaleTimeString('en-US', {
+        hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Manila'
+      });
+
+      document.getElementById("date").textContent = dateStr;
+      document.getElementById("time").textContent = timeStr;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+    const sel = document.getElementById('actionType');
+    const otherInput = document.getElementById('actionOther');
+
+    if (!sel || !otherInput) {
+      // if elements aren't found, stop silently (helps debugging if IDs changed)
+      console.warn('actionType or actionOther element missing');
+      return;
+    }
+
+    function toggleOtherField() {
+      // consider "Other" case-insensitive just in case
+      const value = (sel.value || '').toString().trim().toLowerCase();
+      const show = value === 'other';
+
+      // show/hide and keep accessibility attributes in sync
+      otherInput.style.display = show ? 'inline-block' : 'none';
+      otherInput.setAttribute('aria-hidden', String(!show));
+      otherInput.required = show;
+
+      // clear field when not shown to avoid sending stale values
+      if (!show) otherInput.value = '';
+    }
+
+    // Attach listener and run once to set initial state
+    sel.addEventListener('change', toggleOtherField);
+    toggleOtherField();
+  });
+
+    function showModal() {
+      if (!modal) {
+        console.error('Modal element with id="modal" not found.');
+        return;
+      }
+      modal.style.display = 'flex';
+      updateDateTime();
+      if (!datetimeInterval) datetimeInterval = setInterval(updateDateTime, 1000);
+    }
+
+    function hideModal() {
+      if (!modal) return;
+      modal.style.display = 'none';
+      if (datetimeInterval) {
+        clearInterval(datetimeInterval);
+        datetimeInterval = null;
+      }
+    }
+
+    // Backwards-compatible function names so either onclick works:
+    window.addComplaint = showModal;
+    window.openModal = showModal;
+    window.closeModal = hideModal;
+
+    // close when clicking outside the inner modal box
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) hideModal();
+      });
+    }
+  })();
+</script>

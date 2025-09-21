@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="../../images/logo.png">
+  <title>ReklaMap</title>
+  <link rel="stylesheet" href="../../css/complainants.css">
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo-section">
+      <img src="../../images/logo.png" alt="ReklaMap Logo" class="logo">
+      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
+    </div>
+    <nav class="nav-menu">
+      <a href="../../complainant/home/dashboard.html" class="nav-item">Map</a>
+      <a href="../../complainant/complaints/submitted_complaints.html" class="nav-item active">Complaints</a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="header"><h1 style="text-align: left;">Complaint</h1></header>
+    <div class="complaint-item">
+        <!-- Add the backend for what title is the complaint that is not valid-->
+        <button id="openModal"> Invalid Complaint</button>
+    </div>
+  </main>
+
+  <!-- Complaint Status Popup -->
+<div class="modal-overlay" id="modal">
+    <div class="modal">
+      <div class="modal-header">
+      <h2>Complaint Status</h2>
+      <div id="datetime">
+        <div id="date"></div>
+        <div id="time"></div>
+      </div>
+    </div>
+    <hr>
+
+    <!-- Status Description -->
+    <textarea style="margin-left: 0px;">Invalid Complaint</textarea>
+
+    <div class="modal-footer">
+      <button class="btn-close" onclick="closeComplaint()">Close</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
+  <script>
+  const modalOverlay = document.getElementById("modal");
+  const openModalBtn = document.getElementById("openModal");
+
+  openModalBtn.onclick = () => {
+    modalOverlay.style.display = "flex";
+    updateDateTime();
+  };
+
+  function closeComplaint() {
+    modalOverlay.style.display = "none";
+  }
+
+  window.onclick = (event) => {
+    if (event.target === modalOverlay) {
+      closeComplaint();
+    }
+  };
+
+  function updateDateTime() {
+    const now = new Date();
+    const date = now.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric"
+    });
+    const time = now.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    document.getElementById("date").textContent = date;
+    document.getElementById("time").textContent = time;
+  }
+</script>
+
