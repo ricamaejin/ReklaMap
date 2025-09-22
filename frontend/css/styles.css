@@ -125,7 +125,7 @@ a{
 
 .login-box-signup {
   width: 800px;
-  height: 480px;
+  height: 550px;
   background-color: white;
   display: flex;
   flex-direction: column;
@@ -265,6 +265,27 @@ i {
   border-radius: 20px;
   padding: 10px 15px;
   margin-bottom: 20px;
+}
+
+/* Invalid credentials for login/signup */
+.message {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 5px;
+  display: none; 
+  text-align: center;
+    }
+
+.error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
 }
 
 /* ===== Responsive Styles ===== */

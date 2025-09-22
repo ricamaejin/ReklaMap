@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/png" href="../images/logo.png">
+  <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css" 
   integrity="sha512-t7Few9xlddEmgd3oKZQahkNI4dS6l80+eGEzFQiqtyVYdvcSG2D3Iub77R20BdotfRPA9caaRkg1tyaJiPmO0g==" 
   crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <link rel="stylesheet" href="../css/styles.css" />
+  <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
   <div class="header">
-    <img src="../images/logo.png" alt="ReklaMap Logo" class="logo" />
-    <a href="../portal/index.html" class="title">
+    <img src="/images/logo.png" alt="ReklaMap Logo" class="logo" />
+    <a href="/portal/index.html" class="title">
       <span class="blue-text">Rekla</span><span class="green-text">Map</span>
     </a>
   </div>
@@ -23,38 +23,89 @@
       <div class="input-wrapper-signup">
         <h2 class="login-title-signup">COMPLAINANT SIGN UP</h2>
 
-  <form action="http://localhost:3000/signup" method="POST">
-    <div class="input-group-signup black-group">
-      <i class="bi bi-person-fill"></i>
-      <input type="text" name="firstName" placeholder="First Name" class="black-input" required/>
-    </div>
+        <form id="signupForm" action="http://localhost:3000/signup" method="POST">
+          <div class="input-group-signup black-group">
+            <i class="bi bi-person-fill"></i>
+            <input type="text" id="firstName" name="firstName" placeholder="First Name" class="black-input" required />
+          </div>
 
-    <div class="input-group-signup black-group">
-      <i class="bi bi-person-fill"></i>
-      <input type="text" name="lastName" placeholder="Last Name" class="black-input" required />
-    </div>
+          <div class="input-group-signup black-group">
+            <i class="bi bi-person-fill"></i>
+            <input type="text" id="lastName" name="lastName" placeholder="Last Name" class="black-input" required />
+          </div>
 
-    <div class="input-group-signup blue-group">
-      <i class="bi bi-person-fill"></i>
-      <input type="email" name="email" placeholder="Email Address" class="blue-input" required/>
-    </div>
+          <div class="input-group-signup blue-group">
+            <i class="bi bi-envelope-fill"></i>
+            <input type="email" id="email" name="email" placeholder="Email Address" class="blue-input" required />
+          </div>
 
-    <div class="input-group-signup shadow-group">
-      <i class="bi bi-unlock2-fill"></i>
-      <input type="password" name="password" placeholder="Password" class="shadow-input" required/>
+          <div class="input-group-signup shadow-group">
+            <i class="bi bi-unlock-fill"></i>
+            <input type="password" id="password" name="password" placeholder="Password" class="shadow-input" required />
+          </div>
+
+          <div class="input-group-signup shadow-group">
+            <i class="bi bi-unlock-fill"></i>
+            <input type="password" id="confirmPassword" placeholder="Confirm Password" class="shadow-input" required />
+          </div>
+
+          <!-- Message box -->
+          <div id="messageBox" class="message"></div>
+
+          <p class="agreement-text">
+            By signing up, you agree to <a href="#">Terms of Use</a> and <a href="#">Privacy Policy</a>.
+          </p>
+          
+          <div class="btn-wrapper">
+            <button type="submit" class="login-btn">SIGN UP</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 
-    <p class="agreement-text">
-      By signing up, you agree to <a href=".html">Terms of Use</a> and <a href=".html">Privacy Policy</a>.
-    </p>
-      
-    <div class="btn-wrapper">
-      <button type="submit" class="login-btn">SIGN UP</button>
-        </div>
-    </div>
-  </form>
-  </div>
-</div>
+  <!-- Di ko sure kung maapply pa rin to pero ginawa ko na lang din trigger to para lumabas yung mga invalid/success message-->
+  <!-- Also Naglagay pala ako ng confirm password for additional security meassures din for the users(pede nyo naman tanggalin if unnecessary)-->
+  <script>
+    const form = document.getElementById("signupForm");
+    const messageBox = document.getElementById("messageBox");
+
+    form.addEventListener("submit", function(event) {
+      event.preventDefault(); // prevent page reload for demo
+
+      const firstName = document.getElementById("firstName").value.trim();
+      const lastName = document.getElementById("lastName").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const confirmPassword = document.getElementById("confirmPassword").value.trim();
+
+      // reset message
+      messageBox.style.display = "none";
+      messageBox.textContent = "";
+
+      if (!firstName || !lastName || !email || !password || !confirmPassword) {
+        messageBox.textContent = "Please fill in all fields!";
+        messageBox.className = "message error";
+        messageBox.style.display = "block";
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        messageBox.textContent = "Passwords do not match!";
+        messageBox.className = "message error";
+        messageBox.style.display = "block";
+        return;
+      }
+
+      // Example success (replace with real backend response)
+      messageBox.textContent = "Sign-up successful! Redirecting...";
+      messageBox.className = "message success";
+      messageBox.style.display = "block";
+
+      setTimeout(() => {
+        window.location.href = "/portal/index.html";
+      }, 2000);
+    });
+  </script>
 </body>
 </html>

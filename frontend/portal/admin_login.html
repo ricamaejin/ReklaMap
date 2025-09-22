@@ -11,7 +11,6 @@
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
-
   <div class="header">
     <img src="/images/logo.png" alt="ReklaMap Logo" class="logo" />
     <a href="/portal/index.html" class="title">
@@ -24,17 +23,22 @@
       <div class="left-section">
         <h2 class="login-title">LOGIN</h2>
 
-        <form action="/admin/login" method="POST">
+        <form id="loginForm" action="/login" method="POST">
           <div class="input-group blue-group">
             <i class="bi bi-person-fill"></i>
-            <input type="text" name="employee_id" placeholder="Employee Id No." class="blue-input" required />
+            <input type="text" id="empId" placeholder="Employee Id No." class="blue-input" />
           </div>
+
           <div class="input-group shadow black-group">
             <i class="bi bi-unlock2-fill"></i>
-            <input type="password" name="password" placeholder="Password" class="black-input" required />
+            <input type="password" id="password" placeholder="Password" class="black-input" />
           </div>
+
+          <!-- Message box -->
+          <div id="messageBox" class="message"></div>
+
           <div class="btn-wrapper">
-            <button type="submit" class="login-btn">SIGN IN</button>
+            <button class="login-btn" onclick="login()">SIGN IN</button>
           </div>
         </form>
       </div>
@@ -44,5 +48,40 @@
       </div>
     </div>
   </div>
+
+  <!-- Di ko sure kung maapply pa rin to pero ginawa ko na lang din trigger to para lumabas yung mga invalid/success message-->
+  <script>
+    function login() {
+      const empId = document.getElementById("empId").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const messageBox = document.getElementById("messageBox");
+
+      // reset message
+      messageBox.style.display = "none";
+      messageBox.textContent = "";
+
+      if (empId === "" || password === "") {
+        messageBox.textContent = "Please fill in both fields!";
+        messageBox.className = "message error";
+        messageBox.style.display = "block";
+        return;
+      }
+
+      // Example credentials check
+      if (empId === "admin" && password === "1234") {
+        messageBox.textContent = "Login successful! Redirecting...";
+        messageBox.className = "message success";
+        messageBox.style.display = "block";
+
+        setTimeout(() => {
+          window.location.href = "/admin/map/index.html";
+        }, 1500);
+      } else {
+        messageBox.textContent = "Invalid Employee ID or Password!";
+        messageBox.className = "message error";
+        messageBox.style.display = "block";
+      }
+    }
+  </script>
 </body>
 </html>
