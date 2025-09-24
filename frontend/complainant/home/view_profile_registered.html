@@ -23,11 +23,11 @@
 
   <!-- User Dropdown -->
     <div class="user-dropdown">
-        Logged in as: <span class="username">Smith, John Doe</span>
+        Logged in as: <span class="username" id="username"></span>
         <button class="dropdown-toggle">▼</button>
         <div class="dropdown-menu">
-        <a href="#">View Profile</a>
-        <a href="#">Logout</a>
+        <a href="/complainant/home/view_profile_registered.html">View Profile</a>
+        <a href="/portal/index.html">Logout</a>
         </div>
     </div>
 
@@ -38,8 +38,8 @@
 </div>
         <!-- Profile Card -->
         <section class="profile-card">
-        <h2>Smith, John Doe</h2>
-        <p>jdsmith@gmail.com</p>
+          <h2 id="profile-name">Loading...</h2>
+          <p id="profile-email">Loading...</p>
         </section>
 
         <article style="margin-top: 5px;" class="card" role="main">
@@ -65,6 +65,46 @@
       document.addEventListener("click", () => {
         dropdown.classList.remove("active");
       });
+    });
+  </script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      try {
+        // include credentials to ensure session cookie is sent/received
+        const res = await fetch("/complainant/profile", { credentials: "include" });
+
+        if (!res.ok) {
+          // not logged in or other error
+          document.getElementById("username").textContent = "Guest";
+          document.getElementById("profile-name").textContent = "Guest";
+          document.getElementById("profile-email").textContent = "";
+          return;
+        }
+
+        const data = await res.json();
+
+        if (data.success && data.user) {
+          const name = `${data.user.last_name}, ${data.user.first_name}`;
+          // fill *all* places (dropdown + profile card)
+          const usernameEl = document.getElementById("username");
+          const profileNameEl = document.getElementById("profile-name");
+          const profileEmailEl = document.getElementById("profile-email");
+
+          if (usernameEl) usernameEl.textContent = name;
+          if (profileNameEl) profileNameEl.textContent = name;
+          if (profileEmailEl) profileEmailEl.textContent = data.user.email;
+        } else {
+          document.getElementById("username").textContent = "Guest";
+          document.getElementById("profile-name").textContent = "Guest";
+          document.getElementById("profile-email").textContent = "";
+        }
+      } catch (err) {
+        console.error("Error loading profile:", err);
+        document.getElementById("username").textContent = "Guest";
+        document.getElementById("profile-name").textContent = "Guest";
+        document.getElementById("profile-email").textContent = "";
+      }
     });
   </script>
 

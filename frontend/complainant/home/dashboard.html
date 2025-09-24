@@ -7,11 +7,7 @@
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
 </head>
-<body style="background-image: url('/images/65hs.png');
-  background-repeat: no-repeat;
-  background-position: 70px 50px; /* 👈 push down 80px */
-  background-attachment: fixed;
-   background-size: 100% 100%;">
+<body>
 
   <!-- Sidebar -->
   <aside class="sidebar">
@@ -20,17 +16,17 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/complainant/home/dashboard.html" class="nav-item active">Map</a>
+      <a href="/complainant/home/dashboard.html" class="nav-item active">Home</a>
       <a href="/complainant/complaints/submitted_complaints.html" class="nav-item">Complaints</a>
     </nav>
   </aside>  
   
  <!-- User Dropdown -->
     <div class="user-dropdown">
-        Logged in as: <span class="username">Smith, John Doe</span>
+        Logged in as: <span class="username" id="username"></span>
         <button class="dropdown-toggle">▼</button>
         <div class="dropdown-menu">
-        <a href="#">View Profile</a>
+        <a href="/complainant/home/view_profile_registered.html">View Profile</a>
         <a href="/portal/index.html">Logout</a>
         </div>
     </div>
@@ -48,7 +44,7 @@
     <section class="status-card">
       <div class="card-inner">
         <!-- CASE 1: No Complaint Yet -->
-        <p style="text-align: justify;">ReklaMap is connected to the Urban Settlement Assistance Department, making it easy for you to report and track land-related complaints. Whether it's a boundary issue, land misuse, or unauthorized activity, your complaint goes straight to the right authorities for quick action.</p> <br>
+        <p class="status-description">ReklaMap is connected to the Urban Settlement Assistance Department, making it easy for you to report and track land-related complaints. Whether it's a boundary issue, land misuse, or unauthorized activity, your complaint goes straight to the right authorities for quick action.</p> <br>
         <div class="status-header">Status</div>
 
         <!-- CASE 1: No Complaint Yet -->
@@ -91,7 +87,7 @@
     <hr>
 
     <label for="type">Type of Complaint:</label>
-    <select style="margin-left: 0px;" id="type" onchange="updateComplaintDesc()">
+    <select id="type" onchange="updateComplaintDesc()">
       <option value="" disabled selected hidden>Select Type of Complaint</option>
       <option value="Overlapping">Overlapping</option>
       <option value="Lot Dispute">Lot Dispute</option>
@@ -102,14 +98,14 @@
     </select>
 
     <!-- Complaint Description -->
-    <div class="complaint-desc" id="complaintDesc" style="display:none;">
+    <div class="complaint-desc" id="complaintDesc">
       <h3 id="descTitle"></h3>
-      <p id="descText" style="white-space: pre-line;"></p>
+      <p id="descText"></p>
     </div>
 
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeComplaint()">Cancel</button>
-      <button class="btn-save">Select</button>
+      <button class="btn-save" onclick="goToRegistration()">Select</button>
     </div>
   </div>
 </div>
@@ -249,5 +245,31 @@ const complaints = {
       });
     });
   </script>
+
+  <script>
+  document.addEventListener("DOMContentLoaded", async () => {
+    try {
+      const res = await fetch("/complainant/profile");
+      const data = await res.json();
+
+      if (data.success && data.user) {
+        document.getElementById("username").textContent =
+          `${data.user.last_name}, ${data.user.first_name}`;
+      } else {
+        document.getElementById("username").textContent = "Guest";
+      }
+    } catch (err) {
+      console.error("Error loading profile:", err);
+      document.getElementById("username").textContent = "Guest";
+    }
+  });
+  </script>
+
+  <script>
+    function goToRegistration() {
+      window.location.href = "/complainant/home/not_registered.html";
+    }
+  </script>
+
 </body>
 </html>
