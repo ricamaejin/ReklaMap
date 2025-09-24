@@ -290,13 +290,14 @@ body {
 /* Stats */
 .stats {
   display: flex;
+  flex-wrap: wrap;       /* allows wrapping */
   gap: 20px;
   margin-bottom: 20px;
 }
 
 .stat-card {
   background: #b7d5ff;
-  flex: 1;
+  flex: 1 1 220px;        /* flexible width, min ~220px */
   display: flex;
   align-items: center;
   gap: 10px;
@@ -305,30 +306,29 @@ body {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-i {
-  font-size: 45px;
-  margin-right: 10px;
-  color: #000000;
-  font-weight: bold;
-  align-items: center;
+/* Icons scale down on small screens */
+.stat-card i {
+  font-size: 32px;
 }
 
 .stat-card h2 {
-  margin: 0;
-  font-size: 22px;
+  font-size: 20px;
 }
+
 .stat-card p {
-  margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: bold;
 }
 
 .tabs {
   display: flex;
+  flex-wrap: wrap;   /* allow wrapping instead of overflow */
   gap: 15px;
   border-bottom: 1px solid #888;
   padding-bottom: 5px;
   margin-bottom: 20px;
+  width: 100%;       
+  box-sizing: border-box;
 }
 .tabs a {
   text-decoration: none;
@@ -342,10 +342,17 @@ i {
 }
 
 /* Table */
+.table-container {
+  width: 100%;
+  overflow-x: auto;   
+  -webkit-overflow-scrolling: touch;
+}
+
 .complaints-table {
   border-collapse: separate;
-  border-spacing: 0 10px; /* space between rows */
+  border-spacing: 0 10px; 
   width: 100%;
+  min-width: 800px;   
 }
 
 .complaints-table thead th {
@@ -406,10 +413,6 @@ i {
   border-bottom: 1.5px solid #000;
 }
 /* Table */
-.table-container {
-  overflow-x: auto;
-}
-
 table {
   width: 100%;
   border-collapse: collapse;
@@ -442,66 +445,65 @@ tbody td {
 .poli-table th:nth-child(5) { width: 12%; } 
   
 
-/* ===== Responsive Styles ===== */
-tbody tr{
-  border-bottom: 3px solid #ccc; /* separates rows */
-}
-/* Medium screens: Adjust search bar & map size */
+/* ===== Responsive ===== */
 @media (max-width: 1024px) {
-  .search-bar {
-    width: 90%; /* Let it shrink with the screen */
-  }
-  .map-section {
-    flex-direction: column;
-    gap: 20px;
-    text-align: center;
-  }
-  .map {
-    max-width: 100%;
-  }
+  .main-content { margin-left: 200px; }
+  .search-bar { width: 90%; }
+  .map-section { flex-direction: column; gap: 20px; }
 }
 
-/* Small screens: Collapse sidebar into top nav */
 @media (max-width: 768px) {
-  body {
-    flex-direction: column;
-  }
+  body { flex-direction: column; }
+
   .sidebar {
     width: 100%;
-    height: auto; /* No full height on mobile */
+    height: 110px;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid #ccc;
     flex-direction: row;
-    align-items: center;
     justify-content: space-between;
+    align-items: center;
+    padding: 10px 5px;
   }
-  .logo-section {
-    margin-bottom: 0;
-  }
+
+  .logo-section { margin-bottom: 10px; }
+
   .nav-menu {
     flex-direction: row;
     gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;          /* space above dropdown */
   }
+
+  .user-dropdown {
+    margin-top: 65px;
+    right: 5px;
+  }
+
   .main-content {
+    margin-left: 0;
     padding: 15px;
   }
+  .tabs {
+      gap: 0px;
+  }
+  
 }
 
-/* Extra small screens: Stack everything neatly */
 @media (max-width: 480px) {
-  .nav-menu {
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  .nav-item {
-    font-size: 14px;
-    padding: 6px;
-  }
-  .search-bar {
-    flex-direction: column;
-    width: 100%;
-  }
-  .search-bar input, 
+  .nav-item { font-size: 14px; padding: 6px; }
+
+  .search-bar { flex-direction: column; }
+  .search-bar input,
   .search-bar button {
     width: 100%;
     padding: 12px;
+  }
+
+  .stat-card { flex: 1 1 100%; }
+
+  .user-dropdown {
+    justify-content: center;
   }
 }

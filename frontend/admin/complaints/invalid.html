@@ -11,7 +11,6 @@
   <link rel="stylesheet" href="/css/admin.css">
 </head>
 <body>
-
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="logo-section">
@@ -19,7 +18,7 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/admin/map/index.html" class="nav-item">Map</a> <!-- dahil ba sjc.html to atm -->
+      <a href="/admin/map/index.html" class="nav-item">Map</a>
       <a href="/admin/complaints/all.html" class="nav-item active">Complaints</a>
       <a href="/admin/database/beneficiaries.html" class="nav-item">Database</a>
     </nav>
@@ -66,27 +65,31 @@
       <a href="invalid.html" class="active">Invalid</a>
     </div>
 
-    <!--Table-->
+    <!-- Table -->
+    <div class="table-container">
     <table class="complaints-table">
       <thead>
         <tr>
           <th>Date Submitted</th>
           <th>Complainant</th>
           <th>Type of Complaint</th>
-          <th>HOA Association</th>
+          <th>HOA</th>
           <th>Address</th>
-          <th></th> <!-- Empty header for button column -->
+          <th>Action Needed</th>
+          <th>Priority Level</th>
         </tr>
       </thead>
+        
       <tbody>
-        <!-- Example layout before database -->
+      <!-- Example layout before database -->
         <tr>
           <td>6/19/2025</td>
           <td>John Doe Smith</td>
-          <td>Unauthorized Occupation</td>
-          <td>Doña Juana Elementary School</td>
-          <td>Doña Juana Block 8</td>
-          <td><button class="reason-btn">Reason</button></td>
+          <td>Lot Dispute</td>
+          <td>Alley I - Sta Catalina HOA</td>
+          <td>Sta Catalina, Block 8</td>
+          <td>Investigation</td>
+          <td><button>severe</button></td>
         </tr>
         <tr>
           <td>6/19/2025</td>
@@ -94,11 +97,12 @@
           <td>Lot Dispute</td>
           <td>Alley I - Sta Catalina HOA</td>
           <td>Sta Catalina, Block 8</td>
-          <td><button class="reason-btn">Reason</button></td>
+          <td>Investigation</td>
+          <td><button>severe</button></td>
         </tr>
       </tbody>
     </table>
-
+    </div>
   </div>
 
 </body>

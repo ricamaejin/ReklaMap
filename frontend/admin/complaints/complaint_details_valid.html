@@ -15,8 +15,9 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/complainant/home/dashboard.html" class="nav-item">Map</a>
-      <a href="/complainant/complaints/submitted_complaints.html" class="nav-item active">Complaints</a>
+      <a href="/map/index.html" class="nav-item">Map</a> <!-- dahil ba sjc.html to atm -->
+      <a href="/complaints/all.html" class="nav-item active">Complaints</a>
+      <a href="/database/beneficiaries.html" class="nav-item">Database</a>
     </nav>
   </aside>
 
@@ -106,6 +107,9 @@
         <label>File:</label>
         <div class="file-upload"><button onclick="openFiles()">Upload</button></div>
 
+        <label>Attached Files:</label>
+        <div id="attachedFilesContainer" class="attach-btn"></div>
+
         <div class="modal-footer">
           <button class="btn-cancel" onclick="closeComplaint()">Cancel</button>
           <button class="btn-save">Save</button> 
@@ -123,16 +127,13 @@
         <hr>
 
         <div class="file-tabs">
-          <span class="tab active" data-tab="uploaded">Uploaded</span>
-          <span class="tab" data-tab="downloadable">Downloadable</span>
+          <span class="tab active" data-tab="downloadable">Downloadable</span>
+          <span class="tab" data-tab="uploaded">Upload File</span>
         </div>
 
-        <!-- TODO BACKEND: Fetch uploaded files for this complaint and display them in .uploaded-list -->
-        <div class="file-list uploaded-list">
-          <div class="file-row"><span>Mediation - First Notice.pdf</span><button class="download-btn">Download ⬇</button></div>
-        </div>
+        <div class="file-list downloadable-list"></div>
 
-        <div class="file-list downloadable-list" style="display:none;">
+        <div class="file-list uploaded-list" style="display:none;">
           <div class="file-row">
             <span>Upload new file:</span>
             <!-- TODO BACKEND: Handle file uploads from userFileInput and store in server -->
@@ -253,23 +254,69 @@
     });
   });
 
-  /* User file uploads*/
+  /* User file uploads */
   document.getElementById("userFileInput").addEventListener("change", function (e) {
     const file = e.target.files[0];
     if (file) {
+      const url = URL.createObjectURL(file);
+
+      // Create a file row in the Downloadable list
       const fileRow = document.createElement("div");
       fileRow.className = "file-row";
 
-      // Create a blob URL so it can be downloaded
-      const url = URL.createObjectURL(file);
-
       fileRow.innerHTML = `
-        <span>${file.name}</span>
-        <a href="${url}" download="${file.name}" class="download-btn">Download ⬇</a>
+        <span class="file-name">${file.name}</span>
+        <div class="file-actions">
+          <a href="${url}" download="${file.name}" class="download-btn">Download ⬇</a>
+          <button class="attach-btn">Attach 📎</button>
+        </div>
       `;
 
-      document.getElementById("userFilesContainer").appendChild(fileRow);
+      // Attach button functionality
+      fileRow.querySelector(".attach-btn").addEventListener("click", () => {
+        attachFileToAction(file.name, url);
+      });
+
+      document.querySelector(".downloadable-list").appendChild(fileRow);
+
+      // Auto-switch to downloadable tab
+      document.querySelector('.file-tabs .tab[data-tab="downloadable"]').click();
     }
+  });
+
+  /* Attach file to Action modal */
+  function attachFileToAction(fileName, fileUrl) {
+    const container = document.getElementById("attachedFilesContainer");
+    if (!container) return;
+
+    // Prevent duplicates
+    const alreadyAttached = [...container.querySelectorAll(".attached-file")]
+      .some(f => f.textContent === fileName);
+    if (alreadyAttached) return;
+
+    const fileTag = document.createElement("div");
+    fileTag.className = "attached-file";
+    fileTag.textContent = fileName;
+
+    // Store metadata so you can save later
+    fileTag.dataset.url = fileUrl;
+
+    container.appendChild(fileTag);
+  }
+
+  // TODO: send this to backend (via fetch/ajax)
+  document.querySelector(".btn-save").addEventListener("click", () => {
+    const actionType = document.getElementById("type").value;
+    const desc = document.querySelector("textarea").value;
+
+    const attachedFiles = [...document.querySelectorAll("#attachedFilesContainer .attached-file")]
+      .map(f => ({ name: f.textContent, url: f.dataset.url }));
+
+    console.log({
+      actionType,
+      desc,
+      attachedFiles
+    });
   });
   </script>
 </body>

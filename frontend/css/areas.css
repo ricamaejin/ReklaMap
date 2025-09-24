@@ -365,3 +365,107 @@ th {
   overflow: visible;
   position: relative;
 }
+
+
+/* Small screens (mobile landscape / small tablets, ≤768px) */
+@media (max-width: 768px) {
+  body {
+    flex-direction: column; /* stack sidebar on top */
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid #ccc;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+  }
+
+  .logo-section {
+    margin-bottom: 0;
+  }
+
+  .nav-menu {
+    flex-direction: row;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 10px;
+    height: auto; /* allow natural growth */
+  }
+
+  .map-layout {
+    flex-direction: column; /* stack map and side panel */
+    height: auto;
+  }
+
+  .map-section {
+    flex: none;
+    height: 300px; /* fixed height for mobile */
+  }
+
+  .side-panel {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .stats-section {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+/* Extra small screens (phones portrait, ≤480px) */
+@media (max-width: 480px) {
+  .title {
+    font-size: 20px;
+  }
+
+  .nav-item {
+    font-size: 14px;
+    padding: 6px;
+  }
+
+  .page-header {
+    font-size: 18px;
+  }
+
+  .map-section {
+    height: 220px;
+    padding: 8px;
+  }
+
+  .info-card {
+    font-size: 13px;
+    padding: 10px;
+  }
+
+  .stats-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .stat-card h3 {
+    font-size: 18px;
+  }
+
+  .stat-card p {
+    font-size: 12px;
+  }
+
+  .list-table {
+    max-height: 250px; /* shorter scroll area */
+  }
+
+  th, td {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+}
