@@ -459,8 +459,6 @@ i {
   color:#001241;
 }
 .form-grid input[type="text"],
-.form-grid input[type="number"],
-.form-grid input[type="date"],
 .form-grid select {
   margin-top:6px;
   padding:8px 10px;
@@ -468,6 +466,18 @@ i {
   border:1px solid #cfc6c6;
   font-size: 13px;
   color: #001241;
+}
+
+.form-grid input[type="date"],
+.form-grid input[type="number"] {
+  margin-top:6px;
+  padding:8px 10px;
+  border-radius:6px;
+  border:1px solid #cfc6c6;
+  font-size: 13px;
+  color: #001241;
+  width: 95%;
+  margin-left: 15px;
 }
 
 /* separator line between top and family member */
@@ -480,13 +490,15 @@ i {
 .civil-status {
   grid-column: 4 / 5; 
   grid-row: 1 / span 4; 
-  border-left: 1px solid transparent; 
+  border-left: 1px solid transparent;
+  margin-top: 12px; 
 }
 .civil-status .label { 
   font-weight:700; 
   margin-bottom:10px;
   font-size: 14px; 
   color: #001241;
+  margin-bottom: 15px;
 }
 .civil-grid {
   display: grid;
@@ -918,7 +930,6 @@ input[type="text"], textarea, select {
   border: 1px solid #ccc;
   font-size: 14px;
   margin-left: 15px;
-  background-color: #d9e9f5;
 }
 
 textarea {
@@ -1273,4 +1284,122 @@ input[type="radio"], input[type="checkbox"] {
   text-decoration: underline;
   font-size: 16px;
 
+}
+
+
+/* Responsive CSS */
+@media (max-width: 768px) {
+  body {
+    flex-direction: column;
+  }
+
+   .sidebar {
+    width: 100%;
+    height: 110px;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid #ccc;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 5px;
+  }
+
+  .logo-section { margin-bottom: 10px; }
+
+  .nav-menu {
+    flex-direction: row;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;         
+  }
+
+  .user-dropdown {
+    margin-top: 65px;
+    right: 5px;
+  }
+
+  .main-content,
+  .main {
+    margin-left: 0;
+    padding: 15px;
+  }
+
+  .stats {
+    flex-direction: column;
+  }
+
+  .form-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+
+  .form-grid .civil-status {
+    grid-column: span 2;
+  }
+
+  .profile-card,
+  .register-card,
+  .card,
+  .status-card {
+    width: 100%;
+  }
+
+  .complaints-container {
+    flex-direction: column;
+  }
+
+  .complaint-layout {
+    flex-direction: column;
+  }
+
+  .right-panel {
+    order: -1; /* show above form */
+  }
+}
+
+/* Phones */
+@media (max-width: 480px) {
+  .title {
+    font-size: 20px;
+  }
+
+  .nav-item {
+    font-size: 14px;
+    padding: 6px 10px;
+  }
+
+  .stat-card h2 {
+    font-size: 18px;
+  }
+
+  .stat-card p {
+    font-size: 14px;
+  }
+
+  .info-box {
+    padding: 15px;
+  }
+
+  .modal {
+    width: 95%;
+    padding: 15px;
+  }
+
+  .form-container {
+    padding: 20px;
+  }
+
+  input[type="text"],
+  textarea,
+  select {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .form-grid input[type="date"],
+  .form-grid input[type="number"] {
+    width: 100%;
+    margin-left: 0;
+  }
 }
