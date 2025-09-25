@@ -18,7 +18,7 @@ app = Flask(__name__, static_folder=frontend_path, static_url_path="")
 app.secret_key = "your_secret_key"
 
 # ✅ Correct Database configuration
-app.config["SQLALCHEMY_DATABASE_URI"] = "mysql+pymysql://root:VnChYVrdo5o3Bkl7@127.0.0.1:3307/reklamap"
+app.config["SQLALCHEMY_DATABASE_URI"] = "mysql+pymysql://root:reklaMap123%2B@72.60.108.94:3306/reklamap"
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
