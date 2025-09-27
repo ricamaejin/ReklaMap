@@ -16,7 +16,7 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/admin/map/index.html" class="nav-item ">Map</a> <!-- dahil ba sjc.html to atm -->
+      <a href="/admin/map/index.html" class="nav-item ">Map</a>
       <a href="/admin/complaints/all.html" class="nav-item">Complaints</a>
       <a href="/admin/database/beneficiaries.html" class="nav-item active">Database</a>
     </nav>
@@ -35,6 +35,16 @@
       <a href="policies.html" class="tab">Policies</a>
     </div>
 
+    <!-- Pagination Header -->
+    <div class="pagination-header">
+      <span id="pagination-info">Loading...</span>
+      <div class="pagination-controls">
+        <button id="prev-btn" class="pagination-btn" disabled>‹ Previous</button>
+        <span id="page-info">Page 1</span>
+        <button id="next-btn" class="pagination-btn" disabled>Next ›</button>
+      </div>
+    </div>
+
     <!-- Table -->
     <div class="bene-table">
       <table>
@@ -43,32 +53,276 @@
             <th>Name</th>
             <th>Block No.</th>
             <th>Lot No.</th>
-            <th>Lot Size</th>
-            <th>Area</th>
-            <th>HOA</th>
+            <th>Lot Size (sqm)</th>
+            <th>HOA Area</th>
           </tr>
         </thead>
-        <tbody>
-          <!-- Example layout before database -->
-           <tr>
-            <td>John Doe Smith</td>
-            <td>Block 8</td>
-            <td>Lot 5</td>
-            <td>34x23m</td>
-            <td>Doña Juana</td>
-            <td>Doña Juana Elementary School</td>
-          </tr>
-          <td>John Doe Smith</td>
-            <td>Block 8</td>
-            <td>Lot 5</td>
-            <td>34x23m</td>
-            <td>Sta Catalina</td>
-            <td>Alley I - Sta Catalina HOA Blk 1</td>
+        <tbody id="beneficiaries-table-body">
+          <!-- Dynamic beneficiaries will be loaded here -->
+          <tr id="loading-row">
+            <td colspan="5" style="text-align: center; padding: 20px; color: #666;">Loading beneficiaries...</td>
           </tr>
         </tbody>
       </table>
     </div>
 
+    <!-- Pagination Footer -->
+    <div class="pagination-footer">
+      <div class="pagination-controls">
+        <button id="prev-btn-footer" class="pagination-btn" disabled>‹ Previous</button>
+        <span id="page-info-footer">Page 1</span>
+        <button id="next-btn-footer" class="pagination-btn" disabled>Next ›</button>
+      </div>
+      <span id="pagination-info-footer">Loading...</span>
+    </div>
+
+  <script>
+    // Global variables for pagination
+    let currentPage = 1;
+    let totalPages = 1;
+    let totalRecords = 0;
+    const recordsPerPage = 20;
+
+    // Function to load beneficiaries from database
+    async function loadBeneficiaries(page = 1) {
+      try {
+        showLoading();
+        const response = await fetch(`/admin/beneficiaries/?page=${page}&per_page=${recordsPerPage}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch beneficiaries');
+        }
+        
+        const data = await response.json();
+        displayBeneficiaries(data.beneficiaries);
+        updatePagination(data.pagination);
+        
+      } catch (error) {
+        console.error('Error loading beneficiaries:', error);
+        displayError('Failed to load beneficiaries. Please try again later.');
+      }
+    }
+
+    // Function to display beneficiaries in the table
+    function displayBeneficiaries(beneficiaries) {
+      const tableBody = document.getElementById('beneficiaries-table-body');
+      
+      if (!beneficiaries || beneficiaries.length === 0) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align: center; padding: 20px; color: #666;">No beneficiaries found.</td>
+          </tr>
+        `;
+        return;
+      }
+      
+      let tableHTML = '';
+      beneficiaries.forEach(beneficiary => {
+        tableHTML += `
+          <tr>
+            <td style="text-align: left;">${beneficiary.name || 'N/A'}</td>
+            <td>Block ${beneficiary.block_no || 'N/A'}</td>
+            <td>Lot ${beneficiary.lot_no || 'N/A'}</td>
+            <td>${beneficiary.sqm || 'N/A'} sqm</td>
+            <td style="text-align: left;">${beneficiary.area_name || 'N/A'}</td>
+          </tr>
+        `;
+      });
+      
+      tableBody.innerHTML = tableHTML;
+    }
+
+    // Function to update pagination controls
+    function updatePagination(pagination) {
+      currentPage = pagination.page;
+      totalPages = pagination.total_pages;
+      totalRecords = pagination.total;
+      
+      // Calculate display range
+      const startRecord = ((currentPage - 1) * recordsPerPage) + 1;
+      const endRecord = Math.min(currentPage * recordsPerPage, totalRecords);
+      
+      // Update pagination info
+      const paginationText = `Row ${startRecord}-${endRecord} of ${totalRecords}`;
+      document.getElementById('pagination-info').textContent = paginationText;
+      document.getElementById('pagination-info-footer').textContent = paginationText;
+      
+      // Update page info
+      const pageText = `Page ${currentPage} of ${totalPages}`;
+      document.getElementById('page-info').textContent = pageText;
+      document.getElementById('page-info-footer').textContent = pageText;
+      
+      // Update button states
+      const prevDisabled = currentPage <= 1;
+      const nextDisabled = currentPage >= totalPages;
+      
+      document.getElementById('prev-btn').disabled = prevDisabled;
+      document.getElementById('prev-btn-footer').disabled = prevDisabled;
+      document.getElementById('next-btn').disabled = nextDisabled;
+      document.getElementById('next-btn-footer').disabled = nextDisabled;
+    }
+
+    // Function to show loading state
+    function showLoading() {
+      const loadingText = 'Loading...';
+      document.getElementById('pagination-info').textContent = loadingText;
+      document.getElementById('pagination-info-footer').textContent = loadingText;
+      
+      const tableBody = document.getElementById('beneficiaries-table-body');
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align: center; padding: 20px; color: #666;">Loading beneficiaries...</td>
+        </tr>
+      `;
+    }
+
+    // Function to display error message
+    function displayError(message) {
+      const tableBody = document.getElementById('beneficiaries-table-body');
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align: center; padding: 20px; color: #ff6b6b;">${message}</td>
+        </tr>
+      `;
+      
+      document.getElementById('pagination-info').textContent = 'Error loading data';
+      document.getElementById('pagination-info-footer').textContent = 'Error loading data';
+    }
+
+    // Navigation functions
+    function goToPage(page) {
+      if (page >= 1 && page <= totalPages && page !== currentPage) {
+        loadBeneficiaries(page);
+      }
+    }
+
+    function previousPage() {
+      if (currentPage > 1) {
+        goToPage(currentPage - 1);
+      }
+    }
+
+    function nextPage() {
+      if (currentPage < totalPages) {
+        goToPage(currentPage + 1);
+      }
+    }
+
+    // Initialize page when DOM loads
+    document.addEventListener('DOMContentLoaded', function() {
+      // Set up event listeners for pagination controls
+      document.getElementById('prev-btn').addEventListener('click', previousPage);
+      document.getElementById('next-btn').addEventListener('click', nextPage);
+      document.getElementById('prev-btn-footer').addEventListener('click', previousPage);
+      document.getElementById('next-btn-footer').addEventListener('click', nextPage);
+      
+      // Load initial data
+      loadBeneficiaries(1);
+    });
+  </script>
+
+  <style>
+    /* Pagination styles */
+    .pagination-header, .pagination-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 6px;
+      margin: 10px 0;
+      font-size: 14px;
+    }
+
+    .pagination-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pagination-btn {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s ease;
+      min-width: 80px;
+    }
+
+    .pagination-btn:hover:not(:disabled) {
+      background: #0056b3;
+      transform: translateY(-1px);
+    }
+
+    .pagination-btn:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    #page-info, #page-info-footer {
+      font-weight: 600;
+      color: #495057;
+      min-width: 100px;
+      text-align: center;
+    }
+
+    /* Table improvements */
+    .bene-table table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .bene-table th {
+      background: #f8f9fa;
+      padding: 12px 16px;
+      text-align: center;
+      font-weight: 600;
+      border-bottom: 2px solid #dee2e6;
+      color: #495057;
+    }
+
+    .bene-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #dee2e6;
+      text-align: center;
+      transition: background-color 0.2s ease;
+    }
+
+    .bene-table tr:hover td {
+      background-color: #f8f9fa;
+    }
+
+    .bene-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .pagination-header, .pagination-footer {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+      }
+      
+      .pagination-controls {
+        justify-content: center;
+      }
+      
+      .pagination-btn {
+        min-width: 70px;
+        padding: 8px 10px;
+      }
+    }
+  </style>
 
 </body>
 </html>

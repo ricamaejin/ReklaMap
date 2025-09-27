@@ -1,0 +1,999 @@
+<!-- connect to db: areas, blocks, beneficiaries, complaints -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/images/logo.png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css" 
+  integrity="sha512-t7Few9xlddEmgd3oKZQahkNI4dS6l80+eGEzFQiqtyVYdvcSG2D3Iub77R20BdotfRPA9caaRkg1tyaJiPmO0g==" 
+  crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <title>ReklaMap</title>
+  <link rel="stylesheet" href="/css/areas.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo-section">
+      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
+      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
+    </div>
+    <nav class="nav-menu">
+      <a href="/admin/map/index.html" class="nav-item active">Map</a>
+      <a href="/admin/complaints/all.html" class="nav-item">Complaints</a>
+      <a href="/admin/database/beneficiaries.html" class="nav-item">Database</a> 
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- Header -->
+    <header class="page-header">
+      <h1 id="area-title">Loading...</h1>
+    </header>
+
+    <div class="map-layout">
+
+      <div class="map-section">
+        <div id="map-container">
+          <div class="map-legend" id="map-legend" aria-hidden="false">
+            <!-- Dynamic blocks legend will be populated here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Info + Table -->
+      <div class="side-panel">
+        <!-- Info Card -->
+        <div class="info-card">
+          <h2 id="president-name">Loading...</h2>
+          <div class="info-grid">
+            <div class="info-left">
+              <span id="president-address">Loading...</span><br>
+              <span id="president-contact">Loading...</span>
+            </div>
+            <div class="info-right">
+              <strong>Blocks:</strong> <span id="total-blocks">0</span><br>
+              <strong>Members:</strong> <span id="total-members">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Residents List -->
+        <div class="list-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Block
+                  <button class="filter-btn" aria-label="Filter Block">&#x25BC;</button>
+                  <ul class="filter-menu" hidden>
+                    <li data-filter="all">All</li>
+                    <!-- Dynamic block options will be populated here -->
+                  </ul>
+                </th>
+                <th>Lot No.</th>
+                <th>Area</th>
+              </tr>
+            </thead>
+            <tbody id="resident-table">
+              <!-- Dynamic data will be populated here -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-section">
+          <div class="stat-card">
+            <i class="bi bi-graph-up-arrow"></i>
+            <div>
+              <h3 id="total-complaints">0</h3>
+              <p>Complaints</p>
+            </div>
+          </div>
+          
+          <div class="stat-card">
+            <i class="bi bi-person-exclamation"></i>
+            <div>
+              <h3 id="ongoing-complaints">0</h3>
+              <p>On Going</p>   
+            </div>
+          </div>
+          
+          <div class="stat-card">
+            <i class="bi bi-person-check"></i>
+            <div>
+             <h3 id="resolved-complaints">0</h3>
+              <p>Resolved</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  <!-- Tooltip for hover -->
+  <div id="tooltip" class="tooltip"></div>
+
+<script>
+(function () {
+  // Get area code from URL path
+  const pathParts = window.location.pathname.split('/');
+  const areaCode = pathParts[pathParts.length - 1];
+  
+  const container = document.getElementById('map-container');
+  const tooltip = document.getElementById('tooltip');
+  const residentTable = document.getElementById('resident-table');
+  
+  // Store area data globally
+  let currentAreaData = null;
+  let currentBeneficiaries = [];
+  let currentBlocks = [];
+
+  if (!container) {
+    console.error('No #map-container found');
+    return;
+  }
+
+  function clearSvgSelection() {
+    container.querySelectorAll('svg g').forEach(g => {
+      g.classList.remove('selected-area');
+      g.querySelectorAll('path, rect, polygon, circle').forEach(el => {
+        if (el.dataset.origFill) {
+          el.setAttribute('fill', el.dataset.origFill);
+        }
+      });
+    });
+  }
+
+  function highlightSvgArea(areaEl) {
+    clearSvgSelection();
+    if (!areaEl) return;
+    areaEl.classList.add('selected-area');
+
+    areaEl.querySelectorAll('path, rect, polygon, circle').forEach(el => {
+      el.setAttribute('fill', '#4CAF50');
+    });
+  }
+
+  function highlightRow(block, lot) {
+    residentTable.querySelectorAll('tr').forEach(r => r.classList.remove('highlight'));
+
+    // Find matching row (block_no in col index 1, lot in col index 2)
+    const rows = Array.from(residentTable.querySelectorAll('tr'));
+    const match = rows.find(row => {
+      const rowBlock = row.children[1]?.textContent.trim();
+      const rowLot = row.children[2]?.textContent.trim();
+      return String(rowBlock) === String(block) && String(rowLot) === String(lot);
+    });
+
+    if (match) {
+      match.classList.add('highlight');
+      match.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    const svgGroups = Array.from(container.querySelectorAll('svg g'));
+    const matchArea = svgGroups.find(g => {
+      const aBlock = parseBlockFromId(g.id);
+      const aLot = parseLotFromId(g.id);
+      return String(aBlock) === String(block) && String(aLot) === String(lot);
+    });
+
+    if (matchArea) highlightSvgArea(matchArea);
+    else clearSvgSelection();
+  }
+
+  function parseBlockFromId(id) {
+    if (!id) return null;
+    // Try multiple patterns: B1, Block1, blk1, etc.
+    const patterns = [
+      /B\s*?(\d+)/i,
+      /B(\d+)/i,
+      /block\s*?(\d+)/i,
+      /blk\s*?(\d+)/i,
+      /(\d+)/ // fallback: any number
+    ];
+    
+    for (const pattern of patterns) {
+      const match = id.match(pattern);
+      if (match) return match[1];
+    }
+    return null;
+  }
+
+  function parseLotFromId(id) {
+    if (!id) return null;
+    // Try multiple patterns: L1, Lot1, lot1, etc.
+    const patterns = [
+      /L\s*?(\d+)/i,
+      /L(\d+)/i,
+      /lot\s*?(\d+)/i,
+      /(?:B\d+.*?)L(\d+)/i, // Block1Lot5 pattern
+      /(?:block\d+.*?)lot(\d+)/i
+    ];
+    
+    for (const pattern of patterns) {
+      const match = id.match(pattern);
+      if (match) return match[1];
+    }
+    return null;
+  }
+
+  function extractSvgBlockColors() {
+    const blockColors = {};
+    
+    // Only extract colors for blocks that actually exist in our blocks data
+    const validBlockNos = currentBlocks.map(b => b.block_no);
+    console.log('Valid block numbers from blocks data:', validBlockNos); // Debug log
+    
+    // First, try to get colors from individual lot elements (groups with both block and lot info)
+    const lotGroups = container.querySelectorAll('svg g[id]');
+    console.log(`Scanning ${lotGroups.length} SVG groups for lot colors`); // Debug log
+    
+    lotGroups.forEach(group => {
+      const blockNum = parseBlockFromId(group.id);
+      const lotNum = parseLotFromId(group.id);
+      
+      // Only process if this is a valid block number from our blocks data
+      if (blockNum && validBlockNos.includes(parseInt(blockNum))) {
+        if (!blockColors[blockNum]) {
+          // Look for fill colors in the group's children (actual lot shapes)
+          const lotShapes = group.querySelectorAll('path, rect, polygon, circle, ellipse');
+          
+          for (const shape of lotShapes) {
+            let fill = shape.getAttribute('fill') || shape.style.fill;
+            
+            // If no direct fill, check computed style
+            if (!fill || fill === 'currentColor' || fill === 'inherit') {
+              try {
+                const computed = window.getComputedStyle(shape);
+                fill = computed.fill;
+              } catch (e) {
+                // Ignore errors
+              }
+            }
+            
+            // Accept valid color values
+            if (fill && fill !== 'none' && fill !== 'transparent' && fill !== 'currentColor' && fill !== 'inherit' && !fill.includes('url(')) {
+              blockColors[blockNum] = fill;
+              console.log(`✓ Found lot color ${fill} for Block ${blockNum} from ${group.id}`); // Debug log
+              break; // Use the first valid color found for this block
+            }
+          }
+        }
+      }
+    });
+    
+    // If we still don't have colors for some blocks, try broader search
+    validBlockNos.forEach(blockNo => {
+      if (!blockColors[blockNo]) {
+        // Look for any element that might represent this block
+        const allElements = container.querySelectorAll('svg *[id]');
+        
+        for (const element of allElements) {
+          const elementBlockNum = parseBlockFromId(element.id);
+          if (elementBlockNum && parseInt(elementBlockNum) === blockNo) {
+            let fill = element.getAttribute('fill') || element.style.fill;
+            
+            if (!fill || fill === 'currentColor' || fill === 'inherit') {
+              try {
+                const computed = window.getComputedStyle(element);
+                fill = computed.fill;
+              } catch (e) {
+                // Ignore errors
+              }
+            }
+            
+            if (fill && fill !== 'none' && fill !== 'transparent' && fill !== 'currentColor' && fill !== 'inherit' && !fill.includes('url(')) {
+              blockColors[blockNo] = fill;
+              console.log(`✓ Fallback color ${fill} for Block ${blockNo} from ${element.id}`); // Debug log
+              break;
+            }
+          }
+        }
+      }
+    });
+    
+    // Final fallback: assign default colors for blocks without SVG colors
+    validBlockNos.forEach((blockNo, index) => {
+      if (!blockColors[blockNo]) {
+        const fallbackColor = `hsl(${(index * 137.5) % 360}, 65%, 55%)`;
+        blockColors[blockNo] = fallbackColor;
+        console.log(`⚠ Using fallback color ${fallbackColor} for Block ${blockNo}`); // Debug log
+      }
+    });
+    
+    console.log('Final extracted block colors:', blockColors); // Debug log
+    return blockColors;
+  }
+
+  // Load area data
+  async function loadAreaData() {
+    try {
+      const response = await fetch(`/admin/areas/by_code/${areaCode}`);
+      if (!response.ok) {
+        throw new Error('Area not found');
+      }
+      currentAreaData = await response.json();
+      
+      // Update page title and info
+      document.getElementById('area-title').textContent = currentAreaData.area_name;
+      document.getElementById('president-name').textContent = currentAreaData.president;
+      document.getElementById('president-address').textContent = currentAreaData.designation;
+      document.getElementById('president-contact').textContent = currentAreaData.contact_no || 'N/A';
+      document.title = `ReklaMap - ${currentAreaData.area_name}`;
+      
+      // Load beneficiaries first
+      await loadBeneficiaries();
+      
+      // Load blocks (depends on beneficiaries data)
+      await loadBlocks();
+      
+      // Load complaint stats
+      await loadComplaintStats();
+      
+      // Load SVG
+      await loadSVG();
+      
+    } catch (error) {
+      console.error('Error loading area data:', error);
+      document.getElementById('area-title').textContent = 'Area Not Found';
+    }
+  }
+
+  async function loadBlocks() {
+    try {
+      const response = await fetch(`/admin/blocks/area/${currentAreaData.area_id}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      currentBlocks = await response.json();
+      
+      console.log('Loaded blocks:', currentBlocks); // Debug log
+      
+      // Update total blocks count
+      document.getElementById('total-blocks').textContent = currentBlocks.length;
+      
+      // Update filter dropdown
+      updateFilterDropdown();
+      
+      // Note: generateLegend will be called after SVG is loaded
+      
+    } catch (error) {
+      console.error('Error loading blocks:', error);
+      // Fallback to beneficiaries data if blocks API fails
+      if (currentBeneficiaries.length > 0) {
+        const uniqueBlocks = [...new Set(currentBeneficiaries.map(b => b.block_id))].sort((a, b) => a - b);
+        document.getElementById('total-blocks').textContent = uniqueBlocks.length;
+        updateFilterDropdown();
+        // Note: generateLegend will be called after SVG is loaded
+      }
+    }
+  }
+
+  async function loadBeneficiaries() {
+    try {
+      const response = await fetch(`/admin/beneficiaries/${currentAreaData.area_id}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      currentBeneficiaries = await response.json();
+      
+      console.log('Loaded beneficiaries:', currentBeneficiaries); // Debug log
+      
+      // Update total members count
+      document.getElementById('total-members').textContent = currentBeneficiaries.length;
+      
+      // Populate table
+      populateTable();
+      
+    } catch (error) {
+      console.error('Error loading beneficiaries:', error);
+      // Show error in the table
+      const tableBody = document.getElementById('resident-table');
+      tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 20px; color: #ff6b6b;">Error loading beneficiaries: ${error.message}</td></tr>`;
+    }
+  }
+
+  // FIXED: Restored complaint stats function
+  async function loadComplaintStats() {
+    try {
+      const response = await fetch(`/admin/map/api/complaints/${currentAreaData.area_id}`);
+      const stats = await response.json();
+      
+      document.getElementById('total-complaints').textContent = stats.total;
+      document.getElementById('resolved-complaints').textContent = stats.resolved;
+      document.getElementById('ongoing-complaints').textContent = stats.ongoing;
+      
+    } catch (error) {
+      console.error('Error loading complaint stats:', error);
+      // Set default values on error
+      document.getElementById('total-complaints').textContent = '0';
+      document.getElementById('resolved-complaints').textContent = '0';
+      document.getElementById('ongoing-complaints').textContent = '0';
+    }
+  }
+
+  function generateLegend() {
+    const legendContainer = document.getElementById('map-legend');
+    
+    // Prevent multiple executions if legend is already generated
+    if (legendContainer.children.length > 0) {
+      console.log('Legend already generated, skipping'); // Debug log
+      return;
+    }
+    
+    // Check if we have the required data
+    if (!currentBlocks || currentBlocks.length === 0) {
+      console.log('No blocks data available for legend'); // Debug log
+      return;
+    }
+    
+    // Check if SVG is loaded
+    const svgElement = container.querySelector('svg');
+    if (!svgElement) {
+      console.log('SVG not loaded yet, scheduling legend generation'); // Debug log
+      setTimeout(generateLegend, 1000);
+      return;
+    }
+    
+    console.log('Generating legend...'); // Debug log
+    
+    const svgColors = extractSvgBlockColors();
+    
+    // Use block_no from blocks data (no duplicates possible since it comes from DB)
+    const blockNos = currentBlocks.map(b => b.block_no).sort((a, b) => a - b);
+    
+    console.log('Generating legend for block numbers:', blockNos); // Debug log
+    console.log('Available SVG colors:', svgColors); // Debug log
+    
+    blockNos.forEach((blockNo, i) => {
+      const div = document.createElement('div');
+      div.style.display = 'flex';
+      div.style.alignItems = 'center';
+      div.style.marginRight = '15px';
+      
+      // Create the color box
+      const colorBox = document.createElement('span');
+      colorBox.classList.add('legend-color');
+      
+      // Use actual SVG color for this specific block number, or fallback
+      const actualColor = svgColors[blockNo] || svgColors[String(blockNo)] || `hsl(${(i * 60) % 360}, 65%, 55%)`;
+      colorBox.style.backgroundColor = actualColor;
+      
+      console.log(`✓ Legend Block ${blockNo} assigned color:`, actualColor); // Debug log
+      
+      // Add text label
+      div.appendChild(colorBox);
+      div.append(`BLOCK ${blockNo}`);
+      
+      // Append to legend container
+      legendContainer.appendChild(div);
+    });
+  }
+
+  function updateFilterDropdown() {
+    const filterMenu = document.querySelector('.filter-menu');
+    if (!filterMenu) return;
+    
+    // Clear existing options (keep "All")
+    const allOption = filterMenu.querySelector('[data-filter="all"]');
+    filterMenu.innerHTML = '';
+    filterMenu.appendChild(allOption);
+    
+    if (!currentBlocks || currentBlocks.length === 0) {
+      console.log('No blocks data available for dropdown'); // Debug log
+      return;
+    }
+    
+    // Use block_no from blocks data (sorted)
+    const blockNos = currentBlocks.map(b => b.block_no).sort((a, b) => a - b);
+    
+    console.log('Dropdown blocks from blocks data:', blockNos); // Debug log
+    
+    blockNos.forEach(blockNo => {
+      const li = document.createElement('li');
+      li.setAttribute('data-filter', blockNo);
+      li.textContent = `Block ${blockNo}`;
+      filterMenu.appendChild(li);
+    });
+  }
+
+  function populateTable() {
+    const tableBody = document.getElementById('resident-table');
+    
+    tableBody.innerHTML = '';
+    
+    console.log('Populating table with:', currentBeneficiaries); // Debug log
+    
+    if (!currentBeneficiaries || currentBeneficiaries.length === 0) {
+      const row = document.createElement('tr');
+      row.innerHTML = `<td colspan="4" style="text-align: center; padding: 20px; color: #666;">No beneficiaries found</td>`;
+      tableBody.appendChild(row);
+      return;
+    }
+    
+    currentBeneficiaries.forEach((resident, index) => {
+      console.log(`Processing resident ${index}:`, resident); // Debug log
+      
+      const row = document.createElement('tr');
+      
+      // Concatenate name from separate fields with better null handling
+      let fullName = '';
+      if (resident.first_name) fullName += resident.first_name;
+      if (resident.middle_initial) fullName += (fullName ? ' ' : '') + resident.middle_initial;
+      if (resident.last_name) fullName += (fullName ? ' ' : '') + resident.last_name;
+      if (resident.suffix) fullName += (fullName ? ' ' : '') + resident.suffix;
+      
+      // Fallback to any name field if the separate fields don't exist
+      if (!fullName && resident.name) fullName = resident.name;
+      if (!fullName) fullName = 'Unknown';
+      
+      // Get block_no from blocks table using block_id
+      const blockData = currentBlocks.find(b => b.block_id === resident.block_id);
+      const blockNo = resident.block_no || 'N/A';
+      
+      row.innerHTML = `
+        <td>${fullName.trim()}</td>
+        <td>${blockNo}</td>
+        <td>${resident.lot_no || resident.lot || 'N/A'}</td>
+        <td>${resident.sqm || resident.area || 'N/A'}</td>
+      `;
+      
+      // Add click handler for row highlighting
+      row.addEventListener('click', () => {
+        document.querySelectorAll('#resident-table tr').forEach(r => r.classList.remove('highlight'));
+        row.classList.add('highlight');
+      });
+      
+      tableBody.appendChild(row);
+    });
+  }
+
+  async function loadSVG() {
+    try {
+      const response = await fetch(`/admin/map/svg/${areaCode}.svg`);
+      const svgText = await response.text();
+      
+      container.insertAdjacentHTML('afterbegin', svgText);
+      
+      // Generate legend after SVG is loaded
+      setTimeout(generateLegend, 500);
+      
+      const svgGroups = container.querySelectorAll('svg g');
+      
+      const svgEl = container.querySelector('svg'); // Get reference to main SVG for zoom functionality
+      
+      // Save original fill and setup interactions
+      svgGroups.forEach(g => {
+        g.querySelectorAll('path, rect, polygon, circle').forEach(el => {
+          el.dataset.origFill = el.getAttribute('fill') || '';
+        });
+
+        // Zoom functionality variables
+        let zoomTimeout;
+
+        // Zoom on hover (mouseenter)
+        g.addEventListener('mouseenter', (e) => {
+          zoomTimeout = setTimeout(() => {
+            const rect = svgEl.getBoundingClientRect();
+            const offsetX = e.clientX - rect.left; 
+            const offsetY = e.clientY - rect.top;
+
+            const percentX = (offsetX / rect.width) * 100;
+            const percentY = (offsetY / rect.height) * 100;
+
+            svgEl.style.transition = "transform 0.8s ease-in-out";
+            svgEl.style.transformOrigin = `${percentX}% ${percentY}%`;
+            svgEl.style.transform = "scale(1.5)";
+          }, 200);
+        });
+
+        // Tooltip hover
+        g.addEventListener('mousemove', e => {
+          // Update zoom origin while zoomed
+          if (svgEl.style.transform === "scale(1.5)") {
+            const rect = svgEl.getBoundingClientRect();
+            const offsetX = e.clientX - rect.left; 
+            const offsetY = e.clientY - rect.top;
+
+            const percentX = (offsetX / rect.width) * 100;
+            const percentY = (offsetY / rect.height) * 100;
+
+            svgEl.style.transformOrigin = `${percentX}% ${percentY}%`;
+          }
+
+          // Tooltip functionality
+          const block = parseBlockFromId(g.id);
+          const lot = parseLotFromId(g.id);
+          
+          let tooltipContent = 'Area Information';
+          if (block && lot) {
+            // Find beneficiary by matching block_no (from SVG) with block_no (from blocks data)
+            const blockData = currentBlocks.find(b => b.block_no == block);
+            const beneficiary = blockData ? currentBeneficiaries.find(b => 
+              b.block_id == blockData.block_id && b.lot_no == lot
+            ) : null;
+            
+            if (beneficiary) {
+              let fullName = beneficiary.first_name || '';
+              if (beneficiary.middle_initial) fullName += ` ${beneficiary.middle_initial}`;
+              if (beneficiary.last_name) fullName += ` ${beneficiary.last_name}`;
+              if (beneficiary.suffix) fullName += ` ${beneficiary.suffix}`;
+              tooltipContent = `<div class="tooltip-content"><strong>${fullName.trim()}</strong><br>Block ${block}, Lot ${lot}<br>${beneficiary.sqm} sqm</div>`;
+            } else {
+              tooltipContent = `<div class="tooltip-content">Block ${block}, Lot ${lot}</div>`;
+            }
+          }
+          
+          tooltip.innerHTML = tooltipContent;
+          tooltip.style.left = (e.pageX + 12) + 'px';
+          tooltip.style.top = (e.pageY + 12) + 'px';
+          tooltip.style.display = 'block';
+        });
+
+        g.addEventListener('mouseleave', () => {
+          // Reset zoom
+          clearTimeout(zoomTimeout);
+          svgEl.style.transform = "scale(1)";
+          
+          // Hide tooltip
+          tooltip.style.display = 'none';
+        });
+
+        // Click highlight row
+        g.addEventListener('click', () => {
+          console.log('SVG clicked:', g.id); // Debug log
+          
+          let svgBlock = null;
+          let svgLot = null;
+          
+          // Check if this element has a lot attribute
+          const lotAttr = g.getAttribute('lot');
+          if (lotAttr) {
+            svgLot = lotAttr;
+            
+            // Find the parent block element by traversing up the DOM
+            let parentElement = g.parentElement;
+            while (parentElement && !svgBlock) {
+              if (parentElement.id && parentElement.id.match(/block\s*(\d+)/i)) {
+                const blockMatch = parentElement.id.match(/block\s*(\d+)/i);
+                svgBlock = blockMatch[1];
+                break;
+              }
+              parentElement = parentElement.parentElement;
+            }
+          } else {
+            // Fallback: try to extract from the element's own id
+            const blockMatch = g.id.match(/block\s*(\d+)/i);
+            svgBlock = blockMatch ? blockMatch[1] : null;
+            
+            const lotMatch = g.id.match(/lot\s*(\d+)/i) || g.id.match(/L\s*(\d+)/i);
+            svgLot = lotMatch ? lotMatch[1] : null;
+          }
+          
+          console.log('Parsed SVG block:', svgBlock, 'lot:', svgLot); // Debug log
+          
+          if (svgBlock && svgLot) {
+            // Find matching row based on displayed values in Block and Lot No. columns
+            const rows = Array.from(residentTable.querySelectorAll('tr'));
+            const matchingRow = rows.find(row => {
+              const displayedBlock = row.children[1]?.textContent.trim();
+              const displayedLot = row.children[2]?.textContent.trim();
+              
+              // Compare with displayed values (case-insensitive for block)
+              return String(displayedBlock).toLowerCase() === String(svgBlock).toLowerCase() && 
+                     String(displayedLot) === String(svgLot);
+            });
+            
+            if (matchingRow) {
+              // Clear previous highlights
+              residentTable.querySelectorAll('tr').forEach(r => r.classList.remove('highlight'));
+              
+              // Highlight the matching row
+              matchingRow.classList.add('highlight');
+              matchingRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              
+              console.log('Highlighted row for Block:', svgBlock, 'Lot:', svgLot); // Debug log
+            } else {
+              console.log('No matching row found for Block:', svgBlock, 'Lot:', svgLot); // Debug log
+            }
+          } else {
+            console.log('Could not parse block/lot from SVG structure. Element:', g.id, 'Lot attr:', lotAttr); // Debug log
+          }
+        });
+        
+        // Add a function to highlight entire block
+        function highlightBlock(blockNo) {
+          residentTable.querySelectorAll('tr').forEach(r => r.classList.remove('highlight'));
+          
+          const rows = Array.from(residentTable.querySelectorAll('tr'));
+          rows.forEach(row => {
+            const rowBlock = row.children[1]?.textContent.trim();
+            if (String(rowBlock) === String(blockNo)) {
+              row.classList.add('highlight');
+            }
+          });
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error loading SVG:', error);
+    }
+  }
+
+  // Dropdown & table interactions
+  const filterBtn = document.querySelector('.filter-btn');
+  const filterMenu = document.querySelector('.filter-menu');
+
+  filterBtn?.addEventListener('click', e => {
+    e.stopPropagation();
+    filterMenu.hidden = !filterMenu.hidden;
+  });
+
+  filterMenu?.addEventListener('click', e => {
+    if (e.target.tagName === 'LI') {
+      const filterValue = e.target.dataset.filter;
+      Array.from(residentTable.querySelectorAll('tr')).forEach(row => {
+        const block = row.children[1]?.textContent.trim();
+        // Convert both to strings for comparison since filterValue is string and block is displayed as block_no
+        row.style.display = (filterValue === 'all' || String(block) === String(filterValue)) ? '' : 'none';
+      });
+      filterMenu.hidden = true;
+    }
+  });
+
+  document.addEventListener('click', () => {
+    if (filterMenu) filterMenu.hidden = true;
+  });
+
+  // clicking a table row highlights SVG
+  residentTable.addEventListener('click', e => {
+    const tr = e.target.closest('tr');
+    if (!tr) return;
+    const block = tr.children[1]?.textContent.trim();
+    const lot = tr.children[2]?.textContent.trim();
+    if (block && lot) highlightRow(block, lot);
+  });
+
+  // Initialize the page
+  loadAreaData();
+
+})();
+</script>
+
+<style>
+/* Dynamic legend colors based on blocks count */
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  display: inline-block;
+  border: 1px solid rgba(0,0,0,0.06);
+  flex: 0 0 16px;
+  margin-right: 8px;
+}
+
+/* Filter dropdown styles */
+.filter-btn {
+  background: #4285f4;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-left: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.filter-btn:hover {
+  background: #3367d6;
+}
+
+.filter-menu {
+  position: absolute;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  z-index: 1000;
+  min-width: 150px;
+  max-height: 200px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 5px 0;
+  top: 100%;
+  left: 0;
+  list-style: none;
+}
+
+.filter-menu li {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-size: 14px;
+}
+
+.filter-menu li:hover {
+  background-color: #3367d6;
+}
+
+.filter-menu[hidden] {
+  display: none !important;
+}
+
+/* Table styling */
+.list-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+  table-layout: fixed;
+}
+
+.list-table th:nth-child(1) { width: 40%; } /* Name */
+.list-table th:nth-child(2) { width: 20%; } /* Block */
+.list-table th:nth-child(3) { width: 20%; } /* Lot No. */
+.list-table th:nth-child(4) { width: 20%; } /* Area */
+
+.list-table th {
+  padding: 12px 15px;
+  text-align: center;
+  background-color: #f5f6fa;
+  font-weight: 600;
+  border-bottom: 2px solid #ddd;
+  color: #333;
+  position: relative;
+}
+
+.list-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #eee;
+  transition: background-color 0.2s ease;
+  text-align: center;
+}
+
+.list-table tr:hover td {
+  background-color: #f9f9f9;
+}
+
+.list-table tr.highlight td {
+  background-color: #e3f2fd !important;
+  border-left: 3px solid #2196f3;
+}
+
+/* Stats section styling - matching sjc.html */
+.stats-section {
+  display: flex;
+  gap: 15px;
+  margin-top: 20px;
+  justify-content: space-between;
+}
+
+.stat-card {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.stat-card i {
+  font-size: 24px;
+  color: #4285f4;
+}
+
+.stat-card div h3 {
+  margin: 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.stat-card div p {
+  margin: 0;
+  color: #666;
+  font-size: 12px;
+}
+
+/* Tooltip styling */
+.tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  z-index: 1000;
+  pointer-events: none;
+  display: none;
+  max-width: 200px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.tooltip-content {
+  line-height: 1.4;
+}
+
+/* SVG interaction styles */
+svg g:hover {
+  cursor: pointer;
+}
+
+svg g.selected-area path,
+svg g.selected-area rect,
+svg g.selected-area polygon,
+svg g.selected-area circle {
+  stroke: #2196f3 !important;
+  stroke-width: 2 !important;
+  filter: brightness(1.1);
+}
+
+/* Loading states */
+.loading {
+  color: #999;
+  font-style: italic;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .content-wrapper {
+    flex-direction: column;
+    height: auto;
+  }
+  
+  .map-section {
+    height: 400px;
+    flex: none;
+  }
+  
+  .info-panel {
+    max-width: none;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+  
+  .president-info,
+  .complaint-stats {
+    flex: 1;
+    min-width: 250px;
+  }
+  
+  .beneficiaries-section {
+    flex: 100%;
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  .content-wrapper {
+    padding: 10px;
+    gap: 15px;
+  }
+  
+  .info-panel {
+    flex-direction: column;
+  }
+  
+  .stats-grid {
+    gap: 10px;
+  }
+  
+  .stat-number {
+    font-size: 20px;
+  }
+}
+</style>
+</body>
+</html>

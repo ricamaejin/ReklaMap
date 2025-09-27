@@ -16,7 +16,7 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/admin/map/index.html" class="nav-item ">Map</a> <!-- dahil ba sjc.html to atm -->
+      <a href="/admin/map/index.html" class="nav-item ">Map</a>
       <a href="/admin/complaints/all.html" class="nav-item">Complaints</a>
       <a href="/admin/database/beneficiaries.html" class="nav-item active">Database</a>
     </nav>
@@ -47,19 +47,77 @@
             <th>Applicable Issue</th>
           </tr>
         </thead>
-        <tbody>
-          <!-- Example layout before database, Magdadatabase ba dito or direct na dito? -->
-           <tr>
-            <td>NGC-01</td>
-            <td>RA 9207</td>
-            <td>Section 2</td>
-            <td>Declares State policy to develop NGC land into organized, equitable housing and urban area.</td>
-            <td>Land Ownership</td>
+        <tbody id="policies-table-body">
+          <!-- Dynamic policies will be loaded here -->
+          <tr id="loading-row">
+            <td colspan="5" style="text-align: center; padding: 20px; color: #666;">Loading policies...</td>
           </tr>
         </tbody>
       </table>
     </div>
 
+  <script>
+    // Function to load policies from database
+    async function loadPolicies() {
+      try {
+        const response = await fetch('/admin/policies/');
+        if (!response.ok) {
+          throw new Error('Failed to fetch policies');
+        }
+        
+        const policies = await response.json();
+        displayPolicies(policies);
+        
+      } catch (error) {
+        console.error('Error loading policies:', error);
+        displayError('Failed to load policies. Please try again later.');
+      }
+    }
+
+    // Function to display policies in the table
+    function displayPolicies(policies) {
+      const tableBody = document.getElementById('policies-table-body');
+      
+      if (!policies || policies.length === 0) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align: center; padding: 20px; color: #666;">No policies found.</td>
+          </tr>
+        `;
+        return;
+      }
+      
+      let tableHTML = '';
+      policies.forEach(policy => {
+        tableHTML += `
+          <tr>
+            <td>${policy.policy_code || 'N/A'}</td>
+            <td>${policy.law || 'N/A'}</td>
+            <td>${policy.section_number || 'N/A'}</td>
+            <td>${policy.description || 'N/A'}</td>
+            <td>${policy.application || 'N/A'}</td>
+          </tr>
+        `;
+      });
+      
+      tableBody.innerHTML = tableHTML;
+    }
+
+    // Function to display error message
+    function displayError(message) {
+      const tableBody = document.getElementById('policies-table-body');
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align: center; padding: 20px; color: #ff6b6b;">${message}</td>
+        </tr>
+      `;
+    }
+
+    // Load policies when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+      loadPolicies();
+    });
+  </script>
 
 </body>
 </html>
