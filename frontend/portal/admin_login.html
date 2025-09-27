@@ -1,3 +1,4 @@
+<!-- connect to db: admin; removed js -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -23,22 +24,22 @@
       <div class="left-section">
         <h2 class="login-title">LOGIN</h2>
 
-        <form id="loginForm" action="/login" method="POST">
+        <form id="loginForm" action="/admin/login" method="POST">
           <div class="input-group blue-group">
             <i class="bi bi-person-fill"></i>
-            <input type="text" id="empId" placeholder="Employee Id No." class="blue-input" />
+            <input type="text" id="empId" name="employee_id" placeholder="Employee Id No." class="blue-input" required />
           </div>
 
           <div class="input-group shadow black-group">
             <i class="bi bi-unlock2-fill"></i>
-            <input type="password" id="password" placeholder="Password" class="black-input" />
+            <input type="password" id="password" name="password" placeholder="Password" class="black-input" required />
           </div>
 
-          <!-- Message box -->
-          <div id="messageBox" class="message"></div>
+          <!-- Error message here -->
+          <div id="loginError" class="message error">Invalid Employee ID or Password</div>
 
           <div class="btn-wrapper">
-            <button class="login-btn" onclick="login()">SIGN IN</button>
+            <button class="login-btn" type="submit">SIGN IN</button>
           </div>
         </form>
       </div>
@@ -49,39 +50,44 @@
     </div>
   </div>
 
-  <!-- Di ko sure kung maapply pa rin to pero ginawa ko na lang din trigger to para lumabas yung mga invalid/success message-->
   <script>
-    function login() {
-      const empId = document.getElementById("empId").value.trim();
-      const password = document.getElementById("password").value.trim();
-      const messageBox = document.getElementById("messageBox");
+  document.getElementById("loginForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
 
-      // reset message
-      messageBox.style.display = "none";
-      messageBox.textContent = "";
+    const empId = document.getElementById("empId").value;
+    const password = document.getElementById("password").value;
+    const errorBox = document.getElementById("loginError");
 
-      if (empId === "" || password === "") {
-        messageBox.textContent = "Please fill in both fields!";
-        messageBox.className = "message error";
-        messageBox.style.display = "block";
-        return;
-      }
+    // Hide previous error
+    errorBox.style.display = "none";
+    errorBox.textContent = "";
 
-      // Example credentials check
-      if (empId === "admin" && password === "1234") {
-        messageBox.textContent = "Login successful! Redirecting...";
-        messageBox.className = "message success";
-        messageBox.style.display = "block";
+    try {
+      const res = await fetch("/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ employee_id: empId, password: password })
+      });
 
-        setTimeout(() => {
-          window.location.href = "/admin/map/index.html";
-        }, 1500);
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        window.location.href = data.redirect;
       } else {
-        messageBox.textContent = "Invalid Employee ID or Password!";
-        messageBox.className = "message error";
-        messageBox.style.display = "block";
+        errorBox.textContent = data.message || "Login failed.";
+        errorBox.style.display = "block";
       }
+    } catch (err) {
+      errorBox.textContent = "Something went wrong. Try again.";
+      errorBox.style.display = "block";
     }
+  });
+
+  // Remove error message once user types in password again
+  document.getElementById("password").addEventListener("input", () => {
+    const errorBox = document.getElementById("loginError");
+    errorBox.style.display = "none";
+  });
   </script>
 </body>
 </html>
