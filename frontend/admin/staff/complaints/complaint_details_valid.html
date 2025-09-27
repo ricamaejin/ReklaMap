@@ -2,22 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/png" href="/images/logo.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css" 
+  integrity="sha512-t7Few9xlddEmgd3oKZQahkNI4dS6l80+eGEzFQiqtyVYdvcSG2D3Iub77R20BdotfRPA9caaRkg1tyaJiPmO0g==" 
+  crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="icon" type="image/png" href="/frontend/images/logo.png">
   <title>ReklaMap</title>
-  <link rel="stylesheet" href="/css/complainants.css">
+  <link rel="stylesheet" href="/frontend/css/complainants.css">
 </head>
 <body>
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="logo-section">
-      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
+      <img src="/frontend/images/logo.png" alt="ReklaMap Logo" class="logo">
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/map/index.html" class="nav-item">Map</a> <!-- dahil ba sjc.html to atm -->
-      <a href="/complaints/all.html" class="nav-item active">Complaints</a>
-      <a href="/database/beneficiaries.html" class="nav-item">Database</a>
+      <a href="/frontend/admin/map/index.html" class="nav-item">Map</a>
+      <a href="/frontend/admin/complaints/all.html" class="nav-item active">Complaints</a>
+      <a href="/frontend/admin/database/beneficiaries.html" class="nav-item">Database</a>
     </nav>
   </aside>
 
@@ -26,16 +29,13 @@
     <header class="header"><h1>Complaint</h1></header>
 
     <div class="complaint-layout" style="margin-top: 30px;">
-      <!-- Complaint Form Placeholder -->
-      <!-- TODO BACKEND: Populate complaint-form div with complaint details from DB -->
       <div class="complaint-form">Complaint form data will load here...</div>
 
       <!-- Right Panel -->
       <div class="right-panel">
         <div class="map-card">Map / Asset details here...</div>
-        <button class="action-btn" onclick="openComplaint()">Action</button>
+        <button class="action-btn" onclick="openComplaint()">Assessment</button>
 
-        <!-- TODO BACKEND: Replace static timeline entries with timeline data from DB -->
         <div class="timeline">
           <div class="timeline-entry">
             <h4>6/19/2025 - Send Invitation 
@@ -49,26 +49,7 @@
             <p>Upon inspection, the staff verified the complaint’s validity...</p>
           </div>
         </div>
-        <!-- TODO BACKEND: Direct the button so that it will go to the complaint tab: resolved -->
         <button class="resolved-btn">Resolved</button>
-      </div>
-    </div>
-
-    <!-- RECOMMENDED ACTION MODAL -->
-    <div class="modal-overlay" id="recommendModal" style="display:none;">
-      <div class="modal">
-        <div class="modal-header">
-          <h2>Recommended Action</h2>
-        </div>
-        <hr>
-
-        <!-- Recommendation Description -->
-        <!-- TODO BACKEND: Replace static description from backend -->
-        <textarea style="margin-left: 0px;">Based on system analysis, we recommend the following action:</textarea>
-
-        <div class="modal-footer">
-          <button class="btn-save" onclick="proceedToAction()">Proceed</button>
-        </div>
       </div>
     </div>
 
@@ -81,28 +62,20 @@
         </div>
         <hr>
 
-        <label for="type">Type of Action:</label>
+        <label for="type">Type of Action Performed:</label>
         <div class="type-action-row">
-        <select id="type" name="actionType" aria-label="Type of Action">
-            <option value="" disabled selected hidden>Select Action</option>
-            <option value="Inspection">Inspection</option>
-            <option value="Send Invitation">Send Invitation</option>
-            <option value="Mediation">Mediation</option>
-            <option value="Other">Other</option>
-        </select>
-        <input type="text" id="actionOther" name="actionOther" placeholder="Specify" style="display:none;" />
+          <select id="type" name="actionType" aria-label="Type of Action">
+              <option value="" disabled selected hidden>Select Action</option>
+              <option value="Inspection">Inspection</option>
+              <option value="Send Invitation">Send Invitation</option>
+              <option value="Mediation">Mediation</option>
+              <option value="Other">Other</option>
+          </select>
+          <input type="text" id="actionOther" name="actionOther" placeholder="Specify" style="display:none;" />
         </div>
 
-
-        <label>Assigned to:</label>
-        <select>
-          <option value="" disabled selected hidden>Select Staff</option>
-          <option>Staff A</option>
-          <option>Staff B</option>
-        </select>
-
         <label>Description:</label>
-        <textarea></textarea>
+        <textarea style="width: 98%;"></textarea>
 
         <label>File:</label>
         <div class="file-upload"><button onclick="openFiles()">Upload</button></div>
@@ -113,7 +86,6 @@
         <div class="modal-footer">
           <button class="btn-cancel" onclick="closeComplaint()">Cancel</button>
           <button class="btn-save">Save</button> 
-          <!-- TODO BACKEND: When user clicks Save, send action data (type, specify if other, staff, description, file) to server and save in database -->
         </div>
       </div>
     </div>
@@ -136,7 +108,6 @@
         <div class="file-list uploaded-list" style="display:none;">
           <div class="file-row">
             <span>Upload new file:</span>
-            <!-- TODO BACKEND: Handle file uploads from userFileInput and store in server -->
             <input type="file" id="userFileInput" accept=".pdf,.jpeg,.jpg,.png" />
           </div>
           <div id="userFilesContainer"></div>
@@ -149,8 +120,7 @@
 
   <script>
   (function () {
-    const modal = document.getElementById('modal');               // Action modal
-    const recommendModal = document.getElementById("recommendModal"); // Recommended modal
+    const modal = document.getElementById('modal'); 
     const dateEl = document.getElementById('datetime');
     const select = document.getElementById('type');
     const actionOther = document.getElementById('actionOther');
@@ -168,19 +138,8 @@
       dateEl.innerHTML = `${dateStr}<br>${timeStr}`;
     }
 
-    // Step 1: When clicking "Action" button → open Recommended first
+    // Open Action modal directly
     function openComplaint() {
-      recommendModal.style.display = "flex";
-    }
-
-    // Close Recommended modal
-    function closeRecommend() {
-      recommendModal.style.display = "none";
-    }
-
-    // Step 2: From Recommended → proceed to Action modal
-    function proceedToAction() {
-      recommendModal.style.display = "none";
       modal.style.display = 'flex';
       updateComplaintDateTime();
       if (!interval) interval = setInterval(updateComplaintDateTime, 1000);
@@ -188,33 +147,26 @@
       actionOther.style.display = "none";
     }
 
-    // Close Action modal
     function closeComplaint() {
       modal.style.display = 'none';
       if (interval) { clearInterval(interval); interval = null; }
     }
 
-    // "Other" option in Action modal
     select.addEventListener("change", () => {
       actionOther.style.display = (select.value === "Other") ? "inline-block" : "none";
     });
 
-    // Click outside closes modals
     modal.addEventListener('click', e => { if (e.target === modal) closeComplaint(); });
-    recommendModal.addEventListener("click", e => { if (e.target === recommendModal) closeRecommend(); });
 
-    // Expose globally so your buttons can call them
     window.openComplaint = openComplaint;
     window.closeComplaint = closeComplaint;
-    window.proceedToAction = proceedToAction;
-    window.closeRecommend = closeRecommend;
     window.updateComplaintDateTime = updateComplaintDateTime;
   })();
 
   /* Timeline: Open PDF */
   document.querySelectorAll('.file-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const pdfUrl = btn.getAttribute('data-pdf'); // replace with actual file paths
+      const pdfUrl = btn.getAttribute('data-pdf');
       if (pdfUrl) window.open(pdfUrl, '_blank');
       else alert("No PDF linked yet.");
     });
@@ -259,8 +211,6 @@
     const file = e.target.files[0];
     if (file) {
       const url = URL.createObjectURL(file);
-
-      // Create a file row in the Downloadable list
       const fileRow = document.createElement("div");
       fileRow.className = "file-row";
 
@@ -272,24 +222,18 @@
         </div>
       `;
 
-      // Attach button functionality
       fileRow.querySelector(".attach-btn").addEventListener("click", () => {
         attachFileToAction(file.name, url);
       });
 
       document.querySelector(".downloadable-list").appendChild(fileRow);
-
-      // Auto-switch to downloadable tab
       document.querySelector('.file-tabs .tab[data-tab="downloadable"]').click();
     }
   });
 
-  /* Attach file to Action modal */
   function attachFileToAction(fileName, fileUrl) {
     const container = document.getElementById("attachedFilesContainer");
     if (!container) return;
-
-    // Prevent duplicates
     const alreadyAttached = [...container.querySelectorAll(".attached-file")]
       .some(f => f.textContent === fileName);
     if (alreadyAttached) return;
@@ -297,26 +241,16 @@
     const fileTag = document.createElement("div");
     fileTag.className = "attached-file";
     fileTag.textContent = fileName;
-
-    // Store metadata so you can save later
     fileTag.dataset.url = fileUrl;
-
     container.appendChild(fileTag);
   }
 
-  // TODO: send this to backend (via fetch/ajax)
   document.querySelector(".btn-save").addEventListener("click", () => {
     const actionType = document.getElementById("type").value;
     const desc = document.querySelector("textarea").value;
-
     const attachedFiles = [...document.querySelectorAll("#attachedFilesContainer .attached-file")]
       .map(f => ({ name: f.textContent, url: f.dataset.url }));
-
-    console.log({
-      actionType,
-      desc,
-      attachedFiles
-    });
+    console.log({ actionType, desc, attachedFiles });
   });
   </script>
 </body>

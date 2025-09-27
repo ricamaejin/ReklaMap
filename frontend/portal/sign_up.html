@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/png" href="/images/logo.png">
+  <link rel="icon" type="image/png" href="../images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css" 
   integrity="sha512-t7Few9xlddEmgd3oKZQahkNI4dS6l80+eGEzFQiqtyVYdvcSG2D3Iub77R20BdotfRPA9caaRkg1tyaJiPmO0g==" 
@@ -23,7 +23,7 @@
       <div class="input-wrapper-signup">
         <h2 class="login-title-signup">COMPLAINANT SIGN UP</h2>
 
-        <form id="signupForm" action="http://localhost:3000/signup" method="POST">
+        <form id="signupForm" action="/complainant/signup" method="POST">
           <div class="input-group-signup black-group">
             <i class="bi bi-person-fill"></i>
             <input type="text" id="firstName" name="firstName" placeholder="First Name" class="black-input" required />
@@ -70,8 +70,8 @@
     const form = document.getElementById("signupForm");
     const messageBox = document.getElementById("messageBox");
 
-    form.addEventListener("submit", function(event) {
-      event.preventDefault(); // prevent page reload for demo
+    form.addEventListener("submit", async function(event) {
+      event.preventDefault();
 
       const firstName = document.getElementById("firstName").value.trim();
       const lastName = document.getElementById("lastName").value.trim();
@@ -79,7 +79,6 @@
       const password = document.getElementById("password").value.trim();
       const confirmPassword = document.getElementById("confirmPassword").value.trim();
 
-      // reset message
       messageBox.style.display = "none";
       messageBox.textContent = "";
 
@@ -97,14 +96,32 @@
         return;
       }
 
-      // Example success (replace with real backend response)
-      messageBox.textContent = "Sign-up successful! Redirecting...";
-      messageBox.className = "message success";
-      messageBox.style.display = "block";
+      try {
+        const response = await fetch("http://127.0.0.1:5000/complainant/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: `firstName=${encodeURIComponent(firstName)}&lastName=${encodeURIComponent(lastName)}&email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
+        });
 
-      setTimeout(() => {
-        window.location.href = "/portal/index.html";
-      }, 2000);
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          messageBox.textContent = "Sign-up successful! Redirecting...";
+          messageBox.className = "message success";
+          messageBox.style.display = "block";
+          setTimeout(() => {
+            window.location.href = "/portal/complainant_login.html";
+          }, 2000);
+        } else {
+          messageBox.textContent = result.message || "Sign-up failed!";
+          messageBox.className = "message error";
+          messageBox.style.display = "block";
+        }
+      } catch (error) {
+        messageBox.textContent = "Server error. Please try again.";
+        messageBox.className = "message error";
+        messageBox.style.display = "block";
+      }
     });
   </script>
 </body>

@@ -52,16 +52,15 @@ class Beneficiary(db.Model):
 # -----------------------
 # Complainant table (future mapping)
 # -----------------------
-# class Complainant(db.Model):
-#     __tablename__ = "complainants"   # must match phpMyAdmin table name
-#
-#     id = db.Column(db.Integer, primary_key=True)
-#     email = db.Column(db.String(120), unique=True)
-#     password = db.Column(db.String(200))
-#
-#     def __repr__(self):
-#         return f"<Complainant {self.email}>"
+class User(db.Model):
+    __tablename__ = "users"
 
+    user_id = db.Column(db.Integer, primary_key=True)
+    first_name = db.Column(db.String(100), nullable=False)
+    last_name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
 
 # -----------------------
 # Policy
@@ -92,3 +91,5 @@ class Policy(db.Model):
 #
 #     def __repr__(self):
 #         return f"<Staff {self.name}>"
+
+
