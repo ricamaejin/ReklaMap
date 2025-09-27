@@ -3,7 +3,7 @@
 from .db import db
 
 # -----------------------
-# Admin table (matches phpMyAdmin "admin" table)
+# Admin
 # -----------------------
 class Admin(db.Model):
     __tablename__ = "admin"   # phpMyAdmin
@@ -14,7 +14,39 @@ class Admin(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
 
     def __repr__(self):
-        return f"<Admin {self.employee_ID}>"
+        return f"<Admin {self.employee_id}>"
+
+class Area(db.Model):
+    __tablename__ = 'areas'
+    area_id = db.Column(db.Integer, primary_key=True)
+    area_code = db.Column(db.String(10), nullable=False)
+    area_name = db.Column(db.String(100), nullable=False)
+    president = db.Column(db.String(150), nullable=False)
+    designation = db.Column(db.String(100), nullable=False)
+    contact_no = db.Column(db.String(20), nullable=True)
+    blocks = db.relationship('Block', backref='area', lazy=True)
+    beneficiaries = db.relationship('Beneficiary', backref='area', lazy=True)
+
+class Block(db.Model):
+    __tablename__ = 'blocks'
+    block_id = db.Column(db.Integer, primary_key=True)
+    area_id = db.Column(db.Integer, db.ForeignKey('areas.area_id'), nullable=False)
+    block_no = db.Column(db.Integer, nullable=False)
+    beneficiaries = db.relationship('Beneficiary', backref='block', lazy=True)
+
+class Beneficiary(db.Model):
+    __tablename__ = 'beneficiaries'
+    beneficiary_id = db.Column(db.Integer, primary_key=True)
+    area_id = db.Column(db.Integer, db.ForeignKey('areas.area_id'), nullable=False)
+    block_id = db.Column(db.Integer, db.ForeignKey('blocks.block_id'), nullable=False)
+    first_name = db.Column(db.String(100), nullable=False)
+    middle_initial = db.Column(db.String(10))
+    last_name = db.Column(db.String(100), nullable=False)
+    suffix = db.Column(db.String(10))
+    lot_no = db.Column(db.Integer, nullable=False)
+    sqm = db.Column(db.Integer, nullable=False)
+    co_owner = db.Column(db.Boolean, default=False)
+
 
 
 # -----------------------
@@ -29,6 +61,23 @@ class Admin(db.Model):
 #
 #     def __repr__(self):
 #         return f"<Complainant {self.email}>"
+
+
+# -----------------------
+# Policy
+# -----------------------
+class Policy(db.Model):
+    __tablename__ = "policies"   # must match phpMyAdmin table name
+
+    policy_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    policy_code = db.Column(db.String(50), nullable=False)
+    law = db.Column(db.String(500), nullable=False)
+    section_number = db.Column(db.String(50), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    application = db.Column(db.String(150))
+
+    def __repr__(self):
+        return f"<Policy {self.policy_code}>"
 
 
 # -----------------------
