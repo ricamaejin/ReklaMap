@@ -5,9 +5,18 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import os
 from flask import Flask, send_from_directory
 from sqlalchemy import text
+
+# backend
 from backend.database.db import db
 from backend.database.models import Admin
-from backend.admin.routes import admin_bp
+from backend.admin.routes.auth import auth_bp
+from backend.admin.routes.map import map_bp
+from backend.admin.routes.complaints import complaints_bp
+from backend.admin.routes.areas import areas_bp
+from backend.admin.routes.beneficiaries import beneficiaries_bp
+from backend.admin.routes.blocks import blocks_bp
+from backend.admin.routes.search import search_bp
+from backend.admin.routes.policies import policies_bp
 
 # Set static_folder to your frontend directory, static_url_path to ""
 frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../frontend"))
@@ -24,7 +33,14 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 
 # Register blueprints
-app.register_blueprint(admin_bp)
+app.register_blueprint(auth_bp)
+app.register_blueprint(map_bp)
+app.register_blueprint(complaints_bp)
+app.register_blueprint(areas_bp)
+app.register_blueprint(beneficiaries_bp)
+app.register_blueprint(blocks_bp)
+app.register_blueprint(search_bp)
+app.register_blueprint(policies_bp)
 
 # Serve main portal page
 @app.route("/")
@@ -52,6 +68,23 @@ def db_test():
         return "Database connection is working!"
     except Exception as e:
         return f"Database connection failed: {e}"
+
+# Add this route to test your specific admin query
+@app.route("/test-admin-query")
+def test_admin_query():
+    try:
+        admin = Admin.query.filter_by(employee_id="12345").first()
+        if admin:
+            return {
+                "found": True,
+                "employee_id": admin.employee_id,
+                "name": admin.name,
+                "has_password_hash": bool(admin.password_hash)
+            }
+        else:
+            return {"found": False}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 if __name__ == "__main__":
