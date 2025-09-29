@@ -2,15 +2,25 @@ from flask import Blueprint, render_template, request, jsonify, session
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
+from pathlib import Path
 
 from backend.database.db import db
-from backend.database.models import Registration, Area
+from backend.database.models import (
+    Registration,
+    Area,
+    RegistrationFamOfMember,
+    Beneficiary,
+    RegistrationHOAMember  # import here directly
+)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # current file directory
+TEMPLATE_DIR = os.path.join(BASE_DIR, '..', '..', 'frontend', 'complainant', 'home')
 
 mem_reg_bp = Blueprint(
     "mem_reg",
     __name__,
     url_prefix="/complainant",
-    template_folder=r"C:\Users\win10\Documents\GitHub\ReklaMap\frontend\complainant\home"
+    template_folder=TEMPLATE_DIR
 )
 
 UPLOAD_FOLDER = "uploads/signatures"
@@ -26,12 +36,11 @@ def mem_reg():
             if not user_id:
                 return jsonify({"success": False, "error": "User not logged in"}), 401
 
-            # ✅ get category from form (hidden input)
+            # ✅ get category and other form fields
             category = request.form.get("category")
             if not category:
                 return jsonify({"success": False, "error": "Category is required"}), 400
 
-            # ✅ get other form fields
             last = request.form.get("reg_last")
             first = request.form.get("reg_first")
             mid = request.form.get("reg_mid")
@@ -57,59 +66,58 @@ def mem_reg():
                 sig_filename = secure_filename(sig_file.filename)
                 sig_file.save(os.path.join(UPLOAD_FOLDER, sig_filename))
 
-            # ✅ save to DB
-            # Check if table is empty
-            first_registration = Registration.query.first()
-            if not first_registration:
-                registration_id = 1  # Table is empty, start at 1
-                new_member = Registration(
-                    registration_id=registration_id,  # explicitly set ID
-                    user_id=user_id,
-                    category=category,
-                    last_name=last,
-                    first_name=first,
-                    middle_name=mid,
-                    suffix=suffix,
-                    date_of_birth=datetime.strptime(dob, "%Y-%m-%d") if dob else None,
-                    sex=sex,
-                    citizenship=cit,
-                    age=int(age) if age else None,
-                    year_of_residence=year,
-                    hoa=hoa,
-                    block_no=blk,
-                    phone_number=phone,
-                    lot_no=lot_asn,
-                    lot_size=lot_size,
-                    civil_status=civil,
-                    current_address=cur_add,
-                    recipient_of_other_housing=recipient,
-                    signature_path=sig_filename
-                )
-            else:
-                new_member = Registration(
-                    user_id=user_id,
-                    category=category,
-                    last_name=last,
-                    first_name=first,
-                    middle_name=mid,
-                    suffix=suffix,
-                    date_of_birth=datetime.strptime(dob, "%Y-%m-%d") if dob else None,
-                    sex=sex,
-                    citizenship=cit,
-                    age=int(age) if age else None,
-                    year_of_residence=year,
-                    hoa=hoa,
-                    block_no=blk,
-                    phone_number=phone,
-                    lot_no=lot_asn,
-                    lot_size=lot_size,
-                    civil_status=civil,
-                    current_address=cur_add,
-                    recipient_of_other_housing=recipient,
-                    signature_path=sig_filename
-                )
+            # ✅ cross-check with beneficiaries table
+            existing_beneficiary = Beneficiary.query.filter_by(
+                first_name=first.strip(),
+                last_name=last.strip(),
+                lot_no=lot_asn,
+                block_id=blk
+            ).first()
 
+            beneficiary_id = existing_beneficiary.beneficiary_id if existing_beneficiary else None
+
+            # ✅ prepare registration data
+            first_registration = Registration.query.first()
+            reg_data = dict(
+                user_id=user_id,
+                beneficiary_id=beneficiary_id,
+                category=category,
+                last_name=last,
+                first_name=first,
+                middle_name=mid,
+                suffix=suffix,
+                date_of_birth=datetime.strptime(dob, "%Y-%m-%d") if dob else None,
+                sex=sex,
+                citizenship=cit,
+                age=int(age) if age else None,
+                year_of_residence=year,
+                hoa=hoa,
+                block_no=blk,
+                phone_number=phone,
+                lot_no=lot_asn,
+                lot_size=lot_size,
+                civil_status=civil,
+                current_address=cur_add,
+                recipient_of_other_housing=recipient,
+                signature_path=sig_filename
+            )
+
+            if not first_registration:
+                reg_data["registration_id"] = 1  # start at 1 if table empty
+
+            # ✅ add new member
+            new_member = Registration(**reg_data)
             db.session.add(new_member)
+            db.session.flush()  # ensures registration_id is available
+
+            # ✅ optionally link to HOA member if exists
+            if existing_beneficiary:
+                hoa_link = RegistrationHOAMember(
+                    registration_id=new_member.registration_id,
+                    supporting_documents=None
+                )
+                db.session.add(hoa_link)
+
             db.session.commit()
             return jsonify({"success": True, "message": "Member registered successfully!"})
 
@@ -126,5 +134,4 @@ def mem_reg():
 # ✅ Route for overlapping complaint form
 @mem_reg_bp.route("/complaints/overlapping")
 def overlapping_form():
-    # Since Blueprint template_folder is "home", we go up one folder to access "complaints"
     return render_template("../complaints/overlapping.html")

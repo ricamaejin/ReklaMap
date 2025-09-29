@@ -5,12 +5,19 @@ from datetime import datetime
 
 from backend.database.db import db
 from backend.database.models import Registration, Area
+from pathlib import Path
+
+# Get folder of the current Python file
+BASE_DIR = Path(__file__).resolve().parent
+
+# Construct template folder path relative to this file
+TEMPLATE_DIR = BASE_DIR / ".." / ".." / "frontend" / "complainant" / "home"
 
 nonmemreg_bp = Blueprint(
     "nonmemreg",
     __name__,
     url_prefix="/complainant",
-    template_folder=r"C:\Users\win10\Documents\GitHub\ReklaMap\frontend\complainant\home"
+    template_folder=str(TEMPLATE_DIR)
 )
 
 UPLOAD_FOLDER = "uploads/signatures"

@@ -94,6 +94,25 @@ class Registration(db.Model):
     user = db.relationship("User", backref="registrations")
 
 # -----------------------
+# Registration HOA Member (linking table)
+# -----------------------
+
+class RegistrationHOAMember(db.Model):
+    __tablename__ = "registration_hoa_member"
+
+    hoa_member_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    registration_id = db.Column(
+        db.Integer,
+        db.ForeignKey("registration.registration_id"),
+        nullable=False
+    )
+    supporting_documents = db.Column(JSON, nullable=True)
+
+    # Relationship back to registration
+    registration = db.relationship("Registration", backref="hoa_member")
+
+
+# -----------------------
 # Policy
 # -----------------------
 class Policy(db.Model):
@@ -147,7 +166,14 @@ class RegistrationFamOfMember(db.Model):
     registration_id = db.Column(
         db.Integer,
         db.ForeignKey("registration.registration_id"),
-        nullable=False
+        nullable=True  # optional if parent registration doesn't exist
+    )
+
+    # FK → Beneficiary.beneficiary_id
+    beneficiary_id = db.Column(
+        db.Integer,
+        db.ForeignKey("beneficiaries.beneficiary_id"),
+        nullable=True
     )
 
     last_name = db.Column(db.String(100), nullable=False)
@@ -163,8 +189,9 @@ class RegistrationFamOfMember(db.Model):
     relationship = db.Column(db.String(100), nullable=False)
     supporting_documents = db.Column(JSON)
 
-    # Relationship back to Registration
+    # Relationships back
     registration = db.relationship("Registration", backref="family_members")
+    beneficiary = db.relationship("Beneficiary", backref="family_members")
 
 
 # -----------------------
