@@ -1,16 +1,14 @@
-from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, flash
+from flask import Blueprint, render_template, request, jsonify, session
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
-
 from backend.database.db import db
-from backend.database.models import Registration, Area
+from backend.database.models import Registration, Area, Beneficiary, RegistrationNonMember, Block
 from pathlib import Path
+import json
 
-# Get folder of the current Python file
+# Directories
 BASE_DIR = Path(__file__).resolve().parent
-
-# Construct template folder path relative to this file
 TEMPLATE_DIR = BASE_DIR / ".." / ".." / "frontend" / "complainant" / "home"
 
 nonmemreg_bp = Blueprint(
@@ -24,22 +22,16 @@ UPLOAD_FOLDER = "uploads/signatures"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
-# -----------------------------
-# NON-MEMBER REGISTRATION
-# -----------------------------
 @nonmemreg_bp.route("/nonmemreg", methods=["GET", "POST"])
 def nonmemreg():
     if request.method == "POST":
         try:
-            # ✅ logged in user
             user_id = session.get("user_id")
             if not user_id:
                 return jsonify({"success": False, "error": "User not logged in"}), 401
 
-            # ✅ get category from form (hidden input or query param)
+            # --- Form fields ---
             category = request.form.get("category", "non_member")
-
-            # ✅ form fields
             last = request.form.get("reg_last")
             first = request.form.get("reg_first")
             mid = request.form.get("reg_mid")
@@ -50,21 +42,43 @@ def nonmemreg():
             age = request.form.get("reg_age")
             year = request.form.get("reg_year")
             hoa = request.form.get("reg_hoa")
-            lot_add = request.form.get("reg_lot_add")
+            block_no = request.form.get("reg_blk")
+            lot_no = request.form.get("reg_lot_asn")
             lot_size = request.form.get("reg_lot_size")
             civil = request.form.get("fam_civil")
             cur_add = request.form.get("reg_cur_add")
             recipient = request.form.get("recipient")
             phone = request.form.get("reg_num")
 
-            # ✅ handle signature
+            # --- Validate area exists ---
+            area = Area.query.filter_by(area_id=hoa).first()
+            if not area:
+                return jsonify({"success": False, "error": "Selected HOA area does not exist."}), 400
+
+            # --- Validate block exists within area ---
+            block = Block.query.filter_by(area_id=hoa, block_no=block_no).first()
+            if not block:
+                return jsonify({"success": False, "error": "Block does not exist for the selected HOA."}), 400
+
+            # --- Validate lot exists for the block ---
+            beneficiary = Beneficiary.query.filter_by(area_id=hoa, block_id=block.block_id, lot_no=lot_no).first()
+            if not beneficiary:
+                return jsonify({"success": False, "error": "Lot assignment does not match any registered beneficiary."}), 400
+
+            # --- Validate lot size ---
+            if str(beneficiary.sqm) != str(lot_size):
+                return jsonify({"success": False, "error": "Lot size does not match the registered lot."}), 400
+
+            beneficiary_id = beneficiary.beneficiary_id
+
+            # --- Handle signature upload ---
             sig_file = request.files.get("signatureInput")
             sig_filename = None
             if sig_file and sig_file.filename:
                 sig_filename = secure_filename(sig_file.filename)
                 sig_file.save(os.path.join(UPLOAD_FOLDER, sig_filename))
 
-      # ✅ save to DB
+            # --- Save main registration ---
             new_reg = Registration(
                 user_id=user_id,
                 category=category,
@@ -78,37 +92,51 @@ def nonmemreg():
                 age=int(age) if age else None,
                 year_of_residence=year,
                 hoa=hoa,
-                phone_number=phone,
-                lot_no=lot_add,
+                block_no=block_no,
+                lot_no=lot_no,
                 lot_size=lot_size,
                 civil_status=civil,
                 current_address=cur_add,
                 recipient_of_other_housing=recipient,
-                signature_path=sig_filename
+                phone_number=phone,
+                signature_path=sig_filename,
+                beneficiary_id=beneficiary_id
             )
-
             db.session.add(new_reg)
-            db.session.commit()  # <-- This saves new_reg and assigns registration_id
+            db.session.flush()  # get registration_id before committing
 
-            # -------------------------
-            # If non-member → insert into registration_non_member
-            # -------------------------
+            # --- Process "connections" checkboxes ---
+            connections = []
+            checkbox_labels = [
+                "I live on the lot but I am not the official beneficiary",
+                "I live near the lot and I am affected by the issue",
+                "I am claiming ownership of the lot",
+                "I am related to the person currently occupying the lot",
+                "I was previously assigned to this lot but was replaced or removed"
+            ]
+
+            for idx, label in enumerate(checkbox_labels, start=1):
+                if request.form.get(f"connection_{idx}") == "on":
+                    connections.append(label)
+
+            other_text = request.form.get("connection_other")
+            if other_text:
+                connections.append(other_text.strip())
+
+            # --- Save non-member registration details ---
             if category == "non_member":
-                from backend.database.models import RegistrationNonMember  # make sure this exists
-                # Example: store connections as empty JSON or from form
-                connections = request.form.get("connections", "{}")  # JSON string
                 non_mem = RegistrationNonMember(
                     registration_id=new_reg.registration_id,
-                    connections=connections
+                    connections=json.dumps(connections)
                 )
                 db.session.add(non_mem)
-                db.session.commit()
 
-            return jsonify({"success": True, "message": "Non-member registered successfully!"})
+            db.session.commit()
+            return jsonify({"success": True, "message": "Registered successfully!"})
 
         except Exception as e:
             db.session.rollback()
-            return jsonify({"success": False, "error": str(e)})
+            return jsonify({"success": False, "error": str(e)}), 500
 
     # GET → show form with HOA areas
     areas = Area.query.order_by(Area.area_name).all()

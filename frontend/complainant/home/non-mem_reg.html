@@ -96,22 +96,27 @@
                   {% endfor %}
               </select>
             </label>
-            <label>Lot Address<input type="text" name="reg_lot_add"></label>
-            <label>Lot Size<input type="text" name="reg_lot_size"></label>            
         </div>
 
-        <!-- supporting documents (stacked) -->
+        <div class="form-grid" aria-hidden="false" style="grid-template-columns: repeat(3, 1fr);">
+            <label>Block Assignment<input type="text" name="reg_blk"></label>
+            <label>Lot Assignment<input type="text" name="reg_lot_asn"></label>
+            <label>Lot Size<input type="text" name="reg_lot_size"></label>
+        </div>
+        
+        <!-- checkbox question (multiple options per row) -->
         <div class="support-docs" role="group">
           <p id="docs-label">How are you connected to the lot you are complaining about??</p>
           <div class="docs-list">
-            <label><input type="checkbox" > I live on the lot but I am not the official beneficiary</label>
-            <label><input type="checkbox" > I live near the lot and I am affected by the issue</label>
-            <label><input type="checkbox" > I am claiming ownership of the lot</label>
-            <label><input type="checkbox" > I am related to the person currently occupying the lot</label>
-            <label><input type="checkbox" > I was previously assigned to this lot but was replaced or removed</label>
+            <label><input type="checkbox" name="connection_1"> I live on the lot but I am not the official beneficiary</label>
+            <label><input type="checkbox" name="connection_2"> I live near the lot and I am affected by the issue</label>
+            <label><input type="checkbox" name="connection_3"> I am claiming ownership of the lot</label>
+            <label><input type="checkbox" name="connection_4"> I am related to the person currently occupying the lot</label>
+            <label><input type="checkbox" name="connection_5"> I was previously assigned to this lot but was replaced or removed</label>
             <label>
-            <label><input type="checkbox" id="otherCheck"> Other:</label>
-            <input type="text" id="otherText" style="display:none; border:none; border-bottom:1px solid #000; outline:none; width:400px;">
+              <input type="checkbox" id="otherCheck" name="connection_other_toggle"> Other:
+              <input type="text" id="otherText" name="connection_other" style="display:none; border:none; border-bottom:1px solid #000; outline:none; width:400px;">
+            </label>
           </div>
         </div>
 
@@ -199,6 +204,14 @@
       } catch (err) {
         alert("Failed to submit: " + err);
       }
+    });
+  </script>
+
+  <script>
+    const otherCheck = document.getElementById("otherCheck");
+    const otherText = document.getElementById("otherText");
+    otherCheck.addEventListener("change", () => {
+      otherText.style.display = otherCheck.checked ? "inline-block" : "none";
     });
   </script>
 </body>

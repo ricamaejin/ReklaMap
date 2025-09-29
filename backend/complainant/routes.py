@@ -1,11 +1,31 @@
-from flask import Blueprint, request, jsonify, session, render_template, send_from_directory, current_app
+from flask import Blueprint, request, jsonify, session, render_template, send_from_directory, current_app, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from backend.database.models import User, Overlapping, Registration, Complaint
 from backend.database.db import db
-import os, json
+import os, json, time
+from werkzeug.utils import secure_filename
 
-complainant_bp = Blueprint("complainant", __name__, url_prefix="/complainant")
+# -----------------------------
+# Paths
+# -----------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # backend/
+TEMPLATE_DIR = os.path.join(BASE_DIR, "..", "..", "frontend", "complainant", "complaints")
+TEMPLATE_DIR = os.path.normpath(TEMPLATE_DIR)
+
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "signatures")  # backend/uploads/signatures
+UPLOAD_DIR = os.path.normpath(UPLOAD_DIR)
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# -----------------------------
+# Blueprint
+# -----------------------------
+complainant_bp = Blueprint(
+    "complainant",
+    __name__,
+    url_prefix="/complainant",
+    template_folder=TEMPLATE_DIR
+)
 
 # -----------------------------
 # SIGNUP ROUTE
@@ -43,7 +63,6 @@ def signup():
 
     return render_template("portal/sign_up.html")
 
-
 # -----------------------------
 # LOGIN ROUTE
 # -----------------------------
@@ -66,7 +85,6 @@ def login():
 
     except Exception as e:
         return jsonify({"success": False, "message": f"Server error: {e}"}), 500
-
 
 # -----------------------------
 # PROFILE ROUTE
@@ -98,7 +116,6 @@ def not_registered():
     html_dir = os.path.join(current_app.root_path, "frontend", "complainant", "home")
     return send_from_directory(html_dir, "not_registered.html")
 
-
 # -----------------------------
 # Save complaint type in session
 # -----------------------------
@@ -112,15 +129,13 @@ def set_complaint_type():
     session["complaint_type"] = ctype
     return jsonify({"success": True, "message": "Complaint type saved in session."})
 
-
 # -----------------------------
-# Read complaint type from session
+# Get complaint type from session
 # -----------------------------
 @complainant_bp.route("/get-complaint-type", methods=["GET"])
 def get_complaint_type():
     ctype = session.get("complaint_type")
     return jsonify({"success": True, "type": ctype})
-
 
 # -----------------------------
 # OVERLAP FORM ROUTE
@@ -131,29 +146,20 @@ def new_overlap_form():
     if not user_id:
         return "Not logged in", 401
 
-    # fetch the registration tied to the user
     registration = Registration.query.filter_by(user_id=user_id).first()
     if not registration:
         return "No registration found for user", 400
 
-    # generate a temporary complaint_id
-    import time
     complaint_id = f"{user_id}-{int(time.time())}"
-
-    # directory where your HTML lives
-    html_dir = r"C:\Users\win10\Documents\GitHub\ReklaMap\frontend\complainant\complaints"
-
-    # save hidden values in session so the JS can access them
     session['complaint_id'] = complaint_id
     session['registration_id'] = registration.registration_id
 
-    # serve the file directly
+    html_dir = TEMPLATE_DIR
     return send_from_directory(html_dir, 'overlapping.html')
 
 # -----------------------------
-# SUBMIT OVERLAP COMPLAINT
+# Get overlap session data
 # -----------------------------
-
 @complainant_bp.route('/get_overlap_session_data')
 def get_overlap_session_data():
     return jsonify({
@@ -161,6 +167,9 @@ def get_overlap_session_data():
         "registration_id": session.get('registration_id')
     })
 
+# -----------------------------
+# Submit overlap complaint
+# -----------------------------
 @complainant_bp.route("/submit_overlap", methods=["POST"])
 def submit_overlap():
     try:
@@ -168,22 +177,21 @@ def submit_overlap():
         if not user_id:
             return jsonify({"success": False, "message": "User not logged in"}), 401
 
-        # 1️⃣ Get registration tied to user
         registration_id = request.form.get("registration_id")
         registration = Registration.query.get(registration_id)
         if not registration:
             return jsonify({"success": False, "message": "Parent registration does not exist"}), 400
 
-        # 2️⃣ Create a new Complaint entry first
+        # Create Complaint entry
         new_complaint = Complaint(
             registration_id=registration.registration_id,
-            type_of_complaint="Overlapping",  # could also come from form/session
+            type_of_complaint="Overlapping",
             status="Valid"
         )
         db.session.add(new_complaint)
-        db.session.flush()  # generates complaint_id without committing
+        db.session.flush()
 
-        # 3️⃣ Parse the rest of the form fields
+        # Parse form fields
         q1 = json.loads(request.form.get("q1") or "[]")
         q4 = json.loads(request.form.get("evidence") or "[]")
         q5 = json.loads(request.form.get("discover") or "[]")
@@ -199,15 +207,16 @@ def submit_overlap():
         q13 = request.form.get("impact")
         description = request.form.get("description")
 
-        # 4️⃣ Handle signature file
+        # Handle signature
         signature_file = request.files.get("signature")
         signature_filename = None
         if signature_file:
             signature_filename = secure_filename(signature_file.filename)
-            os.makedirs("uploads/signatures", exist_ok=True)
-            signature_file.save(os.path.join("uploads/signatures", signature_filename))
+            save_path = os.path.join(UPLOAD_DIR, signature_filename)
+            signature_file.save(save_path)
+            print("Signature saved to:", save_path)  # ✅ Debug print
 
-        # 5️⃣ Save to Overlapping using the generated complaint_id
+        # Save Overlapping
         new_overlap = Overlapping(
             complaint_id=new_complaint.complaint_id,
             registration_id=registration.registration_id,
@@ -240,3 +249,52 @@ def submit_overlap():
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "message": f"Server error: {e}"}), 500
+
+# -----------------------------
+# View complaint
+# -----------------------------
+@complainant_bp.route("/complaint/<int:complaint_id>")
+def view_complaint(complaint_id):
+    user_id = session.get("user_id")
+    if not user_id:
+        return "Not logged in", 401
+
+    complaint = Complaint.query.get_or_404(complaint_id)
+    registration = Registration.query.get(complaint.registration_id)
+    if not registration or registration.user_id != user_id:
+        return "Unauthorized", 403
+
+    overlap_data = None
+    if complaint.type_of_complaint == "Overlapping":
+        overlap_data = Overlapping.query.filter_by(complaint_id=complaint_id).first()
+        if overlap_data:
+            overlap_data.q1 = json.loads(overlap_data.q1 or "[]")
+            overlap_data.q4 = json.loads(overlap_data.q4 or "[]")
+            overlap_data.q5 = json.loads(overlap_data.q5 or "[]")
+            overlap_data.q9 = json.loads(overlap_data.q9 or "[]")
+
+    return render_template(
+        "complaint_details_valid.html",
+        complaint=complaint,
+        overlap=overlap_data
+    )
+
+# -----------------------------
+# Serve uploaded signatures
+# -----------------------------
+@complainant_bp.route("/uploads/signatures/<filename>")
+def uploaded_signature(filename):
+    # Make filename safe
+    safe_filename = secure_filename(filename)
+
+    # Use absolute path
+    upload_dir = r"C:\Users\win10\Documents\GitHub\ReklaMap\backend\uploads\signatures"
+    file_path = os.path.join(upload_dir, safe_filename)
+
+    # Check if file exists
+    if not os.path.isfile(file_path):
+        print(f"Looking for: {file_path}")  # Debug line
+        abort(404, description=f"File '{safe_filename}' not found")
+
+    # Serve the file
+    return send_from_directory(directory=upload_dir, path=safe_filename)

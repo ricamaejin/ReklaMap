@@ -225,4 +225,3 @@ class Overlapping(db.Model):
     def __repr__(self):
         return f"<Overlapping {self.overlapping_id}>"
 
-
