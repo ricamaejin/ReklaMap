@@ -247,4 +247,27 @@ class LotDispute(db.Model):
     # Relationship back to complaint
     complaint = db.relationship("Complaint", backref="lot_dispute")
 
+# -----------------------
+# Boundary Dispute
+# -----------------------
+
+class BoundaryDispute(db.Model):
+    __tablename__ = "boundary_dispute"
+
+    boundary_dispute_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    complaint_id = db.Column(db.Integer, db.ForeignKey('complaints.complaint_id'), nullable=False)
+    q1 = db.Column(db.String(200))  # nature of boundary issue
+    q2 = db.Column(db.String(80))   # duration
+    q3 = db.Column(db.String(80))   # constructed/under construction
+    q4 = db.Column(db.Enum('Yes','No'))
+    q5 = db.Column(db.Enum('Yes','No'))
+    q6 = db.Column(db.JSON)         # multiple choices
+    q7 = db.Column(db.Enum('Yes','No'))
+    q7_1 = db.Column(db.Date)       # conditional date
+    q8 = db.Column(db.Enum('Yes','No','Not Sure'))
+
+    # Relationship back to Complaint
+    complaint = db.relationship("Complaint", backref="boundary_dispute")
+
+
 

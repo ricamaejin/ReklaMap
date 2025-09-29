@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, session, render_template, send_from_directory, current_app, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from backend.database.models import User, Overlapping, Registration, Complaint, LotDispute
+from backend.database.models import User, Overlapping, Registration, Complaint, LotDispute, BoundaryDispute
 from backend.database.db import db
 import os, json, time
 from werkzeug.utils import secure_filename
@@ -383,3 +383,76 @@ def submit_lot_dispute():
         db.session.rollback()
         return jsonify({"success": False, "message": f"Server error: {e}"}), 500
 
+@complainant_bp.route('/new_boundary_dispute_form')
+def new_boundary_dispute_form():
+    user_id = session.get('user_id')
+    if not user_id:
+        return "Not logged in", 401
+
+    registration = Registration.query.filter_by(user_id=user_id).first()
+    if not registration:
+        return "No registration found for user", 400
+
+    session['complaint_id'] = f"{user_id}-{int(time.time())}"
+    session['registration_id'] = registration.registration_id
+
+    return render_template('boundary_dispute.html')  # ← uses TEMPLATE_DIR set in blueprint
+
+@complainant_bp.route('/submit_boundary_dispute', methods=['POST'])
+def submit_boundary_dispute():
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({"success": False, "message": "User not logged in"}), 401
+
+        registration_id = request.form.get('registration_id') or session.get('registration_id')
+        registration = Registration.query.get(registration_id)
+        if not registration:
+            return jsonify({"success": False, "message": "Parent registration not found"}), 400
+
+        # Create a new Complaint entry
+        new_complaint = Complaint(
+            registration_id=registration.registration_id,
+            type_of_complaint="Boundary Dispute",
+            status="Valid"
+        )
+        db.session.add(new_complaint)
+        db.session.flush()  # to get complaint_id
+
+        # Parse form fields
+        q1 = request.form.get("possession")  # radio buttons
+        q2 = request.form.get("conflict")    # radio buttons
+        q3 = request.form.get("reason")      # radio buttons for construction status
+        q4 = request.form.get("q4")          # Yes/No prior notice
+        q5 = request.form.get("q5")          # Yes/No discussed with other party
+        q6 = request.form.getlist("q6")      # checkboxes
+        q7 = request.form.get("reason")      # Yes/No Q7
+        q7_1 = request.form.get("reasonDateInput")  # date if Yes
+        q8 = request.form.get("q8")          # Yes/No/Not Sure for ongoing development
+
+        # Save BoundaryDispute entry
+        boundary_entry = BoundaryDispute(
+            complaint_id=new_complaint.complaint_id,
+            q1=q1,
+            q2=q2,
+            q3=q3,
+            q4=q4,
+            q5=q5,
+            q6=json.dumps(q6),
+            q7=q7,
+            q7_1=q7_1 if q7_1 else None,
+            q8=q8
+        )
+
+        db.session.add(boundary_entry)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Boundary dispute submitted successfully!",
+            "complaint_id": new_complaint.complaint_id
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": f"Server error: {e}"}), 500
