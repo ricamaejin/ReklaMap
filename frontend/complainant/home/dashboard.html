@@ -1,275 +1,263 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/png" href="/images/logo.png">
-  <title>ReklaMap</title>
-  <link rel="stylesheet" href="/css/complainants.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/images/logo.png">
+    <title>ReklaMap</title>
+    <link rel="stylesheet" href="/css/complainants.css">
 </head>
 <body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo-section">
+            <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
+            <span class="title">
+                <span class="blue-text">Rekla</span><span class="green-text">Map</span>
+            </span>
+        </div>
+        <nav class="nav-menu">
+            <a href="/complainant/home/dashboard.html" class="nav-item active">Home</a>
+            <a href="/complainant/complaints/submitted_complaints.html" class="nav-item">Complaints</a>
+        </nav>
+    </aside>
 
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <div class="logo-section">
-      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
-      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
-    </div>
-    <nav class="nav-menu">
-      <a href="/complainant/home/dashboard.html" class="nav-item active">Home</a>
-      <a href="/complainant/complaints/submitted_complaints.html" class="nav-item">Complaints</a>
-    </nav>
-  </aside>  
-  
- <!-- User Dropdown -->
+    <!-- User Dropdown -->
     <div class="user-dropdown">
         Logged in as: <span class="username" id="username"></span>
         <button class="dropdown-toggle">▼</button>
         <div class="dropdown-menu">
-        <a href="/complainant/home/view_profile_registered.html">View Profile</a>
-        <a href="/portal/index.html">Logout</a>
+            <a href="/complainant/home/view_profile_registered.html">View Profile</a>
+            <a href="/portal/index.html">Logout</a>
         </div>
     </div>
 
-  <!-- Main Content -->
-  <main class="main-content">
-    <header class="main-header">
-      <h1>National Government Center Areas</h1>
-      <p>RA 9207, passed in 2003, authorized the disposition of 422 hectares in the <br> 
-         NGC, granting land ownership to 5,678 residents of Barangay Holy Spirit</br> 
-         and other nearby communities. </br></p>
-    </header>
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="main-header">
+            <h1>National Government Center Areas</h1>
+            <p>
+                RA 9207, passed in 2003, authorized the disposition of 422 hectares in the <br>
+                NGC, granting land ownership to 5,678 residents of Barangay Holy Spirit
+                and other nearby communities.
+            </p>
+        </header>
 
-    <!-- Status Card -->
-    <section class="status-card">
-      <div class="card-inner">
-        <!-- CASE 1: No Complaint Yet -->
-        <p class="status-description">ReklaMap is connected to the Urban Settlement Assistance Department, making it easy for you to report and track land-related complaints. Whether it's a boundary issue, land misuse, or unauthorized activity, your complaint goes straight to the right authorities for quick action.</p> <br>
-        <div class="status-header">Status</div>
+        <!-- Status Card -->
+        <section class="status-card">
+            <div class="card-inner">
+                <!-- CASE 1: No Complaint Yet -->
+                <p class="status-description">
+                    ReklaMap is connected to the Urban Settlement Assistance Department, making it easy for you to report and track land-related complaints. Whether it's a boundary issue, land misuse, or unauthorized activity, your complaint goes straight to the right authorities for quick action.
+                </p>
+                <br>
+                <div class="status-header">Status</div>
 
-        <!-- CASE 1: No Complaint Yet -->
-        <div class="no-complaint">
-          <p>No complaint yet.</p>
-          <button class="add-btn" onclick="openComplaint()">Add Complaint</button>
-        </div>
+                <!-- CASE 1: No Complaint Yet -->
+                <div class="no-complaint">
+                    <p>No complaint yet.</p>
+                    <button class="add-btn" onclick="openComplaint()">Add Complaint</button>
+                </div>
 
-        <!-- CASE 2: Complaint Exists -->
-        <div class="complaint-list hidden">
-          <div class="status-item">
-            <span class="dot"></span>
-            <div class="status-text">
-              <strong>6/19/2025 - Send Invitation</strong><br>
-              <span>An invitation has been sent to the involved person/s for further action or discussion.</span>
+                <!-- CASE 2: Complaint Exists -->
+                <div class="complaint-list hidden">
+                    <!-- Dynamically populated complaint items will go here -->
             </div>
-          </div>
-          <div class="status-item">
-            <span class="dot"></span>
-            <div class="status-text">
-              <strong>6/18/2025 - Reviewed</strong><br>
-              <span>Your complaint is under evaluation by the authorities.</span>
+        </section>
+    </main>
+
+    <!-- COMPLAINT MODAL -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Action</h2>
+                <div id="datetime">
+                    <div id="date"></div>
+                    <div id="time"></div>
+                </div>
             </div>
-          </div>
+            <hr>
+            <label for="type">Type of Complaint:</label>
+            <select id="type" onchange="updateComplaintDesc()">
+                <option value="" disabled selected hidden>Select Type of Complaint</option>
+                <option value="Overlapping">Overlapping</option>
+                <option value="Lot Dispute">Lot Dispute</option>
+                <option value="Boundary Dispute">Boundary Dispute</option>
+                <option value="Pathway Dispute">Pathway Dipute</option>
+                <option value="Unauthorized Occupation">Unauthorized Occupation</option>
+                <option value="Illegal Construction">Illegal Construction</option>
+            </select>
+
+            <!-- Complaint Description -->
+            <div class="complaint-desc" id="complaintDesc">
+                <h3 id="descTitle"></h3>
+                <p id="descText"></p>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeComplaint()">Cancel</button>
+                <button class="btn-save" onclick="goToRegistration()">Select</button>
+            </div>
         </div>
-      </div>
-    </section>
-  </main>
-
-<!-- COMPLAINT MODAL (replace your modal block with this) -->
-<div class="modal-overlay" id="modal">
-    <div class="modal">
-      <div class="modal-header">
-      <h2>Action</h2>
-      <div id="datetime">
-        <div id="date"></div>
-        <div id="time"></div>
-      </div>
-    </div>
-    <hr>
-
-    <label for="type">Type of Complaint:</label>
-    <select id="type" onchange="updateComplaintDesc()">
-      <option value="" disabled selected hidden>Select Type of Complaint</option>
-      <option value="Overlapping">Overlapping</option>
-      <option value="Lot Dispute">Lot Dispute</option>
-      <option value="Boundary Dispute">Boundary Dispute</option>
-      <option value="Pathway Dispute">Pathway Dipute</option>
-      <option value="Unauthorized Occupation">Unauthorized Occupation</option>
-      <option value="Illegal Construction">Illegal Construction</option>
-    </select>
-
-    <!-- Complaint Description -->
-    <div class="complaint-desc" id="complaintDesc">
-      <h3 id="descTitle"></h3>
-      <p id="descText"></p>
     </div>
 
-    <div class="modal-footer">
-      <button class="btn-cancel" onclick="closeComplaint()">Cancel</button>
-      <button class="btn-save" onclick="goToRegistration()">Select</button>
-    </div>
-  </div>
-</div>
+    <script>
+        /* complaint descriptions */
+        const complaints = {
+            "Overlapping": "Refers to a situation where two or more lots were mistakenly assigned to the same piece of land due to errors in the land survey or subdivision plan. As a result, the official boundaries of different lots end up occupying the same physical space. This can lead to multiple individuals or families being issued documents (such as titles or lot award certificates) that point to the same area. Overlapping causes confusion, delays in processing land ownership, and conflicts over who has the right to use or stay on the land.\n\nTumutukoy ito sa sitwasyon kung saan ang dalawang lote o higit pa ay naitalaga sa iisang bahagi ng lupa dahil sa pagkakamali sa ginawang survey o plano ng pagkakahati ng lupa. Dahil dito, ang opisyal na hangganan ng mga lote ay nagkakasalubong o nagkapatong, kaya’t nagkakaroon ng higit sa isang taong nabigyan ng dokumento (gaya ng titulo o sertipiko ng pagkakaloob ng lote) para sa parehong lugar. Ang ganitong kaso ay nagdudulot ng kalituhan, pagkaantala sa pagpoproseso ng pagmamay-ari, at alitan kung sino ang may karapatang gamitin o manatili sa lupa.",
+            "Lot Dispute": "Refers to situations where there is a conflict involving the lot officially assigned to you. This may include cases where someone else is claiming, occupying, or using your lot; where your name does not appear on the beneficiary list; or where there are errors, overlapping claims, or internal family disputes about who has rightful use or ownership of the lot.\n\nTumutukoy ito sa mga sitwasyon kung saan may alitan o hindi pagkakaunawaan tungkol sa lote na opisyal na naitalaga sa iyo. Kabilang dito ang mga kaso kung saan may ibang taong umaangkin, gumagamit, o nakatira sa iyong lote; kapag hindi nakalista ang iyong pangalan sa talaan ng mga benepisyaryo; o kapag may pagkakamali sa dokumento, magkapatong na pag-aangkin, o alitang pampamilya tungkol sa kung sino ang may karapatang gumamit o magmay-ari ng lote.",
+            "Boundary Dispute": "A disagreement between neighboring landowners regarding the exact location of property lines or boundaries, often caused by inaccurate surveys, unclear titles, or encroachments.\n\nHindi pagkakaunawaan sa pagitan ng magkatabing may-ari ng lupa tungkol sa tiyak na lokasyon ng hangganan ng ari-arian, na madalas na dulot ng maling survey, hindi malinaw na titulo, o paglabag sa hangganan.",
+            "Pathway Dispute": "Refers to conflicts that arise when residents or neighbors disagree over the use, access, or ownership of a pathway. These disputes typically involve blocked passageways, claims of private vs. public access, or disagreements over shared right-of-way.\n\nTumutukoy sa mga alitan na nagaganap kapag hindi nagkakasundo ang mga residente o kapitbahay sa paggamit, pag-access, o pagmamay-ari ng isang daanan. Karaniwan itong kaugnay ng mga hinarang na daanan, pagtatalo kung pribado o pampubliko ang access, o hindi pagkakasundo sa karapatang gamitin ang daanan.",
+            "Unauthorized Occupation": "Refers to cases where a person is living in, using, or constructing on a lot without legal authority or official assignment. This includes individuals who are not listed as beneficiaries, do not hold valid documents, or have occupied the property without permission from the rightful owner or approval from government housing authorities.\n\nTumutukoy ito sa mga kaso kung saan may taong naninirahan, gumagamit, o nagtatayo sa isang lote nang walang legal na pahintulot o opisyal na pagkakatalaga. Kasama rito ang mga indibidwal na hindi nakalista bilang benepisyaryo, walang wastong dokumento, o sumakop sa lupa nang walang pahintulot mula sa tunay na may-ari o awtorisasyon mula sa ahensyang nangangasiwa sa pabahay ng pamahalaan.",
+            "Illegal Construction": "Occurs when a person illegally occupies or builds structures on land that belongs to another individual or the government without proper authorization.\n\nNangyayari kapag ang isang tao ay iligal na sumakop o nagtayo ng mga istruktura sa lupang pagmamay-ari ng ibang tao o ng pamahalaan nang walang tamang pahintulot."
+        };
 
-<script>
-/* complaint descriptions */
-const complaints = {
-  "Overlapping": "Refers to a situation where two or more lots were mistakenly assigned to the same piece of land due to errors in the land survey or subdivision plan. As a result, the official boundaries of different lots end up occupying the same physical space. This can lead to multiple individuals or families being issued documents (such as titles or lot award certificates) that point to the same area. Overlapping causes confusion, delays in processing land ownership, and conflicts over who has the right to use or stay on the land.\n\n" +
-    "Tumutukoy ito sa sitwasyon kung saan ang dalawang lote o higit pa ay naitalaga sa iisang bahagi ng lupa dahil sa pagkakamali sa ginawang survey o plano ng pagkakahati ng lupa. Dahil dito, ang opisyal na hangganan ng mga lote ay nagkakasalubong o nagkapatong, kaya’t nagkakaroon ng higit sa isang taong nabigyan ng dokumento (gaya ng titulo o sertipiko ng pagkakaloob ng lote) para sa parehong lugar. Ang ganitong kaso ay nagdudulot ng kalituhan, pagkaantala sa pagpoproseso ng pagmamay-ari, at alitan kung sino ang may karapatang gamitin o manatili sa lupa.",
-  "Lot Dispute": "Refers to situations where there is a conflict involving the lot officially assigned to you. This may include cases where someone else is claiming, occupying, or using your lot; where your name does not appear on the beneficiary list; or where there are errors, overlapping claims, or internal family disputes about who has rightful use or ownership of the lot.\n\n" +
-    "Tumutukoy ito sa mga sitwasyon kung saan may alitan o hindi pagkakaunawaan tungkol sa lote na opisyal na naitalaga sa iyo. Kabilang dito ang mga kaso kung saan may ibang taong umaangkin, gumagamit, o nakatira sa iyong lote; kapag hindi nakalista ang iyong pangalan sa talaan ng mga benepisyaryo; o kapag may pagkakamali sa dokumento, magkapatong na pag-aangkin, o alitang pampamilya tungkol sa kung sino ang may karapatang gumamit o magmay-ari ng lote.",
-  "Boundary Dispute": "A disagreement between neighboring landowners regarding the exact location of property lines or boundaries, often caused by inaccurate surveys, unclear titles, or encroachments.\n\n" +
-    "Hindi pagkakaunawaan sa pagitan ng magkatabing may-ari ng lupa tungkol sa tiyak na lokasyon ng hangganan ng ari-arian, na madalas na dulot ng maling survey, hindi malinaw na titulo, o paglabag sa hangganan.",  
-  "Pathway Dispute": "Refers to conflicts that arise when residents or neighbors disagree over the use, access, or ownership of a pathway. These disputes typically involve blocked passageways, claims of private vs. public access, or disagreements over shared right-of-way.\n\n" +
-    "Tumutukoy sa mga alitan na nagaganap kapag hindi nagkakasundo ang mga residente o kapitbahay sa paggamit, pag-access, o pagmamay-ari ng isang daanan. Karaniwan itong kaugnay ng mga hinarang na daanan, pagtatalo kung pribado o pampubliko ang access, o hindi pagkakasundo sa karapatang gamitin ang daanan.",
-  "Unauthorized Occupation": "Refers to cases where a person is living in, using, or constructing on a lot without legal authority or official assignment. This includes individuals who are not listed as beneficiaries, do not hold valid documents, or have occupied the property without permission from the rightful owner or approval from government housing authorities.\n\n" +
-    "Tumutukoy ito sa mga kaso kung saan may taong naninirahan, gumagamit, o nagtatayo sa isang lote nang walang legal na pahintulot o opisyal na pagkakatalaga. Kasama rito ang mga indibidwal na hindi nakalista bilang benepisyaryo, walang wastong dokumento, o sumakop sa lupa nang walang pahintulot mula sa tunay na may-ari o awtorisasyon mula sa ahensyang nangangasiwa sa pabahay ng pamahalaan.",
-  "Illegal Construction": "Occurs when a person illegally occupies or builds structures on land that belongs to another individual or the government without proper authorization.\n\n" +
-    "Nangyayari kapag ang isang tao ay iligal na sumakop o nagtayo ng mga istruktura sa lupang pagmamay-ari ng ibang tao o ng pamahalaan nang walang tamang pahintulot."
-};
+        (function () {
+            const modal = document.getElementById('modal');
+            const dateEl = document.getElementById('datetime');
+            const select = document.getElementById('type');
+            const descWrap = document.getElementById('complaintDesc');
+            const descTitle = document.getElementById('descTitle');
+            const descText = document.getElementById("descText");
+            let interval = null;
 
+            function updateComplaintDateTime() {
+                const now = new Date();
+                const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' });
+                const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute:'2-digit', hour12: true });
+                dateEl.innerHTML = `${dateStr}<br>${timeStr}`;
+            }
 
-  function updateComplaintDesc() {
-  const type = document.getElementById("type").value;
-  const complaint = complaints[type];
+            function openComplaint() {
+                if (!modal) return;
+                modal.style.display = 'flex';
+                modal.setAttribute('aria-hidden', 'false');
+                updateComplaintDateTime();
+                if (!interval) interval = setInterval(updateComplaintDateTime, 1000);
+                if (select) {
+                    select.value = "";
+                    descWrap.style.display = 'none';
+                }
+            }
 
-  if (complaint) {
-    // Split complaint into paragraphs based on blank line (\n\n)
-    let paragraphs = complaint.split(/\n\s*\n/);
-    console.log("Split result:", paragraphs); // ✅ check in console
+            function closeComplaint() {
+                if (!modal) return;
+                modal.style.display = 'none';
+                modal.setAttribute('aria-hidden', 'true');
+                if (interval) { clearInterval(interval); interval = null; }
+            }
 
-    // Italicize 2nd paragraph (Tagalog)
-    if (paragraphs[1]) {
-      paragraphs[1] = `<i style="font-size:16px; font-weight:normal;">${paragraphs[1]}</i>`;
-    }
+            function updateComplaintDesc() {
+                const type = (select && select.value) ? select.value : '';
+                if (type && complaints[type]) {
+                    descTitle.textContent = type;
+                    descText.textContent = complaints[type];
+                    descWrap.style.display = 'block';
+                } else {
+                    descWrap.style.display = 'none';
+                    descTitle.textContent = '';
+                    descText.textContent = '';
+                }
+            }
 
-    // Join back paragraphs with <br><br>
-    const formatted = paragraphs.join("<br><br>");
+            if (modal) {
+                modal.addEventListener('click', function (e) {
+                    if (e.target === modal) closeComplaint();
+                });
+            }
 
-    // Update modal
-    document.getElementById("descTitle").innerText = type;
-    document.getElementById("descText").innerHTML = formatted;
-    document.getElementById("complaintDesc").style.display = "block";
-  } else {
-    document.getElementById("complaintDesc").style.display = "none";
-  }
-}
+            window.openComplaint = openComplaint;
+            window.addComplaint = openComplaint;
+            window.closeComplaint = closeComplaint;
+            window.updateComplaintDesc = updateComplaintDesc;
+        })();
+    </script>
 
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const dropdown = document.querySelector(".user-dropdown");
+            const toggle = dropdown.querySelector(".dropdown-toggle");
 
-(function () 
-{
-  const modal = document.getElementById('modal');
-  const dateEl = document.getElementById('datetime');
-  const select = document.getElementById('type');
-  const descWrap = document.getElementById('complaintDesc');
-  const descTitle = document.getElementById('descTitle');
-  const descText = document.getElementById("descText");
-  let interval = null;
+            toggle.addEventListener("click", (e) => {
+                e.stopPropagation();
+                dropdown.classList.toggle("active");
+            });
 
-  function updateComplaintDateTime() {
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('en-US', {
-      weekday: 'short', year: 'numeric', month: 'long', day: 'numeric'
+            document.addEventListener("click", () => {
+                dropdown.classList.remove("active");
+            });
+        });
+    </script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            try {
+                const res = await fetch("/complainant/profile");
+                const data = await res.json();
+                if (data.success && data.user) {
+                    document.getElementById("username").textContent = `${data.user.last_name}, ${data.user.first_name}`;
+                } else {
+                    document.getElementById("username").textContent = "Guest";
+                }
+            } catch (err) {
+                console.error("Error loading profile:", err);
+                document.getElementById("username").textContent = "Guest";
+            }
+        });
+    </script>
+
+    <script>
+        function goToRegistration() {
+            const type = document.getElementById("type").value;
+            if (!type) {
+                alert("Please select a complaint type first.");
+                return;
+            }
+            sessionStorage.setItem("complaintType", type);
+            window.location.href = "/complainant/home/not_registered.html";
+        }
+    </script>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        const complaintList = document.querySelector(".complaint-list");
+        const noComplaintDiv = document.querySelector(".no-complaint");
+
+        try {
+            const res = await fetch("/complainant/complaints/submitted"); // API from new.py
+            const data = await res.json();
+
+            if (data.success && data.complaints.length > 0) {
+                // Hide the "No complaint yet" message
+                noComplaintDiv.style.display = "none";
+                complaintList.classList.remove("hidden");
+                complaintList.innerHTML = ""; // clear any placeholder
+
+                // Loop through complaints and add them
+                data.complaints.forEach(c => {
+                    const statusItem = document.createElement("div");
+                    statusItem.classList.add("status-item");
+
+                    statusItem.innerHTML = `
+                        <span class="dot"></span>
+                        <div class="status-text">
+                            <strong>${c.created_at} - ${c.status}</strong><br>
+                            <span>Type: ${c.type}</span>
+                        </div>
+                    `;
+
+                    complaintList.appendChild(statusItem);
+                });
+            } else {
+                // No complaints
+                complaintList.classList.add("hidden");
+                noComplaintDiv.style.display = "block";
+            }
+        } catch (err) {
+            console.error("Error fetching complaints:", err);
+        }
     });
-    const timeStr = now.toLocaleTimeString('en-US', {
-      hour: '2-digit', minute:'2-digit', hour12: true
-    });
-    dateEl.innerHTML = `${dateStr}<br>${timeStr}`;
-  }
-
-  // open the modal and start the clock
-  function openComplaint() {
-    if (!modal) return;
-    modal.style.display = 'flex';
-    modal.setAttribute('aria-hidden', 'false');
-    updateComplaintDateTime();
-    if (!interval) interval = setInterval(updateComplaintDateTime, 1000);
-    // reset selection/desc when opening
-    if (select) {
-      select.value = "";
-      descWrap.style.display = 'none';
-    }
-  }
-
-  // close and stop the clock
-  function closeComplaint() {
-    if (!modal) return;
-    modal.style.display = 'none';
-    modal.setAttribute('aria-hidden', 'true');
-    if (interval) {
-      clearInterval(interval);
-      interval = null;
-    }
-  }
-
-  // update description when user picks a type
-  function updateComplaintDesc() {
-    const type = (select && select.value) ? select.value : '';
-    if (type && complaints[type]) {
-      descTitle.textContent = type;
-      descText.textContent = complaints[type];
-      descWrap.style.display = 'block';
-    } else {
-      descWrap.style.display = 'none';
-      descTitle.textContent = '';
-      descText.textContent = '';
-    }
-  }
-
-  // close if clicking outside the modal inner box
-  if (modal) {
-    modal.addEventListener('click', function (e) {
-      if (e.target === modal) closeComplaint();
-    });
-  }
-
-  // expose functions globally for inline handlers (backwards compatibility)
-  window.openComplaint = openComplaint;
-  window.addComplaint = openComplaint;   // if you use addComplaint() elsewhere
-  window.closeComplaint = closeComplaint;
-  window.updateComplaintDesc = updateComplaintDesc;
-})();
-</script>
-
-<script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const dropdown = document.querySelector(".user-dropdown");
-      const toggle = dropdown.querySelector(".dropdown-toggle");
-
-      toggle.addEventListener("click", (e) => {
-        e.stopPropagation();
-        dropdown.classList.toggle("active");
-      });
-
-      document.addEventListener("click", () => {
-        dropdown.classList.remove("active");
-      });
-    });
-  </script>
-
-  <script>
-  document.addEventListener("DOMContentLoaded", async () => {
-    try {
-      const res = await fetch("/complainant/profile");
-      const data = await res.json();
-
-      if (data.success && data.user) {
-        document.getElementById("username").textContent =
-          `${data.user.last_name}, ${data.user.first_name}`;
-      } else {
-        document.getElementById("username").textContent = "Guest";
-      }
-    } catch (err) {
-      console.error("Error loading profile:", err);
-      document.getElementById("username").textContent = "Guest";
-    }
-  });
-  </script>
-
-  <script>
-    function goToRegistration() {
-      window.location.href = "/complainant/home/not_registered.html";
-    }
-  </script>
+    </script>
 
 </body>
 </html>

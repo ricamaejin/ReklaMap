@@ -71,8 +71,10 @@
         const response = await fetch("/complainant/login", {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: `email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
+          body: `email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`,
+          credentials: "same-origin"   // 🔹 ensures session cookie is set
         });
+
 
         const result = await response.json();
 

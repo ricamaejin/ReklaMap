@@ -67,111 +67,116 @@
           <li>Ensure all required fields are filled before submitting the form.</li>
         </ul>
       </div>
+    
+    <form id="overlapForm">
+        <input type="hidden" name="complaint_id" value="{{ complaint_id }}">
+        <input type="hidden" name="registration_id" value="{{ registration_id }}">
+        <!-- Section 1 -->
+        <div class="section-header">LOT DETAILS AND CLAIM:</div>
 
-      <!-- Section 1 -->
-      <div class="section-header">LOT DETAILS AND CLAIM:</div>
+          <p>1. What are the specific block and lot numbers involved in the overlap?</p>
+          <div class="pairs" id="pairsContainer" aria-live="polite">
+            <!-- rows will be added here -->
+          </div>
+          <div class="pair-controls">
+            <button type="button" class="btn add small" id="addPairBtn" style="margin-bottom: 12px;">+ Add</button>
+            <span style="color:var(--muted);font-size:13px;margin-left:8px"><i style="font-size: 14px; font-weight: normal; color: grey;">(If more than one area is affected, list all applicable pairs.)</i></span>
+          </div>
 
-        <p>1. What are the specific block and lot numbers involved in the overlap?<p>
-        <div class="pairs" id="pairsContainer" aria-live="polite">
-          <!-- rows will be added here -->
+          <p>2. What is the current status of the lot?</p>
+          <label><input type="radio" name="current_status" value="residing"> I am currently residing or building on the lot</label>
+          <label><input type="radio" name="current_status" value="built_by_other"> Someone else has built or is using part of the same lot</label>
+          <label><input type="radio" name="current_status" value="no_one_using"> No one is using the lot, but another person also claims it</label>
+          <label><input type="radio" name="current_status" value="multiple_structures" style="margin-bottom: 12px;"> There are multiple structures claiming the same lot area</label>
+
+          <p>3. How long have you been assigned to or occupying this lot?</p>
+          <label><input type="radio" name="occupancy_duration" > Less than 1 year</label>
+          <label><input type="radio" name="occupancy_duration" > 1–3 years</label>
+          <label><input type="radio" name="occupancy_duration" > 3–5 years</label>
+          <label><input type="radio" name="occupancy_duration" style="margin-bottom: 12px;"> More than 5 years</label>
+
+          <p>4. What shows that your lot is overlapping with another claim? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+          <label><input type="checkbox" name="evidence" value="survey"> Official subdivision or site survey shows overlapping lot boundaries</label>
+          <label><input type="checkbox" name="evidence" value="lot_in_docs"> My lot number or coordinates appear in someone else’s documents</label>
+          <label><input type="checkbox" name="evidence" value="structure_on_space"> There is another structure on my assigned space</label>
+          <label><input type="checkbox" name="evidence" value="markers"> Markers or fences show mismatched or shared boundary lines</label>
+          <label><input type="checkbox" name="evidence" value="advice" style="margin-bottom: 12px;"> HOA, NGC, or an LGU unit advised me that my lot is overlapping</label>
+
+          <p>5. How did you discover the overlap? <span class="help"> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></span></p>
+          <label><input type="checkbox" name="discover" value="informed_by_officer"> I was informed by an NHA, NGC, or barangay officer</label>
+          <label><input type="checkbox" name="discover" value="saw_structure"> I saw a structure already built partially or fully on my lot</label>
+          <label><input type="checkbox" name="discover" value="verbal_warning"> I received a verbal warning or notice from another claimant</label>
+          <label><input type="checkbox" name="discover" value="compared_docs"> I compared documents and noticed the same block/lot number</label>
+          <label><input type="checkbox" name="discover" value="advised_survey" style="margin-bottom: 12px;"> I was advised during a survey, inspection, or mapping activity</label>
+
+          <p>6. When did the construction begin?</p>
+          <label><input type="radio" name="construction_timeframe" value="<3m"> Less than 3 months</label>
+          <label><input type="radio" name="construction_timeframe" value="3-6m"> 3–6 months</label>
+          <label><input type="radio" name="construction_timeframe" value="6-12m"> 6–12 months</label>
+          <label><input type="radio" name="construction_timeframe" value=">1y"> Over a year</label>
+          <label><input type="radio" name="construction_timeframe" value="not_sure" style="margin-bottom: 12px;"> Not sure</label>
+            
+          <p>7. Who else is involved in this overlap?</p>
+          <label><input type="radio" name="who_else" value="official_beneficiary"> An officially listed beneficiary with their own documents</label>
+          <label><input type="radio" name="who_else" value="relative_of_beneficiary"> A relative of the listed beneficiary (not on paper)</label>
+          <label><input type="radio" name="who_else" value="private_claimant"> A private claimant not from the community</label>
+          <label><input type="radio" name="who_else" value="prev_occupant"> A structure built by a previous occupant</label>
+          <label><input type="radio" name="who_else" value="unknown" style="margin-bottom: 12px;"> I do not know who the other claimant is</label>
+
+          <p>8. What is the name of the involved person?</p>
+          <input type="text" id="involved_person_name" placeholder="Enter name (if known)">
+
+          <p>9. What do you know about the other party’s claim?  <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+          <label><input type="checkbox" name="other_claim" value="different_doc"> They showed a different assignment document</label>
+          <label><input type="checkbox" name="other_claim" value="refused_to_vacate"> They refused to vacate or adjust</label>
+          <label><input type="checkbox" name="other_claim" value="structure_covers"> Their structure covers part of my lot</label>
+          <label><input type="checkbox" name="other_claim" value="no_docs_seen" style="margin-bottom: 12px;"> I have not seen any documents from their side</label>
+
+          <p>10. Have you reported this to any office or authority?</p>
+            <label><input type="radio" name="reported_to" value="barangay"> Yes – Barangay</label>
+            <label><input type="radio" name="reported_to" value="hoa"> Yes – HOA</label>
+            <label><input type="radio" name="reported_to" value="ngc"> Yes – NGC</label>
+            <label><input type="radio" name="reported_to" value="no_first_time" style="margin-bottom: 12px;"> No – This is the first time</label>
+
+          <p>11. Was a site inspection or verification done?</p>
+          <label><input type="radio" name="inspection" value="barangay"> Yes – by Barangay</label>
+          <label><input type="radio" name="inspection" value="hoa"> Yes – by HOA</label>
+          <label><input type="radio" name="inspection" value="ngc"> Yes – by NGC</label>
+          <label><input type="radio" name="inspection" value="no"> No</label>
+          <label><input type="radio" name="inspection" value="not_sure" style="margin-bottom: 12px;"> Not sure</label>
+
+          <p>12. What was the result of the report or inspection?</p>
+          <label><input type="radio" name="report_result" value="other_vacate"> The other party was advised to vacate</label>
+          <label><input type="radio" name="report_result" value="gather_docs"> I was advised to gather more documents</label>
+          <label><input type="radio" name="report_result" value="no_action"> No action was taken</label>
+          <label><input type="radio" name="report_result" value="under_investigation"> The issue is still under investigation</label>
+          <label><input type="radio" name="report_result" value="overlapping_assign" style="margin-bottom: 12px;"> I was told the lot has overlapping assignments</label>
+
+          <p>13. What has the overlap issue caused or affected?</p>
+          <label><input type="radio" name="impact" value="cannot_build"> I cannot build or renovate due to the boundary issue</label>
+          <label><input type="radio" name="impact" value="conflict_with_family"> I am in conflict with another family over the lot</label>
+          <label><input type="radio" name="impact" value="threats_or_eviction"> I received threats or was told to leave</label>
+          <label><input type="radio" name="impact" value="lost_use"> I lost use of part/all of the land I was assigned</label>
+          <label><input type="radio" name="impact" value="public_path" style="margin-bottom: 12px;"> A public path or neighbor's property is also affected</label>
+
+          <!-- Section 2 -->
+          <p style="font-weight: bold;">Please describe what happened briefly, including how you found out about the issue.</p>
+          <textarea name="description" placeholder=""></textarea>
+
+          <!-- Section 3 -->
+          <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
+          <div class="consent">
+            By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
+          </div>
+
+          <div class="signature">
+            <input type="file" id="signatureInput" accept="image/*" style="display:none;" />
+            <button type="button" class="upload-btn" onclick="document.getElementById('signatureInput').click()">Upload Signature</button>
+            <span id="signatureFileName" style="margin-left:10px;  font-style:italic;"></span>
+            <button type="submit" id="submitBtn" class="btn" style="display:none; margin-top:12px;">Submit Complaint</button>
+          </div>
         </div>
-        <div class="pair-controls">
-          <button type="button" class="btn add small" id="addPairBtn" style="margin-bottom: 12px;">+ Add</button>
-          <span style="color:var(--muted);font-size:13px;margin-left:8px"><i style="font-size: 14px; font-weight: normal; color: grey;">(If more than one area is affected, list all applicable pairs.)</i></span>
-        </div>
-
-        <p>2. What is the current status of the lot?<p>
-        <label><input type="radio" name="current_status" value="residing"> I am currently residing or building on the lot</label>
-        <label><input type="radio" name="current_status" value="built_by_other"> Someone else has built or is using part of the same lot</label>
-        <label><input type="radio" name="current_status" value="no_one_using"> No one is using the lot, but another person also claims it</label>
-        <label><input type="radio" name="current_status" value="multiple_structures" style="margin-bottom: 12px;"> There are multiple structures claiming the same lot area</label>
-
-        <p>3. How long have you been assigned to or occupying this lot?<p>
-        <label><input type="radio" name="occupancy_duration" > Less than 1 year</label>
-        <label><input type="radio" name="occupancy_duration" > 1–3 years</label>
-        <label><input type="radio" name="occupancy_duration" > 3–5 years</label>
-        <label><input type="radio" name="occupancy_duration" style="margin-bottom: 12px;"> More than 5 years</label>
-
-        <p>4. What shows that your lot is overlapping with another claim? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
-        <label><input type="checkbox" name="evidence" value="survey"> Official subdivision or site survey shows overlapping lot boundaries</label>
-        <label><input type="checkbox" name="evidence" value="lot_in_docs"> My lot number or coordinates appear in someone else’s documents</label>
-        <label><input type="checkbox" name="evidence" value="structure_on_space"> There is another structure on my assigned space</label>
-        <label><input type="checkbox" name="evidence" value="markers"> Markers or fences show mismatched or shared boundary lines</label>
-        <label><input type="checkbox" name="evidence" value="advice" style="margin-bottom: 12px;"> HOA, NGC, or an LGU unit advised me that my lot is overlapping</label>
-
-        <p>5. How did you discover the overlap? <span class="help"> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></span></p>
-        <label><input type="checkbox" name="discover" value="informed_by_officer"> I was informed by an NHA, NGC, or barangay officer</label>
-        <label><input type="checkbox" name="discover" value="saw_structure"> I saw a structure already built partially or fully on my lot</label>
-        <label><input type="checkbox" name="discover" value="verbal_warning"> I received a verbal warning or notice from another claimant</label>
-        <label><input type="checkbox" name="discover" value="compared_docs"> I compared documents and noticed the same block/lot number</label>
-        <label><input type="checkbox" name="discover" value="advised_survey" style="margin-bottom: 12px;"> I was advised during a survey, inspection, or mapping activity</label>
-
-        <p>6. When did the construction begin?</p>
-        <label><input type="radio" name="construction_timeframe" value="<3m"> Less than 3 months</label>
-        <label><input type="radio" name="construction_timeframe" value="3-6m"> 3–6 months</label>
-        <label><input type="radio" name="construction_timeframe" value="6-12m"> 6–12 months</label>
-        <label><input type="radio" name="construction_timeframe" value=">1y"> Over a year</label>
-        <label><input type="radio" name="construction_timeframe" value="not_sure" style="margin-bottom: 12px;"> Not sure</label>
-          
-        <p>7. Who else is involved in this overlap?</p>
-        <label><input type="radio" name="who_else" value="official_beneficiary"> An officially listed beneficiary with their own documents</label>
-        <label><input type="radio" name="who_else" value="relative_of_beneficiary"> A relative of the listed beneficiary (not on paper)</label>
-        <label><input type="radio" name="who_else" value="private_claimant"> A private claimant not from the community</label>
-        <label><input type="radio" name="who_else" value="prev_occupant"> A structure built by a previous occupant</label>
-        <label><input type="radio" name="who_else" value="unknown" style="margin-bottom: 12px;"> I do not know who the other claimant is</label>
-
-        <p>8. What is the name of the involved person?</p>
-        <input type="text" id="involved_person_name" placeholder="Enter name (if known)">
-
-        <p>9. What do you know about the other party’s claim?  <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
-        <label><input type="checkbox" name="other_claim" value="different_doc"> They showed a different assignment document</label>
-        <label><input type="checkbox" name="other_claim" value="refused_to_vacate"> They refused to vacate or adjust</label>
-        <label><input type="checkbox" name="other_claim" value="structure_covers"> Their structure covers part of my lot</label>
-        <label><input type="checkbox" name="other_claim" value="no_docs_seen" style="margin-bottom: 12px;"> I have not seen any documents from their side</label>
-
-        <p>10. Have you reported this to any office or authority?</p>
-          <label><input type="radio" name="reported_to" value="barangay"> Yes – Barangay</label>
-          <label><input type="radio" name="reported_to" value="hoa"> Yes – HOA</label>
-          <label><input type="radio" name="reported_to" value="ngc"> Yes – NGC</label>
-          <label><input type="radio" name="reported_to" value="no_first_time" style="margin-bottom: 12px;"> No – This is the first time</label>
-
-        <p>11. Was a site inspection or verification done?</p>
-        <label><input type="radio" name="inspection" value="barangay"> Yes – by Barangay</label>
-        <label><input type="radio" name="inspection" value="hoa"> Yes – by HOA</label>
-        <label><input type="radio" name="inspection" value="ngc"> Yes – by NGC</label>
-        <label><input type="radio" name="inspection" value="no"> No</label>
-        <label><input type="radio" name="inspection" value="not_sure" style="margin-bottom: 12px;"> Not sure</label>
-
-        <p>12. What was the result of the report or inspection?</p>
-        <label><input type="radio" name="report_result" value="other_vacate"> The other party was advised to vacate</label>
-        <label><input type="radio" name="report_result" value="gather_docs"> I was advised to gather more documents</label>
-        <label><input type="radio" name="report_result" value="no_action"> No action was taken</label>
-        <label><input type="radio" name="report_result" value="under_investigation"> The issue is still under investigation</label>
-        <label><input type="radio" name="report_result" value="overlapping_assign" style="margin-bottom: 12px;"> I was told the lot has overlapping assignments</label>
-
-        <p>13. What has the overlap issue caused or affected?</p>
-        <label><input type="radio" name="impact" value="cannot_build"> I cannot build or renovate due to the boundary issue</label>
-        <label><input type="radio" name="impact" value="conflict_with_family"> I am in conflict with another family over the lot</label>
-        <label><input type="radio" name="impact" value="threats_or_eviction"> I received threats or was told to leave</label>
-        <label><input type="radio" name="impact" value="lost_use"> I lost use of part/all of the land I was assigned</label>
-        <label><input type="radio" name="impact" value="public_path" style="margin-bottom: 12px;"> A public path or neighbor's property is also affected</label>
-
-        <!-- Section 2 -->
-        <p style="font-weight: bold;">Please describe what happened briefly, including how you found out about the issue.</p>
-        <textarea></textarea>
-
-        <!-- Section 3 -->
-        <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
-        <div class="consent">
-          By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
-        </div>
-
-        <div class="signature">
-          <input type="file" id="signatureInput" accept="image/*" style="display:none;" />
-          <button type="button" class="upload-btn" onclick="document.getElementById('signatureInput').click()">Upload Signature</button>
-          <span id="signatureFileName" style="margin-left:10px;  font-style:italic;"></span>
-        </div>
-      </div>
+      </form>
     </div>
 
 <script>
@@ -301,5 +306,130 @@
   });
 })();
 </script>
+
+<script>
+document.getElementById('overlapForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+
+    const form = document.getElementById('overlapForm');
+    const formData = new FormData();
+
+    // -------------------------
+    // Hidden fields
+    // -------------------------
+    const complaintIdInput = document.querySelector('input[name="complaint_id"]');
+    const registrationIdInput = document.querySelector('input[name="registration_id"]');
+
+    if(!complaintIdInput || !registrationIdInput){
+        alert('Form hidden fields missing!');
+        return;
+    }
+
+    const complaintId = complaintIdInput.value;
+    const registrationId = registrationIdInput.value;
+
+    console.log("complaint_id to send:", complaintId);
+    console.log("registration_id to send:", registrationId);
+
+    formData.set('complaint_id', complaintId);
+    formData.set('registration_id', registrationId);
+
+    // -------------------------
+    // Dynamic q1: block/lot pairs
+    // -------------------------
+    const q1 = Array.from(document.querySelectorAll('.pair-row')).map(row => ({
+        block: row.querySelector('input[name="block_no[]"]').value,
+        lot: row.querySelector('input[name="lot_no[]"]').value
+    }));
+    formData.set('q1', JSON.stringify(q1));
+
+    // -------------------------
+    // Checkbox fields
+    // -------------------------
+    function addCheckboxes(name){
+        const values = Array.from(document.querySelectorAll(`input[name="${name}"]:checked`))
+                            .map(cb => cb.value);
+        formData.set(name, JSON.stringify(values));
+    }
+
+    addCheckboxes('evidence');    // q4
+    addCheckboxes('discover');    // q5
+    addCheckboxes('other_claim'); // q9
+
+    // -------------------------
+    // Single-value fields
+    // -------------------------
+    const singleFields = [
+        'current_status', 'occupancy_duration', 'construction_timeframe', 'who_else',
+        'involved_person_name', 'reported_to', 'inspection', 'report_result', 'impact', 'description'
+    ];
+
+    singleFields.forEach(name => {
+        const elChecked = document.querySelector(`[name="${name}"]:checked`);
+        const elText = document.querySelector(`[name="${name}"]:not([type="radio"]):not([type="checkbox"])`);
+        if(elChecked){
+            formData.set(name, elChecked.value);
+        } else if(elText){
+            formData.set(name, elText.value || '');
+        }
+    });
+
+    // -------------------------
+    // Signature file
+    // -------------------------
+    const signatureInput = document.getElementById('signatureInput');
+    if(signatureInput && signatureInput.files[0]){
+        formData.set('signature', signatureInput.files[0]);
+    }
+
+    // -------------------------
+    // Submit via fetch
+    // -------------------------
+    try {
+        const response = await fetch('/complainant/submit_overlap', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+        if(result.success){
+            alert('Complaint submitted successfully!');
+            window.location.href = '/complainant/home/dashboard.html';
+        } else {
+            alert('Failed to submit complaint: ' + result.message);
+        }
+    } catch(err){
+        console.error(err);
+        alert('An error occurred while submitting the complaint.');
+    }
+});
+
+// -------------------------
+// Signature file UI
+// -------------------------
+const signatureInput = document.getElementById('signatureInput');
+const signatureFileName = document.getElementById('signatureFileName');
+const submitBtn = document.getElementById('submitBtn');
+
+signatureInput.addEventListener('change', function() {
+    if(this.files && this.files[0]){
+        signatureFileName.textContent = this.files[0].name;
+        submitBtn.style.display = 'inline-block';
+    } else {
+        signatureFileName.textContent = '';
+        submitBtn.style.display = 'none';
+    }
+});
+</script>
+
+<script>
+fetch('/complainant/get_overlap_session_data')
+    .then(res => res.json())
+    .then(data => {
+        document.querySelector('input[name="complaint_id"]').value = data.complaint_id;
+        document.querySelector('input[name="registration_id"]').value = data.registration_id;
+    });
+</script>
+
 </body>
 </html>

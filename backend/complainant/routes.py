@@ -1,7 +1,9 @@
-from flask import Blueprint, request, redirect, jsonify, session
+from flask import Blueprint, request, jsonify, session, render_template, send_from_directory, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
-from backend.database.models import User
+from werkzeug.utils import secure_filename
+from backend.database.models import User, Overlapping, Registration, Complaint
 from backend.database.db import db
+import os, json
 
 complainant_bp = Blueprint("complainant", __name__, url_prefix="/complainant")
 
@@ -17,21 +19,13 @@ def signup():
             email = request.form.get("email")
             password = request.form.get("password")
 
-            # Debug log
-            print("📌 SIGNUP DATA:", first_name, last_name, email)
-
-            # Validate required fields
             if not first_name or not last_name or not email or not password:
                 return jsonify({"success": False, "message": "All fields are required!"}), 400
 
-            # Check if user already exists
             if User.query.filter_by(email=email).first():
                 return jsonify({"success": False, "message": "Email already registered!"}), 400
 
-            # Hash password
             hashed_password = generate_password_hash(password)
-
-            # Create new user
             new_user = User(
                 first_name=first_name,
                 last_name=last_name,
@@ -45,11 +39,9 @@ def signup():
 
         except Exception as e:
             db.session.rollback()
-            print("❌ SIGNUP ERROR:", e)
             return jsonify({"success": False, "message": f"Server error: {e}"}), 500
 
-    # GET → redirect to signup page
-    return redirect("/portal/sign_up.html")
+    return render_template("portal/sign_up.html")
 
 
 # -----------------------------
@@ -73,13 +65,12 @@ def login():
             return jsonify({"success": False, "message": "Invalid email or password!"}), 401
 
     except Exception as e:
-        print("❌ LOGIN ERROR:", e)
         return jsonify({"success": False, "message": f"Server error: {e}"}), 500
-    
-# -----------------------------
-# PROFILE ROUTE 
-# -----------------------------
 
+
+# -----------------------------
+# PROFILE ROUTE
+# -----------------------------
 @complainant_bp.route("/profile", methods=["GET"])
 def profile():
     user_id = session.get("user_id")
@@ -99,11 +90,153 @@ def profile():
         }
     })
 
+# -----------------------------
+# NOT REGISTERED ROUTE
+# -----------------------------
+@complainant_bp.route("/not_registered")
+def not_registered():
+    html_dir = os.path.join(current_app.root_path, "frontend", "complainant", "home")
+    return send_from_directory(html_dir, "not_registered.html")
+
 
 # -----------------------------
-# LOGOUT ROUTE (Optional)
+# Save complaint type in session
 # -----------------------------
-#@complainant_bp.route("/logout", methods=["POST"])
-#def logout():
-    session.pop("user_id", None)
-    return jsonify({"success": True, "message": "Logged out!"})
+@complainant_bp.route("/set-complaint-type", methods=["POST"])
+def set_complaint_type():
+    data = request.get_json(silent=True) or request.form
+    ctype = data.get("type")
+    if not ctype:
+        return jsonify({"success": False, "message": "Missing complaint type"}), 400
+
+    session["complaint_type"] = ctype
+    return jsonify({"success": True, "message": "Complaint type saved in session."})
+
+
+# -----------------------------
+# Read complaint type from session
+# -----------------------------
+@complainant_bp.route("/get-complaint-type", methods=["GET"])
+def get_complaint_type():
+    ctype = session.get("complaint_type")
+    return jsonify({"success": True, "type": ctype})
+
+
+# -----------------------------
+# OVERLAP FORM ROUTE
+# -----------------------------
+@complainant_bp.route('/new_overlap_form')
+def new_overlap_form():
+    user_id = session.get('user_id')
+    if not user_id:
+        return "Not logged in", 401
+
+    # fetch the registration tied to the user
+    registration = Registration.query.filter_by(user_id=user_id).first()
+    if not registration:
+        return "No registration found for user", 400
+
+    # generate a temporary complaint_id
+    import time
+    complaint_id = f"{user_id}-{int(time.time())}"
+
+    # directory where your HTML lives
+    html_dir = r"C:\Users\win10\Documents\GitHub\ReklaMap\frontend\complainant\complaints"
+
+    # save hidden values in session so the JS can access them
+    session['complaint_id'] = complaint_id
+    session['registration_id'] = registration.registration_id
+
+    # serve the file directly
+    return send_from_directory(html_dir, 'overlapping.html')
+
+# -----------------------------
+# SUBMIT OVERLAP COMPLAINT
+# -----------------------------
+
+@complainant_bp.route('/get_overlap_session_data')
+def get_overlap_session_data():
+    return jsonify({
+        "complaint_id": session.get('complaint_id'),
+        "registration_id": session.get('registration_id')
+    })
+
+@complainant_bp.route("/submit_overlap", methods=["POST"])
+def submit_overlap():
+    try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"success": False, "message": "User not logged in"}), 401
+
+        # 1️⃣ Get registration tied to user
+        registration_id = request.form.get("registration_id")
+        registration = Registration.query.get(registration_id)
+        if not registration:
+            return jsonify({"success": False, "message": "Parent registration does not exist"}), 400
+
+        # 2️⃣ Create a new Complaint entry first
+        new_complaint = Complaint(
+            registration_id=registration.registration_id,
+            type_of_complaint="Overlapping",  # could also come from form/session
+            status="Valid"
+        )
+        db.session.add(new_complaint)
+        db.session.flush()  # generates complaint_id without committing
+
+        # 3️⃣ Parse the rest of the form fields
+        q1 = json.loads(request.form.get("q1") or "[]")
+        q4 = json.loads(request.form.get("evidence") or "[]")
+        q5 = json.loads(request.form.get("discover") or "[]")
+        q9 = json.loads(request.form.get("other_claim") or "[]")
+        q2 = request.form.get("current_status")
+        q3 = request.form.get("occupancy_duration")
+        q6 = request.form.get("construction_timeframe")
+        q7 = request.form.get("who_else")
+        q8 = request.form.get("involved_person_name")
+        q10 = request.form.get("reported_to")
+        q11 = request.form.get("inspection")
+        q12 = request.form.get("report_result")
+        q13 = request.form.get("impact")
+        description = request.form.get("description")
+
+        # 4️⃣ Handle signature file
+        signature_file = request.files.get("signature")
+        signature_filename = None
+        if signature_file:
+            signature_filename = secure_filename(signature_file.filename)
+            os.makedirs("uploads/signatures", exist_ok=True)
+            signature_file.save(os.path.join("uploads/signatures", signature_filename))
+
+        # 5️⃣ Save to Overlapping using the generated complaint_id
+        new_overlap = Overlapping(
+            complaint_id=new_complaint.complaint_id,
+            registration_id=registration.registration_id,
+            q1=json.dumps(q1),
+            q2=q2,
+            q3=q3,
+            q4=json.dumps(q4),
+            q5=json.dumps(q5),
+            q6=q6,
+            q7=q7,
+            q8=q8,
+            q9=json.dumps(q9),
+            q10=q10,
+            q11=q11,
+            q12=q12,
+            q13=q13,
+            description=description,
+            signature=signature_filename
+        )
+
+        db.session.add(new_overlap)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Overlap complaint submitted successfully!",
+            "complaint_id": new_complaint.complaint_id
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": f"Server error: {e}"}), 500
