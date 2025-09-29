@@ -1,11 +1,10 @@
-# change exactly as cols in db phpmyadmin
-
 from .db import db
 
 # -----------------------
 # Admin
 # -----------------------
 class Admin(db.Model):
+    __tablename__ = "admin"
     __tablename__ = "admin"
 
     admin_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -49,6 +48,7 @@ class Beneficiary(db.Model):
 
 
 # -----------------------
+# Complainant table
 # Complainant table
 # -----------------------
 class User(db.Model):
@@ -130,7 +130,58 @@ class Complaint(db.Model):
     # Relationship to overlapping (one-to-one)
     overlapping = db.relationship("Overlapping", backref="complaint", uselist=False)
 
+class Complaint(db.Model):
+    __tablename__ = "complaints"
+
+    complaint_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    registration_id = db.Column(db.Integer, db.ForeignKey("registration.registration_id"), nullable=False)
+    type_of_complaint = db.Column(db.String(150), nullable=False)
+    date_received = db.Column(db.DateTime, server_default=db.func.current_timestamp())
+    status = db.Column(db.Enum("Valid", "Invalid"), nullable=False, default="Valid")
+    priority_level = db.Column(db.Enum("Severe", "Moderate", "Minor"))
+    description = db.Column(db.Text)
+
+    # Relationship to overlapping (one-to-one)
+    overlapping = db.relationship("Overlapping", backref="complaint", uselist=False)
+
 # -----------------------
+class RegistrationNonMember(db.Model):
+    __tablename__ = "registration_non_member"
+    non_member_id = db.Column(db.Integer, primary_key=True)
+    registration_id = db.Column(db.Integer, db.ForeignKey("registration.registration_id"), nullable=False)
+    connections = db.Column(db.JSON, nullable=True)
+
+
+# -----------------------
+# Overlapping table
+# -----------------------
+class Overlapping(db.Model):
+    __tablename__ = "overlapping"
+
+    overlapping_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    complaint_id = db.Column(db.Integer, db.ForeignKey('complaints.complaint_id'), nullable=False)
+    registration_id = db.Column(db.Integer, db.ForeignKey('registration.registration_id'), nullable=False)
+    q1 = db.Column(db.JSON)
+    q2 = db.Column(db.String(80))
+    q3 = db.Column(db.String(50))
+    q4 = db.Column(db.JSON)
+    q5 = db.Column(db.JSON)
+    q6 = db.Column(db.JSON)
+    q7 = db.Column(db.String(80))
+    q8 = db.Column(db.String(100))
+    q9 = db.Column(db.JSON)
+    q10 = db.Column(db.String(50))
+    q11 = db.Column(db.String(50))
+    q12 = db.Column(db.String(50))
+    q13 = db.Column(db.String(50))
+    description = db.Column(db.Text)
+    signature = db.Column(db.String(255))
+
+    # relationships back to registration
+    registration = db.relationship("Registration", backref="overlapping_complaints")
+
+    def __repr__(self):
+        return f"<Overlapping {self.overlapping_id}>"
 class RegistrationNonMember(db.Model):
     __tablename__ = "registration_non_member"
     non_member_id = db.Column(db.Integer, primary_key=True)

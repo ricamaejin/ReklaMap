@@ -4,7 +4,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import os
 from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory
 from sqlalchemy import text
+
+# backend
 
 # backend
 from backend.database.db import db
@@ -59,11 +62,14 @@ app.register_blueprint(nonmemreg_bp)
 def home():
     # Optionally, serve your main frontend page here
     return app.send_static_file("portal/index.html")
+    # Optionally, serve your main frontend page here
+    return app.send_static_file("portal/index.html")
 
 # Serve ANY static file from frontend (css, js, images, svg, etc.)
 @app.route("/<path:filename>")
 def serve_frontend_files(filename):
     return send_from_directory(frontend_path, filename)
+
 
 
 # TESTING PURPOSES (ex. http://127.0.0.1:5000/db_test to test db conn)
@@ -72,6 +78,31 @@ def test_admins():
     admins = Admin.query.all()
     result = [admin.employee_id for admin in admins]
     return {"admins": result}
+
+@app.route('/db_test')
+def db_test():
+    try:
+        db.session.execute(text('SELECT 1'))
+        return "Database connection is working!"
+    except Exception as e:
+        return f"Database connection failed: {e}"
+
+# Add this route to test your specific admin query
+@app.route("/test-admin-query")
+def test_admin_query():
+    try:
+        admin = Admin.query.filter_by(employee_id="12345").first()
+        if admin:
+            return {
+                "found": True,
+                "employee_id": admin.employee_id,
+                "name": admin.name,
+                "has_password_hash": bool(admin.password_hash)
+            }
+        else:
+            return {"found": False}
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.route('/db_test')
 def db_test():
