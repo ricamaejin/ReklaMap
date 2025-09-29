@@ -2,12 +2,9 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import os
 from flask import Flask, send_from_directory
 from flask import Flask, send_from_directory
 from sqlalchemy import text
-
-# backend
 
 # backend
 from backend.database.db import db
@@ -78,31 +75,6 @@ def test_admins():
     admins = Admin.query.all()
     result = [admin.employee_id for admin in admins]
     return {"admins": result}
-
-@app.route('/db_test')
-def db_test():
-    try:
-        db.session.execute(text('SELECT 1'))
-        return "Database connection is working!"
-    except Exception as e:
-        return f"Database connection failed: {e}"
-
-# Add this route to test your specific admin query
-@app.route("/test-admin-query")
-def test_admin_query():
-    try:
-        admin = Admin.query.filter_by(employee_id="12345").first()
-        if admin:
-            return {
-                "found": True,
-                "employee_id": admin.employee_id,
-                "name": admin.name,
-                "has_password_hash": bool(admin.password_hash)
-            }
-        else:
-            return {"found": False}
-    except Exception as e:
-        return {"error": str(e)}
 
 @app.route('/db_test')
 def db_test():
