@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, session, render_template, send_from_directory, current_app, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from backend.database.models import User, Overlapping, Registration, Complaint
+from backend.database.models import User, Overlapping, Registration, Complaint, LotDispute
 from backend.database.db import db
 import os, json, time
 from werkzeug.utils import secure_filename
@@ -298,3 +298,88 @@ def uploaded_signature(filename):
 
     # Serve the file
     return send_from_directory(directory=upload_dir, path=safe_filename)
+
+# -----------------------------
+# LOT DISPUTE FORM ROUTE
+# -----------------------------
+
+@complainant_bp.route('/new_lot_dispute_form')
+def new_lot_dispute_form():
+    user_id = session.get('user_id')
+    if not user_id:
+        return "Not logged in", 401
+
+    registration = Registration.query.filter_by(user_id=user_id).first()
+    if not registration:
+        return "No registration found for user", 400
+
+    complaint_id = f"{user_id}-{int(time.time())}"
+    session['complaint_id'] = complaint_id
+    session['registration_id'] = registration.registration_id
+
+    html_dir = TEMPLATE_DIR
+    return send_from_directory(html_dir, 'lot_dispute.html')
+
+# -----------------------------
+# Submit lot dispute complaint
+# -----------------------------
+
+@complainant_bp.route('/submit_lot_dispute', methods=['POST'])
+def submit_lot_dispute():
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({"success": False, "message": "User not logged in"}), 401
+
+        registration_id = request.form.get('registration_id') or session.get('registration_id')
+        registration = Registration.query.get(registration_id)
+        if not registration:
+            return jsonify({"success": False, "message": "Parent registration not found"}), 400
+
+        # Create a new complaint entry
+        new_complaint = Complaint(
+            registration_id=registration.registration_id,
+            type_of_complaint="Lot Dispute",
+            status="Valid"
+        )
+        db.session.add(new_complaint)
+        db.session.flush()  # flush to get complaint_id
+
+        # Parse form fields
+        q1 = request.form.get("possession")
+        q2 = request.form.get("conflict")
+        q3 = request.form.get("dispute_start_date")
+        q4 = request.form.get("reason")
+        q5 = json.loads(request.form.get("reported_to") or "[]")  # checkboxes
+        q6 = request.form.get("result")
+        q7 = request.form.get("opposing_name")
+        q8 = request.form.get("relationship_with_person")
+        q9 = request.form.get("legal_docs")  # yes/no/not sure
+
+        # Save lot dispute
+        lot_dispute_entry = LotDispute(
+            complaint_id=new_complaint.complaint_id,
+            q1=q1,
+            q2=q2,
+            q3=q3,
+            q4=q4,
+            q5=json.dumps(q5),
+            q6=q6,
+            q7=q7,
+            q8=q8,
+            q9=q9
+        )
+
+        db.session.add(lot_dispute_entry)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Lot dispute submitted successfully!",
+            "complaint_id": new_complaint.complaint_id
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": f"Server error: {e}"}), 500
+

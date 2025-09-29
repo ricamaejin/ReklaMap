@@ -224,4 +224,27 @@ class Overlapping(db.Model):
 
     def __repr__(self):
         return f"<Overlapping {self.overlapping_id}>"
+    
+# -----------------------
+# Lot Dispute
+# -----------------------
+
+class LotDispute(db.Model):
+    __tablename__ = "lot_dispute"
+
+    lot_dispute_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    complaint_id = db.Column(db.Integer, db.ForeignKey('complaints.complaint_id'), nullable=False)
+    q1 = db.Column(db.String(200))
+    q2 = db.Column(db.String(200))
+    q3 = db.Column(db.Date)
+    q4 = db.Column(db.String(200))
+    q5 = db.Column(db.JSON)
+    q6 = db.Column(db.String(200))
+    q7 = db.Column(db.String(100))
+    q8 = db.Column(db.String(100))
+    q9 = db.Column(db.Enum("Yes", "No", "Not Sure"))
+
+    # Relationship back to complaint
+    complaint = db.relationship("Complaint", backref="lot_dispute")
+
 
