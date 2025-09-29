@@ -1,4 +1,5 @@
 from .db import db
+from sqlalchemy.dialects.mysql import JSON, DECIMAL, ENUM
 
 # -----------------------
 # Admin
@@ -59,7 +60,6 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
-
 # -----------------------
 # Registration table
 # -----------------------
@@ -108,8 +108,10 @@ class Policy(db.Model):
 
     def __repr__(self):
         return f"<Policy {self.policy_code}>"
-
-
+    
+# -----------------------
+# Complaints
+# -----------------------
 class Complaint(db.Model):
     __tablename__ = "complaints"
 
@@ -125,11 +127,44 @@ class Complaint(db.Model):
     overlapping = db.relationship("Overlapping", backref="complaint", uselist=False)
 
 # -----------------------
+# Non-Member Registration
+# -----------------------
 class RegistrationNonMember(db.Model):
     __tablename__ = "registration_non_member"
     non_member_id = db.Column(db.Integer, primary_key=True)
     registration_id = db.Column(db.Integer, db.ForeignKey("registration.registration_id"), nullable=False)
     connections = db.Column(db.JSON, nullable=True)
+
+# -----------------------
+# Fam Member of Member
+# -----------------------
+class RegistrationFamOfMember(db.Model):
+    __tablename__ = "registration_fam_of_member"
+
+    fam_member_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+
+    # FK → Registration.registration_id
+    registration_id = db.Column(
+        db.Integer,
+        db.ForeignKey("registration.registration_id"),
+        nullable=False
+    )
+
+    last_name = db.Column(db.String(100), nullable=False)
+    first_name = db.Column(db.String(100), nullable=False)
+    middle_name = db.Column(db.String(100))
+    suffix = db.Column(db.String(10))
+    date_of_birth = db.Column(db.Date)
+    sex = db.Column(ENUM("Male", "Female"))
+    citizenship = db.Column(db.String(50))
+    age = db.Column(DECIMAL(2, 0))
+    phone_number = db.Column(db.String(20))
+    year_of_residence = db.Column(DECIMAL(2, 0))
+    relationship = db.Column(db.String(100), nullable=False)
+    supporting_documents = db.Column(JSON)
+
+    # Relationship back to Registration
+    registration = db.relationship("Registration", backref="family_members")
 
 
 # -----------------------

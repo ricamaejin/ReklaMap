@@ -22,6 +22,7 @@ from backend.complainant.memreg import mem_reg_bp
 # Complainant complaints API blueprint
 from backend.complainant.complaints_api import complaints_bp as complainant_complaints_bp
 from backend.complainant.nonmemreg import nonmemreg_bp
+from backend.complainant.famreg import famreg_bp
 
 
 # Set static_folder to your frontend directory, static_url_path to ""
@@ -53,6 +54,7 @@ app.register_blueprint(complainant_bp)
 app.register_blueprint(mem_reg_bp)
 app.register_blueprint(complainant_complaints_bp)
 app.register_blueprint(nonmemreg_bp)
+app.register_blueprint(famreg_bp)
 
 # Serve main portal page
 @app.route("/")
@@ -66,8 +68,6 @@ def home():
 @app.route("/<path:filename>")
 def serve_frontend_files(filename):
     return send_from_directory(frontend_path, filename)
-
-
 
 # TESTING PURPOSES (ex. http://127.0.0.1:5000/db_test to test db conn)
 @app.route("/test-admins")
