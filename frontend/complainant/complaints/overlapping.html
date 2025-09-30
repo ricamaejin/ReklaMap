@@ -5,40 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
-  <link rel="stylesheet" href="/css/complainants.css">
-</head>
-<body>
-  <style>
-  :root{
-    
-    --field-bg:#f6fbff;
-  }
-
-  /* Main area */
-
-  /* Block/Lot pairs */
-  .pairs{
-    margin-top:8px;border:1px dashed rgba(0,0,0,0.06);padding:12px;border-radius:4px;background:var(--field-bg);
-  }
-  .pair-row{
-    display:flex;gap:12px;align-items:flex-end;margin-bottom:8px;
-  }
-  .pair-row .col{display:flex;flex-direction:column;flex:1}
-  .pair-row label.small{font-weight:600;font-size:12px;color:var(--muted);margin-bottom:6px}
-  .pair-row input[type="text"]{
-    padding:8px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white;
-  }
-  .pair-row button.remove{
-    height:36px;padding:6px 8px;border-radius:4px;border:1px solid rgba(0,0,0,0.08);background:#fff;cursor:pointer;
-  }
-  .pair-controls{display:flex;gap:8px;align-items:center;margin-top:6px}
-  .btn{
-    display:inline-block;padding:8px 12px;border-radius:6px;border:none;cursor:pointer;font-weight:700;
-  }
-  .btn.add{background:#eef6ff;color:var(--accent-strong);border:1px solid #cfe2ff}
-  .btn.small{padding:6px 10px;font-size:13px}
-
-</style>
+  <link rel="stylesheet" href="/frontend/css/complainants.css">
 </head>
 <body>
   <!-- Sidebar -->
@@ -56,7 +23,7 @@
   <!-- Main Form -->
   <div class="main">
     <div class="form-container">
-      <h1>COMPLAINT FORM</h1>
+      <h1 style="text-decoration: underline;">COMPLAINT FORM <br> OVERLAPPING</h1>
       <div class="instructions">
         <p><strong>INSTRUCTION</strong></p>
         <ul>
@@ -71,10 +38,78 @@
     <form id="overlapForm">
         <input type="hidden" name="complaint_id" value="{{ complaint_id }}">
         <input type="hidden" name="registration_id" value="{{ registration_id }}">
+
+        <div class="section-header">COMPLAINANT'S DETAILS:</div>
+        <div class="pairs">
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Full Name:</label>
+              <input type="text" name="full_name" readonly>
+            </div>
+          </div>
+
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Date of Birth:</label>
+              <input type="date" name="date_of_birth" readonly 
+              style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
+            </div>
+
+            <div class="col">
+              <label class="small">Sex:</label>
+              <input type="text" name="sex" readonly>
+            </div>
+          </div>
+
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Civil Status:</label>
+              <input type="text" name="civil_stat" readonly>
+            </div>
+            <div class="col">
+              <label class="small">Citizenship:</label>
+              <input type="text" name="citizenship" readonly>
+            </div>
+          </div>
+
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Current Address:</label>
+              <input type="text" name="cur_add" readonly>
+            </div>
+
+            <div class="col">
+              <label class="small">HOA:</label>
+              <input type="text" name="hoa" readonly>
+            </div>
+          </div>
+
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Lot Assignment Address:</label>
+              <input type="text" name="lot_asn" readonly>
+            </div>
+
+            <div class="col">
+              <label class="small">Lot Area Size:</label>
+              <input type="text" name="lot_size" readonly>
+            </div>
+          </div>
+
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Phone Number:</label>
+              <input type="text" name="phone_number" readonly>
+            </div>
+
+            <div class="col"></div>
+          </div>
+        </div>
+
         <!-- Section 1 -->
         <div class="section-header">LOT DETAILS AND CLAIM:</div>
 
-          <p>1. What are the specific block and lot numbers involved in the overlap?</p>
+          <p>1. What are the specific block and lot numbers involved in the overlap excluding yours?</p>
           <div class="pairs" id="pairsContainer" aria-live="polite">
             <!-- rows will be added here -->
           </div>

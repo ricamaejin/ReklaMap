@@ -50,7 +50,7 @@
   <aside class="sidebar">
     <div class="logo-section">
       <img src="/images/logo.png" alt="ReklaMap Logo" class="logo" />
-      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Home</span></span>
+      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
       <a href="/complainant/home/dashboard.html" class="nav-item">Map</a>
@@ -147,7 +147,7 @@
               // Click handler (redirect to view page)
               complaintDiv.addEventListener("click", () => {
                 if (complaintDiv.dataset.id) {
-                  window.location.href = `/complainant/complaint/${complaintDiv.dataset.id}`;
+                  window.location.href = `/complainant/complaints/complaint_details_valid.html?id=${complaintDiv.dataset.id}`;
                 }
               });
 
