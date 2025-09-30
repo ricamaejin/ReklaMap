@@ -35,7 +35,7 @@
         </ul>
       </div>
     
-    <form id="overlapForm">
+    <form id="overlapForm" enctype="multipart/form-data">
         <input type="hidden" name="complaint_id" value="{{ complaint_id }}">
         <input type="hidden" name="registration_id" value="{{ registration_id }}">
 
@@ -348,119 +348,124 @@
 </script>
 
 <script>
-document.getElementById('overlapForm').addEventListener('submit', async function(e){
+document.addEventListener("DOMContentLoaded", () => {
+  const overlapForm = document.getElementById('overlapForm');
+  const submitBtn = document.getElementById('submitBtn');
+  const signatureInput = document.getElementById('signatureInput');
+  const signatureFileName = document.getElementById('signatureFileName');
+
+  if (!overlapForm) {
+    console.error("Form not found!");
+    return;
+  }
+
+  // -------------------------
+  // Handle form submit
+  // -------------------------
+  overlapForm.addEventListener('submit', async function(e) {
     e.preventDefault();
+    console.log("Submit button clicked ✅");
 
-    const form = document.getElementById('overlapForm');
-    const formData = new FormData();
+    const formData = new FormData(overlapForm);
 
-    // -------------------------
     // Hidden fields
-    // -------------------------
     const complaintIdInput = document.querySelector('input[name="complaint_id"]');
     const registrationIdInput = document.querySelector('input[name="registration_id"]');
-
-    if(!complaintIdInput || !registrationIdInput){
-        alert('Form hidden fields missing!');
-        return;
+    if (!complaintIdInput || !registrationIdInput) {
+      alert('Form hidden fields missing!');
+      return;
     }
+    formData.set('complaint_id', complaintIdInput.value);
+    formData.set('registration_id', registrationIdInput.value);
 
-    const complaintId = complaintIdInput.value;
-    const registrationId = registrationIdInput.value;
+    // q1 block/lot pairs
+    const q1 = Array.from(document.querySelectorAll('#pairsContainer .pair-row')).map(row => {
+      const blockInput = row.querySelector('input[name="block_no[]"]');
+      const lotInput   = row.querySelector('input[name="lot_no[]"]');
 
-    console.log("complaint_id to send:", complaintId);
-    console.log("registration_id to send:", registrationId);
-
-    formData.set('complaint_id', complaintId);
-    formData.set('registration_id', registrationId);
-
-    // -------------------------
-    // Dynamic q1: block/lot pairs
-    // -------------------------
-    const q1 = Array.from(document.querySelectorAll('.pair-row')).map(row => ({
-        block: row.querySelector('input[name="block_no[]"]').value,
-        lot: row.querySelector('input[name="lot_no[]"]').value
-    }));
+      return {
+        block: blockInput ? blockInput.value : "",
+        lot:   lotInput ? lotInput.value : ""
+      };
+    });
     formData.set('q1', JSON.stringify(q1));
 
-    // -------------------------
-    // Checkbox fields
-    // -------------------------
+    // Checkbox groups
     function addCheckboxes(name){
-        const values = Array.from(document.querySelectorAll(`input[name="${name}"]:checked`))
-                            .map(cb => cb.value);
-        formData.set(name, JSON.stringify(values));
+      const values = Array.from(document.querySelectorAll(`input[name="${name}"]:checked`))
+                          .map(cb => cb.value);
+      formData.set(name, JSON.stringify(values));
     }
+    addCheckboxes('evidence');
+    addCheckboxes('discover');
+    addCheckboxes('other_claim');
 
-    addCheckboxes('evidence');    // q4
-    addCheckboxes('discover');    // q5
-    addCheckboxes('other_claim'); // q9
-
-    // -------------------------
     // Single-value fields
-    // -------------------------
     const singleFields = [
-        'current_status', 'occupancy_duration', 'construction_timeframe', 'who_else',
-        'involved_person_name', 'reported_to', 'inspection', 'report_result', 'impact', 'description'
+      'current_status', 'occupancy_duration', 'construction_timeframe', 'who_else',
+      'involved_person_name', 'reported_to', 'inspection', 'report_result', 'impact', 'description'
     ];
-
     singleFields.forEach(name => {
-        const elChecked = document.querySelector(`[name="${name}"]:checked`);
-        const elText = document.querySelector(`[name="${name}"]:not([type="radio"]):not([type="checkbox"])`);
-        if(elChecked){
-            formData.set(name, elChecked.value);
-        } else if(elText){
-            formData.set(name, elText.value || '');
-        }
+      const elChecked = document.querySelector(`[name="${name}"]:checked`);
+      const elText = document.querySelector(`[name="${name}"]:not([type="radio"]):not([type="checkbox"])`);
+      if (elChecked) {
+        formData.set(name, elChecked.value);
+      } else if (elText) {
+        formData.set(name, elText.value || '');
+      }
     });
 
-    // -------------------------
-    // Signature file
-    // -------------------------
-    const signatureInput = document.getElementById('signatureInput');
-    if(signatureInput && signatureInput.files[0]){
-        formData.set('signature', signatureInput.files[0]);
+    // Signature
+    if (signatureInput && signatureInput.files[0]) {
+      formData.set('signature', signatureInput.files[0]);
     }
 
-    // -------------------------
-    // Submit via fetch
-    // -------------------------
+    // Submit to backend
     try {
-        const response = await fetch('/complainant/submit_overlap', {
-            method: 'POST',
-            body: formData
-        });
+      const response = await fetch('/complainant/submit_overlap', {
+        method: 'POST',
+        body: formData
+      });
 
-        const result = await response.json();
-        if(result.success){
-            alert('Complaint submitted successfully!');
-            window.location.href = '/complainant/home/dashboard.html';
-        } else {
-            alert('Failed to submit complaint: ' + result.message);
-        }
-    } catch(err){
-        console.error(err);
-        alert('An error occurred while submitting the complaint.');
+      if (!response.ok) {
+        const text = await response.text();
+        console.error("Server error:", text);
+        alert("Server error: " + response.status);
+        return;
+      }
+
+      const result = await response.json();
+      console.log("Response JSON:", result);
+
+      if (result.success) {
+        alert('Complaint submitted successfully!');
+        window.location.href = '/complainant/home/dashboard.html';
+      } else {
+        alert('Failed to submit complaint: ' + result.message);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('An error occurred while submitting the complaint.');
     }
-});
+  });
 
-// -------------------------
-// Signature file UI
-// -------------------------
-const signatureInput = document.getElementById('signatureInput');
-const signatureFileName = document.getElementById('signatureFileName');
-const submitBtn = document.getElementById('submitBtn');
-
-signatureInput.addEventListener('change', function() {
-    if(this.files && this.files[0]){
-        signatureFileName.textContent = this.files[0].name;
-        submitBtn.style.display = 'inline-block';
-    } else {
-        signatureFileName.textContent = '';
-        submitBtn.style.display = 'none';
-    }
+  // -------------------------
+  // Show submit button after signature upload
+  // -------------------------
+  if (signatureInput) {
+    signatureInput.addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+        if (signatureFileName) signatureFileName.textContent = this.files[0].name;
+        if (submitBtn) submitBtn.style.display = 'inline-block';
+      } else {
+        if (signatureFileName) signatureFileName.textContent = '';
+        if (submitBtn) submitBtn.style.display = 'none';
+      }
+    });
+  }
 });
 </script>
+
 
 <script>
 fetch('/complainant/get_overlap_session_data')
@@ -485,9 +490,8 @@ fetch('/complainant/get_overlap_session_data')
     document.querySelector('input[name="lot_size"]').value = data.lot_size || "";
     document.querySelector('input[name="phone_number"]').value = data.phone_number || "";
   })
-  .catch(err => console.error("Failed to fetch registration data:", err));
+  .catch(err => console.error("❌ Failed to fetch registration data:", err));
 </script>
-
 
 </body>
 </html>

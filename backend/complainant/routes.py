@@ -157,6 +157,7 @@ def new_overlap_form():
     html_dir = TEMPLATE_DIR
     return send_from_directory(html_dir, 'overlapping.html')
 
+
 # -----------------------------
 # Get overlap session data
 # -----------------------------
@@ -172,10 +173,19 @@ def get_overlap_session_data():
     if not reg:
         return jsonify({"error": "Registration not found"}), 404
 
+    def safe(val):
+        """Turn None, 'NA', 'N/A', 'None' into empty string."""
+        if not val:
+            return ""
+        val_str = str(val).strip()
+        if val_str.lower() in {"na", "n/a", "none"}:
+            return ""
+        return val_str
+
     return jsonify({
         "complaint_id": complaint_id,
         "registration_id": reg.registration_id,
-        "full_name": f"{reg.first_name} {reg.middle_name or ''} {reg.last_name} {reg.suffix or ''}".strip(),
+        "full_name": f"{safe(reg.first_name)} {safe(reg.middle_name)} {safe(reg.last_name)} {safe(reg.suffix)}".strip(),
         "date_of_birth": reg.date_of_birth.isoformat() if reg.date_of_birth else "",
         "sex": reg.sex,
         "civil_status": reg.civil_status,
@@ -273,8 +283,98 @@ def submit_overlap():
         return jsonify({"success": False, "message": f"Server error: {e}"}), 500
 
 # -----------------------------
-# View complaint
+# Dynamic form structure for preview
 # -----------------------------
+def get_form_structure(complaint_type):
+    """
+    Returns a list of field definitions for the given complaint type.
+    Each field is a dict: {type, name, label, options, ...}
+    Extend this for each complaint type as needed.
+    """
+    if complaint_type == "Overlapping":
+        return [
+            {"type": "block_lot_pairs", "name": "q1", "label": "1. What are the specific block and lot numbers involved in the overlap?"},
+            {"type": "radio", "name": "q2", "label": "2. What is the current status of the lot?", "options": [
+                ("residing", "I am currently residing or building on the lot"),
+                ("built_by_other", "Someone else has built or is using part of the same lot"),
+                ("no_one_using", "No one is using the lot, but another person also claims it"),
+                ("multiple_structures", "There are multiple structures claiming the same lot area")
+            ]},
+            {"type": "radio", "name": "q3", "label": "3. How long have you been assigned to or occupying this lot?", "options": [
+                ("<1_year", "Less than 1 year"),
+                ("1-3_years", "1–3 years"),
+                ("3-5_years", "3–5 years"),
+                (">5_years", "More than 5 years")
+            ]},
+            {"type": "checkbox", "name": "q4", "label": "4. What shows that your lot is overlapping with another claim?", "options": [
+                ("survey", "Official subdivision or site survey shows overlapping lot boundaries"),
+                ("lot_in_docs", "My lot number or coordinates appear in someone else’s documents"),
+                ("structure_on_space", "There is another structure on my assigned space"),
+                ("markers", "Markers or fences show mismatched or shared boundary lines"),
+                ("advice", "HOA, NGC, or an LGU unit advised me that my lot is overlapping")
+            ]},
+            {"type": "checkbox", "name": "q5", "label": "5. How did you discover the overlap?", "options": [
+                ("informed_by_officer", "I was informed by an NHA, NGC, or barangay officer"),
+                ("saw_structure", "I saw a structure already built partially or fully on my lot"),
+                ("verbal_warning", "I received a verbal warning or notice from another claimant"),
+                ("compared_docs", "I compared documents and noticed the same block/lot number"),
+                ("advised_survey", "I was advised during a survey, inspection, or mapping activity")
+            ]},
+            {"type": "radio", "name": "q6", "label": "6. When did the construction begin?", "options": [
+                ("<3m", "Less than 3 months"),
+                ("3-6m", "3–6 months"),
+                ("6-12m", "6–12 months"),
+                (">1y", "Over a year"),
+                ("not_sure", "Not sure")
+            ]},
+            {"type": "radio", "name": "q7", "label": "7. Who else is involved in this overlap?", "options": [
+                ("official_beneficiary", "An officially listed beneficiary with their own documents"),
+                ("relative_of_beneficiary", "A relative of the listed beneficiary (not on paper)"),
+                ("private_claimant", "A private claimant not from the community"),
+                ("prev_occupant", "A structure built by a previous occupant"),
+                ("unknown", "I do not know who the other claimant is")
+            ]},
+            {"type": "text", "name": "q8", "label": "8. What is the name of the involved person?"},
+            {"type": "checkbox", "name": "q9", "label": "9. What do you know about the other party’s claim?", "options": [
+                ("different_doc", "They showed a different assignment document"),
+                ("refused_to_vacate", "They refused to vacate or adjust"),
+                ("structure_covers", "Their structure covers part of my lot"),
+                ("no_docs_seen", "I have not seen any documents from their side")
+            ]},
+            {"type": "radio", "name": "q10", "label": "10. Have you reported this to any office or authority?", "options": [
+                ("barangay", "Yes – Barangay"),
+                ("hoa", "Yes – HOA"),
+                ("ngc", "Yes – NGC"),
+                ("no_first_time", "No – This is the first time")
+            ]},
+            {"type": "radio", "name": "q11", "label": "11. Was a site inspection or verification done?", "options": [
+                ("barangay", "Yes – by Barangay"),
+                ("hoa", "Yes – by HOA"),
+                ("ngc", "Yes – by NGC"),
+                ("no", "No"),
+                ("not_sure", "Not sure")
+            ]},
+            {"type": "radio", "name": "q12", "label": "12. What was the result of the report or inspection?", "options": [
+                ("other_vacate", "The other party was advised to vacate"),
+                ("gather_docs", "I was advised to gather more documents"),
+                ("no_action", "No action was taken"),
+                ("under_investigation", "The issue is still under investigation"),
+                ("overlapping_assign", "I was told the lot has overlapping assignments")
+            ]},
+            {"type": "radio", "name": "q13", "label": "13. What has the overlap issue caused or affected?", "options": [
+                ("cannot_build", "I cannot build or renovate due to the boundary issue"),
+                ("conflict_with_family", "I am in conflict with another family over the lot"),
+                ("threats_or_eviction", "I received threats or was told to leave"),
+                ("lost_use", "I lost use of part/all of the land I was assigned"),
+                ("public_path", "A public path or neighbor's property is also affected")
+            ]},
+            {"type": "textarea", "name": "description", "label": "Please describe what happened briefly:"},
+            {"type": "signature", "name": "signature", "label": "Signature"}
+        ]
+    # Add more complaint types here as needed
+    return []
+
+
 @complainant_bp.route("/complaint/<int:complaint_id>")
 def view_complaint(complaint_id):
     user_id = session.get("user_id")
@@ -286,19 +386,38 @@ def view_complaint(complaint_id):
     if not registration or registration.user_id != user_id:
         return "Unauthorized", 403
 
-    overlap_data = None
+    # Get answers from the correct table
+    answers = {}
+    form_structure = get_form_structure(complaint.type_of_complaint)
+
     if complaint.type_of_complaint == "Overlapping":
-        overlap_data = Overlapping.query.filter_by(complaint_id=complaint_id).first()
-        if overlap_data:
-            overlap_data.q1 = json.loads(overlap_data.q1 or "[]")
-            overlap_data.q4 = json.loads(overlap_data.q4 or "[]")
-            overlap_data.q5 = json.loads(overlap_data.q5 or "[]")
-            overlap_data.q9 = json.loads(overlap_data.q9 or "[]")
+        overlap = Overlapping.query.filter_by(complaint_id=complaint_id).first()
+        if overlap:
+            answers = {
+                "q1": json.loads(overlap.q1 or "[]"),
+                "q2": overlap.q2,
+                "q3": overlap.q3,
+                "q4": json.loads(overlap.q4 or "[]"),
+                "q5": json.loads(overlap.q5 or "[]"),
+                "q6": overlap.q6,
+                "q7": overlap.q7,
+                "q8": overlap.q8,
+                "q9": json.loads(overlap.q9 or "[]"),
+                "q10": overlap.q10,
+                "q11": overlap.q11,
+                "q12": overlap.q12,
+                "q13": overlap.q13,
+                "description": overlap.description,
+                "signature": overlap.signature
+            }
+    # Add more complaint types here as needed
 
     return render_template(
-        "complaint_details_valid.html",
+        "complaint_details_valid.html" if complaint.status == "Valid" else "complaint_details_invalid.html",
         complaint=complaint,
-        overlap=overlap_data
+        registration=registration,
+        form_structure=form_structure,
+        answers=answers
     )
 
 # -----------------------------

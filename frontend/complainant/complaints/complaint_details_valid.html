@@ -36,130 +36,154 @@
       <div class="complaint-form">
         <h1>COMPLAINT PREVIEW</h1>
         
-        <!-- Section 1 -->
-        <div class="section-header">LOT DETAILS AND CLAIM:</div>
 
-        <p>1. What are the specific block and lot numbers involved in the overlap?</p>
-        <div class="pairs">
-          {% for pair in overlap.q1 %}
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Block No.</label>
-              <input type="text" value="{{ pair.block }}" disabled>
+        <h1 style="text-decoration: underline;">COMPLAINT FORM <br> OVERLAPPING</h1>
+        <div class="instructions">
+          <p><strong>INSTRUCTION</strong></p>
+          <ul>
+            <li>Complete the application form properly and legibly.</li>
+            <li>For checkbox items (☑), you may select more than one option if applicable.</li>
+            <li>For radio button items (◉), please select only one option.</li>
+            <li>If a field or question does not apply to you or you do not know the answer, write “N/A” (Not Applicable).</li>
+            <li>Ensure all required fields are filled before submitting the form.</li>
+          </ul>
+        </div>
+
+        <form>
+          <input type="hidden" name="complaint_id" value="{{ complaint.complaint_id }}">
+          <input type="hidden" name="registration_id" value="{{ registration.registration_id }}">
+
+          <div class="section-header">COMPLAINANT'S DETAILS:</div>
+          <div class="pairs">
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Full Name:</label>
+                <input type="text" name="full_name" value="{{ registration.first_name }} {{ registration.middle_name }} {{ registration.last_name }} {{ registration.suffix }}" readonly>
+              </div>
             </div>
-            <div class="col">
-              <label class="small">Lot No.</label>
-              <input type="text" value="{{ pair.lot }}" disabled>
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Date of Birth:</label>
+                <input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
+              </div>
+              <div class="col">
+                <label class="small">Sex:</label>
+                <input type="text" name="sex" value="{{ registration.sex }}" readonly>
+              </div>
+            </div>
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Civil Status:</label>
+                <input type="text" name="civil_stat" value="{{ registration.civil_status }}" readonly>
+              </div>
+              <div class="col">
+                <label class="small">Citizenship:</label>
+                <input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly>
+              </div>
+            </div>
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Current Address:</label>
+                <input type="text" name="cur_add" value="{{ registration.current_address }}" readonly>
+              </div>
+              <div class="col">
+                <label class="small">HOA:</label>
+                <input type="text" name="hoa" value="{{ registration.hoa }}" readonly>
+              </div>
+            </div>
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Block Assignment Number:</label>
+                <input type="text" name="blk_num" value="{{ registration.block_no }}" readonly>
+              </div>
+              <div class="col">
+                <label class="small">Lot Assignment Number:</label>
+                <input type="text" name="lot_num" value="{{ registration.lot_no }}" readonly>
+              </div>
+              <div class="col">
+                <label class="small">Lot Area Size:</label>
+                <input type="text" name="lot_size" value="{{ registration.lot_size }}" readonly>
+              </div>
+            </div>
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Phone Number:</label>
+                <input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly>
+              </div>
+              <div class="col"></div>
             </div>
           </div>
+
+
+          {% set lot_details_rendered = false %}
+          {% macro render_field(field, answers) %}
+            {% if field.type == 'block_lot_pairs' %}
+              {% if not lot_details_rendered %}
+                <div class="section-header">LOT DETAILS AND CLAIM:</div>
+                {% set _ = namespace(lot_details_rendered=true) %}
+              {% endif %}
+              <p>{{ field.label }}</p>
+              <div class="pairs">
+                {% for pair in answers[field.name] %}
+                  <div class="pair-row">
+                    <div class="col">
+                      <label class="small">Block No.</label>
+                      <input type="text" value="{{ pair.block }}" disabled>
+                    </div>
+                    <div class="col">
+                      <label class="small">Lot No.</label>
+                      <input type="text" value="{{ pair.lot }}" disabled>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% elif field.type == 'radio' %}
+              <p>{{ field.label }}</p>
+              <div class="radio-group">
+                {% for val, label in field.options %}
+                  <label style="display:block;margin-bottom:4px;">
+                    <input type="radio" disabled {% if answers[field.name]==val %}checked{% endif %}>
+                    {{ label }}
+                  </label>
+                {% endfor %}
+              </div>
+            {% elif field.type == 'checkbox' %}
+              <p>{{ field.label }} <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+              <div class="checkbox-group">
+                {% for val, label in field.options %}
+                  <label style="display:block;margin-bottom:4px;">
+                    <input type="checkbox" disabled {% if val in answers[field.name] %}checked{% endif %}>
+                    {{ label }}
+                  </label>
+                {% endfor %}
+              </div>
+            {% elif field.type == 'text' %}
+              <p>{{ field.label }}</p>
+              <input type="text" value="{{ answers[field.name] }}" disabled>
+            {% elif field.type == 'textarea' %}
+              <p style="font-weight: bold;">{{ field.label }}</p>
+              <textarea readonly>{{ answers[field.name] }}</textarea>
+            {% elif field.type == 'signature' %}
+              <div class="signature">
+                {% if answers.signature %}
+                  <a href="{{ url_for('complainant.uploaded_signature', filename=answers.signature) }}" target="_blank">View Signature</a>
+                {% else %}
+                  <p><em>No signature uploaded</em></p>
+                {% endif %}
+              </div>
+            {% endif %}
+          {% endmacro %}
+
+          {# Only render the section header once, then all fields #}
+          {% for field in form_structure %}
+            {{ render_field(field, answers) }}
           {% endfor %}
-        </div>
 
-        <p>2. What is the current status of the lot?</p>
-        <label><input type="radio" disabled {% if overlap.q2=="residing" %}checked{% endif %}> I am currently residing or building on the lot</label>
-        <label><input type="radio" disabled {% if overlap.q2=="built_by_other" %}checked{% endif %}> Someone else has built or is using part of the same lot</label>
-        <label><input type="radio" disabled {% if overlap.q2=="no_one_using" %}checked{% endif %}> No one is using the lot, but another person also claims it</label>
-        <label><input type="radio" disabled {% if overlap.q2=="multiple_structures" %}checked{% endif %}> There are multiple structures claiming the same lot area</label>
-
-        <!-- Q3: Occupancy Duration -->
-        <p>3. How long have you been assigned to or occupying this lot?</p>
-        <label><input type="radio" disabled {% if overlap.q3=="<1_year" %}checked{% endif %}> Less than 1 year</label>
-        <label><input type="radio" disabled {% if overlap.q3=="1-3_years" %}checked{% endif %}> 1–3 years</label>
-        <label><input type="radio" disabled {% if overlap.q3=="3-5_years" %}checked{% endif %}> 3–5 years</label>
-        <label><input type="radio" disabled {% if overlap.q3==">5_years" %}checked{% endif %} style="margin-bottom:12px;"> More than 5 years</label>
-
-        <!-- Q4: Evidence -->
-        <p>4. What shows that your lot is overlapping with another claim? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
-        <label><input type="checkbox" disabled {% if "survey" in overlap.q4 %}checked{% endif %}> Official subdivision or site survey shows overlapping lot boundaries</label>
-        <label><input type="checkbox" disabled {% if "lot_in_docs" in overlap.q4 %}checked{% endif %}> My lot number or coordinates appear in someone else’s documents</label>
-        <label><input type="checkbox" disabled {% if "structure_on_space" in overlap.q4 %}checked{% endif %}> There is another structure on my assigned space</label>
-        <label><input type="checkbox" disabled {% if "markers" in overlap.q4 %}checked{% endif %}> Markers or fences show mismatched or shared boundary lines</label>
-        <label><input type="checkbox" disabled {% if "advice" in overlap.q4 %}checked{% endif %} style="margin-bottom:12px;"> HOA, NGC, or an LGU unit advised me that my lot is overlapping</label>
-
-        <!-- Q5: How discovered -->
-        <p>5. How did you discover the overlap? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
-        <label><input type="checkbox" disabled {% if "informed_by_officer" in overlap.q5 %}checked{% endif %}> I was informed by an NHA, NGC, or barangay officer</label>
-        <label><input type="checkbox" disabled {% if "saw_structure" in overlap.q5 %}checked{% endif %}> I saw a structure already built partially or fully on my lot</label>
-        <label><input type="checkbox" disabled {% if "verbal_warning" in overlap.q5 %}checked{% endif %}> I received a verbal warning or notice from another claimant</label>
-        <label><input type="checkbox" disabled {% if "compared_docs" in overlap.q5 %}checked{% endif %}> I compared documents and noticed the same block/lot number</label>
-        <label><input type="checkbox" disabled {% if "advised_survey" in overlap.q5 %}checked{% endif %} style="margin-bottom:12px;"> I was advised during a survey, inspection, or mapping activity</label>
-
-        <!-- Q6: Construction Timeframe -->
-        <p>6. When did the construction begin?</p>
-        <label><input type="radio" disabled {% if overlap.q6=="<3m" %}checked{% endif %}> Less than 3 months</label>
-        <label><input type="radio" disabled {% if overlap.q6=="3-6m" %}checked{% endif %}> 3–6 months</label>
-        <label><input type="radio" disabled {% if overlap.q6=="6-12m" %}checked{% endif %}> 6–12 months</label>
-        <label><input type="radio" disabled {% if overlap.q6==">1y" %}checked{% endif %}> Over a year</label>
-        <label><input type="radio" disabled {% if overlap.q6=="not_sure" %}checked{% endif %} style="margin-bottom:12px;"> Not sure</label>
-
-        <!-- Q7: Who else is involved -->
-        <p>7. Who else is involved in this overlap?</p>
-        <label><input type="radio" disabled {% if overlap.q7=="official_beneficiary" %}checked{% endif %}> An officially listed beneficiary with their own documents</label>
-        <label><input type="radio" disabled {% if overlap.q7=="relative_of_beneficiary" %}checked{% endif %}> A relative of the listed beneficiary (not on paper)</label>
-        <label><input type="radio" disabled {% if overlap.q7=="private_claimant" %}checked{% endif %}> A private claimant not from the community</label>
-        <label><input type="radio" disabled {% if overlap.q7=="prev_occupant" %}checked{% endif %}> A structure built by a previous occupant</label>
-        <label><input type="radio" disabled {% if overlap.q7=="unknown" %}checked{% endif %} style="margin-bottom:12px;"> I do not know who the other claimant is</label>
-
-        <!-- Q8: Name of involved person -->
-        <p>8. What is the name of the involved person?</p>
-        <input type="text" value="{{ overlap.q8 }}" disabled>
-
-        <!-- Q9: Other Claims -->
-        <p>9. What do you know about the other party’s claim? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
-        <label><input type="checkbox" disabled {% if "different_doc" in overlap.q9 %}checked{% endif %}> They showed a different assignment document</label>
-        <label><input type="checkbox" disabled {% if "refused_to_vacate" in overlap.q9 %}checked{% endif %}> They refused to vacate or adjust</label>
-        <label><input type="checkbox" disabled {% if "structure_covers" in overlap.q9 %}checked{% endif %}> Their structure covers part of my lot</label>
-        <label><input type="checkbox" disabled {% if "no_docs_seen" in overlap.q9 %}checked{% endif %}> I have not seen any documents from their side</label>
-
-        <!-- Q10: Reported to -->
-        <p>10. Have you reported this to any office or authority?</p>
-        <label><input type="radio" disabled {% if overlap.q10=="barangay" %}checked{% endif %}> Yes – Barangay</label>
-        <label><input type="radio" disabled {% if overlap.q10=="hoa" %}checked{% endif %}> Yes – HOA</label>
-        <label><input type="radio" disabled {% if overlap.q10=="ngc" %}checked{% endif %}> Yes – NGC</label>
-        <label><input type="radio" disabled {% if overlap.q10=="no_first_time" %}checked{% endif %} style="margin-bottom:12px;"> No – This is the first time</label>
-
-        <!-- Q11: Site inspection -->
-        <p>11. Was a site inspection or verification done?</p>
-        <label><input type="radio" disabled {% if overlap.q11=="barangay" %}checked{% endif %}> Yes – by Barangay</label>
-        <label><input type="radio" disabled {% if overlap.q11=="hoa" %}checked{% endif %}> Yes – by HOA</label>
-        <label><input type="radio" disabled {% if overlap.q11=="ngc" %}checked{% endif %}> Yes – by NGC</label>
-        <label><input type="radio" disabled {% if overlap.q11=="no" %}checked{% endif %}> No</label>
-        <label><input type="radio" disabled {% if overlap.q11=="not_sure" %}checked{% endif %} style="margin-bottom:12px;"> Not sure</label>
-
-        <!-- Q12: Result of report/inspection -->
-        <p>12. What was the result of the report or inspection?</p>
-        <label><input type="radio" disabled {% if overlap.q12=="other_vacate" %}checked{% endif %}> The other party was advised to vacate</label>
-        <label><input type="radio" disabled {% if overlap.q12=="gather_docs" %}checked{% endif %}> I was advised to gather more documents</label>
-        <label><input type="radio" disabled {% if overlap.q12=="no_action" %}checked{% endif %}> No action was taken</label>
-        <label><input type="radio" disabled {% if overlap.q12=="under_investigation" %}checked{% endif %}> The issue is still under investigation</label>
-        <label><input type="radio" disabled {% if overlap.q12=="overlapping_assign" %}checked{% endif %} style="margin-bottom:12px;"> I was told the lot has overlapping assignments</label>
-
-        <!-- Q13: Impact of the overlap -->
-        <p>13. What has the overlap issue caused or affected?</p>
-        <label><input type="radio" disabled {% if overlap.q13=="cannot_build" %}checked{% endif %}> I cannot build or renovate due to the boundary issue</label>
-        <label><input type="radio" disabled {% if overlap.q13=="conflict_with_family" %}checked{% endif %}> I am in conflict with another family over the lot</label>
-        <label><input type="radio" disabled {% if overlap.q13=="threats_or_eviction" %}checked{% endif %}> I received threats or was told to leave</label>
-        <label><input type="radio" disabled {% if overlap.q13=="lost_use" %}checked{% endif %}> I lost use of part/all of the land I was assigned</label>
-        <label><input type="radio" disabled {% if overlap.q13=="public_path" %}checked{% endif %} style="margin-bottom:12px;"> A public path or neighbor's property is also affected</label>
-
-
-      
-
-        <p style="font-weight: bold;">Please describe what happened briefly:</p>
-        <textarea readonly>{{ overlap.description }}</textarea>
-
-        <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
-        <div class="consent">
-          By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
-        </div>
-
-        <div class="signature">
-          {% if overlap.signature %}
-            <a href="{{ url_for('complainant.uploaded_signature', filename=overlap.signature) }}" target="_blank">View Signature</a>
-          {% else %}
-            <p><em>No signature uploaded</em></p>
-          {% endif %}
-        </div>
+          <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
+          <div class="consent">
+            By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
+          </div>
+        </form>
       </div>
 
       <!-- Right Panel -->

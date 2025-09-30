@@ -144,10 +144,10 @@
                 </div>
               `;
 
-              // Click handler (redirect to view page)
+              // Click handler (redirect to Flask-rendered view page)
               complaintDiv.addEventListener("click", () => {
                 if (complaintDiv.dataset.id) {
-                  window.location.href = `/complainant/complaints/complaint_details_valid.html?id=${complaintDiv.dataset.id}`;
+                  window.location.href = `/complainant/complaint/${complaintDiv.dataset.id}`;
                 }
               });
 
