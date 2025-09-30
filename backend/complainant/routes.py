@@ -162,10 +162,32 @@ def new_overlap_form():
 # -----------------------------
 @complainant_bp.route('/get_overlap_session_data')
 def get_overlap_session_data():
+    registration_id = session.get("registration_id")
+    complaint_id = session.get("complaint_id")
+
+    if not registration_id:
+        return jsonify({"error": "No registration found in session"}), 400
+
+    reg = Registration.query.get(registration_id)
+    if not reg:
+        return jsonify({"error": "Registration not found"}), 404
+
     return jsonify({
-        "complaint_id": session.get('complaint_id'),
-        "registration_id": session.get('registration_id')
+        "complaint_id": complaint_id,
+        "registration_id": reg.registration_id,
+        "full_name": f"{reg.first_name} {reg.middle_name or ''} {reg.last_name} {reg.suffix or ''}".strip(),
+        "date_of_birth": reg.date_of_birth.isoformat() if reg.date_of_birth else "",
+        "sex": reg.sex,
+        "civil_status": reg.civil_status,
+        "citizenship": reg.citizenship,
+        "cur_add": reg.current_address,
+        "hoa": reg.hoa,   # if HOA is a relationship, you can use reg.hoa.name
+        "blk_num": reg.block_no,
+        "lot_num": reg.lot_no,
+        "lot_size": reg.lot_size,
+        "phone_number": reg.phone_number,
     })
+
 
 # -----------------------------
 # Submit overlap complaint
