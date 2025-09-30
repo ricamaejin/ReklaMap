@@ -18,10 +18,14 @@ from backend.admin.routes.blocks import blocks_bp
 from backend.admin.routes.search import search_bp
 from backend.admin.routes.policies import policies_bp
 from backend.complainant.routes import complainant_bp
+from backend.staff.routes import staff_bp
+from backend.shared.routes import shared_bp
 
 # Set static_folder to your frontend directory, static_url_path to ""
 frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../frontend"))
-app = Flask(__name__, static_folder=frontend_path, static_url_path="")
+# Added template_folder=frontend_path so Flask can also look for templates in frontend_path.
+# This won't affect existing routes unless you explicitly use render_template with files from that folder.
+app = Flask(__name__, static_folder=frontend_path, static_url_path="", template_folder=frontend_path)
 
 # for db (not in use atm; don't know where this is applied)
 app.secret_key = "your_secret_key"
@@ -46,6 +50,10 @@ app.register_blueprint(policies_bp)
 
 # Register complainant blueprint
 app.register_blueprint(complainant_bp)
+
+# Register staff and shared blueprints
+app.register_blueprint(staff_bp)
+app.register_blueprint(shared_bp)
 
 # Serve main portal page
 @app.route("/")
