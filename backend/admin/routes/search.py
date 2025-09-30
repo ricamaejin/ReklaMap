@@ -153,7 +153,7 @@ def search():
                 if len(unique_results) >= 20:  # Limit total results
                     break
         
-        return jsonify(unique_results)
+        return jsonify(results)
         
     except Exception as e:
         print(f"Search error: {e}")

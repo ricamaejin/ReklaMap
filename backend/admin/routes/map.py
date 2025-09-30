@@ -32,6 +32,15 @@ def map_area(area_code):
     else:
         abort(404)
 
+# 🆕 SVG file route - serves area SVG files
+@map_bp.route("/svg/<area_code>.svg")
+def serve_area_svg(area_code):
+    svg_path = os.path.join(frontend_path, "admin", "map", "svg", f"{area_code.lower()}.svg")
+    if os.path.exists(svg_path):
+        return send_file(svg_path, mimetype='image/svg+xml')
+    else:
+        abort(404)
+
 # 🆕 API endpoint to get complaint stats for an area (placeholder for now)
 @map_bp.route("/api/complaints/<int:area_id>")
 def get_complaint_stats(area_id):

@@ -1,8 +1,8 @@
 import os
 from flask import Blueprint, jsonify
-from backend.database.models import Area, Block, Beneficiary
+from backend.database.models import Area, Block, Beneficiary, GeneratedLots
 from backend.database.db import db
-from sqlalchemy import text
+from sqlalchemy import text, func
 
 areas_bp = Blueprint("areas", __name__, url_prefix="/admin/areas")
 
@@ -40,8 +40,11 @@ def get_area_stats(area_code):
     if not area:
         return jsonify({"error": "Area not found"}), 404
 
-    # Count beneficiaries in this area
-    beneficiaries_count = Beneficiary.query.filter_by(area_id=area.area_id).count()
+    # Count only beneficiaries with name fields (exclude generated_lots and unnamed entries)
+    beneficiaries_count = Beneficiary.query.filter(
+        Beneficiary.area_id == area.area_id,
+        (Beneficiary.first_name.isnot(None)) | (Beneficiary.last_name.isnot(None))
+    ).count()
     
     # Count complaints in this area by joining with registration and beneficiaries tables
     complaints_query = text("""

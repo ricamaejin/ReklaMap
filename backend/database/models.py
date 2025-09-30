@@ -12,6 +12,7 @@ class Admin(db.Model):
     employee_id = db.Column(db.String(50), unique=True, nullable=False)
     name = db.Column(db.String(150), nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    account = db.Column(db.Integer, nullable=False)  # 1=admin, 2=staff
 
     def __repr__(self):
         return f"<Admin {self.employee_id}>"
@@ -47,7 +48,22 @@ class Beneficiary(db.Model):
     sqm = db.Column(db.Integer, nullable=False)
     co_owner = db.Column(db.Boolean, default=False)
 
+class GeneratedLots(db.Model):
+    __tablename__ = "generated_lots"   # must match phpMyAdmin table name
 
+    genlot_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    area_id = db.Column(db.Integer, db.ForeignKey('areas.area_id'), nullable=False)
+    block_id = db.Column(db.Integer, db.ForeignKey('blocks.block_id'), nullable=False)
+    remarks = db.Column(db.String(255), nullable=False)
+    lot_no = db.Column(db.Integer, nullable=False)
+    sqm = db.Column(db.Integer, nullable=False)
+    last_name = db.Column(db.String(100), nullable=True)
+    first_name = db.Column(db.String(100), nullable=True)
+    middle_initial = db.Column(db.String(10), nullable=True)
+    suffix = db.Column(db.String(10), nullable=True)
+
+    def __repr__(self):
+        return f"<GeneratedLots {self.genlot_id}>"
 
 # -----------------------
 # Complainant table (future mapping)
@@ -77,6 +93,44 @@ class Policy(db.Model):
 
     def __repr__(self):
         return f"<Policy {self.policy_code}>"
+
+
+# -----------------------
+# Complaints
+# -----------------------
+class Complaints(db.Model):
+    __tablename__ = "complaints"   # must match phpMyAdmin table name
+
+    complaint_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    complainant_name = db.Column(db.String(150), nullable=False)
+    complaint_type = db.Column(db.String(100), nullable=False)
+    area_id = db.Column(db.Integer, db.ForeignKey('areas.area_id'), nullable=False)
+    address = db.Column(db.String(255), nullable=False)
+    priority_level = db.Column(db.String(50), nullable=False)
+    status = db.Column(db.String(50), nullable=False, default='pending')
+    date_submitted = db.Column(db.DateTime, server_default=db.func.now())
+    description = db.Column(db.Text)
+
+    def __repr__(self):
+        return f"<Complaints {self.complaint_id}>"
+
+
+# -----------------------
+# Complaint History
+# -----------------------
+class ComplaintHistory(db.Model):
+    __tablename__ = "complaint_history"   # must match phpMyAdmin table name
+
+    history_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    complaint_id = db.Column(db.Integer, db.ForeignKey('complaints.complaint_id'), nullable=False)
+    assigned_to = db.Column(db.String(150), nullable=True)  # Staff member name
+    action_type = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    date_created = db.Column(db.DateTime, server_default=db.func.now())
+    created_by = db.Column(db.String(150), nullable=False)  # Admin/Staff who made the entry
+
+    def __repr__(self):
+        return f"<ComplaintHistory {self.history_id}>"
 
 
 # -----------------------
