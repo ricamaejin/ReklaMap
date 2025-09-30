@@ -10,7 +10,7 @@
   crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
-  <link rel="stylesheet" href="/frontend/css/admin.css">
+  <link rel="stylesheet" href="/css/admin.css">
 </head>
 <body>
 
@@ -21,11 +21,18 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/admin/map/index.html" class="nav-item">Map</a> <!-- dahil ba sjc.html to atm -->
-      <a href="/admin/complaints/all.html" class="nav-item active">Complaints</a>
-      <a href="/admin/database/beneficiaries.html" class="nav-item">Database</a>
+      <!-- Navigation will be populated by navigation.js -->
     </nav>
   </aside>
+
+  <!-- User Dropdown -->
+  <div class="user-dropdown">
+    Logged in as: <span class="username" id="staff-name"></span>
+    <button class="dropdown-toggle">▼</button>
+    <div class="dropdown-menu">
+      <a href="/portal/index.html">Logout</a>
+    </div>
+  </div>
 
   <!-- Main Content -->
   <div class="main-content">
@@ -36,32 +43,32 @@
       <div class="stat-card">
         <i class="bi bi-graph-up-arrow"></i>
         <div>
-          <h2>0</h2>
-          <p>Complaints</p>
+          <h2 id="total-assigned">0</h2>
+          <p>Assigned</p>
         </div>
       </div>
       
       <div class="stat-card">
         <i class="bi bi-person-exclamation"></i>
         <div>
-          <h2>0</h2>
+          <h2 id="ongoing-count">0</h2>
           <p>On Going</p>   
         </div>
       </div>
       
       <div class="stat-card">
-        <i class="bi bi-person-x"></i>
+        <i class="bi bi-person-check"></i>
         <div>
-         <h2>0</h2>
-          <p>Unresolved</p>
+         <h2 id="resolved-count">0</h2>
+          <p>Resolved</p>
         </div>
       </div>
     </div>
         
     <!-- Tabs -->
     <div class="tabs">
-      <a href="assigned.html" class="active">Assigned</a>
-      <a href="resolved.html">Resolved</a>
+      <a href="/staff/complaints/assigned" class="active">Assigned</a>
+      <a href="/staff/complaints/resolved">Resolved</a>
     </div>
 
     <!-- Table -->
@@ -78,20 +85,186 @@
         </tr>
       </thead>
         
-      <tbody>
-      <!-- Example layout before database -->
-        <tr>
-          <td>6/19/2025</td>
-          <td>John Doe Smith</td>
-          <td>Lot Dispute</td>
-          <td>Alley I - Sta Catalina HOA</td>
-          <td>Sta Catalina, Block 8</td>
-          <td>Investigation</td>
-          <td><button>severe</button></td>
-        </tr>
+      <tbody id="complaints-table-body">
+        <!-- Dynamic data will be loaded here -->
       </tbody>
     </table>
   </div>
+
+  <script>
+    // Load assigned complaints data
+    async function loadAssignedComplaints() {
+      try {
+        const response = await fetch('/staff/api/complaints/assigned');
+        const data = await response.json();
+        
+        if (data.success) {
+          populateTable(data.complaints);
+        } else {
+          console.error('Failed to load complaints:', data.message || data.error);
+        }
+      } catch (error) {
+        console.error('Error loading complaints:', error);
+      }
+    }
+
+    // Load staff statistics
+    async function loadStats() {
+      try {
+        const response = await fetch('/staff/api/stats');
+        const data = await response.json();
+        
+        if (data.success) {
+          document.querySelector('.stat-card:nth-child(1) h2').textContent = data.total_assigned || 0;
+          document.querySelector('.stat-card:nth-child(3) h2').textContent = data.resolved || 0;
+        }
+      } catch (error) {
+        console.error('Error loading stats:', error);
+      }
+    }
+
+    // Populate the table with complaint data
+    function populateTable(complaints) {
+      const tbody = document.getElementById('complaints-table-body');
+      tbody.innerHTML = '';
+      
+      if (complaints.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No assigned complaints found</td></tr>';
+        return;
+      }
+      
+      complaints.forEach(complaint => {
+        const row = document.createElement('tr');
+        row.style.cursor = 'pointer';
+        row.onclick = () => {
+          const detailsPage = complaint.status === 'Invalid' ? 'complaint_details_invalid.html' : 'complaint_details_valid.html';
+          window.location.href = `/admin/complaints/${detailsPage}?id=${complaint.complaint_id}`;
+        };
+        
+        const priorityClass = complaint.priority_level === 'high' ? 'severe' : 
+                             complaint.priority_level === 'medium' ? 'moderate' : 'low';
+        
+        row.innerHTML = `
+          <td>${complaint.date_submitted}</td>
+          <td>${complaint.complainant}</td>
+          <td>${complaint.type_of_complaint}</td>
+          <td>${complaint.hoa}</td>
+          <td>${complaint.address}</td>
+          <td>${complaint.action_needed}</td>
+          <td><button class="priority-${complaint.priority_level.toLowerCase()}">${complaint.priority_level}</button></td>
+        `;
+        
+        tbody.appendChild(row);
+      });
+    }
+
+    // Staff navigation setup (fallback only if server injection fails)
+    function ensureStaffNavigation() {
+      const navMenu = document.querySelector('.nav-menu');
+      if (navMenu && navMenu.innerHTML.trim() === '<!-- Navigation will be populated by navigation.js -->') {
+        console.log('Server navigation injection failed, using fallback');
+        navMenu.innerHTML = '<a href="/staff/complaints/assigned" class="nav-item active">Complaints</a>';
+      }
+    }
+
+    // Load staff name dynamically
+    async function loadStaffName() {
+      try {
+        const response = await fetch('/admin/current-user');
+        if (response.ok) {
+          const data = await response.json();
+          document.getElementById('staff-name').textContent = data.name || 'Unknown Staff';
+        } else {
+          document.getElementById('staff-name').textContent = 'Unknown Staff';
+        }
+      } catch (error) {
+        console.error('Error loading staff name:', error);
+        document.getElementById('staff-name').textContent = 'Unknown Staff';
+      }
+    }
+
+    // Initialize dropdown functionality
+    function initDropdown() {
+      const dropdown = document.querySelector(".user-dropdown");
+      const toggle = dropdown.querySelector(".dropdown-toggle");
+
+      toggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle("active");
+      });
+
+      document.addEventListener("click", () => {
+        dropdown.classList.remove("active");
+      });
+    }
+
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+      ensureStaffNavigation();
+      loadAssignedComplaints();
+      loadStats();
+      loadStaffName();
+      initDropdown();
+    });
+  </script>
+
+  <style>
+    /* User dropdown */
+    .user-dropdown {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      font-weight: bold;
+      color: #001241;
+      margin-bottom: 30px; 
+    }
+
+    .username {
+      font-weight: bold;
+      color: #001241;
+      text-decoration: underline;
+    }
+
+    /* Arrow button */
+    .dropdown-toggle {
+      background: none;
+      border: none;
+      font-size: 14px;
+      cursor: pointer;
+      color: #4caf50;
+    }
+
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      top: 25px;   /* spacing below */
+      right: 0;
+      background: #fff;
+      border: 1px solid #ccc;
+      width: 150px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+      z-index: 1000;
+    }
+
+    .dropdown-menu a {
+      display: block;
+      padding: 10px;
+      color: #333;
+      text-decoration: none;
+    }
+
+    .dropdown-menu a:hover {
+      background: #f1f1f1;
+    }
+
+    .user-dropdown.active .dropdown-menu {
+      display: block;
+    }
+  </style>
 
 </body>
 </html>

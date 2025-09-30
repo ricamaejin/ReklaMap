@@ -6,21 +6,19 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css" 
   integrity="sha512-t7Few9xlddEmgd3oKZQahkNI4dS6l80+eGEzFQiqtyVYdvcSG2D3Iub77R20BdotfRPA9caaRkg1tyaJiPmO0g==" 
   crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <link rel="icon" type="image/png" href="/frontend/images/logo.png">
+  <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
-  <link rel="stylesheet" href="/frontend/css/complainants.css">
+  <link rel="stylesheet" href="/css/complainants.css">
 </head>
 <body>
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="logo-section">
-      <img src="/frontend/images/logo.png" alt="ReklaMap Logo" class="logo">
+      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/frontend/admin/map/index.html" class="nav-item">Map</a>
-      <a href="/frontend/admin/complaints/all.html" class="nav-item active">Complaints</a>
-      <a href="/frontend/admin/database/beneficiaries.html" class="nav-item">Database</a>
+      <!-- Navigation will be populated by navigation.js -->
     </nav>
   </aside>
 
@@ -49,7 +47,7 @@
             <p>Upon inspection, the staff verified the complaint’s validity...</p>
           </div>
         </div>
-        <button class="resolved-btn">Resolved</button>
+        <button class="resolved-btn" onclick="resolveTask()">Resolved Task</button>
       </div>
     </div>
 
@@ -251,7 +249,48 @@
     const attachedFiles = [...document.querySelectorAll("#attachedFilesContainer .attached-file")]
       .map(f => ({ name: f.textContent, url: f.dataset.url }));
     console.log({ actionType, desc, attachedFiles });
+    // TODO: Send action data to backend - staff can only perform one action matching their assignment
   });
+
+  // Resolved Task function - directly creates "Task Completed" entry
+  function resolveTask() {
+    // TODO: Send "Task Completed" action to backend without opening modal
+    const complaintId = getComplaintIdFromURL(); // Get from URL or page context
+    
+    const taskCompletedData = {
+      complaint_id: complaintId,
+      type_of_action: "Task Completed",
+      assigned_to: null, // Staff name will be set by backend based on session
+      description: "Task has been completed by assigned staff member",
+      action_datetime: new Date().toISOString()
+    };
+    
+    console.log("Creating Task Completed entry:", taskCompletedData);
+    
+    // TODO: Replace with actual backend call
+    // fetch('/staff/complaints/resolve-task', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(taskCompletedData)
+    // }).then(response => {
+    //   if (response.ok) {
+    //     alert('Task marked as completed!');
+    //     window.location.reload(); // Refresh to show updated timeline
+    //   }
+    // });
+    
+    alert('Task Completed entry would be created (TODO: Backend integration)');
+  }
+
+  function getComplaintIdFromURL() {
+    // TODO: Extract complaint ID from URL or page context
+    return 1; // Placeholder
+  }
+
+  // TODO: Add logic to restrict action types based on staff assignment
+  // When page loads, fetch the latest assignment for this staff member
+  // and populate/restrict the action type dropdown accordingly
+  
   </script>
 </body>
 </html>
