@@ -878,6 +878,10 @@ select {
   color: #083048;
 }
 
+#descText {
+    white-space: pre-line;
+}
+
 /* Complaint form */
 .form-container {
   background: #fff;

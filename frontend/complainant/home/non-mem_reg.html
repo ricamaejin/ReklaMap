@@ -87,7 +87,7 @@
         <p style="font-weight:700; margin-bottom:10px; color: #001241; font-size: 14px;margin-top: 20px;">
           Please indicate the specific lot you are filing a complaint about:
         </p>
-        <div class="form-grid" aria-hidden="false" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="form-grid" aria-hidden="false" style="grid-template-columns: repeat(4, 1fr);">
            <label>HOA
               <select name="reg_hoa" required>
                   <option value="" disabled selected hidden></option>
@@ -96,14 +96,11 @@
                   {% endfor %}
               </select>
             </label>
-        </div>
-
-        <div class="form-grid" aria-hidden="false" style="grid-template-columns: repeat(3, 1fr);">
             <label>Block Assignment<input type="text" name="reg_blk"></label>
             <label>Lot Assignment<input type="text" name="reg_lot_asn"></label>
             <label>Lot Size<input type="text" name="reg_lot_size"></label>
         </div>
-        
+                
         <!-- checkbox question (multiple options per row) -->
         <div class="support-docs" role="group">
           <p id="docs-label">How are you connected to the lot you are complaining about??</p>
