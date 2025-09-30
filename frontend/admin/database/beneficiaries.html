@@ -83,11 +83,11 @@
     let totalRecords = 0;
     const recordsPerPage = 20;
 
-    // Function to load beneficiaries from database
+    // Function to load beneficiaries from database (including generated_lots with name fields)
     async function loadBeneficiaries(page = 1) {
       try {
         showLoading();
-        const response = await fetch(`/admin/beneficiaries/?page=${page}&per_page=${recordsPerPage}`);
+        const response = await fetch(`/admin/beneficiaries/?page=${page}&per_page=${recordsPerPage}&include_generated_lots=true`);
         
         if (!response.ok) {
           throw new Error('Failed to fetch beneficiaries');
@@ -118,8 +118,12 @@
       
       let tableHTML = '';
       beneficiaries.forEach(beneficiary => {
+        // Check if this is a generated_lot entry
+        const isGeneratedLot = beneficiary.is_generated_lot || false;
+        const rowClass = isGeneratedLot ? ' class="generated-lot-row"' : '';
+        
         tableHTML += `
-          <tr>
+          <tr${rowClass}>
             <td style="text-align: left;">${beneficiary.name || 'N/A'}</td>
             <td>Block ${beneficiary.block_no || 'N/A'}</td>
             <td>Lot ${beneficiary.lot_no || 'N/A'}</td>
@@ -303,6 +307,16 @@
 
     .bene-table tr:last-child td {
       border-bottom: none;
+    }
+
+    .bene-table tr.generated-lot-row td {
+      background-color: #f8f9fa;
+      font-style: italic;
+      color: #6c757d;
+    }
+
+    .bene-table tr.generated-lot-row:hover td {
+      background-color: #e9ecef;
     }
 
     /* Responsive adjustments */

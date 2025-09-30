@@ -6,7 +6,29 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" href="/images/logo.png">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css" 
+  <link rel="stylesheet"         });
+      });
+      
+      // Handle individual path elements that might have pathwalk IDs
+      svgPaths.forEach(path => {
+        // Check if this path should be excluded (contains "pathwalk" in ID, case-insensitive)
+        const isPathwalk = hasPathwalkId(path);
+        
+        // Save original fill
+        path.dataset.origFill = path.getAttribute('fill') || '';
+        
+        // Skip interactive functionality for Pathwalk path elements
+        if (isPathwalk) {
+          path.style.cursor = 'default';
+          path.style.pointerEvents = 'none'; // Disable all mouse events
+          return; // Skip all event listeners for Pathwalk path elements
+        }
+        
+        // Add interactive functionality for non-pathwalk paths if needed
+        // (Most interactions are handled at the group level, but individual paths can be enhanced here)
+      });
+    })
+    .catch(err => console.error("Error loading SVG:", err));="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css" 
   integrity="sha512-t7Few9xlddEmgd3oKZQahkNI4dS6l80+eGEzFQiqtyVYdvcSG2D3Iub77R20BdotfRPA9caaRkg1tyaJiPmO0g==" 
   crossorigin="anonymous" referrerpolicy="no-referrer" />
   <title>ReklaMap</title>
@@ -219,10 +241,26 @@
       container.insertAdjacentHTML('afterbegin', svgText);
 
       const svgGroups = container.querySelectorAll('svg g');
+      const svgPaths = container.querySelectorAll('svg path');
+      
+      // Function to check if element has pathwalk in ID
+      function hasPathwalkId(element) {
+        const elementId = (element.id || '').toLowerCase();
+        return elementId.includes('pathwalk');
+      }
+      
       svgGroups.forEach(g => {
+        // Check if this group should be excluded (contains "pathwalk" in ID, case-insensitive)
+        const isPathwalk = hasPathwalkId(g);
+        
         g.querySelectorAll('path, rect, polygon, circle').forEach(el => {
           el.dataset.origFill = el.getAttribute('fill') ?? '';
         });
+
+        // Skip interactive functionality for Pathwalk elements
+        if (isPathwalk) {
+          return; // Skip all event listeners for Pathwalk elements
+        }
 
         // tooltip
         g.addEventListener('mousemove', e => {
@@ -268,6 +306,25 @@
           if (!block || !lot) return;
           highlightRow(block, lot);
         });
+      });
+      
+      // Handle individual path elements that might have pathwalk IDs
+      svgPaths.forEach(path => {
+        // Check if this path should be excluded (contains "pathwalk" in ID, case-insensitive)
+        const isPathwalk = hasPathwalkId(path);
+        
+        // Save original fill
+        path.dataset.origFill = path.getAttribute('fill') || '';
+        
+        // Skip interactive functionality for Pathwalk path elements
+        if (isPathwalk) {
+          path.style.cursor = 'default';
+          path.style.pointerEvents = 'none'; // Disable all mouse events
+          return; // Skip all event listeners for Pathwalk path elements
+        }
+        
+        // Add interactive functionality for non-pathwalk paths if needed
+        // (Most interactions are handled at the group level, but individual paths can be enhanced here)
       });
     })
     .catch(err => console.error('Error loading SVG:', err));

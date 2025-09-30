@@ -16,7 +16,7 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/admin/map/index.html" class="nav-item active">Map</a>
+      <a href="/admin/dashboard" class="nav-item active">Map</a>
       <a href="/admin/complaints/all.html" class="nav-item">Complaints</a>
       <a href="/admin/database/beneficiaries.html" class="nav-item">Database</a>
     </nav>
@@ -44,8 +44,8 @@
 
     <!-- Search -->
     <div class="search-bar">
-      <input type="text" id="search-input" placeholder="Search area, block, lot, or name..." />
-      <button id="search-btn">Search</button>
+      <input type="text" id="search-input" placeholder="Search..." />
+      <button id="clear-btn" style="display: none;">×</button>
       <div id="search-results" class="search-results" style="display: none;"></div>
     </div>
 
@@ -98,8 +98,15 @@
       }
     }
 
-      // Load the SVG map
-      fetch('/admin/map/svg/hoa_map.svg') // adjust path if needed
+      // Available SVG files in the /svg folder
+    const availableSvgFiles = ['asc', 'beb', 'cen', 'dj1', 'dvm', 'esc', 'lbf', 'lsc', 'sd1', 'sht', 'sjc'];
+
+    // Function to check if an area has a corresponding SVG file
+    function hasCorrespondingSvg(areaCode) {
+      return availableSvgFiles.includes(areaCode.toLowerCase());
+    }
+
+    // Load the SVG map
     function initMap() {
       fetch('/admin/map/svg/hoa_map.svg')
         .then(res => res.text())
@@ -112,7 +119,11 @@
 
           // Loop through all group areas
           container.querySelectorAll('g').forEach(area => {
+            const areaCode = area.id || area.getAttribute('data-name') || area.getAttribute('name') || 'unknown';
             const areaName = area.getAttribute('name')?.toLowerCase();
+
+            // Check if this area has a corresponding SVG file
+            const hasCorrespodingSvgFile = hasCorrespondingSvg(areaCode);
 
             if (areaName && areaData[areaName]) {
               const { name, beneficiaries, complaints, resolved } = areaData[areaName];
@@ -122,103 +133,141 @@
               area.dataset.resolved = resolved;
             }
 
-            // Tooltip on hover with database data and debouncing to fix glitching
-            let tooltipTimeout;
-            let currentAreaData = null;
-            
-            area.addEventListener('mouseenter', async e => {
-              const areaCode = area.id || area.getAttribute('data-name') || area.getAttribute('name') || 'unknown';
+            // Only add interactive functionality if corresponding SVG file exists
+            if (hasCorrespodingSvgFile) {
+              // Tooltip on hover with database data and debouncing to fix glitching
+              let tooltipTimeout;
+              let currentAreaData = null;
               
-              // Fetch real data from database
-              currentAreaData = await fetchAreaData(areaCode);
+              area.addEventListener('mouseenter', async e => {
+                // Fetch real data from database
+                currentAreaData = await fetchAreaData(areaCode);
+                
+                // Use area_name from database, fallback to SVG attribute
+                const areaName = currentAreaData ? currentAreaData.area_name : (area.getAttribute('name') || area.id || 'Unknown Area');
+                const beneficiaries = currentAreaData ? currentAreaData.beneficiaries : 'N/A';
+                const complaints = currentAreaData ? currentAreaData.complaints : 'N/A';
+                
+                tooltip.innerHTML = `
+                  <div class="tooltip-content">
+                    <div class="area-name">
+                      <span class="area-text">${areaName}</span>
+                    </div>
+                    <div class="data-line">
+                      <span class="data-icon">👥</span>
+                      <span class="data-label">Beneficiaries</span>
+                      <span class="data-value">${beneficiaries}</span>
+                    </div>
+                    <div class="data-line">
+                      <span class="data-icon">📋</span>
+                      <span class="data-label">Complaints</span>
+                      <span class="data-value">${complaints}</span>
+                    </div>
+                    <div class="data-line">
+                      <span class="data-icon">✅</span>
+                      <span class="data-label">Resolved</span>
+                      <span class="data-value">N/A</span>
+                    </div>
+                  </div>
+                `;
+                tooltip.style.display = 'block';
+              });
               
-              // Use area_name from database, fallback to SVG attribute
-              const areaName = currentAreaData ? currentAreaData.area_name : (area.getAttribute('name') || area.id || 'Unknown Area');
-              const beneficiaries = currentAreaData ? currentAreaData.beneficiaries : 'N/A';
-              const complaints = currentAreaData ? currentAreaData.complaints : 'N/A';
-              
-              tooltip.innerHTML = `
-                <div class="tooltip-content">
-                  <div class="area-name">
-                    <span class="area-text">${areaName}</span>
-                  </div>
-                  <div class="data-line">
-                    <span class="data-icon">👥</span>
-                    <span class="data-label">Beneficiaries</span>
-                    <span class="data-value">${beneficiaries}</span>
-                  </div>
-                  <div class="data-line">
-                    <span class="data-icon">📋</span>
-                    <span class="data-label">Complaints</span>
-                    <span class="data-value">${complaints}</span>
-                  </div>
-                  <div class="data-line">
-                    <span class="data-icon">✅</span>
-                    <span class="data-label">Resolved</span>
-                    <span class="data-value">N/A</span>
-                  </div>
-                </div>
-              `;
-              tooltip.style.display = 'block';
-            });
-            
-            area.addEventListener('mousemove', e => {
-              if (tooltip.style.display === 'block') {
-                tooltip.style.left = e.pageX + 15 + 'px';
-                tooltip.style.top = e.pageY + 15 + 'px';
-              }
-            });
+              area.addEventListener('mousemove', e => {
+                if (tooltip.style.display === 'block') {
+                  // Keep tooltip positioned relative to the cursor with bounds checking
+                  const tooltipWidth = 220; // tooltip width from CSS
+                  const tooltipHeight = 180; // approximate tooltip height
+                  const margin = 15;
+                  const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+                  const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+                  
+                  let left = e.clientX + scrollX + margin;
+                  let top = e.clientY + scrollY + margin;
+                  
+                  // Prevent tooltip from going off-screen with better bounds checking
+                  const viewportWidth = window.innerWidth;
+                  const viewportHeight = window.innerHeight;
+                  
+                  if (left + tooltipWidth > scrollX + viewportWidth) {
+                    left = e.clientX + scrollX - tooltipWidth - margin;
+                  }
+                  if (top + tooltipHeight > scrollY + viewportHeight) {
+                    top = e.clientY + scrollY - tooltipHeight - margin;
+                  }
+                  
+                  // Ensure tooltip stays within viewport bounds
+                  left = Math.max(scrollX + 5, Math.min(left, scrollX + viewportWidth - tooltipWidth - 5));
+                  top = Math.max(scrollY + 5, Math.min(top, scrollY + viewportHeight - tooltipHeight - 5));
+                  
+                  tooltip.style.left = left + 'px';
+                  tooltip.style.top = top + 'px';
+                }
+              });
 
-            // Hide tooltip when leaving
-            area.addEventListener('mouseleave', () => {
-              tooltip.style.display = 'none';
-            });
+              // Hide tooltip when leaving
+              area.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+              });
 
-            // Click navigation
-            area.addEventListener('click', () => {
-              const areaCode = area.id || area.getAttribute('data-name') || area.getAttribute('name') || "unknown";
-              // Navigate to Flask route /admin/map/<area_code> for dynamic loading
-              window.location.href = `/admin/map/${encodeURIComponent(areaCode.toLowerCase())}`;
-            });
+              // Click navigation
+              area.addEventListener('click', () => {
+                // Navigate to Flask route /admin/map/<area_code> for dynamic loading
+                window.location.href = `/admin/map/${encodeURIComponent(areaCode.toLowerCase())}`;
+              });
+              
+              // Add visual indicator that this area is interactive
+              area.style.cursor = 'pointer';
+            } else {
+              // Disable interactivity for areas without corresponding SVG files
+              area.style.cursor = 'default';
+              area.style.opacity = '0.7'; // Optional: make non-interactive areas slightly transparent
+            }
           });
 
-          // Zoom effect on hover with mouse-follow 
+          // Zoom effect on hover with mouse-follow (only for areas with corresponding SVG files)
           container.querySelectorAll('g').forEach(area => {
-            let zoomTimeout;
+            const areaCode = area.id || area.getAttribute('data-name') || area.getAttribute('name') || 'unknown';
+            const hasCorrespodingSvgFile = hasCorrespondingSvg(areaCode);
+            
+            // Only add zoom effect if area has corresponding SVG file
+            if (hasCorrespodingSvgFile) {
+              let zoomTimeout;
 
-            area.addEventListener('mouseenter', (e) => {
-              zoomTimeout = setTimeout(() => {
-                const rect = svgEl.getBoundingClientRect();
-                const offsetX = e.clientX - rect.left; 
-                const offsetY = e.clientY - rect.top;
+              area.addEventListener('mouseenter', (e) => {
+                zoomTimeout = setTimeout(() => {
+                  const rect = svgEl.getBoundingClientRect();
+                  const offsetX = e.clientX - rect.left; 
+                  const offsetY = e.clientY - rect.top;
 
-                const percentX = (offsetX / rect.width) * 100;
-                const percentY = (offsetY / rect.height) * 100;
+                  const percentX = (offsetX / rect.width) * 100;
+                  const percentY = (offsetY / rect.height) * 100;
 
-                svgEl.style.transition = "transform 0.8s ease-in-out";
-                svgEl.style.transformOrigin = `${percentX}% ${percentY}%`;
-                svgEl.style.transform = "scale(1.5)";
-              }, 200);
-            });
+                  svgEl.style.transition = "transform 0.8s ease-in-out";
+                  svgEl.style.transformOrigin = `${percentX}% ${percentY}%`;
+                  svgEl.style.transform = "scale(1.5)";
+                }, 200);
+              });
 
-            area.addEventListener('mousemove', (e) => {
-              // update origin as the mouse moves while zoomed in
-              if (svgEl.style.transform === "scale(1.5)") {
-                const rect = svgEl.getBoundingClientRect();
-                const offsetX = e.clientX - rect.left; 
-                const offsetY = e.clientY - rect.top;
+              area.addEventListener('mousemove', (e) => {
+                // update origin as the mouse moves while zoomed in
+                if (svgEl.style.transform === "scale(1.5)") {
+                  const rect = svgEl.getBoundingClientRect();
+                  const offsetX = e.clientX - rect.left; 
+                  const offsetY = e.clientY - rect.top;
 
-                const percentX = (offsetX / rect.width) * 100;
-                const percentY = (offsetY / rect.height) * 100;
+                  const percentX = (offsetX / rect.width) * 100;
+                  const percentY = (offsetY / rect.height) * 100;
 
-                svgEl.style.transformOrigin = `${percentX}% ${percentY}%`;
-              }
-            });
+                  svgEl.style.transformOrigin = `${percentX}% ${percentY}%`;
+                }
+              });
 
-            area.addEventListener('mouseleave', () => {
-              clearTimeout(zoomTimeout);
-              svgEl.style.transform = "scale(1)";
-            });
+              area.addEventListener('mouseleave', () => {
+                clearTimeout(zoomTimeout);
+                svgEl.style.transform = "scale(1)";
+              });
+            }
           });
         })
       .catch(err => console.error("Error loading SVG:", err));
@@ -242,10 +291,15 @@
     // Search functionality
     async function searchDatabase(query) {
       try {
+        console.log('Making fetch request to:', `/admin/search?q=${encodeURIComponent(query)}`);
         const response = await fetch(`/admin/search?q=${encodeURIComponent(query)}`);
+        console.log('Response status:', response.status);
         if (response.ok) {
-          return await response.json();
+          const data = await response.json();
+          console.log('Response data:', data);
+          return data;
         }
+        console.error('Response not ok:', response.status, response.statusText);
         return [];
       } catch (error) {
         console.error('Error searching database:', error);
@@ -254,61 +308,153 @@
     }
 
     function initSearch() {
+      console.log('initSearch called');
       const searchInput = document.getElementById('search-input');
-      const searchBtn = document.getElementById('search-btn');
+      const clearBtn = document.getElementById('clear-btn');
       const searchResults = document.getElementById('search-results');
+      
+      console.log('Search elements found:', {
+        searchInput: !!searchInput,
+        clearBtn: !!clearBtn,
+        searchResults: !!searchResults
+      });
+      
+      if (!searchInput || !clearBtn || !searchResults) {
+        console.error('Search elements not found!');
+        return;
+      }
+      
       let searchTimeout;
+      let selectedIndex = -1;
+      let currentResults = [];
 
       async function performSearch() {
         const query = searchInput.value.trim();
+        console.log('performSearch called with query:', query);
+        
+        // Show/hide clear button based on input
+        clearBtn.style.display = query.length > 0 ? 'block' : 'none';
+        
         if (query.length < 2) {
+          console.log('Query too short, hiding results');
           searchResults.style.display = 'none';
+          currentResults = [];
+          selectedIndex = -1;
           return;
         }
 
-        const results = await searchDatabase(query);
-        displaySearchResults(results, query);
+        // Show loading state
+        console.log('Showing loading state and making search request');
+        searchResults.innerHTML = '<div class="search-result-item no-results">Searching...</div>';
+        searchResults.style.display = 'block';
+        console.log('Search results element after setting display block:', {
+          display: searchResults.style.display,
+          visibility: searchResults.style.visibility,
+          zIndex: window.getComputedStyle(searchResults).zIndex,
+          position: window.getComputedStyle(searchResults).position
+        });
+
+        try {
+          const results = await searchDatabase(query);
+          console.log('Got search results:', results);
+          currentResults = results;
+          selectedIndex = -1;
+          displaySearchResults(results, query);
+        } catch (error) {
+          console.error('Search error:', error);
+          searchResults.innerHTML = '<div class="search-result-item no-results">Search error occurred</div>';
+          searchResults.style.display = 'block';
+        }
       }
 
       function displaySearchResults(results, query) {
+        console.log('displaySearchResults called with:', results.length, 'results');
         if (results.length === 0) {
+          console.log('No results found, showing no results message');
           searchResults.innerHTML = '<div class="search-result-item no-results">No results found</div>';
           searchResults.style.display = 'block';
           return;
         }
 
-        const resultsHtml = results.map(result => {
+        const resultsHtml = results.map((result, index) => {
           let displayText = '';
           let navigateUrl = '';
           
           if (result.type === 'area') {
             displayText = `📍 ${result.area_name} (Area)`;
-            navigateUrl = `/admin/map/${result.area_code}`;
+            const areaCode = result.area_code?.toLowerCase();
+            navigateUrl = `/admin/map/${areaCode}`;
           } else if (result.type === 'beneficiary') {
-            displayText = `👤 ${result.name} - ${result.area_name}, Block ${result.block_no}, Lot ${result.lot_no}`;
-            navigateUrl = `/admin/map/${result.area_code}?highlight=block-${result.block_no}-lot-${result.lot_no}`;
+            const fullName = result.name || `${result.first_name || ''} ${result.last_name || ''}`.trim();
+            displayText = `👤 ${fullName} - ${result.area_name}, Block ${result.block_no}, Lot ${result.lot_no}`;
+            const areaCode = result.area_code?.toLowerCase();
+            navigateUrl = `/admin/map/${areaCode}?highlight=beneficiary&block=${result.block_no}&lot=${result.lot_no}&name=${encodeURIComponent(fullName)}`;
           } else if (result.type === 'block') {
             displayText = `🏘️ ${result.area_name} - Block ${result.block_no}`;
-            navigateUrl = `/admin/map/${result.area_code}?highlight=block-${result.block_no}`;
+            const areaCode = result.area_code?.toLowerCase();
+            navigateUrl = `/admin/map/${areaCode}?highlight=block-${result.block_no}`;
           }
           
-          return `<div class="search-result-item" onclick="navigateToResult('${navigateUrl}')">${displayText}</div>`;
+          return `<div class="search-result-item" data-index="${index}" data-url="${navigateUrl}" onclick="navigateToResult('${navigateUrl}')">${displayText}</div>`;
         }).join('');
 
+        console.log('Setting search results HTML:', resultsHtml);
         searchResults.innerHTML = resultsHtml;
         searchResults.style.display = 'block';
+        console.log('Search results displayed, element visibility:', searchResults.style.display);
       }
 
-      searchInput.addEventListener('input', () => {
+      function updateSelection() {
+        const items = searchResults.querySelectorAll('.search-result-item:not(.no-results)');
+        items.forEach((item, index) => {
+          item.classList.toggle('selected', index === selectedIndex);
+        });
+      }
+
+      function clearSearch() {
+        searchInput.value = '';
+        searchResults.style.display = 'none';
+        clearBtn.style.display = 'none';
+        currentResults = [];
+        selectedIndex = -1;
+        searchInput.focus();
+      }
+
+      // Input event for auto-suggestions
+      searchInput.addEventListener('input', (e) => {
+        console.log('Input event fired, value:', e.target.value);
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(performSearch, 300);
       });
 
-      searchBtn.addEventListener('click', performSearch);
+      // Clear button functionality
+      clearBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        clearSearch();
+      });
 
-      searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          performSearch();
+      // Keyboard navigation
+      searchInput.addEventListener('keydown', (e) => {
+        const items = searchResults.querySelectorAll('.search-result-item:not(.no-results)');
+        
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+          updateSelection();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          selectedIndex = Math.max(selectedIndex - 1, -1);
+          updateSelection();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (selectedIndex >= 0 && items[selectedIndex]) {
+            const url = items[selectedIndex].dataset.url;
+            if (url) {
+              navigateToResult(url);
+            }
+          }
+        } else if (e.key === 'Escape') {
+          clearSearch();
         }
       });
 
@@ -316,6 +462,14 @@
       document.addEventListener('click', (e) => {
         if (!e.target.closest('.search-bar')) {
           searchResults.style.display = 'none';
+          selectedIndex = -1;
+        }
+      });
+
+      // Show clear button on focus if there's text
+      searchInput.addEventListener('focus', () => {
+        if (searchInput.value.trim().length > 0) {
+          clearBtn.style.display = 'block';
         }
       });
     }
@@ -425,7 +579,50 @@
 
     /* Search functionality styles */
     .search-bar {
-      position: relative;
+      position: relative !important;
+      display: inline-block !important;
+      width: 400px !important;
+      margin-bottom: 20px !important;
+      overflow: visible !important; /* Override the hidden overflow from admin.css */
+      background-color: transparent !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+    }
+
+    #search-input {
+      width: 100%;
+      padding: 10px 40px 10px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.2s ease;
+      box-sizing: border-box;
+    }
+
+    #search-input:focus {
+      outline: none;
+      border-color: #3b82f6;
+    }
+
+    #clear-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      font-size: 18px;
+      color: #666;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: background-color 0.2s ease;
+      z-index: 10;
+    }
+
+    #clear-btn:hover {
+      background-color: #f0f0f0;
+      color: #333;
     }
 
     .search-results {
@@ -437,7 +634,7 @@
       border: 1px solid #ddd;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      z-index: 1000;
+      z-index: 9999;
       max-height: 300px;
       overflow-y: auto;
       margin-top: 4px;
@@ -452,8 +649,14 @@
       line-height: 1.4;
     }
 
-    .search-result-item:hover {
+    .search-result-item:hover,
+    .search-result-item.selected {
       background-color: #f8f9fa;
+    }
+
+    .search-result-item.selected {
+      background-color: #e3f2fd;
+      border-left: 3px solid #2196f3;
     }
 
     .search-result-item:last-child {
@@ -471,19 +674,7 @@
       background-color: transparent;
     }
 
-    #search-input {
-      width: 100%;
-      padding: 10px 16px;
-      border: 2px solid #e2e8f0;
-      border-radius: 8px;
-      font-size: 14px;
-      transition: border-color 0.2s ease;
-    }
 
-    #search-input:focus {
-      outline: none;
-      border-color: #3b82f6;
-    }
   </style>
 </body>
 </html>

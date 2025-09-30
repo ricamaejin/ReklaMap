@@ -22,7 +22,7 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/admin/map/index.html" class="nav-item active">Map</a>
+      <a href="/admin/dashboard" class="nav-item active">Map</a>
       <a href="/admin/complaints/all.html" class="nav-item">Complaints</a>
       <a href="/admin/database/beneficiaries.html" class="nav-item">Database</a> 
     </nav>
@@ -65,25 +65,31 @@
 
         <!-- Residents List -->
         <div class="list-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Block
-                  <button class="filter-btn" aria-label="Filter Block">&#x25BC;</button>
-                  <ul class="filter-menu" hidden>
-                    <li data-filter="all">All</li>
-                    <!-- Dynamic block options will be populated here -->
-                  </ul>
-                </th>
-                <th>Lot No.</th>
-                <th>Area</th>
-              </tr>
-            </thead>
-            <tbody id="resident-table">
-              <!-- Dynamic data will be populated here -->
-            </tbody>
-          </table>
+          <div class="table-header">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Block
+                    <button class="filter-btn" aria-label="Filter Block">&#x25BC;</button>
+                    <ul class="filter-menu" hidden>
+                      <li data-filter="all">All</li>
+                      <!-- Dynamic block options will be populated here -->
+                    </ul>
+                  </th>
+                  <th>Lot No.</th>
+                  <th>Area</th>
+                </tr>
+              </thead>
+            </table>
+          </div>
+          <div class="table-body">
+            <table>
+              <tbody id="resident-table">
+                <!-- Dynamic data will be populated here -->
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <!-- Stats -->
@@ -385,8 +391,8 @@
       
       console.log('Loaded beneficiaries:', currentBeneficiaries); // Debug log
       
-      // Update total members count
-      document.getElementById('total-members').textContent = currentBeneficiaries.length;
+      // Load member count separately (only beneficiaries with name fields)
+      await loadMemberCount();
       
       // Populate table
       populateTable();
@@ -396,6 +402,23 @@
       // Show error in the table
       const tableBody = document.getElementById('resident-table');
       tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 20px; color: #ff6b6b;">Error loading beneficiaries: ${error.message}</td></tr>`;
+    }
+  }
+
+  async function loadMemberCount() {
+    try {
+      const response = await fetch(`/admin/beneficiaries/count/${currentAreaData.area_id}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      
+      // Update total members count (only beneficiaries with name fields)
+      document.getElementById('total-members').textContent = data.count;
+      
+    } catch (error) {
+      console.error('Error loading member count:', error);
+      document.getElementById('total-members').textContent = '0';
     }
   }
 
@@ -512,7 +535,7 @@
     
     if (!currentBeneficiaries || currentBeneficiaries.length === 0) {
       const row = document.createElement('tr');
-      row.innerHTML = `<td colspan="4" style="text-align: center; padding: 20px; color: #666;">No beneficiaries found</td>`;
+      row.innerHTML = `<td colspan="4" style="text-align: center; padding: 20px; color: #666;">No data found</td>`;
       tableBody.appendChild(row);
       return;
     }
@@ -522,26 +545,21 @@
       
       const row = document.createElement('tr');
       
-      // Concatenate name from separate fields with better null handling
-      let fullName = '';
-      if (resident.first_name) fullName += resident.first_name;
-      if (resident.middle_initial) fullName += (fullName ? ' ' : '') + resident.middle_initial;
-      if (resident.last_name) fullName += (fullName ? ' ' : '') + resident.last_name;
-      if (resident.suffix) fullName += (fullName ? ' ' : '') + resident.suffix;
-      
-      // Fallback to any name field if the separate fields don't exist
-      if (!fullName && resident.name) fullName = resident.name;
-      if (!fullName) fullName = 'Unknown';
-      
-      // Get block_no from blocks table using block_id
-      const blockData = currentBlocks.find(b => b.block_id === resident.block_id);
+      // Use the name directly since backend now handles formatting for both beneficiaries and generated_lots
+      const displayName = resident.name || 'Unknown';
       const blockNo = resident.block_no || 'N/A';
       
+      // Add visual distinction for generated_lots entries
+      const rowClass = resident.source === 'generated_lot' ? 'generated-lot-row' : '';
+      if (rowClass) {
+        row.classList.add(rowClass);
+      }
+      
       row.innerHTML = `
-        <td>${fullName.trim()}</td>
+        <td style="text-align: left;">${displayName}</td>
         <td>${blockNo}</td>
-        <td>${resident.lot_no || resident.lot || 'N/A'}</td>
-        <td>${resident.sqm || resident.area || 'N/A'}</td>
+        <td>${resident.lot_no || 'N/A'}</td>
+        <td>${resident.sqm || 'N/A'}</td>
       `;
       
       // Add click handler for row highlighting
@@ -568,11 +586,24 @@
       
       const svgEl = container.querySelector('svg'); // Get reference to main SVG for zoom functionality
       
-      // Save original fill and setup interactions
+      // Save original fill and setup interactions for groups
       svgGroups.forEach(g => {
+        // Check if this element has a "lot" attribute for full interactivity
+        const hasLotAttribute = g.hasAttribute('lot');
+        
         g.querySelectorAll('path, rect, polygon, circle').forEach(el => {
           el.dataset.origFill = el.getAttribute('fill') || '';
         });
+
+        // Skip ALL interactivity for elements without "lot" attribute
+        if (!hasLotAttribute) {
+          g.style.cursor = 'default';
+          g.style.pointerEvents = 'none'; // Disable all mouse events
+          return; // Skip all event listeners for non-lot elements
+        }
+        
+        // Add interactive functionality only for lot elements
+        g.style.cursor = 'pointer';
 
         // Zoom functionality variables
         let zoomTimeout;
@@ -647,6 +678,7 @@
 
         // Click highlight row
         g.addEventListener('click', () => {
+          
           console.log('SVG clicked:', g.id); // Debug log
           
           let svgBlock = null;
@@ -760,8 +792,94 @@
     if (block && lot) highlightRow(block, lot);
   });
 
+  // Function to handle URL parameters for highlighting
+  function handleUrlHighlighting() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const highlightType = urlParams.get('highlight');
+    
+    if (highlightType === 'beneficiary') {
+      const block = urlParams.get('block');
+      const lot = urlParams.get('lot');
+      const name = urlParams.get('name');
+      
+      if (block && lot) {
+        // Wait for table to be populated before highlighting
+        setTimeout(() => {
+          highlightBeneficiaryRow(block, lot, name);
+        }, 1000);
+      }
+    } else if (highlightType && highlightType.startsWith('block-') && highlightType.includes('-lot-')) {
+      // Handle existing block-lot highlighting format
+      const parts = highlightType.split('-');
+      const block = parts[1];
+      const lot = parts[3];
+      
+      if (block && lot) {
+        setTimeout(() => {
+          highlightRow(block, lot);
+        }, 1000);
+      }
+    }
+  }
+
+  // Function to highlight beneficiary row by block, lot, and optionally name
+  function highlightBeneficiaryRow(block, lot, name = null) {
+    residentTable.querySelectorAll('tr').forEach(r => r.classList.remove('highlight'));
+
+    const rows = Array.from(residentTable.querySelectorAll('tr'));
+    let matchedRow = null;
+    
+    // First try to match by block and lot
+    const blockLotMatches = rows.filter(row => {
+      const rowBlock = row.children[1]?.textContent.trim();
+      const rowLot = row.children[2]?.textContent.trim();
+      return String(rowBlock) === String(block) && String(rowLot) === String(lot);
+    });
+    
+    if (blockLotMatches.length === 1) {
+      // Only one match, use it
+      matchedRow = blockLotMatches[0];
+    } else if (blockLotMatches.length > 1 && name) {
+      // Multiple matches, try to find by name as well
+      matchedRow = blockLotMatches.find(row => {
+        const rowName = row.children[0]?.textContent.trim();
+        return rowName.toLowerCase().includes(name.toLowerCase()) || 
+               name.toLowerCase().includes(rowName.toLowerCase());
+      });
+      
+      // If no name match, just use the first block/lot match
+      if (!matchedRow) {
+        matchedRow = blockLotMatches[0];
+      }
+    }
+
+    if (matchedRow) {
+      matchedRow.classList.add('highlight');
+      matchedRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      
+      // Also highlight in SVG if possible
+      const svgGroups = Array.from(container.querySelectorAll('svg g'));
+      const matchSvgArea = svgGroups.find(g => {
+        const aBlock = parseBlockFromId(g.id);
+        const aLot = parseLotFromId(g.id);
+        return String(aBlock) === String(block) && String(aLot) === String(lot);
+      });
+
+      if (matchSvgArea) {
+        highlightSvgArea(matchSvgArea);
+      }
+      
+      console.log(`Highlighted beneficiary: Block ${block}, Lot ${lot}`, name ? `Name: ${name}` : '');
+    } else {
+      console.log(`No matching row found for Block ${block}, Lot ${lot}`, name ? `Name: ${name}` : '');
+    }
+  }
+
   // Initialize the page
   loadAreaData();
+  
+  // Handle URL highlighting after data loads
+  setTimeout(handleUrlHighlighting, 2000);
 
 })();
 </script>
@@ -827,31 +945,64 @@
   display: none !important;
 }
 
-/* Table styling */
-.list-table table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
+/* Table styling with fixed header */
+.list-table {
+  border: 1px solid #ddd;
   border-radius: 8px;
-  overflow: hidden;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   margin-bottom: 20px;
+  background: white;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 400px;
+}
+
+.table-header {
+  flex-shrink: 0;
+  background: #f5f6fa;
+  border-bottom: 2px solid #ddd;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  z-index: 100;
+}
+
+.table-header table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
 }
 
-.list-table th:nth-child(1) { width: 40%; } /* Name */
-.list-table th:nth-child(2) { width: 20%; } /* Block */
-.list-table th:nth-child(3) { width: 20%; } /* Lot No. */
-.list-table th:nth-child(4) { width: 20%; } /* Area */
+.table-body {
+  flex: 1;
+  overflow-y: auto;
+  background: white;
+}
+
+.table-body table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.list-table th:nth-child(1), .list-table td:nth-child(1) { width: 40%; } /* Name */
+.list-table th:nth-child(2), .list-table td:nth-child(2) { width: 20%; } /* Block */
+.list-table th:nth-child(3), .list-table td:nth-child(3) { width: 20%; } /* Lot No. */
+.list-table th:nth-child(4), .list-table td:nth-child(4) { width: 20%; } /* Area */
 
 .list-table th {
   padding: 12px 15px;
   text-align: center;
-  background-color: #f5f6fa;
+  background: #f5f6fa;
   font-weight: 600;
-  border-bottom: 2px solid #ddd;
   color: #333;
+  border-right: 1px solid #ddd;
   position: relative;
+}
+
+.list-table th:last-child {
+  border-right: none;
 }
 
 .list-table td {
@@ -868,6 +1019,16 @@
 .list-table tr.highlight td {
   background-color: #e3f2fd !important;
   border-left: 3px solid #2196f3;
+}
+
+.list-table tr.generated-lot-row td {
+  background-color: #f8f9fa;
+  font-style: italic;
+  color: #6c757d;
+}
+
+.list-table tr.generated-lot-row:hover td {
+  background-color: #e9ecef;
 }
 
 /* Stats section styling - matching sjc.html */
