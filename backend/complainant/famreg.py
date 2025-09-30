@@ -96,6 +96,9 @@ def famreg():
             reg_last = (request.form.get("reg_last") or "").strip()
             reg_mid = (request.form.get("reg_mid") or "").strip()
             reg_suffix = (request.form.get("reg_suffix") or "").strip()
+            # Ensure NA/N/A/empty are saved as None
+            reg_mid = reg_mid if reg_mid not in ("", "NA", "N/A") else None
+            reg_suffix = reg_suffix if reg_suffix not in ("", "NA", "N/A") else None
             reg_dob = request.form.get("reg_dob")
             reg_sex = request.form.get("reg_sex")
             reg_citizenship = request.form.get("reg_cit")
@@ -109,8 +112,8 @@ def famreg():
                 registration_id=parent_registration.registration_id,
                 last_name=reg_last,
                 first_name=reg_first,
-                middle_name=reg_mid if reg_mid not in ("", "NA", "N/A") else None,
-                suffix=reg_suffix if reg_suffix not in ("", "NA", "N/A") else None,
+                middle_name=reg_mid,
+                suffix=reg_suffix,
                 date_of_birth=datetime.strptime(reg_dob, "%Y-%m-%d") if reg_dob else None,
                 sex=reg_sex,
                 citizenship=reg_citizenship,

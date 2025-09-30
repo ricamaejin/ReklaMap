@@ -182,10 +182,12 @@ def get_overlap_session_data():
             return ""
         return val_str
 
+    name_parts = [safe(reg.first_name), safe(reg.middle_name), safe(reg.last_name), safe(reg.suffix)]
+    full_name = " ".join([part for part in name_parts if part])
     return jsonify({
         "complaint_id": complaint_id,
         "registration_id": reg.registration_id,
-        "full_name": f"{safe(reg.first_name)} {safe(reg.middle_name)} {safe(reg.last_name)} {safe(reg.suffix)}".strip(),
+        "full_name": full_name,
         "date_of_birth": reg.date_of_birth.isoformat() if reg.date_of_birth else "",
         "sex": reg.sex,
         "civil_status": reg.civil_status,

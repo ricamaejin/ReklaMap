@@ -34,8 +34,6 @@
     <div class="complaint-layout">
       <!-- Left Panel: Complaint Preview -->
       <div class="complaint-form">
-        <h1>COMPLAINT PREVIEW</h1>
-        
 
         <h1 style="text-decoration: underline;">COMPLAINT FORM <br> OVERLAPPING</h1>
         <div class="instructions">
@@ -58,7 +56,7 @@
             <div class="pair-row">
               <div class="col">
                 <label class="small">Full Name:</label>
-                <input type="text" name="full_name" value="{{ registration.first_name }} {{ registration.middle_name }} {{ registration.last_name }} {{ registration.suffix }}" readonly>
+                <input type="text" name="full_name" value="{% for part in [registration.first_name, registration.middle_name, registration.last_name, registration.suffix] if part %}{{ part }} {% endfor %}" readonly>
               </div>
             </div>
             <div class="pair-row">

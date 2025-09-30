@@ -42,6 +42,9 @@ def mem_reg():
             first = request.form.get("reg_first", "").strip()
             mid = request.form.get("reg_mid", "").strip()
             suffix = request.form.get("reg_suffix", "").strip()
+            # Ensure NA/N/A/empty are saved as None
+            mid = mid if mid not in ("", "NA", "N/A") else None
+            suffix = suffix if suffix not in ("", "NA", "N/A") else None
             dob = request.form.get("reg_dob")
             sex = request.form.get("reg_sex")
             cit = request.form.get("reg_cit")
@@ -116,8 +119,8 @@ def mem_reg():
                 "category": category,
                 "last_name": last,
                 "first_name": first,
-                "middle_name": mid or None,
-                "suffix": suffix or None,
+                "middle_name": mid,
+                "suffix": suffix,
                 "date_of_birth": datetime.strptime(dob, "%Y-%m-%d") if dob else None,
                 "sex": sex,
                 "citizenship": cit,
