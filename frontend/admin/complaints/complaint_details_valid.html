@@ -49,8 +49,7 @@
             <p>Upon inspection, the staff verified the complaint’s validity...</p>
           </div>
         </div>
-        <!-- TODO BACKEND: Direct the button so that it will go to the complaint tab: resolved -->
-        <button class="resolved-btn">Resolved</button>
+        <button class="resolved-btn" onclick="resolveComplaint()">Resolved</button>
       </div>
     </div>
 
@@ -95,10 +94,12 @@
 
 
         <label>Assigned to:</label>
-        <select>
+        <select id="assignedTo" name="assignedTo">
           <option value="" disabled selected hidden>Select Staff</option>
-          <option>Staff A</option>
-          <option>Staff B</option>
+          <option value="Josie Rosal">Josie Rosal</option>
+          <option value="Alberto Nonato Jr.">Alberto Nonato Jr.</option>
+          <option value="Maybelen Jamorawon">Maybelen Jamorawon</option>
+          <option value="Agnes Bartolome">Agnes Bartolome</option>
         </select>
 
         <label>Description:</label>
@@ -304,20 +305,96 @@
     container.appendChild(fileTag);
   }
 
-  // TODO: send this to backend (via fetch/ajax)
-  document.querySelector(".btn-save").addEventListener("click", () => {
+  // Send action to backend
+  document.querySelector(".btn-save").addEventListener("click", async () => {
     const actionType = document.getElementById("type").value;
+    const assignedTo = document.getElementById("assignedTo").value;
     const desc = document.querySelector("textarea").value;
+    
+    if (!actionType) {
+      alert('Please select an action type');
+      return;
+    }
 
     const attachedFiles = [...document.querySelectorAll("#attachedFilesContainer .attached-file")]
       .map(f => ({ name: f.textContent, url: f.dataset.url }));
 
-    console.log({
-      actionType,
-      desc,
-      attachedFiles
-    });
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const complaintId = urlParams.get('id');
+      
+      if (!complaintId) {
+        alert('Complaint ID not found');
+        return;
+      }
+
+      const response = await fetch(`/admin/complaints/api/${complaintId}/action`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action_type: actionType,
+          assigned_to: assignedTo,
+          description: desc,
+          files: attachedFiles
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        alert('Action saved successfully!');
+        closeComplaint();
+        // Redirect back to complaints list
+        setTimeout(() => {
+          window.location.href = '/admin/complaints/all.html';
+        }, 1000);
+      } else {
+        alert('Error: ' + (data.message || 'Failed to save action'));
+      }
+    } catch (error) {
+      console.error('Error saving action:', error);
+      alert('Error saving action. Please try again.');
+    }
   });
+
+  // Resolve complaint function
+  async function resolveComplaint() {
+    if (!confirm('Are you sure you want to mark this complaint as resolved?')) {
+      return;
+    }
+
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const complaintId = urlParams.get('id');
+      
+      if (!complaintId) {
+        alert('Complaint ID not found');
+        return;
+      }
+
+      const response = await fetch(`/admin/complaints/api/${complaintId}/resolve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        alert('Complaint resolved successfully!');
+        // Redirect to resolved complaints tab
+        window.location.href = '/admin/complaints/resolved.html';
+      } else {
+        alert('Error: ' + (data.message || 'Failed to resolve complaint'));
+      }
+    } catch (error) {
+      console.error('Error resolving complaint:', error);
+      alert('Error resolving complaint. Please try again.');
+    }
+  }
   </script>
 </body>
 </html>
