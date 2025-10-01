@@ -878,6 +878,10 @@ select {
   color: #083048;
 }
 
+#descText {
+    white-space: pre-line;
+}
+
 /* Complaint form */
 .form-container {
   background: #fff;
@@ -1286,6 +1290,33 @@ input[type="radio"], input[type="checkbox"] {
 
 }
 
+/* Complainant's Details*/
+:root{
+    
+    --field-bg:#f6fbff;
+  }
+
+  /* Block/Lot pairs */
+  .pairs{
+    margin-top:8px;border:1px dashed rgba(0,0,0,0.06);padding:12px;border-radius:4px;background:var(--field-bg);
+  }
+  .pair-row{
+    display:flex;gap:12px;align-items:flex-start;margin-bottom:8px;
+  }
+  .pair-row .col{display:flex;flex-direction:column;flex:1}
+  .pair-row label.small{font-weight:600;font-size:14px;color: black;margin-bottom:6px}
+  .pair-row input[type="text"]{
+    padding:8px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white;
+  }
+  .pair-row button.remove{
+    height:36px;padding:6px 8px;border-radius:4px;border:1px solid rgba(0,0,0,0.08);background:#fff;cursor:pointer;
+  }
+  .pair-controls{display:flex;gap:8px;align-items:center;margin-top:6px}
+  .btn{
+    display:inline-block;padding:8px 12px;border-radius:6px;border:none;cursor:pointer;font-weight:700;
+  }
+  .btn.add{background:#eef6ff;color:var(--accent-strong);border:1px solid #cfe2ff}
+  .btn.small{padding:6px 10px;font-size:13px}
 
 /* Responsive CSS */
 @media (max-width: 768px) {

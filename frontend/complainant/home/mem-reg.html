@@ -27,7 +27,7 @@
       <h1 id="page-title" class="page-title">HOA Member Registration</h1>
 
       <!-- TOP: registrant basic fields -->
-      <form action="/complainant/home/registered.php" method="post" autocomplete="off" novalidate> <!--Kayo na bahala pano nyo connect pero ganto advoce ng gpt php talaga ang suggested, i can send the code ng php na sinabi ni gpt if want nyo tho di ko yun natry irun-->
+      <form id="memRegForm" method="post" enctype="multipart/form-data">
         <div class="form-grid" aria-hidden="false">
           <label>Last Name<input type="text" name="reg_last"></label>
           <label>First Name<input type="text" name="reg_first"></label>
@@ -54,38 +54,14 @@
 
         <div class="form-grid" aria-hidden="false" style="margin-bottom: -15px;">
           <label>Years of Residence<input type="text" name="reg_year"></label>
-          <label>Relationship<input type="text" name="reg_relationship"></label>
+          <label>Contact Number<input type="text" name="reg_phone"></label>
           <label>HOA
-              <select>
-                <option value="" disabled selected hidden></option>
-                <option>SJC</option>
-                <option>St. Peter </option>
-                <option>St. Peter - Sta. Catalina</option>
-                <option>St. Peter - St. Anthony Block 3</option>
-                <option>St. Dominic East 2 </option>
-                <option>SJSC 1</option>
-                <option>Bellstar</option>
-                <option>SJSD 1</option>
-                <option>SJSD 2</option>
-                <option>DJ-SJ 1</option>
-                <option>Alley 2  Sta. Catalina</option>
-                <option>Alley 2  Sto Domingo Block 1</option>
-                <option>Sto. Domingo West</option>
-                <option>Devine Mercy</option>
-                <option>East Sta. Catalina - St Anthony</option>
-                <option>Lower BF Road</option>
-                <option>St. Michael Compound</option>
-                <option>Doña Juana - St. Joseph Block 3</option>
-                <option>Sacred Heart Block 4</option>
-                <option>St. Anthony Block 1</option>
-                <option>St. Anthony Block 2</option>
-                <option>St. Catherine Block 1</option>
-                <option>St. Catherine Block 2</option>
-                <option>Lower St. Catherine Block 3</option>
-                <option>St. Anthony - St. Catherine Block 3</option>
-                <option>Centennial</option>
-                <option>St. Francis</option>
-                </select>
+            <select name="reg_hoa" required>
+              <option value="" disabled selected hidden></option>
+              {% for area in areas %}
+                <option value="{{ area.area_id }}">{{ area.area_name }}</option>
+              {% endfor %}
+            </select>
           </label>
           <label>Block Assignment<input type="text" name="reg_blk"></label>
           <label>Lot Assignment<input type="text" name="reg_lot_asn"></label>
@@ -140,8 +116,11 @@
             your registered name. 
           </p>
 
+          <!-- Hidden category input -->
+          <input type="hidden" name="category" value="{{ category }}">
+
           <!-- Hidden file input -->
-          <input type="file" id="signatureInput" accept="image/*" style="display:none;" />
+          <input type="file" id="signatureInput" name="signature" accept="image/*" style="display:none;" />
 
           <!-- Upload button -->
           <button type="button" class="upload-btn" onclick="document.getElementById('signatureInput').click()">Upload Signature</button>
@@ -153,23 +132,74 @@
         <!-- actions -->
         <div class="actions">
           <button type="button" class="btn cancel" onclick="window.location.href='/complainant/home/not_registered.html'">Cancel</button>
-          <button type="submit" class="btn submit" name="mem_reg" value="mem_reg">Submit</button>
+          <button type="submit" class="btn submit">Submit</button>
         </div>
       </form>
     </article>
   </main>
+  <!-- Script for file input preview -->
+    <script>
+      const sigInput = document.getElementById("signatureInput");
+      const sigFileName = document.getElementById("signatureFileName");
+
+      sigInput.addEventListener("change", function () {
+        if (this.files.length > 0) {
+          sigFileName.textContent = "✔ " + this.files[0].name;
+        } else {
+          sigFileName.textContent = "";
+        }
+      });
+    </script>
+
+  <!-- Form submission script -->
+    <script>
+      document.getElementById("memRegForm").addEventListener("submit", async function(e) {
+        e.preventDefault(); // stop page reload
+
+        let formData = new FormData(this);
+
+        try {
+          let response = await fetch("/complainant/memreg", {
+            method: "POST",
+            body: formData,
+            credentials: "same-origin"
+          });
+
+          let result = await response.json();
+
+          if (result.success) {
+            alert(result.message);
+
+            // ✅ Use the same key as in dashboard.html
+            let complaintType = sessionStorage.getItem("complaintType");
+             console.log("Complaint Type from sessionStorage:", complaintType); // <-- add this
+
+            if (complaintType === "Overlapping") {
+              window.location.href = "/complainant/new_overlap_form";
+            } else if (complaintType === "Lot Dispute") {
+              window.location.href = "/complainant/new_lot_dispute_form";
+            } else if (complaintType === "Boundary Dispute") {
+              window.location.href = "/complainant/new_boundary_dispute_form";
+            } else if (complaintType === "Pathway Dispute") {
+              window.location.href = "/complainant/complaints/pathway_dispute.html";
+            } else if (complaintType === "Unauthorized Occupation") {
+              window.location.href = "/complainant/complaints/unauthorized_occupation.html";
+            } else if (complaintType === "Illegal Construction") {
+              window.location.href = "/complainant/complaints/illegal_construction.html";
+            } else {
+              window.location.href = "/complainant/complaints/general.html";
+            }
+
+          } else {
+            alert("Error: " + result.error);
+          }
+        } catch (err) {
+          alert("Failed to submit: " + err);
+        }
+      });
+      </script>
+
 </body>
 </html>
 
-<script>
-  const sigInput = document.getElementById("signatureInput");
-  const sigFileName = document.getElementById("signatureFileName");
 
-  sigInput.addEventListener("change", function () {
-    if (this.files.length > 0) {
-      sigFileName.textContent = "✔ " + this.files[0].name;
-    } else {
-      sigFileName.textContent = "";
-    }
-  });
-</script>

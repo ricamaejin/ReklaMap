@@ -1,18 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/png" href="/images/logo.png">
+  <link rel="icon" type="image/png" href="/images/logo.png" />
   <title>ReklaMap</title>
-  <link rel="stylesheet" href="/css/complainants.css">
+  <link rel="stylesheet" href="/css/complainants.css" />
+  <style>
+    /* Extra styles for clickable cards */
+    .complaint-card.clickable-card {
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .complaint-card.clickable-card:hover {
+      transform: scale(1.02);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    /* Small layout safety so placeholder and dropdown align */
+    .complaints-container {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+    .complaint-card {
+      width: 60%;
+      padding: 18px;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .dropdown-card {
+      width: 35%;
+      padding: 12px;
+      border-radius: 8px;
+      background: #fafafa;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    }
+    .dropdown-content { display: none; max-height: 360px; overflow:auto; padding-top:10px; }
+    .dropdown-content.show { display: block; }
+    .arrow { display:inline-block; width:10px; height:10px; margin-left:8px; transition: transform .2s;}
+    .arrow.rotate { transform: rotate(90deg); }
+    .person-box { margin-top: 12px; padding: 10px; background:#f5f8fb; border-radius:6px; }
+    .complaint-card.empty { background: transparent; box-shadow: none; padding: 8px; color:#666; }
+  </style>
 </head>
 <body>
-
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="logo-section">
-      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
+      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo" />
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
@@ -20,7 +57,7 @@
       <a href="/complainant/complaints/submitted_complaints.html" class="nav-item active">Complaints</a>
     </nav>
   </aside>
-  
+
   <!-- Main Content -->
   <main class="main-content">
     <header class="header">
@@ -32,36 +69,130 @@
     </div>
 
     <div class="complaints-container">
-      <!-- Empty Card for backend insertion -->
+      <!-- Placeholder when no complaints exist -->
       <div class="complaint-card empty">
         No complaints submitted yet.
       </div>
 
-      <!-- Dropdown Card -->
+      <!-- Complaint History Dropdown -->
       <div class="dropdown-card">
-        <div class="dropdown-header">
+        <div class="dropdown-header" style="cursor:pointer;">
           Complaint History
-          <span class="arrow"></span>
+          <span class="arrow">▶</span>
         </div>
         <div class="dropdown-content">
-          <!-- Empty placeholder for backend insertion -->
           No history available.
         </div>
       </div>
     </div>
   </main>
 
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      const container = document.querySelector(".complaints-container");
+      const emptyCard = container.querySelector(".complaint-card.empty");
+      const dropdownCard = container.querySelector(".dropdown-card");
+      const dropdownHeader = dropdownCard.querySelector(".dropdown-header");
+      const dropdownContent = dropdownCard.querySelector(".dropdown-content");
+      const arrow = dropdownHeader.querySelector(".arrow");
+
+      // Dropdown toggle (safe to run after DOMContentLoaded)
+      dropdownHeader.addEventListener("click", () => {
+        dropdownContent.classList.toggle("show");
+        arrow.classList.toggle("rotate");
+      });
+
+      try {
+        const res = await fetch("/complainant/complaints/submitted");
+        if (!res.ok) {
+          throw new Error("Network response was not ok: " + res.status);
+        }
+        const data = await res.json();
+        console.log("Fetched complaints:", data); // <-- debug: inspect this in DevTools Console
+
+        if (data && data.success && Array.isArray(data.complaints) && data.complaints.length > 0) {
+          // Hide placeholder
+          emptyCard.style.display = "none";
+
+          // Clear history placeholder
+          dropdownContent.innerHTML = "";
+
+          data.complaints.forEach((c) => {
+            try {
+              // safety defaults (avoid errors if fields are missing)
+              const complaintId = c.complaint_id ?? "";
+              const createdAt = c.created_at ?? "";
+              const type = c.type ?? c.type_of_complaint ?? "Complaint";
+              const status = c.status ?? c.state ?? "";
+              const personName = (c.person && c.person.name) || c.q12 || c.person_name || "Unknown";
+              const personBlock = (c.person && c.person.block) || (c.property && c.property.block) || (c.block) || "N/A";
+              const personRole = (c.person && c.person.role) || "HOA Member";
+
+              // Build card
+              const complaintDiv = document.createElement("div");
+              complaintDiv.classList.add("complaint-card", "clickable-card");
+              if (complaintId) complaintDiv.dataset.id = complaintId;
+
+              complaintDiv.innerHTML = `
+                <h4>${createdAt} - ${type}</h4>
+                <p><strong>Status:</strong> ${status}</p>
+                <div class="person-box">
+                  <p><strong>Person Involved:</strong></p>
+                  <p>Name: ${escapeHtml(personName)}</p>
+                  <p>Block: ${escapeHtml(personBlock)}</p>
+                  <p>${escapeHtml(personRole)}</p>
+                </div>
+              `;
+
+              // Click handler (redirect to Flask-rendered view page)
+              complaintDiv.addEventListener("click", () => {
+                if (complaintDiv.dataset.id) {
+                  window.location.href = `/complainant/complaint/${complaintDiv.dataset.id}`;
+                }
+              });
+
+              // Insert card before the dropdown card
+              container.insertBefore(complaintDiv, dropdownCard);
+
+              // Add history entry
+              const historyDiv = document.createElement("div");
+              historyDiv.classList.add("complaint-item");
+              historyDiv.innerHTML = `
+                <strong>Date:</strong> ${createdAt} <br>
+                <strong>Type:</strong> ${type} <br>
+                <strong>Status:</strong> ${status}
+                <hr>
+              `;
+              dropdownContent.appendChild(historyDiv);
+            } catch (cardErr) {
+              console.error("Error rendering a complaint card:", cardErr);
+            }
+          });
+        } else {
+          // No complaints
+          emptyCard.style.display = "block";
+          dropdownContent.textContent = "No history available.";
+        }
+      } catch (err) {
+        console.error("Error fetching complaints:", err);
+        emptyCard.style.display = "block";
+        dropdownContent.textContent = "Failed to load complaint history.";
+      }
+
+      // small helper to avoid HTML injection in inserted text
+      function escapeHtml(str) {
+        if (!str && str !== 0) return "";
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+    });
+  </script>
 </body>
 </html>
 
-  <script>
-    const header = document.querySelector('.dropdown-header');
-    const content = document.querySelector('.dropdown-content');
-    const arrow = document.querySelector('.arrow');
 
-    header.addEventListener('click', () => {
-      content.classList.toggle('show');
-      arrow.classList.toggle('rotate');
-    });
-  </script>
   

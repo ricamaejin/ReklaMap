@@ -6,6 +6,13 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
+  <style>
+    input[disabled], textarea[readonly] {
+      background: #f6fbff;
+      color: #333;
+      cursor: not-allowed;
+    }
+  </style>
 </head>
 <body>
   <!-- Sidebar -->
@@ -25,14 +32,160 @@
     <header class="header"><h1>Complaint</h1></header>
 
     <div class="complaint-layout">
-      <!-- Complaint Form Placeholder -->
-      <!-- TODO BACKEND: Populate complaint-form div with complaint details from DB -->
-      <div class="complaint-form">Complaint form data will load here...</div>
+      <!-- Left Panel: Complaint Preview -->
+      <div class="complaint-form">
+
+        <h1 style="text-decoration: underline;">COMPLAINT FORM <br> OVERLAPPING</h1>
+        <div class="instructions">
+          <p><strong>INSTRUCTION</strong></p>
+          <ul>
+            <li>Complete the application form properly and legibly.</li>
+            <li>For checkbox items (☑), you may select more than one option if applicable.</li>
+            <li>For radio button items (◉), please select only one option.</li>
+            <li>If a field or question does not apply to you or you do not know the answer, write “N/A” (Not Applicable).</li>
+            <li>Ensure all required fields are filled before submitting the form.</li>
+          </ul>
+        </div>
+
+        <form>
+          <input type="hidden" name="complaint_id" value="{{ complaint.complaint_id }}">
+          <input type="hidden" name="registration_id" value="{{ registration.registration_id }}">
+
+          <div class="section-header">COMPLAINANT'S DETAILS:</div>
+          <div class="pairs">
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Full Name:</label>
+                <input type="text" name="full_name" value="{% for part in [registration.first_name, registration.middle_name, registration.last_name, registration.suffix] if part %}{{ part }} {% endfor %}" readonly>
+              </div>
+            </div>
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Date of Birth:</label>
+                <input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
+              </div>
+              <div class="col">
+                <label class="small">Sex:</label>
+                <input type="text" name="sex" value="{{ registration.sex }}" readonly>
+              </div>
+            </div>
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Civil Status:</label>
+                <input type="text" name="civil_stat" value="{{ registration.civil_status }}" readonly>
+              </div>
+              <div class="col">
+                <label class="small">Citizenship:</label>
+                <input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly>
+              </div>
+            </div>
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Current Address:</label>
+                <input type="text" name="cur_add" value="{{ registration.current_address }}" readonly>
+              </div>
+              <div class="col">
+                <label class="small">HOA:</label>
+                <input type="text" name="hoa" value="{{ registration.hoa }}" readonly>
+              </div>
+            </div>
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Block Assignment Number:</label>
+                <input type="text" name="blk_num" value="{{ registration.block_no }}" readonly>
+              </div>
+              <div class="col">
+                <label class="small">Lot Assignment Number:</label>
+                <input type="text" name="lot_num" value="{{ registration.lot_no }}" readonly>
+              </div>
+              <div class="col">
+                <label class="small">Lot Area Size:</label>
+                <input type="text" name="lot_size" value="{{ registration.lot_size }}" readonly>
+              </div>
+            </div>
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Phone Number:</label>
+                <input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly>
+              </div>
+              <div class="col"></div>
+            </div>
+          </div>
+
+
+          {% set lot_details_rendered = false %}
+          {% macro render_field(field, answers) %}
+            {% if field.type == 'block_lot_pairs' %}
+              {% if not lot_details_rendered %}
+                <div class="section-header">LOT DETAILS AND CLAIM:</div>
+                {% set _ = namespace(lot_details_rendered=true) %}
+              {% endif %}
+              <p>{{ field.label }}</p>
+              <div class="pairs">
+                {% for pair in answers[field.name] %}
+                  <div class="pair-row">
+                    <div class="col">
+                      <label class="small">Block No.</label>
+                      <input type="text" value="{{ pair.block }}" disabled>
+                    </div>
+                    <div class="col">
+                      <label class="small">Lot No.</label>
+                      <input type="text" value="{{ pair.lot }}" disabled>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% elif field.type == 'radio' %}
+              <p>{{ field.label }}</p>
+              <div class="radio-group">
+                {% for val, label in field.options %}
+                  <label style="display:block;margin-bottom:4px;">
+                    <input type="radio" disabled {% if answers[field.name]==val %}checked{% endif %}>
+                    {{ label }}
+                  </label>
+                {% endfor %}
+              </div>
+            {% elif field.type == 'checkbox' %}
+              <p>{{ field.label }} <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+              <div class="checkbox-group">
+                {% for val, label in field.options %}
+                  <label style="display:block;margin-bottom:4px;">
+                    <input type="checkbox" disabled {% if val in answers[field.name] %}checked{% endif %}>
+                    {{ label }}
+                  </label>
+                {% endfor %}
+              </div>
+            {% elif field.type == 'text' %}
+              <p>{{ field.label }}</p>
+              <input type="text" value="{{ answers[field.name] }}" disabled>
+            {% elif field.type == 'textarea' %}
+              <p style="font-weight: bold;">{{ field.label }}</p>
+              <textarea readonly>{{ answers[field.name] }}</textarea>
+            {% elif field.type == 'signature' %}
+              <div class="signature">
+                {% if answers.signature %}
+                  <a href="{{ url_for('complainant.uploaded_signature', filename=answers.signature) }}" target="_blank">View Signature</a>
+                {% else %}
+                  <p><em>No signature uploaded</em></p>
+                {% endif %}
+              </div>
+            {% endif %}
+          {% endmacro %}
+
+          {# Only render the section header once, then all fields #}
+          {% for field in form_structure %}
+            {{ render_field(field, answers) }}
+          {% endfor %}
+
+          <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
+          <div class="consent">
+            By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
+          </div>
+        </form>
+      </div>
 
       <!-- Right Panel -->
       <div class="right-panel">
-
-        <!-- TODO BACKEND: Replace static timeline entries with timeline data from DB -->
         <div class="timeline">
           <div class="timeline-entry">
             <h4>6/19/2025 - Send Invitation 
@@ -53,6 +206,7 @@
     </div>    
   </main>
 
+  <!-- Recommended Action Popup -->
   <script>
   (function () {
     const modal = document.getElementById('modal');               // Action modal
@@ -181,3 +335,7 @@
   </script>
 </body>
 </html>
+
+
+
+
