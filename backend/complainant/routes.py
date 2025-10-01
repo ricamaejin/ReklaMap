@@ -126,7 +126,7 @@ def set_complaint_type():
     if not ctype:
         return jsonify({"success": False, "message": "Missing complaint type"}), 400
 
-    session["complaint_type"] = ctype
+    session["type_of_complaint"] = ctype
     return jsonify({"success": True, "message": "Complaint type saved in session."})
 
 # -----------------------------
@@ -134,7 +134,7 @@ def set_complaint_type():
 # -----------------------------
 @complainant_bp.route("/get-complaint-type", methods=["GET"])
 def get_complaint_type():
-    ctype = session.get("complaint_type")
+    ctype = session.get("type_of_complaint")
     return jsonify({"success": True, "type": ctype})
 
 # -----------------------------
@@ -287,13 +287,13 @@ def submit_overlap():
 # -----------------------------
 # Dynamic form structure for preview
 # -----------------------------
-def get_form_structure(complaint_type):
+def get_form_structure(type_of_complaint):
     """
     Returns a list of field definitions for the given complaint type.
     Each field is a dict: {type, name, label, options, ...}
     Extend this for each complaint type as needed.
     """
-    if complaint_type == "Overlapping":
+    if type_of_complaint == "Overlapping":
         return [
             {"type": "block_lot_pairs", "name": "q1", "label": "1. What are the specific block and lot numbers involved in the overlap?"},
             {"type": "radio", "name": "q2", "label": "2. What is the current status of the lot?", "options": [

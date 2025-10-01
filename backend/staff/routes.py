@@ -1,6 +1,6 @@
 import os
 from flask import Blueprint, request, jsonify, session, redirect, Response
-from ..database.models import Admin, Complaints, ComplaintHistory, Area
+from ..database.models import Admin, Complaint, ComplaintHistory, Area
 from ..database.db import db
 
 staff_bp = Blueprint('staff', __name__, url_prefix='/staff')
@@ -90,8 +90,8 @@ def api_assigned_complaints():
         query = """
         SELECT DISTINCT
             c.complaint_id,
-            c.date_submitted,
-            c.complaint_type,
+            c.date_received,
+            c.type_of_complaint,
             c.status,
             c.complaint_stage,
             c.priority_level,
@@ -112,7 +112,7 @@ def api_assigned_complaints():
         WHERE c.status = 'Valid' 
         AND ch.assigned_to = :staff_name
         AND c.complaint_stage != 'Resolved'
-        ORDER BY c.date_submitted DESC
+        ORDER BY c.date_received DESC
         """
         
         result = db.session.execute(text(query), {'staff_name': staff_name})
@@ -147,7 +147,7 @@ def api_assigned_complaints():
             
             complaints_data.append({
                 'complaint_id': complaint['complaint_id'],
-                'date_submitted': complaint['date_received'].strftime('%m/%d/%Y') if complaint['date_received'] else 'N/A',
+                'date_received': complaint['date_received'].strftime('%m/%d/%Y') if complaint['date_received'] else 'N/A',
                 'complainant': formatted_name,
                 'type_of_complaint': complaint['type_of_complaint'] or 'N/A',
                 'hoa': complaint['area_name'] or 'N/A',
@@ -181,8 +181,8 @@ def api_resolved_complaints():
         query = """
         SELECT DISTINCT
             c.complaint_id,
-            c.date_submitted,
-            c.complaint_type,
+            c.date_received,
+            c.type_of_complaint,
             c.status,
             c.complaint_stage,
             c.priority_level,
@@ -203,7 +203,7 @@ def api_resolved_complaints():
         WHERE c.status = 'Valid' 
         AND ch.assigned_to = :staff_name
         AND c.complaint_stage = 'Resolved'
-        ORDER BY c.date_submitted DESC
+        ORDER BY c.date_received DESC
         """
         
         result = db.session.execute(text(query), {'staff_name': staff_name})
@@ -238,7 +238,7 @@ def api_resolved_complaints():
             
             complaints_data.append({
                 'complaint_id': complaint['complaint_id'],
-                'date_submitted': complaint['date_received'].strftime('%m/%d/%Y') if complaint['date_received'] else 'N/A',
+                'date_received': complaint['date_received'].strftime('%m/%d/%Y') if complaint['date_received'] else 'N/A',
                 'complainant': formatted_name,
                 'type_of_complaint': complaint['type_of_complaint'] or 'N/A',
                 'hoa': complaint['area_name'] or 'N/A',

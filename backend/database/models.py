@@ -149,7 +149,7 @@ class Policy(db.Model):
     
 
 # -----------------------
-# Complaints - TBD DELETE
+# Complaints
 # -----------------------
 class Complaint(db.Model):
     __tablename__ = "complaints"   # must match phpMyAdmin table name

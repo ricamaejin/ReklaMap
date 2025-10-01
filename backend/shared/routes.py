@@ -1,6 +1,6 @@
 import os
 from flask import Blueprint, render_template, request, jsonify, session, redirect, send_file
-from ..database.models import Complaints, ComplaintHistory, Area, Admin
+from ..database.models import Complaint, ComplaintHistory, Area, Admin
 from ..database.db import db
 
 shared_bp = Blueprint('shared', __name__, url_prefix='/complaints')
@@ -40,12 +40,12 @@ def api_complaint_details(complaint_id):
     try:
         # Get complaint details with area information
         complaint = db.session.query(
-            Complaints,
+            Complaint,
             Area.area_name
         ).join(
-            Area, Complaints.area_id == Area.area_id
+            Area, Complaint.area_id == Area.area_id
         ).filter(
-            Complaints.complaint_id == complaint_id
+            Complaint.complaint_id == complaint_id
         ).first()
         
         if not complaint:
@@ -86,8 +86,8 @@ def api_complaint_details(complaint_id):
             'complaint': {
                 'complaint_id': complaint_data.complaint_id,
                 'complainant': f"{complaint_data.first_name or ''} {complaint_data.middle_initial or ''} {complaint_data.last_name or ''}".strip(),
-                'complaint_type': complaint_data.complaint_type,
-                'date_submitted': complaint_data.date_submitted.strftime('%m/%d/%Y') if complaint_data.date_submitted else 'N/A',
+                'type_of_complaint': complaint_data.type_of_complaint,
+                'date_received': complaint_data.date_received.strftime('%m/%d/%Y') if complaint_data.date_received else 'N/A',
                 'area_name': area_name,
                 'block_no': complaint_data.block_no,
                 'lot_no': complaint_data.lot_no,

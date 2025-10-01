@@ -1,7 +1,7 @@
 import os
 from flask import Blueprint, send_file, request, jsonify, session
 from ...database.db import db
-from ...database.models import Complaints, ComplaintHistory, Admin, Area, Beneficiary
+from ...database.models import Complaint, ComplaintHistory, Admin, Area, Beneficiary
 from sqlalchemy import text, func
 from datetime import datetime
 
@@ -57,7 +57,7 @@ def get_complaint_data(status_filter=None, assigned_filter=None):
             c.priority_level,
             c.status,
             c.complaint_stage,
-            c.date_received as date_submitted,
+            c.date_received,
             c.description,
             COALESCE(r.first_name, 'N/A') as first_name,
             COALESCE(r.middle_name, '') as middle_name,
@@ -122,7 +122,7 @@ def get_complaint_data(status_filter=None, assigned_filter=None):
                 'priority_level': complaint.priority_level or 'Minor',
                 'status': complaint.status,
                 'complaint_stage': complaint.complaint_stage,
-                'date_submitted': complaint.date_submitted.strftime('%Y-%m-%d') if complaint.date_submitted else '',
+                'date_received': complaint.date_received.strftime('%Y-%m-%d') if complaint.date_received else '',
                 'description': complaint.description or ''
             })
         
@@ -244,11 +244,11 @@ def get_assigned_complaints():
         query = """
         SELECT DISTINCT
             c.complaint_id,
-            c.complaint_type,
+            c.type_of_complaint,
             c.priority_level,
             c.status,
             c.complaint_stage,
-            c.date_submitted,
+            c.date_received,
             c.description,
             r.first_name,
             r.middle_name,
@@ -267,7 +267,7 @@ def get_assigned_complaints():
         LEFT JOIN blocks b ON r.block_id = b.block_id
         INNER JOIN complaint_history ch ON c.complaint_id = ch.complaint_id
         WHERE ch.assigned_to IS NOT NULL AND ch.assigned_to != ''
-        ORDER BY c.date_submitted DESC
+        ORDER BY c.date_received DESC
         """
         
         result = db.session.execute(text(query))
@@ -290,13 +290,13 @@ def get_assigned_complaints():
             
             formatted_complaints.append({
                 'complaint_id': complaint.complaint_id,
-                'type_of_complaint': complaint.complaint_type,
+                'type_of_complaint': complaint.type_of_complaint,
                 'complainant_name': formatted_name,
                 'address': formatted_address,
                 'priority_level': complaint.priority_level,
                 'status': complaint.status,
                 'complaint_stage': complaint.complaint_stage,
-                'date_submitted': complaint.date_submitted.strftime('%Y-%m-%d') if complaint.date_submitted else '',
+                'date_received': complaint.date_received.strftime('%Y-%m-%d') if complaint.date_received else '',
                 'description': complaint.description,
                 'assigned_to': complaint.assigned_to,
                 'action_type': complaint.action_type,
@@ -521,13 +521,13 @@ def api_complaint_details(complaint_id):
         
         result_data = {
             'complaint_id': complaint.complaint_id,
-            'type_of_complaint': complaint.complaint_type,
+            'type_of_complaint': complaint.type_of_complaint,
             'complainant_name': formatted_name,
             'address': formatted_address,
             'priority_level': complaint.priority_level,
             'status': complaint.status,
             'complaint_stage': complaint.complaint_stage,
-            'date_submitted': complaint.date_submitted.strftime('%Y-%m-%d %H:%M:%S') if complaint.date_submitted else '',
+            'date_received': complaint.date_received.strftime('%Y-%m-%d %H:%M:%S') if complaint.date_received else '',
             'description': complaint.description,
             'actions': actions
         }
