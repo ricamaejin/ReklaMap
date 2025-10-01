@@ -182,7 +182,11 @@ def get_all_complaints():
         complaints = get_complaint_data()
         print(f"[DEBUG] Found {len(complaints)} complaints")
         
-        return jsonify(complaints)
+        response = jsonify(complaints)
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
@@ -197,7 +201,11 @@ def get_pending_complaints():
         
         complaints = get_complaint_data(status_filter='Pending')
         
-        return jsonify(complaints)
+        response = jsonify(complaints)
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
@@ -212,7 +220,11 @@ def get_ongoing_complaints():
         
         complaints = get_complaint_data(status_filter='Ongoing')
         
-        return jsonify(complaints)
+        response = jsonify(complaints)
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
@@ -227,7 +239,11 @@ def get_resolved_complaints():
         
         complaints = get_complaint_data(status_filter='Resolved')
         
-        return jsonify(complaints)
+        response = jsonify(complaints)
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
@@ -304,7 +320,11 @@ def get_assigned_complaints():
                 'action_date': complaint.action_date.strftime('%Y-%m-%d') if complaint.action_date else ''
             })
         
-        return jsonify(formatted_complaints)
+        response = jsonify(formatted_complaints)
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
@@ -319,7 +339,11 @@ def get_invalid_complaints():
         
         complaints = get_complaint_data(status_filter='invalid')
         
-        return jsonify(complaints)
+        response = jsonify(complaints)
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
@@ -439,7 +463,7 @@ def get_admin_complaint_stats():
         stats = result.fetchone()
         print(f"[DEBUG] Stats result: total={stats.total}, pending={stats.pending}, ongoing={stats.ongoing}, resolved={stats.resolved}, unresolved={stats.unresolved}")
         
-        return jsonify({
+        response = jsonify({
             'total': stats.total or 0,
             'pending': stats.pending or 0,
             'ongoing': stats.ongoing or 0,
@@ -449,6 +473,10 @@ def get_admin_complaint_stats():
             'invalid': stats.invalid or 0,
             'assigned': 0  # Will be calculated from complaint_history if needed
         })
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
@@ -532,7 +560,11 @@ def api_complaint_details(complaint_id):
             'actions': actions
         }
         
-        return jsonify(result_data)
+        response = jsonify(result_data)
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
         
     except Exception as e:
         print(f"Error getting complaint details: {e}")

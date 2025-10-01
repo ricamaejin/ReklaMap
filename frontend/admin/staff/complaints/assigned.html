@@ -95,7 +95,7 @@
     // Load assigned complaints data
     async function loadAssignedComplaints() {
       try {
-        const response = await fetch('/staff/api/complaints/assigned');
+        const response = await fetch(`/staff/api/complaints/assigned?_=${Date.now()}`);
         const data = await response.json();
         
         if (data.success) {
@@ -111,7 +111,7 @@
     // Load staff statistics
     async function loadStats() {
       try {
-        const response = await fetch('/staff/api/stats');
+        const response = await fetch(`/staff/api/stats?_=${Date.now()}`);
         const data = await response.json();
         
         if (data.success) {

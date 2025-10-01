@@ -98,7 +98,7 @@
     // Load ongoing complaints data
     async function loadOngoingComplaints() {
       try {
-        const response = await fetch('/admin/complaints/api/ongoing');
+        const response = await fetch(`/admin/complaints/api/ongoing?_=${Date.now()}`);
         const data = await response.json();
         
         if (Array.isArray(data)) {
@@ -116,7 +116,7 @@
     // Load admin statistics
     async function loadStats() {
       try {
-        const response = await fetch('/admin/complaints/api/stats');
+        const response = await fetch(`/admin/complaints/api/stats?_=${Date.now()}`);
         const data = await response.json();
         
         if (data.total !== undefined) {

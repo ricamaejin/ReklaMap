@@ -98,7 +98,7 @@
     // Load invalid complaints data
     async function loadInvalidComplaints() {
       try {
-        const response = await fetch('/admin/complaints/api/invalid');
+        const response = await fetch(`/admin/complaints/api/invalid?_=${Date.now()}`);
         const data = await response.json();
         
         if (data.success) {
@@ -114,7 +114,7 @@
     // Load admin statistics
     async function loadStats() {
       try {
-        const response = await fetch('/admin/complaints/api/stats');
+        const response = await fetch(`/admin/complaints/api/stats?_=${Date.now()}`);
         const data = await response.json();
         
         if (data.success) {

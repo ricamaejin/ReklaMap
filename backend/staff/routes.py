@@ -157,10 +157,14 @@ def api_assigned_complaints():
                 'complaint_stage': complaint['complaint_stage']
             })
         
-        return jsonify({
+        response = jsonify({
             'success': True,
             'complaints': complaints_data
         })
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
         
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
@@ -248,10 +252,14 @@ def api_resolved_complaints():
                 'complaint_stage': complaint['complaint_stage']
             })
         
-        return jsonify({
+        response = jsonify({
             'success': True,
             'complaints': complaints_data
         })
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
         
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
@@ -292,11 +300,15 @@ def api_staff_stats():
         result = db.session.execute(text(resolved_query), {'staff_name': staff_name})
         resolved_count = result.scalar()
         
-        return jsonify({
+        response = jsonify({
             'success': True,
             'total_assigned': total_assigned,
             'resolved': resolved_count
         })
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
         
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
