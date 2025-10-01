@@ -232,34 +232,56 @@ def submit_overlap():
         q13 = request.form.get("impact")
         description = request.form.get("description")
 
-        # Validate block/lot and person against Beneficiary table
+        # Validate q8 (name) and q1 (block/lot) against Beneficiary table
         from backend.database.models import Beneficiary
-        block_lot_valid = False
-        person_valid = False
+        complaint_status = "Invalid"
+        beneficiary_match = None
+        if q8:
+            # Try to match full name (first, last, middle, suffix)
+            name_parts = q8.strip().split()
+            # Build query for best match
+            query = Beneficiary.query
+            if len(name_parts) == 1:
+                query = query.filter((Beneficiary.first_name == name_parts[0]) | (Beneficiary.last_name == name_parts[0]))
+            elif len(name_parts) >= 2:
+                query = query.filter(Beneficiary.first_name == name_parts[0], Beneficiary.last_name == name_parts[-1])
+            # Optionally match middle_initial and suffix if provided
+            if len(name_parts) == 3:
+                query = query.filter(Beneficiary.middle_initial == name_parts[1])
+            if len(name_parts) == 4:
+                query = query.filter(Beneficiary.middle_initial == name_parts[1], Beneficiary.suffix == name_parts[2])
+            beneficiary_match = query.first()
 
-        # Check block/lot
-        if isinstance(q1, list) and len(q1) > 0:
+        block_lot_valid = False
+        if beneficiary_match and isinstance(q1, list) and len(q1) > 0:
             block = q1[0].get("block")
             lot = q1[0].get("lot")
             if block is not None and lot is not None:
-                exists = Beneficiary.query.filter_by(block_id=block, lot_no=lot).first()
-                if exists:
+                # block_id in Beneficiary is int, q1 may be str
+                try:
+                    block = int(block)
+                    lot = int(lot)
+                except Exception:
+                    pass
+                if beneficiary_match.block_id == block and beneficiary_match.lot_no == lot:
                     block_lot_valid = True
 
-        # Check person name
-        if q8:
-            # Match by full name (first, last, optional middle/suffix)
-            person = Beneficiary.query.filter(
-                (Beneficiary.first_name == q8) | (Beneficiary.last_name == q8)
-            ).first()
-            if person:
-                person_valid = True
-
-        # Determine complaint status
-        complaint_status = "Valid" if (block_lot_valid and person_valid) else "Invalid"
+        if beneficiary_match and block_lot_valid:
+            complaint_status = "Valid"
 
         # Compose complainant_name from registration
-        name_parts = [registration.first_name, registration.middle_name, registration.last_name, registration.suffix]
+        # Clean up middle_name and suffix: treat NA/N/A/None/empty as None
+        def clean_field(val):
+            if not val:
+                return None
+            val_str = str(val).strip().lower()
+            if val_str in {"na", "n/a", "none", ""}:
+                return None
+            return val
+
+        middle_name = clean_field(registration.middle_name)
+        suffix = clean_field(registration.suffix)
+        name_parts = [registration.first_name, middle_name, registration.last_name, suffix]
         complainant_name = " ".join([part for part in name_parts if part])
         # Get area_id from Beneficiary using registration block_no and lot_no
         area_id = None
