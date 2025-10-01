@@ -152,7 +152,7 @@
         });
         
         row.innerHTML = `
-          <td>${complaint.date_submitted}</td>
+          <td>${complaint.date_received}</td>
           <td>${complaint.complainant_name || complaint.complainant || 'N/A'}</td>
           <td>${complaint.type_of_complaint}</td>
           <td>${complaint.address ? complaint.address.split(',')[complaint.address.split(',').length - 1] : 'N/A'}</td>
