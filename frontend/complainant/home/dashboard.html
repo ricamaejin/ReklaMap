@@ -62,6 +62,10 @@
                 <!-- CASE 2: Complaint Exists -->
                 <div class="complaint-list hidden">
                     <!-- Dynamically populated complaint items will go here -->
+                </div>
+                <div id="invalid-complaint-action" style="display:none;justify-content:center;margin-top:24px;">
+                    <button class="btn-new-complaint" onclick="openComplaintTypeModal()" style="background:#1a33a0;color:white;font-size:1.1em;padding:10px 24px;border-radius:5px;border:none;box-shadow:none;">Submit Another Complaint</button>
+                </div>
             </div>
         </section>
     </main>
@@ -97,6 +101,30 @@
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeComplaint()">Cancel</button>
                 <button class="btn-save" onclick="goToRegistration()">Select</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Complaint Type Modal -->
+    <div class="modal-overlay" id="complaintTypeModal" style="display:none;z-index:1001;">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Select Complaint Type</h2>
+            </div>
+            <hr>
+            <label for="type">Type of Complaint:</label>
+            <select id="typeSelect" style="width: 98%;">
+                <option value="" disabled selected hidden>Select Type of Complaint</option>
+                <option value="Overlapping">Overlapping</option>
+                <option value="Lot Dispute">Lot Dispute</option>
+                <option value="Boundary Dispute">Boundary Dispute</option>
+                <option value="Pathway Dispute">Pathway Dispute</option>
+                <option value="Unauthorized Occupation">Unauthorized Occupation</option>
+                <option value="Illegal Construction">Illegal Construction</option>
+            </select>
+            <div class="modal-footer">
+                <button class="btn-close" onclick="closeComplaintTypeModal()">Cancel</button>
+                <button class="btn-save" onclick="goToComplaintForm()">Select</button>
             </div>
         </div>
     </div>
@@ -219,14 +247,56 @@
     </script>
 
     <script>
+        function openComplaintTypeModal() {
+            document.getElementById('complaintTypeModal').style.display = 'flex';
+        }
+        function closeComplaintTypeModal() {
+            document.getElementById('complaintTypeModal').style.display = 'none';
+        }
+        function goToComplaintForm() {
+            const type = document.getElementById('typeSelect').value;
+            if (!type) {
+                alert('Please select a complaint type first.');
+                return;
+            }
+            // Save complaint type in session via API
+            fetch('/complainant/set-complaint-type', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type })
+            }).then(res => res.json()).then(data => {
+                if (data.success) {
+                    // Redirect to the correct complaint form
+                    if (type === 'Overlapping') {
+                        window.location.href = '/complainant/new_overlap_form';
+                    } else if (type === 'Lot Dispute') {
+                        window.location.href = '/complainant/new_lot_dispute_form';
+                    } else if (type === 'Boundary Dispute') {
+                        window.location.href = '/complainant/new_boundary_dispute_form';
+                    } else if (type === 'Pathway Dispute') {
+                        window.location.href = '/complainant/new_pathway_dispute_form';
+                    } else if (type === 'Unauthorized Occupation') {
+                        window.location.href = '/complainant/new_unauthorized_occupation_form';
+                    } else if (type === 'Illegal Construction') {
+                        window.location.href = '/complainant/new_illegal_construction_form';
+                    }
+                } else {
+                    alert('Failed to save complaint type.');
+                }
+            });
+            closeComplaintTypeModal();
+        }
+    </script>
+
+    <script>
+    // Show 'Submit Another Complaint' button if any complaint is invalid
     document.addEventListener("DOMContentLoaded", async () => {
         const complaintList = document.querySelector(".complaint-list");
         const noComplaintDiv = document.querySelector(".no-complaint");
-
+        const invalidAction = document.getElementById("invalid-complaint-action");
         try {
-            const res = await fetch("/complainant/complaints/submitted"); // API from new.py
+            const res = await fetch("/complainant/complaints/submitted");
             const data = await res.json();
-
             if (data.success && data.complaints.length > 0) {
                 // Hide the "No complaint yet" message
                 noComplaintDiv.style.display = "none";
@@ -248,13 +318,18 @@
 
                     complaintList.appendChild(statusItem);
                 });
+
+                // Check for invalid complaints
+                if (data.complaints.some(c => c.status === "Invalid")) {
+                    invalidAction.style.display = "flex";
+                } else {
+                    invalidAction.style.display = "none";
+                }
             } else {
-                // No complaints
-                complaintList.classList.add("hidden");
-                noComplaintDiv.style.display = "block";
+                invalidAction.style.display = "none";
             }
         } catch (err) {
-            console.error("Error fetching complaints:", err);
+            invalidAction.style.display = "none";
         }
     });
     </script>

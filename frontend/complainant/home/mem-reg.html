@@ -31,7 +31,7 @@
         <div class="form-grid" aria-hidden="false">
           <label>Last Name<input type="text" name="reg_last"></label>
           <label>First Name<input type="text" name="reg_first"></label>
-          <label>Middle Name<input type="text" name="reg_mid"></label>
+          <label>Middle Initial<input type="text" name="reg_mid"></label>
           <label>Suffix
             <select name="reg_suffix">
               <option value="" disabled selected hidden></option>
@@ -106,28 +106,10 @@
             <label><input type="checkbox" name="doc_deed"> Deed of Sale</label>
           </div>
         </div>
-
-        <!-- upload signature + disclaimer -->
-        <div class="upload-section">
-          <p class="disclaimer">
-            This signature will serve as your official compliance item. It confirms that the
-            information you provided is accurate to the best of your knowledge and that you agree to
-            the terms of the submission process. Make sure your signature is legible and matches
-            your registered name. 
-          </p>
-
+        
           <!-- Hidden category input -->
           <input type="hidden" name="category" value="{{ category }}">
-
-          <!-- Hidden file input -->
-          <input type="file" id="signatureInput" name="signature" accept="image/*" style="display:none;" />
-
-          <!-- Upload button -->
-          <button type="button" class="upload-btn" onclick="document.getElementById('signatureInput').click()">Upload Signature</button>
-
-          <!-- File name preview -->
-          <span id="signatureFileName" style="margin-left:10px; font-style:italic;"></span>
-        </div>
+      </div>
 
         <!-- actions -->
         <div class="actions">
@@ -137,19 +119,6 @@
       </form>
     </article>
   </main>
-  <!-- Script for file input preview -->
-    <script>
-      const sigInput = document.getElementById("signatureInput");
-      const sigFileName = document.getElementById("signatureFileName");
-
-      sigInput.addEventListener("change", function () {
-        if (this.files.length > 0) {
-          sigFileName.textContent = "✔ " + this.files[0].name;
-        } else {
-          sigFileName.textContent = "";
-        }
-      });
-    </script>
 
   <!-- Form submission script -->
     <script>
@@ -201,5 +170,3 @@
 
 </body>
 </html>
-
-

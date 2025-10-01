@@ -6,6 +6,7 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
+  <script src="/js/registration_config.js"></script> <!-- This is correct! -->
 </head>
 <body>
 
@@ -33,23 +34,18 @@
 
     <!-- Main Content -->
     <main class="main">
-<div style="align-self: flex-start;">
-  <h1 style="color:#083048; margin-top: 25px; margin-left: 80px;">Profile</h1>
-</div>
-        <!-- Profile Card -->
-        <section class="profile-card">
-          <h2 id="profile-name">Loading...</h2>
-          <p id="profile-email">Loading...</p>
-        </section>
-
-        <article style="margin-top: 5px;" class="card" role="main">
-        <h1 id="page-title" class="page-title">Information</h1>
-
-      <!-- TOP: registrant basic fields -->
-      <form autocomplete="off" novalidate>
-        
-        </form>
-  </main>
+  <div style="align-self: flex-start;">
+    <h1 style="color:#083048; margin-top: 25px; margin-left: 80px;">Profile</h1>
+  </div>
+  
+  <!-- Profile Card -->
+  <section class="profile-card">
+    <h2 id="profile-name">Loading...</h2>
+    <p id="profile-email">Loading...</p>
+  </section>
+  <!-- Registration Information Card -->
+  <section id="info-card"></section>
+</main>
 
   <!-- Dropdown Script -->
   <script>
@@ -108,5 +104,171 @@
     });
   </script>
 
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+    const infoCard = document.getElementById("info-card");
+    if (!infoCard) return;
+
+    // Fetch registration info
+    const res = await fetch("/complainant/profile/registration", { credentials: "include" });
+    const data = await res.json();
+
+    if (data.success && data.registered) {
+        const r = data.registration;
+
+        // Determine the title based on registration category
+        let regTitle = "Registration Information";
+        if (r.category === "non_member") {
+            regTitle = window.registrationConfig?.nonMemberTitle || regTitle;
+        } else if (r.category === "hoa_member") {
+            regTitle = window.registrationConfig?.hoaMemberTitle || regTitle;
+        } else if (r.category === "family_of_member") {
+            regTitle = window.registrationConfig?.familyOfHoaMemberTitle || regTitle;
+        }
+
+        // Render the registration form as read-only, based on category
+        let formHtml = "";
+          if (r.category === "non_member") {
+              formHtml = `
+              <div class="form-grid">
+                  <label>Last Name<input type="text" value="${r.last_name || ""}" readonly></label>
+                  <label>First Name<input type="text" value="${r.first_name || ""}" readonly></label>
+                  <label>Middle Initial<input type="text" value="${r.middle_name || ""}" readonly></label>
+                  <label>Suffix<input type="text" value="${r.suffix || ""}" readonly></label>
+                  <label>Date of Birth<input type="date" value="${r.date_of_birth || ""}" readonly></label>
+                  <label>Sex<input type="text" value="${r.sex || ""}" readonly></label>
+                  <label>Citizenship<input type="text" value="${r.citizenship || ""}" readonly></label>
+                  <label>Age<input type="number" value="${r.age || ""}" readonly></label>
+              </div>
+              <div class="form-grid">
+                  <label>Phone Number<input type="text" value="${r.phone_number || ""}" readonly></label>
+                  <label>Year of Residence<input type="text" value="${r.year_of_residence || ""}" readonly></label>
+                  <label>Current Address<input type="text" value="${r.current_address || ""}" readonly></label>
+                  <label>Civil Status<input type="text" value="${r.civil_status || ""}" readonly></label>
+              </div>
+
+              <hr class="separator">
+
+              <div class="section-label">Complaint Lot Information:</div>
+              <div class="form-grid" style="grid-template-columns: repeat(4, 1fr);">
+                  <label>HOA<input type="text" value="${r.hoa || ""}" readonly></label>
+                  <label>Block Assignment<input type="text" value="${r.block_no || ""}" readonly></label>
+                  <label>Lot Assignment<input type="text" value="${r.lot_no || ""}" readonly></label>
+                  <label>Lot Size<input type="text" value="${r.lot_size || ""}" readonly></label>
+              </div>
+              <hr class="separator">
+              <div>
+                <label style="display:block; font-weight:bold; margin-bottom:6px; color:#001241;">
+                  Recipient of other housing programs
+                  <input type="text" value="${r.recipient_of_other_housing || ""}" readonly
+                    style="display:block; margin-top:4px; padding:6px; border:1px solid #ccc; border-radius:6px; width:23%;">
+                </label>
+              </div>
+              `;
+          }
+
+        else if (r.category === "hoa_member") {
+            formHtml = `
+            <div class="form-grid">
+                <label>Last Name<input type="text" value="${r.last_name || ""}" readonly></label>
+                <label>First Name<input type="text" value="${r.first_name || ""}" readonly></label>
+                <label>Middle Initial<input type="text" value="${r.middle_name || ""}" readonly></label>
+                <label>Suffix<input type="text" value="${r.suffix || ""}" readonly></label>
+                <label>Date of Birth<input type="date" value="${r.date_of_birth || ""}" readonly></label>
+                <label>Sex<input type="text" value="${r.sex || ""}" readonly></label>
+                <label>Citizenship<input type="text" value="${r.citizenship || ""}" readonly></label>
+                <label>Age<input type="number" value="${r.age || ""}" readonly></label>
+            </div>
+            <div class="form-grid">
+                <label>Phone Number<input type="text" value="${r.phone_number || ""}" readonly></label>
+                <label>Year of Residence<input type="text" value="${r.year_of_residence || ""}" readonly></label>
+                <label>Current Address<input type="text" value="${r.current_address || ""}" readonly></label>
+                <label>Civil Status<input type="text" value="${r.civil_status || ""}" readonly></label>
+            </div>
+            <div class="form-grid" style="grid-template-columns: repeat(4, 1fr);">
+                <label>HOA<input type="text" value="${r.hoa || ""}" readonly></label>
+                <label>Block Assignment<input type="text" value="${r.block_no || ""}" readonly></label>
+                <label>Lot Assignment<input type="text" value="${r.lot_no || ""}" readonly></label>
+                <label>Lot Size<input type="text" value="${r.lot_size || ""}" readonly></label>
+            </div>
+              <div>
+                <label style="display:block; font-weight:bold; margin-bottom:6px; color:#001241;">
+                  Recipient of other housing programs
+                  <input type="text" value="${r.recipient_of_other_housing || ""}" readonly
+                    style="display:block; margin-top:4px; padding:6px; border:1px solid #ccc; border-radius:6px; width:23%;">
+                </label>
+              </div>
+            `;
+        } else if (r.category === "family_of_member") {
+            // Family member info
+            formHtml = `
+            <div class="form-grid">
+              <label>Last Name<input type="text" value="${r.last_name || ""}" readonly></label>
+              <label>First Name<input type="text" value="${r.first_name || ""}" readonly></label>
+              <label>Middle Initial<input type="text" value="${r.middle_name || ""}" readonly></label>
+              <label>Suffix<input type="text" value="${r.suffix || ""}" readonly></label>
+              <label>Date of Birth<input type="date" value="${r.date_of_birth || ""}" readonly></label>
+              <label>Sex<input type="text" value="${r.sex || ""}" readonly></label>
+              <label>Citizenship<input type="text" value="${r.citizenship || ""}" readonly></label>
+              <label>Age<input type="number" value="${r.age || ""}" readonly></label>
+              <label>Phone Number<input type="text" value="${r.phone_number || ""}" readonly></label>
+              <label>Year of Residence<input type="text" value="${r.year_of_residence || ""}" readonly></label>
+              <label>Relationship<input type="text" value="${r.relationship || ""}" readonly></label>
+              <label>Current Address<input type="text" value="${r.current_address || ""}" readonly></label>
+              <hr class="separator">
+              <div>
+                <label style="display:block; font-weight:bold; margin-bottom:6px; color:#001241;">
+                  Recipient of other housing programs
+                  <input type="text" value="${r.recipient_of_other_housing || ""}" readonly
+                    style="display:block; margin-top:4px; padding:6px; border:1px solid #ccc; border-radius:6px; width:23%;">
+                </label>
+              </div>
+            </div>
+            `;
+
+            // Parent HOA member info
+            if (r.parent_info) {
+                formHtml += `
+                <h2>HOA Member (Parent) Information</h2>
+                <div class="form-grid">
+                  <label>Last Name<input type="text" value="${r.parent_info.last_name || ""}" readonly></label>
+                  <label>First Name<input type="text" value="${r.parent_info.first_name || ""}" readonly></label>
+                  <label>Middle Initial<input type="text" value="${r.middle_name || ""}" readonly></label>
+                  <label>Suffix<input type="text" value="${r.parent_info.suffix || ""}" readonly></label>
+                  <label>Date of Birth<input type="date" value="${r.parent_info.date_of_birth || ""}" readonly></label>
+                  <label>Sex<input type="text" value="${r.parent_info.sex || ""}" readonly></label>
+                  <label>Citizenship<input type="text" value="${r.parent_info.citizenship || ""}" readonly></label>
+                  <label>Age<input type="number" value="${r.parent_info.age || ""}" readonly></label>
+                  <label>Phone Number<input type="text" value="${r.parent_info.phone_number || ""}" readonly></label>
+                  <label>Year of Residence<input type="text" value="${r.parent_info.year_of_residence || ""}" readonly></label>
+                  <label>HOA<input type="text" value="${r.parent_info.hoa || ""}" readonly></label>
+                  <label>Block Assignment<input type="text" value="${r.parent_info.block_no || ""}" readonly></label>
+                  <label>Lot Assignment<input type="text" value="${r.parent_info.lot_no || ""}" readonly></label>
+                  <label>Lot Size<input type="text" value="${r.parent_info.lot_size || ""}" readonly></label>
+                  <label>Civil Status<input type="text" value="${r.parent_info.civil_status || ""}" readonly></label>
+                  <label>Current Address<input type="text" value="${r.parent_info.current_address || ""}" readonly></label>
+                  <div>
+                    <label style="display:block; font-weight:bold; margin-bottom:6px; color:#001241;">
+                      Recipient of other housing programs
+                      <input type="text" value="${r.recipient_of_other_housing || ""}" readonly
+                        style="display:block; margin-top:4px; padding:6px; border:1px solid #ccc; border-radius:6px; width:23%;">
+                    </label>
+                  </div>                
+                </div>
+                `;
+            }
+        }
+
+        infoCard.innerHTML = `
+        <article class="card" role="main">
+          <h1 class="page-title">${regTitle}</h1>
+          ${formHtml}
+        </article>
+        `;
+    } else {
+        infoCard.innerHTML = `<div class="card"><p>No registration found. Please register first.</p></div>`;
+    }
+});
+</script>
 </body>
 </html>

@@ -144,7 +144,7 @@
                 </div>
               `;
 
-              // Click handler (redirect to Flask-rendered view page)
+              // Click handler (redirect to correct details page)
               complaintDiv.addEventListener("click", () => {
                 if (complaintDiv.dataset.id) {
                   window.location.href = `/complainant/complaint/${complaintDiv.dataset.id}`;
@@ -195,4 +195,4 @@
 </html>
 
 
-  
+
