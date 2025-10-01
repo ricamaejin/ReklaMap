@@ -216,15 +216,6 @@ def submit_overlap():
         if not registration:
             return jsonify({"success": False, "message": "Parent registration does not exist"}), 400
 
-        # Create Complaint entry
-        new_complaint = Complaint(
-            registration_id=registration.registration_id,
-            type_of_complaint="Overlapping",
-            status="Valid"
-        )
-        db.session.add(new_complaint)
-        db.session.flush()
-
         # Parse form fields
         q1 = json.loads(request.form.get("q1") or "[]")
         q4 = json.loads(request.form.get("evidence") or "[]")
@@ -240,6 +231,56 @@ def submit_overlap():
         q12 = request.form.get("report_result")
         q13 = request.form.get("impact")
         description = request.form.get("description")
+
+        # Validate block/lot and person against Beneficiary table
+        from backend.database.models import Beneficiary
+        block_lot_valid = False
+        person_valid = False
+
+        # Check block/lot
+        if isinstance(q1, list) and len(q1) > 0:
+            block = q1[0].get("block")
+            lot = q1[0].get("lot")
+            if block is not None and lot is not None:
+                exists = Beneficiary.query.filter_by(block_id=block, lot_no=lot).first()
+                if exists:
+                    block_lot_valid = True
+
+        # Check person name
+        if q8:
+            # Match by full name (first, last, optional middle/suffix)
+            person = Beneficiary.query.filter(
+                (Beneficiary.first_name == q8) | (Beneficiary.last_name == q8)
+            ).first()
+            if person:
+                person_valid = True
+
+        # Determine complaint status
+        complaint_status = "Valid" if (block_lot_valid and person_valid) else "Invalid"
+
+        # Compose complainant_name from registration
+        name_parts = [registration.first_name, registration.middle_name, registration.last_name, registration.suffix]
+        complainant_name = " ".join([part for part in name_parts if part])
+        # Get area_id from Beneficiary using registration block_no and lot_no
+        area_id = None
+        from backend.database.models import Beneficiary
+        if registration.block_no and registration.lot_no:
+            beneficiary = Beneficiary.query.filter_by(block_id=registration.block_no, lot_no=registration.lot_no).first()
+            if beneficiary:
+                area_id = beneficiary.area_id
+        address = registration.current_address
+
+        # Create Complaint entry
+        new_complaint = Complaint(
+            registration_id=registration.registration_id,
+            type_of_complaint="Overlapping",
+            status=complaint_status,
+            complainant_name=complainant_name,
+            area_id=area_id,
+            address=address
+        )
+        db.session.add(new_complaint)
+        db.session.flush()
 
         # Handle signature
         signature_file = request.files.get("signature")
@@ -276,8 +317,9 @@ def submit_overlap():
 
         return jsonify({
             "success": True,
-            "message": "Overlap complaint submitted successfully!",
-            "complaint_id": new_complaint.complaint_id
+            "message": f"Overlap complaint submitted successfully! Status: {complaint_status}",
+            "complaint_id": new_complaint.complaint_id,
+            "status": complaint_status
         })
 
     except Exception as e:
