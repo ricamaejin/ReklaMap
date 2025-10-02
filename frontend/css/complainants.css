@@ -1318,6 +1318,13 @@ input[type="radio"], input[type="checkbox"] {
   .btn.add{background:#eef6ff;color:var(--accent-strong);border:1px solid #cfe2ff}
   .btn.small{padding:6px 10px;font-size:13px}
 
+
+.section-label {
+  font-weight: bold;
+  font-size: 14px;
+  margin: 10px 0;
+  color: #083048;
+}
 /* Responsive CSS */
 @media (max-width: 768px) {
   body {
