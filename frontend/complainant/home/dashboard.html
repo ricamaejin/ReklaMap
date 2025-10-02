@@ -311,10 +311,11 @@
                     statusItem.innerHTML = `
                         <span class="dot"></span>
                         <div class="status-text">
-                            <strong>${c.created_at} - ${c.status}</strong><br>
+                            <strong>${c.created_at} - Submitted a ${c.status} Complaint</strong><br>
                             <span>Type: ${c.type}</span>
                         </div>
                     `;
+
 
                     complaintList.appendChild(statusItem);
                 });

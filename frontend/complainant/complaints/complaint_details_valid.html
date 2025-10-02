@@ -164,7 +164,7 @@
             {% elif field.type == 'signature' %}
               <div class="signature">
                 {% if answers.signature %}
-                  <a href="{{ url_for('complainant.uploaded_signature', filename=answers.signature) }}" target="_blank">View Signature</a>
+                  <a href="{{ url_for('overlapping.uploaded_signature', filename=answers.signature) }}" target="_blank">View Signature</a>
                 {% else %}
                   <p><em>No signature uploaded</em></p>
                 {% endif %}
