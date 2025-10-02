@@ -372,8 +372,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // Hidden fields
     const complaintIdInput = document.querySelector('input[name="complaint_id"]');
     const registrationIdInput = document.querySelector('input[name="registration_id"]');
-    if (!complaintIdInput || !registrationIdInput) {
-      alert('Form hidden fields missing!');
+    if (!complaintIdInput || !registrationIdInput || !registrationIdInput.value) {
+      alert('Your registration is missing or invalid. Please make sure you are registered before submitting a complaint.');
       return;
     }
     formData.set('complaint_id', complaintIdInput.value);
@@ -423,7 +423,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Submit to backend
     try {
-      const response = await fetch('/complainant/submit_overlap', {
+      const response = await fetch('/complainant/overlapping/submit_overlap', {
         method: 'POST',
         body: formData
       });
@@ -469,29 +469,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 <script>
-fetch('/complainant/get_overlap_session_data')
-  .then(res => res.json())
-  .then(data => {
-    if (data.error) {
-      alert(data.error);
-      return;
-    }
-
-    document.querySelector('input[name="complaint_id"]').value = data.complaint_id || "";
-    document.querySelector('input[name="registration_id"]').value = data.registration_id || "";
-    document.querySelector('input[name="full_name"]').value = data.full_name || "";
-    document.querySelector('input[name="date_of_birth"]').value = data.date_of_birth || "";
-    document.querySelector('input[name="sex"]').value = data.sex || "";
-    document.querySelector('input[name="civil_stat"]').value = data.civil_status || "";
-    document.querySelector('input[name="citizenship"]').value = data.citizenship || "";
-    document.querySelector('input[name="cur_add"]').value = data.cur_add || "";
-    document.querySelector('input[name="hoa"]').value = data.hoa || "";
-    document.querySelector('input[name="blk_num"]').value = data.blk_num || "";
-    document.querySelector('input[name="lot_num"]').value = data.lot_num || "";
-    document.querySelector('input[name="lot_size"]').value = data.lot_size || "";
-    document.querySelector('input[name="phone_number"]').value = data.phone_number || "";
-  })
-  .catch(err => console.error("❌ Failed to fetch registration data:", err));
+document.addEventListener("DOMContentLoaded", function() {
+  fetch('/complainant/overlapping/get_overlap_session_data')
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        // If registration data is missing, do nothing (no alert)
+        return;
+      }
+      document.querySelector('input[name="complaint_id"]').value = data.complaint_id || "";
+      document.querySelector('input[name="registration_id"]').value = data.registration_id || "";
+      document.querySelector('input[name="full_name"]').value = data.full_name || "";
+      document.querySelector('input[name="date_of_birth"]').value = data.date_of_birth || "";
+      document.querySelector('input[name="sex"]').value = data.sex || "";
+      document.querySelector('input[name="civil_stat"]').value = data.civil_status || "";
+      document.querySelector('input[name="citizenship"]').value = data.citizenship || "";
+      document.querySelector('input[name="cur_add"]').value = data.cur_add || "";
+      document.querySelector('input[name="hoa"]').value = data.hoa || "";
+      document.querySelector('input[name="blk_num"]').value = data.blk_num || "";
+      document.querySelector('input[name="lot_num"]').value = data.lot_num || "";
+      document.querySelector('input[name="lot_size"]').value = data.lot_size || "";
+      document.querySelector('input[name="phone_number"]').value = data.phone_number || "";
+    })
+    .catch(err => console.error("❌ Failed to fetch registration data:", err));
+});
 </script>
 
 </body>
