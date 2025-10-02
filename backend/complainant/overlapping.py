@@ -101,6 +101,7 @@ def submit_overlap():
         from backend.database.models import Beneficiary
         complaint_status = "Invalid"
         beneficiary_match = None
+        mismatches = []
         if q8:
             name_parts = q8.strip().split()
             query = Beneficiary.query
@@ -125,8 +126,15 @@ def submit_overlap():
                     pass
                 if beneficiary_match.block_id == block and beneficiary_match.lot_no == lot:
                     block_lot_valid = True
+                else:
+                    mismatches.append("Block Assignment or Lot Assignment")
+            else:
+                mismatches.append("Block Assignment or Lot Assignment")
+        else:
+            mismatches.append("Beneficiary Name")
         if beneficiary_match and block_lot_valid:
             complaint_status = "Valid"
+            mismatches = []
         def clean_field(val):
             if not val:
                 return None
@@ -139,11 +147,43 @@ def submit_overlap():
         name_parts = [registration.first_name, middle_name, registration.last_name, suffix]
         complainant_name = " ".join([part for part in name_parts if part])
         area_id = None
+        address = registration.current_address
         if registration.block_no and registration.lot_no:
             beneficiary = Beneficiary.query.filter_by(block_id=registration.block_no, lot_no=registration.lot_no).first()
             if beneficiary:
                 area_id = beneficiary.area_id
-        address = registration.current_address
+            if beneficiary_match and block_lot_valid:
+                complaint_status = "Valid"
+                mismatches = []
+
+            # If there are mismatches, do not save complaint, return error
+            if complaint_status == "Invalid" and mismatches:
+                return jsonify({
+                    "success": False,
+                    "message": "Mismatch found in the following field(s): " + ", ".join(mismatches) + ". Please correct them before submitting again.",
+                    "mismatches": mismatches
+                }), 400
+
+        # Block complaint if area_id is missing
+        if area_id is None:
+            return jsonify({
+                "success": False,
+                "message": "Cannot submit complaint: Area assignment not found for your block and lot. Please contact admin.",
+                "mismatches": ["Area Assignment"]
+            }), 400
+        # Prevent duplicate complaints for the same registration unless previous complaint is invalid or resolved
+        existing_complaint = Complaint.query.filter_by(
+            registration_id=registration.registration_id,
+            type_of_complaint="Overlapping"
+        ).order_by(Complaint.complaint_id.desc()).first()
+        if existing_complaint and existing_complaint.status not in ["Invalid", "Resolved"]:
+            return jsonify({
+                "success": False,
+                "message": "A complaint for this registration already exists.",
+                "status": existing_complaint.status,
+                "complaint_id": existing_complaint.complaint_id
+            }), 400
+
         new_complaint = Complaint(
             registration_id=registration.registration_id,
             type_of_complaint="Overlapping",
@@ -185,7 +225,8 @@ def submit_overlap():
             "success": True,
             "message": f"Overlap complaint submitted successfully! Status: {complaint_status}",
             "complaint_id": new_complaint.complaint_id,
-            "status": complaint_status
+            "status": complaint_status,
+            "mismatches": mismatches
         })
     except Exception as e:
         db.session.rollback()

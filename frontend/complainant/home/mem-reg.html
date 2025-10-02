@@ -23,12 +23,14 @@
 
   <!-- Main -->
   <main class="main">
+
     <article style= "margin-top: 30px;" class="card" role="main" aria-labelledby="page-title">
       <h1 id="page-title" class="page-title">HOA Member Registration</h1>
 
       <!-- TOP: registrant basic fields -->
-      <form id="memRegForm" method="post" enctype="multipart/form-data">
-        <div class="form-grid" aria-hidden="false">
+  <form id="memRegForm" method="post" enctype="multipart/form-data" style="position:relative;">
+  <!-- Error Popup (centered in viewport) -->
+    <div class="form-grid" aria-hidden="false">
           <label>Last Name<input type="text" name="reg_last"></label>
           <label>First Name<input type="text" name="reg_first"></label>
           <label>Middle Initial<input type="text" name="reg_mid"></label>
@@ -108,7 +110,7 @@
         </div>
         
           <!-- Hidden category input -->
-          <input type="hidden" name="category" value="{{ category }}">
+          <input type="hidden" name="category" value="hoa_member">
       </div>
 
         <!-- actions -->
@@ -116,57 +118,83 @@
           <button type="button" class="btn cancel" onclick="window.location.href='/complainant/home/not_registered.html'">Cancel</button>
           <button type="submit" class="btn submit">Submit</button>
         </div>
+
+        <div id="errorPop" 
+          style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);z-index:999;background:#e3f2fd;color:#083048;width:max-content;padding:16px 28px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.12);font-weight:500;min-width:220px;max-width:340px;transition:opacity .2s;">
+          <span id="errorPopMsg"></span>
+        </div>
+
       </form>
     </article>
   </main>
 
+
   <!-- Form submission script -->
-    <script>
-      document.getElementById("memRegForm").addEventListener("submit", async function(e) {
-        e.preventDefault(); // stop page reload
+  <script>
+    function showErrorPop(msg) {
+      const pop = document.getElementById('errorPop');
+      const popMsg = document.getElementById('errorPopMsg');
+      popMsg.textContent = msg;
+      pop.style.display = 'block';
+      pop.style.opacity = '1';
+      setTimeout(() => {
+        pop.style.opacity = '0';
+        setTimeout(() => { pop.style.display = 'none'; }, 400);
+      }, 1000);
+    }
 
-        let formData = new FormData(this);
+    // No longer set category from complaintType; category is always 'hoa_member' for this form
 
+    document.getElementById("memRegForm").addEventListener("submit", async function(e) {
+      e.preventDefault(); // stop page reload
+
+      const submitBtn = this.querySelector('.btn.submit');
+      if (submitBtn.disabled) {
+        console.log('Submission blocked: already submitting');
+        return;
+      }
+      submitBtn.disabled = true;
+
+  // Do not overwrite category; always send 'hoa_member'
+
+      let formData = new FormData(this);
+
+      try {
+        let response = await fetch("/complainant/memreg", {
+          method: "POST",
+          body: formData,
+          credentials: "same-origin",
+          headers: { "X-Requested-With": "XMLHttpRequest" }
+        });
+
+        // Try to parse JSON, if fails, show error
+        let result;
         try {
-          let response = await fetch("/complainant/memreg", {
-            method: "POST",
-            body: formData,
-            credentials: "same-origin"
-          });
-
-          let result = await response.json();
-
-          if (result.success) {
-            alert(result.message);
-
-            // ✅ Use the same key as in dashboard.html
-            let complaintType = sessionStorage.getItem("complaintType");
-             console.log("Complaint Type from sessionStorage:", complaintType); // <-- add this
-
-            if (complaintType === "Overlapping") {
-              window.location.href = "/complainant/overlapping/new_overlap_form";
-            } else if (complaintType === "Lot Dispute") {
-              window.location.href = "/complainant/new_lot_dispute_form";
-            } else if (complaintType === "Boundary Dispute") {
-              window.location.href = "/complainant/new_boundary_dispute_form";
-            } else if (complaintType === "Pathway Dispute") {
-              window.location.href = "/complainant/complaints/pathway_dispute.html";
-            } else if (complaintType === "Unauthorized Occupation") {
-              window.location.href = "/complainant/complaints/unauthorized_occupation.html";
-            } else if (complaintType === "Illegal Construction") {
-              window.location.href = "/complainant/complaints/illegal_construction.html";
-            } else {
-              window.location.href = "/complainant/complaints/general.html";
-            }
-
-          } else {
-            alert("Error: " + result.error);
-          }
+          result = await response.json();
         } catch (err) {
-          alert("Failed to submit: " + err);
+          showErrorPop("Server error: Invalid response");
+          submitBtn.disabled = false;
+          return;
         }
-      });
-      </script>
+
+        if (result.success) {
+          // Always use backend-provided redirect URL
+          if (result.redirect) {
+            window.location.href = result.redirect;
+            return;
+          }
+          // If no redirect, fallback to dashboard
+          window.location.href = "/complainant/home/dashboard.html";
+        } else {
+          showErrorPop(result.error || "Unknown error occurred.");
+          submitBtn.disabled = false;
+        }
+      } catch (err) {
+        showErrorPop("Failed to submit: " + err);
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
 
 </body>
 </html>

@@ -1,4 +1,5 @@
-from flask import Blueprint, request, jsonify, session, render_template, send_from_directory, current_app, abort
+
+from flask import Blueprint, request, jsonify, session, render_template, send_from_directory, current_app, abort, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from backend.database.models import User, Overlapping, Registration, Complaint, LotDispute, BoundaryDispute
@@ -118,6 +119,17 @@ def not_registered():
     return send_from_directory(html_dir, "not_registered.html")
 
 # -----------------------------
+# View Profile Registered Route
+# -----------------------------
+@complainant_bp.route("/profile/view")
+def view_profile_registered():
+    try:
+        return render_template("view_profile_registered.html")
+    except:
+        return "Profile page not found.", 404
+
+
+# -----------------------------
 # Save complaint type in session
 # -----------------------------
 @complainant_bp.route("/set-complaint-type", methods=["POST"])
@@ -126,6 +138,7 @@ def set_complaint_type():
     ctype = data.get("type")
     if not ctype:
         return jsonify({"success": False, "message": "Missing complaint type"}), 400
+
 
     session["type_of_complaint"] = ctype
     return jsonify({"success": True, "message": "Complaint type saved in session."})
@@ -179,7 +192,6 @@ def view_complaint(complaint_id):
                 "signature": overlap.signature
             }
     # Add more complaint types here as needed
-
     return render_template(
         "complaint_details_valid.html" if complaint.status == "Valid" else "complaint_details_invalid.html",
         complaint=complaint,
@@ -188,6 +200,37 @@ def view_complaint(complaint_id):
         answers=answers
     )
 
-
+# -----------------------------
+# Utility route: Handle complaint type selection and registration check
+# -----------------------------
+@complainant_bp.route("/start-complaint", methods=["POST"])
+def start_complaint():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not logged in"}), 401
+    complaint_type = request.form.get("type") or request.json.get("type")
+    if not complaint_type:
+        return jsonify({"success": False, "message": "Complaint type required"}), 400
+    session["type_of_complaint"] = complaint_type
+    registration = Registration.query.filter_by(user_id=user_id).first()
+    if registration:
+        # Registration exists, redirect to complaint form
+        if complaint_type == "Overlapping":
+            return redirect("/complainant/overlapping/new_overlap_form")
+        elif complaint_type == "Lot Dispute":
+            return redirect("/complainant/new_lot_dispute_form")
+        elif complaint_type == "Boundary Dispute":
+            return redirect("/complainant/new_boundary_dispute_form")
+        elif complaint_type == "Pathway Dispute":
+            return redirect("/complainant/complaints/pathway_dispute.html")
+        elif complaint_type == "Unauthorized Occupation":
+            return redirect("/complainant/complaints/unauthorized_occupation.html")
+        elif complaint_type == "Illegal Construction":
+            return redirect("/complainant/complaints/illegal_construction.html")
+        else:
+            return redirect("/complainant/home/dashboard.html")
+    else:
+        # No registration, redirect to registration form
+        return redirect("/complainant/memreg")
 
 

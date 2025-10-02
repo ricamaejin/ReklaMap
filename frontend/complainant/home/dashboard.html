@@ -27,7 +27,7 @@
         Logged in as: <span class="username" id="username"></span>
         <button class="dropdown-toggle">▼</button>
         <div class="dropdown-menu">
-            <a href="/complainant/home/view_profile_registered.html">View Profile</a>
+            <a href="/complainant/profile/view">View Profile</a>
             <a href="/portal/index.html">Logout</a>
         </div>
     </div>
@@ -235,14 +235,29 @@
     </script>
 
     <script>
-        function goToRegistration() {
+        async function goToRegistration() {
             const type = document.getElementById("type").value;
             if (!type) {
                 alert("Please select a complaint type first.");
                 return;
             }
             sessionStorage.setItem("complaintType", type);
-            window.location.href = "/complainant/home/not_registered.html";
+            // Use backend to check registration and redirect
+            try {
+                const res = await fetch("/complainant/start-complaint", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ type })
+                });
+                if (res.redirected) {
+                    window.location.href = res.url;
+                } else {
+                    const data = await res.json();
+                    alert(data.message || "Unable to proceed.");
+                }
+            } catch (err) {
+                alert("Error: " + err);
+            }
         }
     </script>
 

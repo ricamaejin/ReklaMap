@@ -78,10 +78,15 @@ def home():
     # Optionally, serve your main frontend page here
     return app.send_static_file("portal/index.html")
 
-# Serve ANY static file from frontend (css, js, images, svg, etc.)
+# Serve static assets only (css, js, images, svg, etc.)
 @app.route("/<path:filename>")
 def serve_frontend_files(filename):
-    return send_from_directory(frontend_path, filename)
+    # Only serve files from asset folders
+    asset_folders = ["css", "js", "images", "svg"]
+    if any(filename.startswith(folder + "/") for folder in asset_folders):
+        return send_from_directory(frontend_path, filename)
+    # Otherwise, let blueprints handle the route
+    return "Not Found", 404
 
 # TESTING PURPOSES (ex. http://127.0.0.1:5000/db_test to test db conn)
 @app.route("/test-admins")

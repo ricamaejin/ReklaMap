@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, session
+from flask import Blueprint, render_template, request, jsonify, session, redirect
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
@@ -35,13 +35,16 @@ def mem_reg():
 
             # --- Get form fields ---
             category = request.form.get("category")
+            print(f"[DEBUG] Received category: {category}")
             if not category:
+                print("[ERROR] Category missing from form data")
                 return jsonify({"success": False, "error": "Category is required"}), 400
 
             last = request.form.get("reg_last", "").strip()
             first = request.form.get("reg_first", "").strip()
             mid = request.form.get("reg_mid", "").strip()
             suffix = request.form.get("reg_suffix", "").strip()
+            print(f"[DEBUG] Name: {last}, {first}, {mid}, {suffix}")
             # Ensure NA/N/A/empty are saved as None
             mid = mid if mid not in ("", "NA", "N/A") else None
             suffix = suffix if suffix not in ("", "NA", "N/A") else None
@@ -58,6 +61,8 @@ def mem_reg():
             civil = request.form.get("fam_civil")
             cur_add = request.form.get("reg_cur_add")
             recipient = request.form.get("recipient")
+            print(f"[DEBUG] HOA: {hoa}, Block: {blk}, Lot: {lot_asn}, Lot Size: {lot_size}")
+            print(f"[DEBUG] DOB: {dob}, Sex: {sex}, Citizenship: {cit}, Age: {age}, Year: {year}, Phone: {phone}, Civil: {civil}, Address: {cur_add}, Recipient: {recipient}")
 
             # --- Convert numeric fields ---
             try:
@@ -98,11 +103,19 @@ def mem_reg():
             if (existing_beneficiary.suffix or None) != input_suffix:
                 mismatches.append("Suffix")
             if existing_beneficiary.lot_no != lot_asn:
-                mismatches.append("Lot Number")
+                mismatches.append("Lot Assignment")
             if existing_beneficiary.block_id != blk:
                 mismatches.append("Block Assignment")
             if existing_beneficiary.area_id != hoa:
                 mismatches.append("HOA")
+            try:
+                beneficiary_sqm = int(existing_beneficiary.sqm) if existing_beneficiary.sqm is not None else None
+                submitted_lot_size = int(lot_size) if lot_size not in (None, "", "NA", "N/A") else None
+                if beneficiary_sqm != submitted_lot_size:
+                    mismatches.append("Lot Size")
+            except Exception:
+                mismatches.append("Lot Size")
+            
 
             if mismatches:
                 return jsonify({
@@ -150,10 +163,34 @@ def mem_reg():
             db.session.add(hoa_link)
 
             db.session.commit()
-            return jsonify({"success": True, "message": "Registered successfully!"})
+            # Use complaint type from session for redirect
+            complaint_type = session.get("type_of_complaint")
+            if complaint_type == "Overlapping":
+                next_url = "/complainant/overlapping/new_overlap_form"
+            elif complaint_type == "Lot Dispute":
+                next_url = "/complainant/new_lot_dispute_form"
+            elif complaint_type == "Boundary Dispute":
+                next_url = "/complainant/new_boundary_dispute_form"
+            elif complaint_type == "Pathway Dispute":
+                next_url = "/complainant/complaints/pathway_dispute.html"
+            elif complaint_type == "Unauthorized Occupation":
+                next_url = "/complainant/complaints/unauthorized_occupation.html"
+            elif complaint_type == "Illegal Construction":
+                next_url = "/complainant/complaints/illegal_construction.html"
+            else:
+                next_url = "/complainant/home/dashboard.html"
+
+            # If AJAX/fetch, return JSON with redirect URL
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
+                return jsonify({"success": True, "redirect": next_url})
+            # Otherwise, do a normal redirect
+            return redirect(next_url)
 
         except Exception as e:
             db.session.rollback()
+            print(f"[ERROR] Exception during registration: {e}")
+            import traceback
+            traceback.print_exc()
             return jsonify({"success": False, "error": str(e)}), 500
 
     # GET → render form

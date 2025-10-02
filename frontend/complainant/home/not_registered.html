@@ -26,7 +26,7 @@
     Logged in as: <span class="username" id="username"></span>
     <button class="dropdown-toggle">▼</button>
     <div class="dropdown-menu">
-      <a href="/complainant/home/view_profile_registered.html">View Profile</a>
+  <a href="/complainant/profile/view">View Profile</a>
       <a href="/portal/index.html">Logout</a>
     </div>
   </div>
@@ -71,6 +71,18 @@
 
   <!-- Dropdown Script -->
   <script>
+    // Ensure complaint type is set in session before registration
+    document.addEventListener("DOMContentLoaded", function() {
+      const complaintType = sessionStorage.getItem("complaintType");
+      if (complaintType) {
+        fetch("/complainant/set-complaint-type", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ type: complaintType })
+        });
+      }
+    });
     document.addEventListener("DOMContentLoaded", () => {
       const dropdown = document.querySelector(".user-dropdown");
       const toggle = dropdown.querySelector(".dropdown-toggle");
