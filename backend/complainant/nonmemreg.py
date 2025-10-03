@@ -41,35 +41,10 @@ def nonmemreg():
             cit = request.form.get("reg_cit")
             age = request.form.get("reg_age")
             year = request.form.get("reg_year")
-            hoa = request.form.get("reg_hoa")
-            block_no = request.form.get("reg_blk")
-            lot_no = request.form.get("reg_lot_asn")
-            lot_size = request.form.get("reg_lot_size")
             civil = request.form.get("fam_civil")
             cur_add = request.form.get("reg_cur_add")
             recipient = request.form.get("recipient")
             phone = request.form.get("reg_num")
-
-            # --- Validate area exists ---
-            area = Area.query.filter_by(area_id=hoa).first()
-            if not area:
-                return jsonify({"success": False, "error": "Selected HOA area does not exist."}), 400
-
-            # --- Validate block exists within area ---
-            block = Block.query.filter_by(area_id=hoa, block_no=block_no).first()
-            if not block:
-                return jsonify({"success": False, "error": "Block does not exist for the selected HOA."}), 400
-
-            # --- Validate lot exists for the block ---
-            beneficiary = Beneficiary.query.filter_by(area_id=hoa, block_id=block.block_id, lot_no=lot_no).first()
-            if not beneficiary:
-                return jsonify({"success": False, "error": "Lot assignment does not match any registered beneficiary."}), 400
-
-            # --- Validate lot size ---
-            if str(beneficiary.sqm) != str(lot_size):
-                return jsonify({"success": False, "error": "Lot size does not match the registered lot."}), 400
-
-            beneficiary_id = beneficiary.beneficiary_id
 
             # --- Handle signature upload ---
             sig_file = request.files.get("signatureInput")
@@ -91,16 +66,12 @@ def nonmemreg():
                 citizenship=cit,
                 age=int(age) if age else None,
                 year_of_residence=year,
-                hoa=hoa,
-                block_no=block_no,
-                lot_no=lot_no,
-                lot_size=lot_size,
                 civil_status=civil,
                 current_address=cur_add,
                 recipient_of_other_housing=recipient,
                 phone_number=phone,
                 signature_path=sig_filename,
-                beneficiary_id=beneficiary_id
+                beneficiary_id=None
             )
             db.session.add(new_reg)
             db.session.flush()  # get registration_id before committing

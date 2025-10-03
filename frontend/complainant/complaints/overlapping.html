@@ -20,7 +20,7 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/complainant/home/dashboard.html" class="nav-item">Map</a>
+      <a href="/complainant/home/dashboard.html" class="nav-item">Home</a>
       <a href="/complainant/complaints/submitted_complaints.html" class="nav-item active">Complaints</a>
     </nav>
   </aside>
@@ -45,75 +45,8 @@
         <input type="hidden" name="registration_id" value="{{ registration_id }}">
 
         <div class="section-header">COMPLAINANT'S DETAILS:</div>
-        <div class="pairs">
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Full Name:</label>
-              <input type="text" name="full_name" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Date of Birth:</label>
-              <input type="date" name="date_of_birth" readonly 
-              style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
-            </div>
-
-            <div class="col">
-              <label class="small">Sex:</label>
-              <input type="text" name="sex" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Civil Status:</label>
-              <input type="text" name="civil_stat" readonly>
-            </div>
-            <div class="col">
-              <label class="small">Citizenship:</label>
-              <input type="text" name="citizenship" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Current Address:</label>
-              <input type="text" name="cur_add" readonly>
-            </div>
-
-            <div class="col">
-              <label class="small">HOA:</label>
-              <input type="text" name="hoa" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Block Assignment Number:</label>
-              <input type="text" name="blk_num" readonly>
-            </div>
-
-            <div class="col">
-              <label class="small">Lot Assignment Number:</label>
-              <input type="text" name="lot_num" readonly>
-            </div>
-
-            <div class="col">
-              <label class="small">Lot Area Size:</label>
-              <input type="text" name="lot_size" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Phone Number:</label>
-              <input type="text" name="phone_number" readonly>
-            </div>
-
-            <div class="col"></div>
-          </div>
+        <div id="complainantDetails">
+          <!-- Details will be populated dynamically based on registration category -->
         </div>
 
         <!-- Section 1 -->
@@ -444,32 +377,42 @@ document.addEventListener("DOMContentLoaded", () => {
         body: formData 
       }); 
 
-      let result; 
-      try { 
-        result = await response.json(); 
-      } catch (jsonErr) { 
-        // If not JSON, fallback to text 
-        const text = await response.text(); 
-        showErrorPop(text || 'Unknown error occurred.'); 
-        return; 
-      } 
-      console.log("Response JSON:", result); 
-
-      if (response.ok && result.success) { 
-        window.location.href = '/complainant/home/dashboard.html'; 
-        return; 
-      } 
-      // Show mismatches or error message from backend 
-      if (result.mismatches && Array.isArray(result.mismatches) && result.mismatches.length > 0) { 
-        let mismatchMsg = result.message || "Mismatch found in the following field(s): " + result.mismatches.join(", ") + ". Please correct them before submitting again."; 
-        showErrorPop(mismatchMsg); 
-        return; 
-      } 
-      if (result.message) { 
-        showErrorPop(result.message); 
-        return; 
-      } 
-      showErrorPop('Unknown error occurred.'); 
+      // Check if response is successful first
+      if (response.ok) {
+        // Try to parse JSON to check for success
+        try {
+          const result = await response.json();
+          if (result.success) {
+            // Redirect immediately on success
+            window.location.href = '/complainant/home/dashboard.html'; 
+            return; 
+          }
+          // If not successful, show error
+          if (result.mismatches && Array.isArray(result.mismatches) && result.mismatches.length > 0) { 
+            let mismatchMsg = result.message || "Mismatch found in the following field(s): " + result.mismatches.join(", ") + ". Please correct them before submitting again."; 
+            showErrorPop(mismatchMsg); 
+            return; 
+          } 
+          if (result.message) { 
+            showErrorPop(result.message); 
+            return; 
+          } 
+          showErrorPop('Unknown error occurred.'); 
+        } catch (jsonErr) {
+          // If JSON parsing fails but response was OK, assume success and redirect
+          window.location.href = '/complainant/home/dashboard.html'; 
+          return;
+        }
+      } else {
+        // Handle non-OK responses
+        try {
+          const result = await response.json();
+          showErrorPop(result.message || 'Error occurred while submitting.');
+        } catch (jsonErr) {
+          const text = await response.text(); 
+          showErrorPop(text || 'Unknown error occurred.'); 
+        }
+      }
     } catch (err) { 
       console.error(err); 
       showErrorPop('An error occurred while submitting the complaint.'); 
@@ -503,22 +446,306 @@ document.addEventListener("DOMContentLoaded", function() {
         // If registration data is missing, do nothing (no alert)
         return;
       }
+      
+      // Populate hidden fields
       document.querySelector('input[name="complaint_id"]').value = data.complaint_id || "";
       document.querySelector('input[name="registration_id"]').value = data.registration_id || "";
-      document.querySelector('input[name="full_name"]').value = data.full_name || "";
-      document.querySelector('input[name="date_of_birth"]').value = data.date_of_birth || "";
-      document.querySelector('input[name="sex"]').value = data.sex || "";
-      document.querySelector('input[name="civil_stat"]').value = data.civil_status || "";
-      document.querySelector('input[name="citizenship"]').value = data.citizenship || "";
-      document.querySelector('input[name="cur_add"]').value = data.cur_add || "";
-      document.querySelector('input[name="hoa"]').value = data.hoa || "";
-      document.querySelector('input[name="blk_num"]').value = data.blk_num || "";
-      document.querySelector('input[name="lot_num"]').value = data.lot_num || "";
-      document.querySelector('input[name="lot_size"]').value = data.lot_size || "";
-      document.querySelector('input[name="phone_number"]').value = data.phone_number || "";
+      
+      // Populate complainant details based on category
+      populateComplainantDetails(data);
     })
     .catch(err => console.error("❌ Failed to fetch registration data:", err));
 });
+
+function populateComplainantDetails(data) {
+  const complainantDetails = document.getElementById('complainantDetails');
+  if (!complainantDetails) return;
+  
+  if (data.category === 'family_of_member') {
+    // Family member layout
+    complainantDetails.innerHTML = `
+      <div class="pairs">
+        <div class="pair-row">
+          <div class="col">
+            <label class="small">Full Name:</label>
+            <input type="text" name="full_name" value="${data.full_name || ''}" readonly>
+          </div>
+        </div>
+        
+        <div class="pair-row">
+          <div class="col">
+            <label class="small">Date of Birth:</label>
+            <input type="date" name="date_of_birth" value="${data.date_of_birth || ''}" readonly 
+            style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
+          </div>
+          <div class="col">
+            <label class="small">Sex:</label>
+            <input type="text" name="sex" value="${data.sex || ''}" readonly>
+          </div>
+        </div>
+        
+        <div class="pair-row">
+          <div class="col">
+            <label class="small">Citizenship:</label>
+            <input type="text" name="citizenship" value="${data.citizenship || ''}" readonly>
+          </div>
+          <div class="col">
+            <label class="small">Age:</label>
+            <input type="text" name="age" value="${data.age || ''}" readonly>
+          </div>
+        </div>
+        
+        <div class="pair-row">
+          <div class="col">
+            <label class="small">Phone Number:</label>
+            <input type="text" name="phone_number" value="${data.phone_number || ''}" readonly>
+          </div>
+          <div class="col">
+            <label class="small">Year of Residence:</label>
+            <input type="text" name="year_of_residence" value="${data.year_of_residence || ''}" readonly>
+          </div>
+        </div>
+        
+        <div class="pair-row">
+          <div class="col">
+            <label class="small">Relationship:</label>
+            <input type="text" name="relationship" value="${data.relationship || ''}" readonly>
+          </div>
+          <div class="col">
+            <label class="small">Current Address:</label>
+            <input type="text" name="cur_add" value="${data.cur_add || ''}" readonly>
+          </div>
+        </div>
+      </div>
+      
+      ${data.parent_info ? `
+      <div style="margin-top: 20px;">
+        <h3 style="color: #083048; margin-bottom: 10px;">HOA Member Information</h3>
+        <div class="pairs">
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Full Name:</label>
+              <input type="text" name="parent_full_name" value="${data.parent_info.full_name || ''}" readonly>
+            </div>
+          </div>
+          
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Date of Birth:</label>
+              <input type="date" name="parent_date_of_birth" value="${data.parent_info.date_of_birth || ''}" readonly 
+              style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
+            </div>
+            <div class="col">
+              <label class="small">Sex:</label>
+              <input type="text" name="parent_sex" value="${data.parent_info.sex || ''}" readonly>
+            </div>
+          </div>
+          
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Citizenship:</label>
+              <input type="text" name="parent_citizenship" value="${data.parent_info.citizenship || ''}" readonly>
+            </div>
+            <div class="col">
+              <label class="small">Age:</label>
+              <input type="text" name="parent_age" value="${data.parent_info.age || ''}" readonly>
+            </div>
+          </div>
+          
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Phone Number:</label>
+              <input type="text" name="parent_phone_number" value="${data.parent_info.phone_number || ''}" readonly>
+            </div>
+            <div class="col">
+              <label class="small">Year of Residence:</label>
+              <input type="text" name="parent_year_of_residence" value="${data.parent_info.year_of_residence || ''}" readonly>
+            </div>
+          </div>
+          
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">HOA:</label>
+              <input type="text" name="hoa" value="${data.hoa || ''}" readonly>
+            </div>
+            <div class="col">
+              <label class="small">Block Assignment:</label>
+              <input type="text" name="blk_num" value="${data.blk_num || ''}" readonly>
+            </div>
+          </div>
+          
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Lot Assignment:</label>
+              <input type="text" name="lot_num" value="${data.lot_num || ''}" readonly>
+            </div>
+            <div class="col">
+              <label class="small">Lot Size:</label>
+              <input type="text" name="lot_size" value="${data.lot_size || ''}" readonly>
+            </div>
+          </div>
+          
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Civil Status:</label>
+              <input type="text" name="civil_stat" value="${data.civil_status || ''}" readonly>
+            </div>
+            <div class="col">
+              <label class="small">Current Address:</label>
+              <input type="text" name="parent_cur_add" value="${data.cur_add || ''}" readonly>
+            </div>
+          </div>
+          
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Recipient of other housing programs:</label>
+              <input type="text" name="recipient_of_other_housing" value="${data.recipient_of_other_housing || ''}" readonly>
+            </div>
+            <div class="col"></div>
+          </div>
+        </div>
+      </div>
+      ` : ''}
+    `;
+  } else {
+    // Different layouts for HOA member vs non-member
+    if (data.category === 'non_member') {
+      // Non-member simplified layout - only show specified fields
+      complainantDetails.innerHTML = `
+        <div class="pairs">
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Full Name:</label>
+              <input type="text" name="full_name" value="${data.full_name || ''}" readonly>
+            </div>
+          </div>
+
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Date of Birth:</label>
+              <input type="date" name="date_of_birth" value="${data.date_of_birth || ''}" readonly 
+              style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
+            </div>
+            <div class="col">
+              <label class="small">Sex:</label>
+              <input type="text" name="sex" value="${data.sex || ''}" readonly>
+            </div>
+          </div>
+
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Citizenship:</label>
+              <input type="text" name="citizenship" value="${data.citizenship || ''}" readonly>
+            </div>
+            <div class="col">
+              <label class="small">Age:</label>
+              <input type="text" name="age" value="${data.age || ''}" readonly>
+            </div>
+          </div>
+
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Phone Number:</label>
+              <input type="text" name="phone_number" value="${data.phone_number || ''}" readonly>
+            </div>
+            <div class="col">
+              <label class="small">Year of Residence:</label>
+              <input type="text" name="year_of_residence" value="${data.year_of_residence || ''}" readonly>
+            </div>
+          </div>
+
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Current Address:</label>
+              <input type="text" name="cur_add" value="${data.cur_add || ''}" readonly>
+            </div>
+            <div class="col">
+              <label class="small">Civil Status:</label>
+              <input type="text" name="civil_status" value="${data.civil_status || ''}" readonly>
+            </div>
+          </div>
+
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Recipient of other housing programs:</label>
+              <input type="text" name="recipient_of_other_housing" value="${data.recipient_of_other_housing || ''}" readonly>
+            </div>
+            <div class="col"></div>
+          </div>
+        </div>
+      `;
+    } else {
+      // HOA member layout (original layout with lot information)
+      complainantDetails.innerHTML = `
+        <div class="pairs">
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Full Name:</label>
+              <input type="text" name="full_name" value="${data.full_name || ''}" readonly>
+            </div>
+          </div>
+
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Date of Birth:</label>
+              <input type="date" name="date_of_birth" value="${data.date_of_birth || ''}" readonly 
+              style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
+            </div>
+            <div class="col">
+              <label class="small">Sex:</label>
+              <input type="text" name="sex" value="${data.sex || ''}" readonly>
+            </div>
+          </div>
+
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Civil Status:</label>
+              <input type="text" name="civil_stat" value="${data.civil_status || ''}" readonly>
+            </div>
+            <div class="col">
+              <label class="small">Citizenship:</label>
+              <input type="text" name="citizenship" value="${data.citizenship || ''}" readonly>
+            </div>
+          </div>
+
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Current Address:</label>
+              <input type="text" name="cur_add" value="${data.cur_add || ''}" readonly>
+            </div>
+            <div class="col">
+              <label class="small">HOA:</label>
+              <input type="text" name="hoa" value="${data.hoa || ''}" readonly>
+            </div>
+          </div>
+
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Block Assignment Number:</label>
+              <input type="text" name="blk_num" value="${data.blk_num || ''}" readonly>
+            </div>
+            <div class="col">
+              <label class="small">Lot Assignment Number:</label>
+              <input type="text" name="lot_num" value="${data.lot_num || ''}" readonly>
+            </div>
+            <div class="col">
+              <label class="small">Lot Area Size:</label>
+              <input type="text" name="lot_size" value="${data.lot_size || ''}" readonly>
+            </div>
+          </div>
+
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Phone Number:</label>
+              <input type="text" name="phone_number" value="${data.phone_number || ''}" readonly>
+            </div>
+            <div class="col"></div>
+          </div>
+        </div>
+      `;
+    }
+  }
+}
 </script>
 
 </body>

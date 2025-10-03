@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
-  <link rel="stylesheet" href="/frontend/css/complainants.css">
+  <link rel="stylesheet" href="/css/complainants.css">
 </head>
 <body>
     
@@ -146,6 +146,12 @@
           <button type="button" class="btn cancel" onclick="window.location.href='/complainant/home/not_registered.html'">Cancel</button>
           <button type="submit" class="btn submit">Submit</button>
         </div>
+
+        <div id="errorPop" 
+          style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);z-index:999;background:#e3f2fd;color:#083048;width:max-content;padding:16px 28px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.12);font-weight:500;min-width:220px;max-width:340px;transition:opacity .2s;">
+          <span id="errorPopMsg"></span>
+        </div>
+
       </form>
     </article>
   </main>
@@ -154,8 +160,27 @@
 
   <!-- Form submission script -->
   <script>
+    function showErrorPop(msg) {
+      const pop = document.getElementById('errorPop');
+      const popMsg = document.getElementById('errorPopMsg');
+      popMsg.textContent = msg;
+      pop.style.display = 'block';
+      pop.style.opacity = '1';
+      setTimeout(() => {
+        pop.style.opacity = '0';
+        setTimeout(() => { pop.style.display = 'none'; }, 400);
+      }, 1000);
+    }
+
     document.getElementById("famRegForm").addEventListener("submit", async function(e) {
       e.preventDefault(); // stop page reload
+
+      const submitBtn = this.querySelector('.btn.submit');
+      if (submitBtn.disabled) {
+        console.log('Submission blocked: already submitting');
+        return;
+      }
+      submitBtn.disabled = true;
 
       let formData = new FormData(this);
 
@@ -166,36 +191,49 @@
           credentials: "same-origin"
         });
 
-        let result = await response.json();
+        // Try to parse JSON, if fails, show error
+        let result;
+        try {
+          result = await response.json();
+        } catch (err) {
+          showErrorPop("Server error: Invalid response");
+          submitBtn.disabled = false;
+          return;
+        }
 
         if (result.success) {
-          alert(result.message);
+          showErrorPop(result.message || "Registration successful!");
 
-          // ✅ Use the same key as in dashboard.html
-          let complaintType = sessionStorage.getItem("complaintType");
-          console.log("Complaint Type from sessionStorage:", complaintType);
+          // Wait a moment for the popup to show, then redirect
+          setTimeout(() => {
+            // ✅ Use the same key as in dashboard.html
+            let complaintType = sessionStorage.getItem("complaintType");
+            console.log("Complaint Type from sessionStorage:", complaintType);
 
-          if (complaintType === "Overlapping") {
-            window.location.href = "/complainant/new_overlap_form";
-          } else if (complaintType === "Lot Dispute") {
-            window.location.href = "/complainant/new_lot_dispute_form";
-          } else if (complaintType === "Boundary Dispute") {
-            window.location.href = "/complainant/new_boundary_dispute_form";
-          } else if (complaintType === "Pathway Dispute") {
-            window.location.href = "/complainant/complaints/pathway_dispute.html";
-          } else if (complaintType === "Unauthorized Occupation") {
-            window.location.href = "/complainant/complaints/unauthorized_occupation.html";
-          } else if (complaintType === "Illegal Construction") {
-            window.location.href = "/complainant/complaints/illegal_construction.html";
-          } else {
-            window.location.href = "/complainant/complaints/general.html";
-          }
+            if (complaintType === "Overlapping") {
+              window.location.href = "/complainant/overlapping/new_overlap_form";
+            } else if (complaintType === "Lot Dispute") {
+              window.location.href = "/complainant/new_lot_dispute_form";
+            } else if (complaintType === "Boundary Dispute") {
+              window.location.href = "/complainant/new_boundary_dispute_form";
+            } else if (complaintType === "Pathway Dispute") {
+              window.location.href = "/complainant/complaints/pathway_dispute.html";
+            } else if (complaintType === "Unauthorized Occupation") {
+              window.location.href = "/complainant/complaints/unauthorized_occupation.html";
+            } else if (complaintType === "Illegal Construction") {
+              window.location.href = "/complainant/complaints/illegal_construction.html";
+            } else {
+              window.location.href = "/complainant/complaints/general.html";
+            }
+          }, 1500);
 
         } else {
-          alert("Error: " + result.error);
+          showErrorPop(result.error || "Unknown error occurred.");
+          submitBtn.disabled = false;
         }
       } catch (err) {
-        alert("Failed to submit: " + err);
+        showErrorPop("Failed to submit: " + err);
+        submitBtn.disabled = false;
       }
     });
   </script>

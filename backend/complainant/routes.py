@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify, session, render_template, send_from_directory, current_app, abort, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from backend.database.models import User, Overlapping, Registration, Complaint, LotDispute, BoundaryDispute
+from backend.database.models import User, Overlapping, Registration, Complaint, LotDispute, BoundaryDispute, RegistrationFamOfMember
 from backend.database.db import db
 from backend.complainant.overlapping import get_form_structure
 import os, json, time
@@ -28,6 +28,17 @@ complainant_bp = Blueprint(
     url_prefix="/complainant",
     template_folder=TEMPLATE_DIR
 )
+
+def get_area_name(area_id):
+    """Get area name from area_id"""
+    if not area_id:
+        return ""
+    try:
+        from backend.database.models import Area
+        area = Area.query.get(int(area_id))
+        return area.area_name if area else str(area_id)
+    except (ValueError, TypeError):
+        return str(area_id)
 
 # -----------------------------
 # SIGNUP ROUTE
@@ -115,7 +126,9 @@ def profile():
 # -----------------------------
 @complainant_bp.route("/not_registered")
 def not_registered():
-    html_dir = os.path.join(current_app.root_path, "frontend", "complainant", "home")
+    # Use BASE_DIR to get the correct path
+    html_dir = os.path.join(BASE_DIR, "..", "..", "frontend", "complainant", "home")
+    html_dir = os.path.normpath(html_dir)
     return send_from_directory(html_dir, "not_registered.html")
 
 # -----------------------------
@@ -123,10 +136,78 @@ def not_registered():
 # -----------------------------
 @complainant_bp.route("/profile/view")
 def view_profile_registered():
-    try:
-        return render_template("view_profile_registered.html")
-    except:
-        return "Profile page not found.", 404
+    # Use BASE_DIR to get the correct path
+    html_dir = os.path.join(BASE_DIR, "..", "..", "frontend", "complainant", "home")
+    html_dir = os.path.normpath(html_dir)
+    return send_from_directory(html_dir, "view_profile_registered.html")
+
+# -----------------------------
+# Profile Registration Route
+# -----------------------------
+@complainant_bp.route("/profile/registration", methods=["GET"])
+def profile_registration():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not logged in"}), 401
+
+    registration = Registration.query.filter_by(user_id=user_id).first()
+    if not registration:
+        return jsonify({"success": False, "registered": False, "message": "No registration found"})
+
+    # Convert registration data to dictionary
+    reg_data = {
+        "category": registration.category,
+        "last_name": registration.last_name,
+        "first_name": registration.first_name,
+        "middle_name": registration.middle_name,
+        "suffix": registration.suffix,
+        "date_of_birth": registration.date_of_birth.strftime("%Y-%m-%d") if registration.date_of_birth else "",
+        "sex": registration.sex,
+        "citizenship": registration.citizenship,
+        "age": registration.age,
+        "phone_number": registration.phone_number,
+        "year_of_residence": registration.year_of_residence,
+        "current_address": registration.current_address,
+        "civil_status": registration.civil_status,
+        "hoa": get_area_name(registration.hoa) if registration.hoa else "",
+        "block_no": registration.block_no,
+        "lot_no": registration.lot_no,
+        "lot_size": registration.lot_size,
+        "recipient_of_other_housing": registration.recipient_of_other_housing,
+        "relationship": ""  # This will be overwritten for family members
+    }
+
+    # For family members, add parent info and relationship if available
+    if registration.category == "family_of_member":
+        fam_member = RegistrationFamOfMember.query.filter_by(registration_id=registration.registration_id).first()
+        if fam_member:
+            # Update the relationship from the fam_member table
+            reg_data["relationship"] = fam_member.relationship
+            
+            reg_data["parent_info"] = {
+                "last_name": fam_member.last_name,
+                "first_name": fam_member.first_name,
+                "middle_name": fam_member.middle_name,
+                "suffix": fam_member.suffix,
+                "date_of_birth": fam_member.date_of_birth.strftime("%Y-%m-%d") if fam_member.date_of_birth else "",
+                "sex": fam_member.sex,
+                "citizenship": fam_member.citizenship,
+                "age": fam_member.age,
+                "phone_number": fam_member.phone_number,
+                "year_of_residence": fam_member.year_of_residence,
+                "civil_status": registration.civil_status,  # This comes from main registration
+                "current_address": registration.current_address,  # This comes from main registration
+                "hoa": get_area_name(registration.hoa) if registration.hoa else "",  # HOA info comes from main registration
+                "block_no": registration.block_no,  # Block info comes from main registration  
+                "lot_no": registration.lot_no,  # Lot info comes from main registration
+                "lot_size": registration.lot_size,  # Lot size comes from main registration
+            }
+
+    return jsonify({
+        "success": True,
+        "registered": True,
+        "registration": reg_data
+    })
 
 
 # -----------------------------
@@ -192,12 +273,61 @@ def view_complaint(complaint_id):
                 "signature": overlap.signature
             }
     # Add more complaint types here as needed
+    
+    # For family members, add parent info and relationship
+    parent_info = None
+    relationship = None
+    print(f"[DEBUG] Registration category: {registration.category}")
+    if registration.category == "family_of_member":
+        print("[DEBUG] Processing family member...")
+        fam_member = RegistrationFamOfMember.query.filter_by(registration_id=registration.registration_id).first()
+        print(f"[DEBUG] Found fam_member: {fam_member}")
+        if fam_member:
+            relationship = fam_member.relationship
+            print(f"[DEBUG] Relationship: {relationship}")
+            
+            def safe(val):
+                if not val:
+                    return ""
+                val_str = str(val).strip()
+                if val_str.lower() in {"na", "n/a", "none"}:
+                    return ""
+                return val_str
+            
+            # Parent info from fam_member table
+            parent_name_parts = [safe(fam_member.first_name), safe(fam_member.middle_name), safe(fam_member.last_name), safe(fam_member.suffix)]
+            parent_full_name = " ".join([part for part in parent_name_parts if part])
+            
+            parent_info = {
+                "full_name": parent_full_name,
+                "first_name": fam_member.first_name,
+                "middle_name": fam_member.middle_name,
+                "last_name": fam_member.last_name,
+                "suffix": fam_member.suffix,
+                "date_of_birth": fam_member.date_of_birth,
+                "sex": fam_member.sex,
+                "citizenship": fam_member.citizenship,
+                "age": fam_member.age,
+                "phone_number": fam_member.phone_number,
+                "year_of_residence": fam_member.year_of_residence,
+            }
+            print(f"[DEBUG] Created parent_info: {parent_info}")
+        else:
+            print("[DEBUG] No fam_member found")
+    else:
+        print("[DEBUG] Not a family member")
+    
+    print(f"[DEBUG] Final values - parent_info: {parent_info is not None}, relationship: {relationship}")
+    
     return render_template(
         "complaint_details_valid.html" if complaint.status == "Valid" else "complaint_details_invalid.html",
         complaint=complaint,
         registration=registration,
         form_structure=form_structure,
-        answers=answers
+        answers=answers,
+        parent_info=parent_info,
+        relationship=relationship,
+        get_area_name=get_area_name
     )
 
 # -----------------------------
@@ -230,7 +360,7 @@ def start_complaint():
         else:
             return redirect("/complainant/home/dashboard.html")
     else:
-        # No registration, redirect to registration form
-        return redirect("/complainant/memreg")
+        # No registration, redirect to not_registered.html
+        return redirect("/complainant/not_registered")
 
 
