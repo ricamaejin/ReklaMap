@@ -792,20 +792,38 @@ i {
   scrollbar-color: rgba(255,255,255,0.4) transparent;
 }
 
+.modal-top {
+  display: flex;
+  justify-content: space-between; /* 2 columns: left & right */
+  align-items: center;            /* vertically align both sides */
+  padding: 10px 0;
+  border-bottom: 1px solid #ccc;
+  margin-bottom: 18px;
+}
 
+/* Left column (stack strong + h2) */
+.left-content {
+  display: flex;
+  flex-direction: column; /* stack vertically */
+  gap: 4px;
+}
+
+/* Right column (date & time stacked, left-aligned) */
+#datetime {
+  display: flex;
+  flex-direction: column;
+  text-align: left;     /* align text to the left */
+  align-items: flex-start; /* center block itself but keep text left */
+  font-size: 0.92rem;
+  font-weight: bold;
+  opacity: 0.95;
+
+}
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-/* datetime appearance */
-#datetime {
-  font-size: 0.92rem;
-  opacity: 0.95;
-  text-align: right;
-  font-weight: bold;
 }
 
 .modal-header h2 {
@@ -816,22 +834,47 @@ i {
 
 .form-group {
   display: flex;
-  align-items: flex-start;   /* pantay sa taas */
+  align-items: flex-start;
   gap: 10px;
-  margin-bottom: 18px;
 }
 
 .form-group label {
-  flex: 0 0 auto;            /* width depends on content */
-  margin: 0;
+  flex: 0 0 150px;   /* fixed width for most labels */
   font-weight: bold;
+  margin-top: 6px;
 }
 
-.form-group textarea,
-.form-group input,
-.form-group {
-  flex: 1;                       /* field takes the rest of the space */
-  margin: 0;                     /* remove extra bottom margin */
+#long {
+  flex: 0 0 auto;   /* fixed width for most labels */
+  font-weight: bold;
+  margin-top: 6px;
+}
+
+#short{
+  flex: 0 0 195px;   /* fixed width for most labels */
+}
+
+.form-group .stacked,
+.form-group .inline {
+  flex: 1;
+}
+
+/* Inputs in stacked layout */
+.stacked input,
+.stacked button {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+/* Inputs in inline layout */
+.inline input,
+.inline button {
+  width: auto;
+}
+
+.form-group input.short{
+  width: 445px;
 }
 
 #inspectionFilesList {
