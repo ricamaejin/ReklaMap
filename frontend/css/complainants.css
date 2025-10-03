@@ -766,9 +766,33 @@ i {
   padding: 20px 30px;
   width: 700px;
   max-width: 95%;
+  max-height: 60vh;   /* fixed height relative to viewport */
+  overflow-y: auto;   /* only show scroll if needed */
   position: relative;
   box-shadow: 0 8px 24px rgba(0,0,0,0.3);
 }
+
+/* Optional: make scrollbar hidden unless scrolling (Webkit browsers) */
+.modal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal::-webkit-scrollbar-thumb {
+  background-color: rgba(255,255,255,0.4);
+  border-radius: 6px;
+}
+
+/* For Firefox */
+.modal {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.4) transparent;
+}
+
+
 
 .modal-header {
   display: flex;
@@ -790,6 +814,29 @@ i {
   font-weight: bold;
 }
 
+.form-group {
+  display: flex;
+  align-items: flex-start;   /* pantay sa taas */
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.form-group label {
+  flex: 0 0 auto;            /* width depends on content */
+  margin: 0;
+  font-weight: bold;
+}
+
+.form-group textarea,
+.form-group input,
+.form-group {
+  flex: 1;                       /* field takes the rest of the space */
+  margin: 0;                     /* remove extra bottom margin */
+}
+
+#inspectionFilesList {
+  display: none; /* hidden until files uploaded */
+}
 hr {
   border: 0;
   border-top: 1px solid #fff;
@@ -814,21 +861,32 @@ hr {
 }
 
 .modal textarea {
-  min-height: 100px;
+  min-height: 80px;
   resize: vertical;
 }
 
+/* FILE UPLOAD */
 .file-upload {
-  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 .file-upload button {
-  padding: 6px 12px;
+  padding: 6px 14px;
   border: none;
   border-radius: 6px;
   background: white;
-  color: #0d2cb0;
+  color: #0d2fb3;
   font-weight: bold;
   cursor: pointer;
+}
+.attached-files {
+  background: #f8f9fa;
+  padding: 8px;
+  border-radius: 6px;
+  color: #000;
+  font-size: 0.9rem;
+  min-height: 30px;
 }
 
 .modal-footer {
@@ -1079,6 +1137,18 @@ input[type="radio"], input[type="checkbox"] {
 .resolved-btn {
   margin-top: 20px;
   align-self: flex-start;
+}
+
+.update-btn {
+  background: #0a36c7;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 20px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 20px;
+  align-self: flex-end;
 }
 
 /* Timeline */
