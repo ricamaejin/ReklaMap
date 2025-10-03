@@ -52,65 +52,264 @@
           <input type="hidden" name="registration_id" value="{{ registration.registration_id }}">
 
           <div class="section-header">COMPLAINANT'S DETAILS:</div>
-          <div class="pairs">
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Full Name:</label>
-                <input type="text" name="full_name" value="{% for part in [registration.first_name, registration.middle_name, registration.last_name, registration.suffix] if part %}{{ part }} {% endfor %}" readonly>
+          
+          {% if registration.category == 'family_of_member' %}
+            <!-- Family member layout -->
+            <div class="pairs">
+              <div class="pair-row">
+                <div class="col">
+                  <label class="small">Full Name:</label>
+                  <input type="text" name="full_name" value="{% for part in [registration.first_name, registration.middle_name, registration.last_name, registration.suffix] if part %}{{ part }} {% endfor %}" readonly>
+                </div>
+              </div>
+              
+              <div class="pair-row">
+                <div class="col">
+                  <label class="small">Date of Birth:</label>
+                  <input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
+                </div>
+                <div class="col">
+                  <label class="small">Sex:</label>
+                  <input type="text" name="sex" value="{{ registration.sex }}" readonly>
+                </div>
+              </div>
+              
+              <div class="pair-row">
+                <div class="col">
+                  <label class="small">Citizenship:</label>
+                  <input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly>
+                </div>
+                <div class="col">
+                  <label class="small">Age:</label>
+                  <input type="text" name="age" value="{{ registration.age }}" readonly>
+                </div>
+              </div>
+              
+              <div class="pair-row">
+                <div class="col">
+                  <label class="small">Phone Number:</label>
+                  <input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly>
+                </div>
+                <div class="col">
+                  <label class="small">Year of Residence:</label>
+                  <input type="text" name="year_of_residence" value="{{ registration.year_of_residence }}" readonly>
+                </div>
+              </div>
+              
+              <div class="pair-row">
+                <div class="col">
+                  <label class="small">Relationship:</label>
+                  <input type="text" name="relationship" value="{{ relationship or '' }}" readonly>
+                </div>
+                <div class="col">
+                  <label class="small">Current Address:</label>
+                  <input type="text" name="cur_add" value="{{ registration.current_address }}" readonly>
+                </div>
               </div>
             </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Date of Birth:</label>
-                <input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
-              </div>
-              <div class="col">
-                <label class="small">Sex:</label>
-                <input type="text" name="sex" value="{{ registration.sex }}" readonly>
+            
+            {% if parent_info %}
+            <div style="margin-top: 20px;">
+              <h3 style="color: #083048; margin-bottom: 10px;">HOA Member Information</h3>
+              <div class="pairs">
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Full Name:</label>
+                    <input type="text" name="parent_full_name" value="{{ parent_info.full_name or '' }}" readonly>
+                  </div>
+                </div>
+                
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Date of Birth:</label>
+                    <input type="date" name="parent_date_of_birth" value="{{ parent_info.date_of_birth }}" readonly style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
+                  </div>
+                  <div class="col">
+                    <label class="small">Sex:</label>
+                    <input type="text" name="parent_sex" value="{{ parent_info.sex or '' }}" readonly>
+                  </div>
+                </div>
+                
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Citizenship:</label>
+                    <input type="text" name="parent_citizenship" value="{{ parent_info.citizenship or '' }}" readonly>
+                  </div>
+                  <div class="col">
+                    <label class="small">Age:</label>
+                    <input type="text" name="parent_age" value="{{ parent_info.age or '' }}" readonly>
+                  </div>
+                </div>
+                
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Phone Number:</label>
+                    <input type="text" name="parent_phone_number" value="{{ parent_info.phone_number or '' }}" readonly>
+                  </div>
+                  <div class="col">
+                    <label class="small">Year of Residence:</label>
+                    <input type="text" name="parent_year_of_residence" value="{{ parent_info.year_of_residence or '' }}" readonly>
+                  </div>
+                </div>
+                
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">HOA:</label>
+                    <input type="text" name="hoa" value="{{ get_area_name(registration.hoa) if registration.hoa else '' }}" readonly>
+                  </div>
+                  <div class="col">
+                    <label class="small">Block Assignment:</label>
+                    <input type="text" name="blk_num" value="{{ registration.block_no }}" readonly>
+                  </div>
+                </div>
+                
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Lot Assignment:</label>
+                    <input type="text" name="lot_num" value="{{ registration.lot_no }}" readonly>
+                  </div>
+                  <div class="col">
+                    <label class="small">Lot Size:</label>
+                    <input type="text" name="lot_size" value="{{ registration.lot_size }}" readonly>
+                  </div>
+                </div>
+                
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Civil Status:</label>
+                    <input type="text" name="civil_status" value="{{ registration.civil_status }}" readonly>
+                  </div>
+                  <div class="col">
+                    <label class="small">Recipient of Other Housing:</label>
+                    <input type="text" name="recipient_of_other_housing" value="{{ registration.recipient_of_other_housing }}" readonly>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Civil Status:</label>
-                <input type="text" name="civil_stat" value="{{ registration.civil_status }}" readonly>
+            {% endif %}
+            
+          {% else %}
+            <!-- HOA member or non-member layout -->
+            {% if registration.category == 'non_member' %}
+              <!-- Non-member simplified layout - only show specified fields -->
+              <div class="pairs">
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Full Name:</label>
+                    <input type="text" name="full_name" value="{% for part in [registration.first_name, registration.middle_name, registration.last_name, registration.suffix] if part %}{{ part }} {% endfor %}" readonly>
+                  </div>
+                </div>
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Date of Birth:</label>
+                    <input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
+                  </div>
+                  <div class="col">
+                    <label class="small">Sex:</label>
+                    <input type="text" name="sex" value="{{ registration.sex }}" readonly>
+                  </div>
+                </div>
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Citizenship:</label>
+                    <input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly>
+                  </div>
+                  <div class="col">
+                    <label class="small">Age:</label>
+                    <input type="text" name="age" value="{{ registration.age }}" readonly>
+                  </div>
+                </div>
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Phone Number:</label>
+                    <input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly>
+                  </div>
+                  <div class="col">
+                    <label class="small">Year of Residence:</label>
+                    <input type="text" name="year_of_residence" value="{{ registration.year_of_residence }}" readonly>
+                  </div>
+                </div>
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Current Address:</label>
+                    <input type="text" name="cur_add" value="{{ registration.current_address }}" readonly>
+                  </div>
+                  <div class="col">
+                    <label class="small">Civil Status:</label>
+                    <input type="text" name="civil_status" value="{{ registration.civil_status }}" readonly>
+                  </div>
+                </div>
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Recipient of other housing programs:</label>
+                    <input type="text" name="recipient_of_other_housing" value="{{ registration.recipient_of_other_housing }}" readonly>
+                  </div>
+                  <div class="col"></div>
+                </div>
               </div>
-              <div class="col">
-                <label class="small">Citizenship:</label>
-                <input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly>
+            {% else %}
+              <!-- HOA member layout (original layout with lot information) -->
+              <div class="pairs">
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Full Name:</label>
+                    <input type="text" name="full_name" value="{% for part in [registration.first_name, registration.middle_name, registration.last_name, registration.suffix] if part %}{{ part }} {% endfor %}" readonly>
+                  </div>
+                </div>
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Date of Birth:</label>
+                    <input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
+                  </div>
+                  <div class="col">
+                    <label class="small">Sex:</label>
+                    <input type="text" name="sex" value="{{ registration.sex }}" readonly>
+                  </div>
+                </div>
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Civil Status:</label>
+                    <input type="text" name="civil_stat" value="{{ registration.civil_status }}" readonly>
+                  </div>
+                  <div class="col">
+                    <label class="small">Citizenship:</label>
+                    <input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly>
+                  </div>
+                </div>
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Current Address:</label>
+                    <input type="text" name="cur_add" value="{{ registration.current_address }}" readonly>
+                  </div>
+                  <div class="col">
+                    <label class="small">HOA:</label>
+                    <input type="text" name="hoa" value="{{ get_area_name(registration.hoa) if registration.hoa else '' }}" readonly>
+                  </div>
+                </div>
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Block Assignment Number:</label>
+                    <input type="text" name="blk_num" value="{{ registration.block_no }}" readonly>
+                  </div>
+                  <div class="col">
+                    <label class="small">Lot Assignment Number:</label>
+                    <input type="text" name="lot_num" value="{{ registration.lot_no }}" readonly>
+                  </div>
+                  <div class="col">
+                    <label class="small">Lot Area Size:</label>
+                    <input type="text" name="lot_size" value="{{ registration.lot_size }}" readonly>
+                  </div>
+                </div>
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Phone Number:</label>
+                    <input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly>
+                  </div>
+                  <div class="col"></div>
+                </div>
               </div>
-            </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Current Address:</label>
-                <input type="text" name="cur_add" value="{{ registration.current_address }}" readonly>
-              </div>
-              <div class="col">
-                <label class="small">HOA:</label>
-                <input type="text" name="hoa" value="{{ registration.hoa }}" readonly>
-              </div>
-            </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Block Assignment Number:</label>
-                <input type="text" name="blk_num" value="{{ registration.block_no }}" readonly>
-              </div>
-              <div class="col">
-                <label class="small">Lot Assignment Number:</label>
-                <input type="text" name="lot_num" value="{{ registration.lot_no }}" readonly>
-              </div>
-              <div class="col">
-                <label class="small">Lot Area Size:</label>
-                <input type="text" name="lot_size" value="{{ registration.lot_size }}" readonly>
-              </div>
-            </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Phone Number:</label>
-                <input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly>
-              </div>
-              <div class="col"></div>
-            </div>
-          </div>
+            {% endif %}
+          {% endif %}
 
 
           {% set lot_details_rendered = false %}

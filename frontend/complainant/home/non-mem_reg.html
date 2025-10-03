@@ -83,24 +83,6 @@
           </div>
         </div>
 
-        <!-- complaint about questions -->
-        <p style="font-weight:700; margin-bottom:10px; color: #001241; font-size: 14px;margin-top: 20px;">
-          Please indicate the specific lot you are filing a complaint about:
-        </p>
-        <div class="form-grid" aria-hidden="false" style="grid-template-columns: repeat(4, 1fr);">
-           <label>HOA
-              <select name="reg_hoa" required>
-                  <option value="" disabled selected hidden></option>
-                  {% for area in areas %}
-                    <option value="{{ area.area_id }}">{{ area.area_name }}</option>
-                  {% endfor %}
-              </select>
-            </label>
-            <label>Block Assignment<input type="text" name="reg_blk"></label>
-            <label>Lot Assignment<input type="text" name="reg_lot_asn"></label>
-            <label>Lot Size<input type="text" name="reg_lot_size"></label>
-        </div>
-                
         <!-- checkbox question (multiple options per row) -->
         <div class="support-docs" role="group">
           <p id="docs-label">How are you connected to the lot you are complaining about??</p>
@@ -119,19 +101,44 @@
 
           <!-- Hidden category input -->
           <input type="hidden" name="category" value="{{ category }}">
-        </div>
 
          <!-- actions -->
         <div class="actions">
           <button type="button" class="btn cancel" onclick="window.location.href='/complainant/home/not_registered.html'">Cancel</button>
           <button type="submit" class="btn submit">Submit</button>
         </div>
+
+        <div id="errorPop" 
+          style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);z-index:999;background:#e3f2fd;color:#083048;width:max-content;padding:16px 28px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.12);font-weight:500;min-width:220px;max-width:340px;transition:opacity .2s;">
+          <span id="errorPopMsg"></span>
+        </div>
+
       </form>
   </main>
 
   <script>
+    function showErrorPop(msg) {
+      const pop = document.getElementById('errorPop');
+      const popMsg = document.getElementById('errorPopMsg');
+      popMsg.textContent = msg;
+      pop.style.display = 'block';
+      pop.style.opacity = '1';
+      setTimeout(() => {
+        pop.style.opacity = '0';
+        setTimeout(() => { pop.style.display = 'none'; }, 400);
+      }, 1000);
+    }
+
     document.getElementById("memRegForm").addEventListener("submit", async function(e) {
       e.preventDefault();
+      
+      const submitBtn = this.querySelector('.btn.submit');
+      if (submitBtn.disabled) {
+        console.log('Submission blocked: already submitting');
+        return;
+      }
+      submitBtn.disabled = true;
+
       const formData = new FormData(this);
 
       try {
@@ -141,32 +148,45 @@
           credentials: "same-origin"
         });
 
-        const result = await response.json();
+        let result;
+        try {
+          result = await response.json();
+        } catch (err) {
+          showErrorPop("Server error: Invalid response");
+          submitBtn.disabled = false;
+          return;
+        }
 
         if (result.success) {
-          alert(result.message);
+          showErrorPop(result.message || "Registration successful!");
 
-          const complaintType = sessionStorage.getItem("complaintType");
-          if (complaintType === "Overlapping") {
-            window.location.href = "/complainant/new_overlap_form";
-          } else if (complaintType === "Lot Dispute") {
-            window.location.href = "/complainant/new_lot_dispute_form";
-          } else if (complaintType === "Boundary Dispute") {
-            window.location.href = "/complainant/new_boundary_dispute_form";
-          } else if (complaintType === "Pathway Dispute") {
-            window.location.href = "/complainant/complaints/pathway_dispute.html";
-          } else if (complaintType === "Unauthorized Occupation") {
-            window.location.href = "/complainant/complaints/unauthorized_occupation.html";
-          } else if (complaintType === "Illegal Construction") {
-            window.location.href = "/complainant/complaints/illegal_construction.html";
-          } else {
-            window.location.href = "/complainant/complaints/general.html";
-          }
+          // Wait a moment for the popup to show, then redirect
+          setTimeout(() => {
+            const complaintType = sessionStorage.getItem("complaintType");
+            if (complaintType === "Overlapping") {
+              window.location.href = "/complainant/overlapping/new_overlap_form";
+            } else if (complaintType === "Lot Dispute") {
+              window.location.href = "/complainant/new_lot_dispute_form";
+            } else if (complaintType === "Boundary Dispute") {
+              window.location.href = "/complainant/new_boundary_dispute_form";
+            } else if (complaintType === "Pathway Dispute") {
+              window.location.href = "/complainant/complaints/pathway_dispute.html";
+            } else if (complaintType === "Unauthorized Occupation") {
+              window.location.href = "/complainant/complaints/unauthorized_occupation.html";
+            } else if (complaintType === "Illegal Construction") {
+              window.location.href = "/complainant/complaints/illegal_construction.html";
+            } else {
+              window.location.href = "/complainant/complaints/general.html";
+            }
+          }, 1500);
+
         } else {
-          alert("Error: " + result.error);
+          showErrorPop("Error: " + (result.error || "Unknown error occurred."));
+          submitBtn.disabled = false;
         }
       } catch (err) {
-        alert("Failed to submit: " + err);
+        showErrorPop("Failed to submit: " + err);
+        submitBtn.disabled = false;
       }
     });
   </script>

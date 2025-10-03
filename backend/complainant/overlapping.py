@@ -17,6 +17,17 @@ overlapping_bp = Blueprint(
     url_prefix="/complainant/overlapping"
 )
 
+def get_area_name(area_id):
+    """Get area name from area_id"""
+    if not area_id:
+        return ""
+    try:
+        from backend.database.models import Area
+        area = Area.query.get(int(area_id))
+        return area.area_name if area else str(area_id)
+    except (ValueError, TypeError):
+        return str(area_id)
+
 @overlapping_bp.route('/new_overlap_form')
 def new_overlap_form():
     user_id = session.get('user_id')
@@ -49,6 +60,7 @@ def get_overlap_session_data():
     if not reg:
         print("[DEBUG] Registration not found for id")
         return jsonify({"error": "Registration not found"}), 404
+    
     def safe(val):
         if not val:
             return ""
@@ -56,23 +68,164 @@ def get_overlap_session_data():
         if val_str.lower() in {"na", "n/a", "none"}:
             return ""
         return val_str
+    
     name_parts = [safe(reg.first_name), safe(reg.middle_name), safe(reg.last_name), safe(reg.suffix)]
     full_name = " ".join([part for part in name_parts if part])
-    return jsonify({
+    
+    # Base registration data
+    data = {
         "complaint_id": complaint_id,
         "registration_id": reg.registration_id,
+        "category": reg.category,
         "full_name": full_name,
         "date_of_birth": reg.date_of_birth.isoformat() if reg.date_of_birth else "",
         "sex": reg.sex,
         "civil_status": reg.civil_status,
         "citizenship": reg.citizenship,
+        "age": reg.age,
         "cur_add": reg.current_address,
-        "hoa": reg.hoa,
-        "blk_num": reg.block_no,
-        "lot_num": reg.lot_no,
-        "lot_size": reg.lot_size,
         "phone_number": reg.phone_number,
-    })
+        "year_of_residence": reg.year_of_residence,
+        "recipient_of_other_housing": reg.recipient_of_other_housing,
+    }
+    
+    # Add lot information only for HOA members and family members
+    if reg.category in ["hoa_member", "family_of_member"]:
+        data.update({
+            "hoa": get_area_name(reg.hoa) if reg.hoa else "",
+            "blk_num": reg.block_no,
+            "lot_num": reg.lot_no,
+            "lot_size": reg.lot_size,
+        })
+    
+    # For family members, add parent info and relationship
+    if reg.category == "family_of_member":
+        from backend.database.models import RegistrationFamOfMember
+        fam_member = RegistrationFamOfMember.query.filter_by(registration_id=reg.registration_id).first()
+        if fam_member:
+            data["relationship"] = fam_member.relationship
+            
+            # Parent info from fam_member table
+            parent_name_parts = [safe(fam_member.first_name), safe(fam_member.middle_name), safe(fam_member.last_name), safe(fam_member.suffix)]
+            parent_full_name = " ".join([part for part in parent_name_parts if part])
+            
+            data["parent_info"] = {
+                "full_name": parent_full_name,
+                "date_of_birth": fam_member.date_of_birth.isoformat() if fam_member.date_of_birth else "",
+                "sex": fam_member.sex,
+                "citizenship": fam_member.citizenship,
+                "age": fam_member.age,
+                "phone_number": fam_member.phone_number,
+                "year_of_residence": fam_member.year_of_residence,
+            }
+    
+    return jsonify(data)
+
+@overlapping_bp.route("/api/complaint_form/<int:complaint_id>")
+def api_complaint_form_details(complaint_id):
+    """Get detailed complaint form information for admin preview"""
+    try:
+        # Get complaint and registration details
+        complaint = Complaint.query.get(complaint_id)
+        if not complaint:
+            return jsonify({'error': 'Complaint not found'}), 404
+            
+        if complaint.type_of_complaint != "Overlapping":
+            return jsonify({'error': 'This endpoint only supports Overlapping complaints'}), 400
+            
+        registration = Registration.query.get(complaint.registration_id)
+        if not registration:
+            return jsonify({'error': 'Registration not found'}), 404
+        
+        def safe(val):
+            if not val:
+                return ""
+            val_str = str(val).strip()
+            if val_str.lower() in {"na", "n/a", "none"}:
+                return ""
+            return val_str
+        
+        # Build complainant name
+        name_parts = [safe(registration.first_name), safe(registration.middle_name), safe(registration.last_name), safe(registration.suffix)]
+        full_name = " ".join([part for part in name_parts if part])
+        
+        # Base registration data
+        data = {
+            "complaint_id": complaint.complaint_id,
+            "type_of_complaint": complaint.type_of_complaint,
+            "status": complaint.status,
+            "complaint_stage": complaint.complaint_stage,
+            "date_received": complaint.date_received.strftime('%Y-%m-%d %H:%M:%S') if complaint.date_received else '',
+            "registration_id": registration.registration_id,
+            "category": registration.category,
+            "full_name": full_name,
+            "date_of_birth": registration.date_of_birth.isoformat() if registration.date_of_birth else "",
+            "sex": registration.sex,
+            "civil_status": registration.civil_status,
+            "citizenship": registration.citizenship,
+            "age": registration.age,
+            "cur_add": registration.current_address,
+            "phone_number": registration.phone_number,
+            "year_of_residence": registration.year_of_residence,
+            "recipient_of_other_housing": registration.recipient_of_other_housing,
+        }
+        
+        # Add lot information only for HOA members and family members
+        if registration.category in ["hoa_member", "family_of_member"]:
+            data.update({
+                "hoa": get_area_name(registration.hoa) if registration.hoa else "",
+                "blk_num": registration.block_no,
+                "lot_num": registration.lot_no,
+                "lot_size": registration.lot_size,
+            })
+        
+        # For family members, add parent info and relationship
+        if registration.category == "family_of_member":
+            from backend.database.models import RegistrationFamOfMember
+            fam_member = RegistrationFamOfMember.query.filter_by(registration_id=registration.registration_id).first()
+            if fam_member:
+                data["relationship"] = fam_member.relationship
+                
+                # Parent info from fam_member table
+                parent_name_parts = [safe(fam_member.first_name), safe(fam_member.middle_name), safe(fam_member.last_name), safe(fam_member.suffix)]
+                parent_full_name = " ".join([part for part in parent_name_parts if part])
+                
+                data["parent_info"] = {
+                    "full_name": parent_full_name,
+                    "date_of_birth": fam_member.date_of_birth.isoformat() if fam_member.date_of_birth else "",
+                    "sex": fam_member.sex,
+                    "citizenship": fam_member.citizenship,
+                    "age": fam_member.age,
+                    "phone_number": fam_member.phone_number,
+                    "year_of_residence": fam_member.year_of_residence,
+                }
+        
+        # Get specific complaint form data
+        overlap_data = Overlapping.query.filter_by(complaint_id=complaint_id).first()
+        if overlap_data:
+            data["form_data"] = {
+                "q1": json.loads(overlap_data.q1 or "[]"),
+                "q2": overlap_data.q2,
+                "q3": overlap_data.q3,
+                "q4": json.loads(overlap_data.q4 or "[]"),
+                "q5": json.loads(overlap_data.q5 or "[]"),
+                "q6": overlap_data.q6,
+                "q7": overlap_data.q7,
+                "q8": overlap_data.q8,
+                "q9": json.loads(overlap_data.q9 or "[]"),
+                "q10": overlap_data.q10,
+                "q11": overlap_data.q11,
+                "q12": overlap_data.q12,
+                "q13": overlap_data.q13,
+                "description": overlap_data.description,
+                "signature": overlap_data.signature
+            }
+        
+        return jsonify(data)
+        
+    except Exception as e:
+        print(f"Error getting complaint form details: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @overlapping_bp.route("/submit_overlap", methods=["POST"])
 def submit_overlap():
