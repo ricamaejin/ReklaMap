@@ -66,55 +66,160 @@
         <textarea style="margin-left: 0px;">Based on system analysis, we recommend the following action:</textarea>
 
         <div class="modal-footer">
+          <button class="btn-save" onclick="proceedToAssign()">Assign</button>
           <button class="btn-save" onclick="proceedToAction()">Proceed</button>
         </div>
       </div>
     </div>
 
     <!-- ACTION MODAL -->
-    <div class="modal-overlay" id="modal">
+    <div class="modal-overlay" id="modal" style="display:none;">
       <div class="modal">
         <div class="modal-header">
           <h2>Action</h2>
-          <div id="datetime"><div id="date"></div><div id="time"></div></div>
+          <div id="actionDatetime"><div id="actionDate"></div><div id="actionTime"></div></div>
         </div>
         <hr>
 
-        <label for="type">Type of Action:</label>
+        <label for="actionType">Type of Action:</label>
         <div class="type-action-row">
-        <select id="type" name="actionType" aria-label="Type of Action">
+          <select id="actionType" name="actionType" aria-label="Type of Action">
             <option value="" disabled selected hidden>Select Action</option>
-            <option value="Inspection">Inspection</option>
-            <option value="Send Invitation">Send Invitation</option>
+            <option value="Assessment">Assessment</option>
             <option value="Mediation">Mediation</option>
-            <option value="Other">Other</option>
-        </select>
-        <input type="text" id="actionOther" name="actionOther" placeholder="Specify" style="display:none;" />
+          </select>
+        </div>
+
+        <!-- FIELDS FOR ASSESSMENT -->
+        <div class="action-fields" id="actionAssessmentFields" style="display:none;">
+          <label>Assessment Notes:</label>
+          <textarea id="assessmentNotes" required></textarea>
         </div>
 
 
-        <label>Assigned to:</label>
-        <select id="assignedTo" name="assignedTo">
-          <option value="" disabled selected hidden>Select Staff</option>
-          <option value="Josie Rosal">Josie Rosal</option>
-          <option value="Alberto Nonato Jr.">Alberto Nonato Jr.</option>
-          <option value="Maybelen Jamorawon">Maybelen Jamorawon</option>
-          <option value="Agnes Bartolome">Agnes Bartolome</option>
-        </select>
+        <!-- FIELDS FOR MEDIATION -->
+        <div class="action-fields" id="actionMediationFields" style="display:none;">
+  
+          <!-- Advisors/Witnesses -->
+          <label>Advisors / Witnesses:</label>
+          <div id="witnessContainer">
+            <div class="witness-row">
+              <input type="text" name="witness[]" placeholder="Enter name" required>
+            </div>
+          </div>
+          <button type="button" onclick="addWitness()">+ Add Witness</button>
 
-        <label>Description:</label>
-        <textarea></textarea>
 
-        <label>File:</label>
-        <div class="file-upload"><button onclick="openFiles()">Upload</button></div>
+          <!-- Assigned Personnel -->
+          <label>Assigned Personnel:</label>
+          <input id="medAssignedPersonnel" type="text" name="medAssignedPersonnel" value="Josie Rosal" readonly>
 
-        <label>Attached Files:</label>
-        <div id="attachedFilesContainer" class="attach-btn"></div>
+          <!-- Parties Involved  -->
+          <label>Parties Involved:</label>
+          <textarea id="medPartiesInvolved" name="parties_involved" rows="3" placeholder="Names of parties involved" readonly></textarea>
+
+          <!-- Agenda -->
+          <label>Agenda:</label>
+          <input type="text" name="agenda" placeholder="Agenda">
+
+          <!-- Summary -->
+          <label>Summary:</label>
+          <textarea name="summary" placeholder="Enter mediation summary" required></textarea>
+
+          <!-- File uploads -->
+          <label>Upload Files:</label>
+          <div id="fileUploadContainer">
+            <div class="file-row">
+              <input type="file" name="mediationFiles[]">
+              <input type="text" name="fileDescription[]" placeholder="File type (e.g. Proof, Document)" required>
+            </div>
+          </div>
+          <button class="btn-action" type="button" onclick="addFileUpload()">+ Add Another File</button>
+        </div>
 
         <div class="modal-footer">
-          <button class="btn-cancel" onclick="closeComplaint()">Cancel</button>
-          <button class="btn-save">Save</button> 
-          <!-- TODO BACKEND: When user clicks Save, send action data (type, specify if other, staff, description, file) to server and save in database -->
+          <button class="btn-cancel" onclick="(function(){ closeComplaint(); recommendModal.style.display='flex'; })()">Cancel</button>
+          <button id="modalSaveBtn" class="btn-save" onclick="saveAction()">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ASSIGN MODAL -->
+    <div class="modal-overlay" id="assignModal" style="display:none;"> 
+      <div class="modal">
+        <div class="modal-header">
+          <h2>Assign</h2>
+          <div id="assignDatetime"><div id="assignDate"></div><div id="assignTime"></div></div>
+        </div>
+        <hr>
+
+        <label for="assignType">Type of Assignment:</label>
+        <div class="type-action-row">
+          <select id="assignType" name="assignType" aria-label="Type of Assignment">
+            <option value="" disabled selected hidden>Select Assignment</option>
+            <option value="Inspection">Inspection</option>
+            <option value="Invitation">Invitation</option>
+          </select>
+        </div>
+
+        <!-- FIELDS FOR INSPECTION -->
+        <div class="action-fields" id="assignInspectionFields" style="display:none;">
+          <!-- Assigned Personnel -->
+          <label>Assigned Personnel:</label>
+          <input id="assignedPersonnel" type="text" value="Ram" readonly>
+
+          <!-- Deadline -->
+          <label>Deadline:</label>
+          <input id="inspectionDeadline" type="date" required>
+
+          <!-- Location of Inspection -->
+          <label>Location of Inspection:</label>
+          <input id="inspectionLocation" type="text" value="Alley 2 HOA" readonly>
+
+          <!-- Scope of Inspection -->
+          <label>Scope of Inspection:</label>
+          <div class="checkbox-group">
+            <label><input type="checkbox" name="scope[]" value="safety"> Safety</label><br>
+            <label><input type="checkbox" name="scope[]" value="affected_lots"> Affected lot/s</label><br>
+            <label><input type="checkbox" name="scope[]" value="measurement"> Measurement of lot/s</label><br>
+            <label><input type="checkbox" name="scope[]" value="relation_owner"> Relation to the lot owner (if non-HOA)</label>
+          </div>
+        </div>
+
+       <!-- FIELDS FOR INVITATION -->
+        <div class="action-fields" id="assignInvitationFields" style="display:none;">
+          <!-- Assigned Personnel -->
+          <label for="invAssignedPersonnel">Assigned Personnel:</label>
+          <select id="invAssignedPersonnel" name="assigned_personnel" required>
+            <option value="" disabled selected hidden>Select Personnel</option>
+            <option value="Maybelen Jamorawon">Maybelen Jamorawon</option>
+            <option value="Agnes Bartolome">Agnes Bartolome</option>
+          </select>
+
+          <!-- To -->
+          <label for="invTo">To:</label>
+          <textarea id="invTo" name="to" rows="3" readonly>Autofilled Name</textarea>
+
+          <!-- Date of Meeting -->
+          <label for="invDate">Date of Meeting:</label>
+          <input id="invDate" type="date" name="meeting_date" required>
+
+          <!-- Time of Meeting -->
+          <label for="invTime">Time of Meeting:</label>
+          <input id="invTime" type="time" name="meeting_time" required>
+
+          <!-- Location -->
+          <label for="invLocation">Location:</label>
+          <input id="invLocation" type="text" name="location" value="Autofilled Location" readonly>
+
+          <!-- Agenda -->
+          <label for="invAgenda">Agenda:</label>
+          <textarea id="invAgenda" name="agenda" readonly>Autofilled Agenda</textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-cancel" onclick="(function(){ closeComplaint(); recommendModal.style.display='flex'; })()">Cancel</button>
+          <button id="assignSaveBtn" class="btn-save" onclick="saveAction()">Save</button> 
         </div>
       </div>
     </div>
@@ -151,14 +256,96 @@
   <script>
   (function () {
     const modal = document.getElementById('modal');               // Action modal
+    const assignModal = document.getElementById('assignModal');   // Assign modal
     const recommendModal = document.getElementById("recommendModal"); // Recommended modal
-    const dateEl = document.getElementById('datetime');
-    const select = document.getElementById('type');
-    const actionOther = document.getElementById('actionOther');
+
     let interval = null;
 
-    // Update date & time inside Action modal
-    function updateComplaintDateTime() {
+    // Read complaint ID from URL so saveAction can use it
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentComplaintId = urlParams.get("id");
+    console.log("currentComplaintId (from URL) =", currentComplaintId);
+    let autofillCache = null;
+
+    function tryParseJSONString(s) {
+      if (!s || typeof s !== 'string') return s;
+      try {
+        let str = s;
+        if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+          str = str.slice(1, -1).replace(/\\"/g, '"').replace(/\\'/g, "'");
+        }
+        if (str.trim().startsWith('{') || str.trim().startsWith('[')) return JSON.parse(str);
+      } catch (e) {}
+      return s;
+    }
+
+    function loadAutofill() {
+      if (!currentComplaintId) return Promise.resolve({});
+      if (autofillCache) return Promise.resolve(autofillCache);
+      return fetch(`/admin/complaints/api/action_autofill/${currentComplaintId}`, { credentials: 'same-origin' })
+        .then(r => {
+          if (!r.ok) {
+            console.warn('Autofill fetch responded with', r.status);
+            return {};
+          }
+          return r.json();
+        })
+        .then(data => { autofillCache = data || {}; return autofillCache; })
+        .catch(err => { console.error('Error fetching autofill data:', err); return {}; });
+    }
+
+    function applyAutofillToAssign(data) {
+      // Invitation fields
+      const invToEl = document.getElementById("invTo");
+      const invAgendaEl = document.getElementById("invAgenda");
+      const invLocationEl = document.getElementById("invLocation");
+      const invDateEl = document.getElementById("invDate");
+      const invTimeEl = document.getElementById("invTime");
+      if (invToEl) {
+        const names = (data.to || '').split(',').map(s => s.trim()).filter(Boolean);
+        invToEl.value = names.length ? names.join('\n') : '';
+      }
+      if (invAgendaEl) invAgendaEl.value = data.agenda || '';
+      if (invLocationEl) invLocationEl.value = data.location || '2nd FLR. USAD-PHASELAD OFFICE, BARANGAY MAIN';
+
+      // Inspection fields
+      const assignedPersonnelEl = document.getElementById('assignedPersonnel');
+      const inspectionLocationEl = document.getElementById('inspectionLocation');
+      if (data.inspection_assigned_personnel && assignedPersonnelEl) assignedPersonnelEl.value = data.inspection_assigned_personnel; else if (assignedPersonnelEl) assignedPersonnelEl.value = '';
+
+          let inspectionLoc = '';
+          if (data.inspection_location_raw) {
+            const parsed = tryParseJSONString(data.inspection_location_raw);
+            if (Array.isArray(parsed) && parsed.length && parsed[0].block) inspectionLoc = `Block ${parsed[0].block}, Lot ${parsed[0].lot}`;
+            else if (typeof parsed === 'object' && parsed.block) inspectionLoc = `Block ${parsed.block}, Lot ${parsed.lot}`;
+            else if (typeof parsed === 'string') inspectionLoc = parsed;
+          } else if (data.inspection_location) {
+            const parsed = tryParseJSONString(data.inspection_location);
+            if (Array.isArray(parsed) && parsed.length && parsed[0].block) inspectionLoc = `Block ${parsed[0].block}, Lot ${parsed[0].lot}`;
+            else if (typeof parsed === 'object' && parsed.block) inspectionLoc = `Block ${parsed.block}, Lot ${parsed.lot}`;
+            else if (typeof parsed === 'string') inspectionLoc = parsed;
+          }
+          if (!inspectionLoc && (data.block_no || data.lot_no)) inspectionLoc = `${data.address || ''}${data.address ? ', ' : ''}Block ${data.block_no || ''}, Lot ${data.lot_no || ''}`.trim();
+      if (inspectionLocationEl) inspectionLocationEl.value = data.inspection_location_pretty || inspectionLoc || '';
+        }
+
+        function applyAutofillToAction(data) {
+          // Mediation: only autofill the fields requested: agenda, assigned personnel, and parties involved
+            const agendaInput = document.querySelector("input[name='agenda']");
+            if (agendaInput && data.agenda) agendaInput.value = data.agenda;
+
+            const medAssignedEl = document.getElementById('medAssignedPersonnel');
+            if (medAssignedEl) medAssignedEl.value = data.med_assigned_personnel || medAssignedEl.value || 'Josie Rosal';
+
+            const medPartiesEl = document.getElementById('medPartiesInvolved');
+            if (medPartiesEl) {
+              const inviteNames = (data.to || '').split(',').map(s => s.trim()).filter(Boolean);
+              medPartiesEl.value = inviteNames.join('\n');
+            }
+        }
+
+    // Update date & time inside whichever modal is open
+    function updateComplaintDateTime(targetId) {
       const now = new Date();
       const dateStr = now.toLocaleDateString('en-US', {
         weekday: 'short', year: 'numeric', month: 'long', day: 'numeric'
@@ -166,10 +353,11 @@
       const timeStr = now.toLocaleTimeString('en-US', {
         hour: '2-digit', minute: '2-digit', hour12: true
       });
-      dateEl.innerHTML = `${dateStr}<br>${timeStr}`;
+
+      document.getElementById(targetId).innerHTML = `${dateStr}<br>${timeStr}`;
     }
 
-    // Step 1: When clicking "Action" button → open Recommended first
+    // Step 1: Open Recommended modal first
     function openComplaint() {
       recommendModal.style.display = "flex";
     }
@@ -179,26 +367,313 @@
       recommendModal.style.display = "none";
     }
 
-    // Step 2: From Recommended → proceed to Action modal
+    // Step 2 (a): From Recommended → proceed to Action modal
     function proceedToAction() {
       recommendModal.style.display = "none";
       modal.style.display = 'flex';
-      updateComplaintDateTime();
-      if (!interval) interval = setInterval(updateComplaintDateTime, 1000);
-      select.value = "";
-      actionOther.style.display = "none";
+      updateComplaintDateTime("actionDatetime");
+      if (!interval) interval = setInterval(() => updateComplaintDateTime("actionDatetime"), 1000);
+      document.getElementById("actionType").value = "";
+      document.querySelectorAll("#modal .action-fields").forEach(div => div.style.display = "none");
+      // Load autofill only when Action modal is opened
+      loadAutofill().then(data => {
+        try { applyAutofillToAction(data); } catch (e) { console.warn('applyAutofillToAction failed', e); }
+      });
     }
 
-    // Close Action modal
+    // Step 2 (b): From Recommended → proceed to Assign modal
+    function proceedToAssign() {
+      recommendModal.style.display = "none";
+      assignModal.style.display = 'flex';
+      updateComplaintDateTime("assignDatetime");
+      if (!interval) interval = setInterval(() => updateComplaintDateTime("assignDatetime"), 1000);
+      document.getElementById("assignType").value = "";
+      document.querySelectorAll("#assignModal .action-fields").forEach(div => div.style.display = "none");
+
+      loadAutofill().then(data => { //assign modal load
+        try { applyAutofillToAssign(data); } catch (e) { console.warn('applyAutofillToAssign failed', e); }
+
+       
+        const invSelect = document.getElementById('invAssignedPersonnel');
+        if (invSelect) {
+          // No network call — keep the select static and only preselect when autofill exactly matches an existing option.
+          if (data.invitation_assigned_personnel) {
+            const match = Array.from(invSelect.options).find(o => o.value === data.invitation_assigned_personnel);
+            if (match) invSelect.value = data.invitation_assigned_personnel;
+            // If no exact match, intentionally do nothing and keep the placeholder.
+          }
+        }
+      });
+    }
+
+    // Close whichever modal is open
     function closeComplaint() {
       modal.style.display = 'none';
+      assignModal.style.display = 'none';
+      try {
+        document.querySelectorAll('#modal input[type=text], #modal textarea').forEach(i => { if (!i.readOnly) i.value = ''; });
+        document.querySelectorAll('#assignModal input[type=text], #assignModal textarea').forEach(i => { if (!i.readOnly) i.value = ''; });
+        document.querySelectorAll('#modal input[type=date], #modal input[type=time], #assignModal input[type=date], #assignModal input[type=time]').forEach(i => i.value = '');
+        document.querySelectorAll('#modal select, #assignModal select').forEach(sel => {
+          try {
+            const placeholder = sel.querySelector('option[disabled]');
+            if (placeholder) {
+              sel.value = '';
+              sel.selectedIndex = 0;
+            } else {
+              sel.selectedIndex = -1;
+            }
+          } catch (e) {}
+        });
+        document.querySelectorAll('#modal input[type=checkbox], #assignModal input[type=checkbox]').forEach(cb => cb.checked = false);
+        document.querySelectorAll('#modal input[type=file], #assignModal input[type=file]').forEach(f => { try { f.value = null; } catch(e){} });
+        const witnessContainer = document.getElementById('witnessContainer');
+        if (witnessContainer) {
+          witnessContainer.innerHTML = `<div class="witness-row"><input type="text" name="witness[]" placeholder="Enter name"></div>`;
+        }
+        const fileUploadContainer = document.getElementById('fileUploadContainer');
+        if (fileUploadContainer) {
+          fileUploadContainer.innerHTML = `<div class="file-row"><input type="file" name="mediationFiles[]"><input type="text" name="fileDescription[]" placeholder="File type (e.g. Proof, Document)"></div>`;
+        }
+        const attachedFilesContainer = document.getElementById('attachedFilesContainer');
+        if (attachedFilesContainer) attachedFilesContainer.innerHTML = '';
+        // Hide action-specific panels
+        document.querySelectorAll('#modal .action-fields').forEach(div => div.style.display = 'none');
+        document.querySelectorAll('#assignModal .action-fields').forEach(div => div.style.display = 'none');
+      } catch (e) {}
       if (interval) { clearInterval(interval); interval = null; }
     }
 
-    // "Other" option in Action modal
-    select.addEventListener("change", () => {
-      actionOther.style.display = (select.value === "Other") ? "inline-block" : "none";
+    // Action modal dropdown
+    document.getElementById("actionType").addEventListener("change", function () {
+      document.getElementById("actionAssessmentFields").style.display = "none";
+      document.getElementById("actionMediationFields").style.display = "none";
+
+      if (this.value === "Assessment") {
+        document.getElementById("actionAssessmentFields").style.display = "block";
+      } else if (this.value === "Mediation") {
+        document.getElementById("actionMediationFields").style.display = "block";
+      }
     });
+
+    // Assign modal dropdown
+    document.getElementById("assignType").addEventListener("change", function () {
+      document.getElementById("assignInspectionFields").style.display = "none";
+      document.getElementById("assignInvitationFields").style.display = "none";
+
+      if (this.value === "Inspection") {
+        document.getElementById("assignInspectionFields").style.display = "block";
+      } else if (this.value === "Invitation") {
+        document.getElementById("assignInvitationFields").style.display = "block";
+        try {
+          const invSelect = document.getElementById('invAssignedPersonnel');
+          if (invSelect) {
+            invSelect.style.position = 'relative';
+            invSelect.style.zIndex = 10001;
+          }
+          // also bring the date/time inputs to front just in case
+          const invDate = document.getElementById('invDate');
+          const invTime = document.getElementById('invTime');
+          if (invDate) { invDate.style.position = 'relative'; invDate.style.zIndex = 10001; }
+          if (invTime) { invTime.style.position = 'relative'; invTime.style.zIndex = 10001; }
+        } catch (e) {}
+      }
+    });
+
+     // Add new witness row
+    function addWitness() {
+      const container = document.getElementById("witnessContainer");
+      const div = document.createElement("div");
+      div.style.display = "flex";
+      div.style.alignItems = "center";
+      div.style.gap = "8px";
+      div.innerHTML = `
+        <input type="text" name="witness[]" placeholder="Enter witness/advisor name" required>
+        <button type="button" onclick="this.parentElement.remove()">❌</button>
+      `;
+      container.appendChild(div);
+    }
+
+    // Add new file row
+    function addFileUpload() {
+      const container = document.getElementById("fileUploadContainer");
+      const div = document.createElement("div");
+      div.style.display = "flex";
+      div.style.alignItems = "center";
+      div.style.gap = "8px";
+      div.innerHTML = `
+        <input type="file" name="mediationFiles[]">
+        <input type="text" name="fileDescription[]" placeholder="File type (e.g. Proof, Document)" required>
+        <button type="button" onclick="this.parentElement.remove()">❌</button>
+      `;
+      container.appendChild(div);
+    }
+ 
+
+    function saveAction() {
+      const complaintId = (typeof currentComplaintId !== 'undefined') ? currentComplaintId : null;
+      console.log('currentComplaintId =', complaintId);
+
+      // Detect action type by checking which modal is currently open, then read its selector
+      const assignModalEl = document.getElementById('assignModal');
+      const actionModalEl = document.getElementById('modal');
+      const assignType = document.querySelector("#assignType")?.value;
+      const actionTypeSelect = document.querySelector("#actionType")?.value;
+      let actionType = null;
+      if (actionModalEl && actionModalEl.style.display === 'flex') {
+        actionType = actionTypeSelect;
+      } else if (assignModalEl && assignModalEl.style.display === 'flex') {
+        actionType = assignType;
+      } else {
+        actionType = assignType || actionTypeSelect;
+      }
+
+      //require field
+      const missing = [];
+      if (actionType === 'Invitation') {
+        const invSelect = document.getElementById('invAssignedPersonnel');
+        const invDate = document.getElementById('invDate');
+        const invTime = document.getElementById('invTime');
+        if (invSelect && !invSelect.value) missing.push('Assigned Personnel');
+        if (invDate && !invDate.value) missing.push('Meeting Date');
+        if (invTime && !invTime.value) missing.push('Meeting Time');
+      } else if (actionType === 'Inspection') {
+        const assigned = document.getElementById('assignedPersonnel');
+        const loc = document.getElementById('inspectionLocation');
+        const deadline = document.getElementById('inspectionDeadline');
+        const scopeCheckboxes = document.querySelectorAll("input[name='scope[]']");
+        if (assigned && !assigned.value) missing.push('Inspector');
+        if (loc && !loc.value) missing.push('Inspection Location');
+        if (deadline && !deadline.value) missing.push('Deadline');
+        const anyChecked = Array.from(scopeCheckboxes).some(cb => cb.checked);
+        if (!anyChecked) missing.push('Scope (at least one option)');
+      } else if (actionType === 'Mediation') {
+        const agenda = document.querySelector("input[name='agenda']");
+        const summary = document.querySelector("textarea[name='summary']");
+        if (agenda && !agenda.value) missing.push('Agenda');
+        if (summary && !summary.value) missing.push('Summary');
+        const witnesses = Array.from(document.querySelectorAll("input[name='witness[]']")).map(i => i.value.trim()).filter(Boolean);
+        if (witnesses.length === 0) missing.push('At least one Witness/Advisor');
+        const uploads = Array.from(document.querySelectorAll("input[name='mediationFiles[]']")).map((f, idx) => ({ file: f.files && f.files.length ? f.files[0].name : '', desc: (document.querySelectorAll("input[name='fileDescription[]']")[idx] || {}).value || '' }));
+        const validUploads = uploads.filter(u => u.file && u.desc.trim());
+        if (validUploads.length === 0) missing.push('At least one uploaded file with description');
+      } else if (actionType === 'Assessment') {
+        const notes = document.getElementById('assessmentNotes');
+        if (notes && !notes.value) missing.push('Assessment Notes'); }
+      if (missing.length) {
+        alert('Please fill required fields before saving: ' + missing.join(', '));
+        return;
+      }
+
+      // Figure out assignedTo
+      let assignedTo = "";
+      if (actionType === "Inspection") {
+          assignedTo = document.querySelector("#assignedPersonnel")?.value || "Unknown";
+      } else if (actionType === "Invitation") {
+          const invSelectEl = document.querySelector("#invAssignedPersonnel");
+          if (invSelectEl) {
+            const sel = invSelectEl.options[invSelectEl.selectedIndex];
+            assignedTo = (sel && sel.id) ? sel.id : (invSelectEl.value || "Unknown");
+          } else {
+            assignedTo = "Unknown";
+          }
+      } else if (actionType === "Mediation") {
+        // For mediation, assigned person is taken from the mediation assigned personnel field
+        assignedTo = document.querySelector('#medAssignedPersonnel')?.value || 'Josie Rosal';
+      } else if (actionType === "Assessment") {
+        assignedTo = 'Josie Rosal';
+      }
+
+      let details = {};
+      let description = "";
+
+      if (actionType === "Mediation") {
+        details = {
+          advisors: Array.from(document.querySelectorAll("input[name='witness[]']")).map(w => w.value),
+          agenda: document.querySelector("input[name='agenda']")?.value || "",
+          summary: document.querySelector("textarea[name='summary']")?.value || "",
+          assigned_personnel: document.querySelector('#medAssignedPersonnel')?.value || 'Josie Rosal',
+          parties_involved: (document.querySelector('#medPartiesInvolved')?.value || '').split('\n').map(s => s.trim()).filter(Boolean),
+          files: Array.from(document.querySelectorAll("input[name='mediationFiles[]']")).map((fileInput, idx) => {
+            return {
+              filename: fileInput.value.split("\\").pop(),
+              type: document.querySelectorAll("input[name='fileDescription[]']")[idx]?.value || ""
+            }
+          })
+        };
+        description = details.summary;  // use summary as description
+      } 
+      else if (actionType === "Assessment") {
+        details = {
+          notes: document.querySelector("#assessmentNotes")?.value || ""
+        };
+        description = details.notes; // use notes as description
+      } 
+      else if (actionType === "Inspection") {
+        details = {
+          deadline: document.querySelector("#inspectionDeadline")?.value || "",
+          inspector: document.querySelector("#assignedPersonnel")?.value || "",
+          location: document.querySelector("#inspectionLocation")?.value || "",
+          scope: Array.from(document.querySelectorAll("input[name='scope[]']:checked")).map(cb => cb.value)
+        };
+        description = "Inspection scheduled"; // generic description
+      } 
+      else if (actionType === "Invitation") {
+        details = {
+          to: document.querySelector("#invTo")?.value || "",
+          meeting_date: document.querySelector("#invDate")?.value || "",
+          meeting_time: document.querySelector("#invTime")?.value || "",
+          location: document.querySelector("#invLocation")?.value || "",
+          agenda: document.querySelector("#invAgenda")?.value || ""
+        };
+        description = "Invitation scheduled"; // generic description
+      }
+
+      const payload = {
+        complaint_id: complaintId,
+        action_type: actionType,
+        assigned_to: assignedTo,
+        action_datetime: new Date().toISOString().slice(0,19).replace("T"," "),
+        description: description,
+        ...details
+      };
+
+      console.log('payload to send:', payload);
+
+      // Disable the save button to prevent double submissions
+      const modalSaveBtn = document.getElementById('modalSaveBtn');
+      const assignSaveBtn = document.getElementById('assignSaveBtn');
+      if (modalSaveBtn) modalSaveBtn.disabled = true;
+      if (assignSaveBtn) assignSaveBtn.disabled = true;
+
+      fetch("/admin/complaints/api/action", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json())
+      .then(res => {
+        // Re-enable buttons
+        if (modalSaveBtn) modalSaveBtn.disabled = false;
+        if (assignSaveBtn) assignSaveBtn.disabled = false;
+
+        if (res.success) {
+          // Close any open modals, clear fields, and stop timers
+          try { closeComplaint(); } catch (e) { /* fallback */ }
+          try { document.getElementById('recommendModal').style.display = 'none'; } catch (e) {}
+          if (interval) { clearInterval(interval); interval = null; }
+          alert(`${actionType} saved successfully!`);
+        } else {
+          alert("Error: " + (res.error || res.message));
+        }
+      })
+      .catch(err => {
+        if (modalSaveBtn) modalSaveBtn.disabled = false;
+        if (assignSaveBtn) assignSaveBtn.disabled = false;
+        alert('Network or server error: ' + err);
+      });
+    }
+
 
     // Click outside closes modals
     modal.addEventListener('click', e => { if (e.target === modal) closeComplaint(); });
@@ -208,8 +683,12 @@
     window.openComplaint = openComplaint;
     window.closeComplaint = closeComplaint;
     window.proceedToAction = proceedToAction;
+    window.proceedToAssign = proceedToAssign;
     window.closeRecommend = closeRecommend;
     window.updateComplaintDateTime = updateComplaintDateTime;
+    window.addWitness = addWitness;
+    window.addFileUpload = addFileUpload;
+    window.saveAction = saveAction;
   })();
 
   /* Timeline: Open PDF */
@@ -305,59 +784,8 @@
     container.appendChild(fileTag);
   }
 
-  // Send action to backend
-  document.querySelector(".btn-save").addEventListener("click", async () => {
-    const actionType = document.getElementById("type").value;
-    const assignedTo = document.getElementById("assignedTo").value;
-    const desc = document.querySelector("textarea").value;
-    
-    if (!actionType) {
-      alert('Please select an action type');
-      return;
-    }
-
-    const attachedFiles = [...document.querySelectorAll("#attachedFilesContainer .attached-file")]
-      .map(f => ({ name: f.textContent, url: f.dataset.url }));
-
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const complaintId = urlParams.get('id');
-      
-      if (!complaintId) {
-        alert('Complaint ID not found');
-        return;
-      }
-
-      const response = await fetch(`/admin/complaints/api/${complaintId}/action`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          action_type: actionType,
-          assigned_to: assignedTo,
-          description: desc,
-          files: attachedFiles
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        alert('Action saved successfully!');
-        closeComplaint();
-        // Redirect back to complaints list
-        setTimeout(() => {
-          window.location.href = '/admin/complaints/all.html';
-        }, 1000);
-      } else {
-        alert('Error: ' + (data.message || 'Failed to save action'));
-      }
-    } catch (error) {
-      console.error('Error saving action:', error);
-      alert('Error saving action. Please try again.');
-    }
-  });
+  /* Sending actions is handled by saveAction() / saveMediationAction() above.
+     Removed duplicate event listener that used incorrect selectors/endpoints. */
 
   // Resolve complaint function
   async function resolveComplaint() {

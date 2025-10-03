@@ -1,4 +1,5 @@
 import os
+import json
 from flask import Blueprint, send_file, request, jsonify, session
 from ...database.db import db
 from ...database.models import Complaint, ComplaintHistory, Admin, Area, Beneficiary
@@ -574,8 +575,24 @@ def api_complaint_details(complaint_id):
 def api_get_staff():
     """Get list of staff members for assignment"""
     try:
-        # Check if user is admin
-        if session.get('account') != 1:
+        # Debug: print session contents and cookies to help trace 403 issues
+        try:
+            print('[DEBUG] session keys:', dict(session))
+            acct = session.get('account')
+            print('[DEBUG] session.account =', acct, 'type=', type(acct))
+            print('[DEBUG] request.cookies =', dict(request.cookies))
+        except Exception as _:
+            print('[DEBUG] could not stringify session or cookies')
+
+        # Allow admin (1) and staff (2) to access this endpoint.
+        # Normalize session account to int when possible to avoid '"1"' vs 1 mismatches.
+        acct = session.get('account')
+        try:
+            acct_int = int(acct) if acct is not None else None
+        except Exception:
+            acct_int = None
+        if acct_int not in (1, 2):
+            print(f"[DEBUG] Unauthorized access to /api/staff, acct_int={acct_int}")
             return jsonify({'error': 'Unauthorized'}), 403
             
         staff_query = """
@@ -601,51 +618,99 @@ def api_get_staff():
     except Exception as e:
         print(f"Error getting staff: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+    
 
 @complaints_bp.route("/api/action", methods=['POST'])
 def api_add_action():
-    """Add action to complaint"""
     try:
-        # Check if user is admin
-        if session.get('account') != 1:
-            return jsonify({'error': 'Unauthorized'}), 403
-            
+        account_type = session.get('account')   # 1 = admin, 2 = staff
+        user_name = session.get('name', 'Unknown')
         data = request.get_json()
+
         complaint_id = data.get('complaint_id')
         action_type = data.get('action_type')
-        description = data.get('description')
         assigned_to = data.get('assigned_to')
-        
+        action_datetime = data.get('action_datetime') or datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
         if not complaint_id or not action_type:
             return jsonify({'error': 'Missing required fields'}), 400
-        
-        # Insert into complaint_history
-        insert_query = """
-        INSERT INTO complaint_history (complaint_id, assigned_to, action_type, description, created_by, date_created)
-        VALUES (:complaint_id, :assigned_to, :action_type, :description, :created_by, NOW())
-        """
-        
-        db.session.execute(text(insert_query), {
-            'complaint_id': complaint_id,
-            'assigned_to': assigned_to,
-            'action_type': action_type,
-            'description': description,
-            'created_by': session.get('name', 'Admin')
-        })
-        
-        # Update complaint stage if action_type indicates a status change
-        if action_type in ['Assign', 'Investigation']:
-            update_query = "UPDATE complaints SET complaint_stage = 'Ongoing' WHERE complaint_id = :complaint_id"
+
+        # restrict actions
+        if account_type == 1 and action_type not in ["Assessment", "Mediation"]:
+            return jsonify({'error': 'Admins can only add Assessment or Mediation'}), 403
+        if account_type == 2 and action_type not in ["Inspection", "Invitation"]:
+            return jsonify({'error': 'Staff can only add Inspection or Invitation'}), 403
+
+        # Build details JSON depending on action type
+        details = {}
+        if action_type == "Mediation":
+            details = {
+                "advisors": data.get("advisors", []),
+                "agenda": data.get("agenda"),
+                "summary": data.get("summary"),
+                "files": data.get("files", []),  # [{filename, type}]
+                "assigned_personnel": data.get("assigned_personnel") or data.get('med_assigned_personnel'),
+                "parties_involved": data.get("parties_involved", [])
+            }
+            if (not assigned_to or assigned_to == "System") and details.get('assigned_personnel'):
+                assigned_to = details.get('assigned_personnel')
+            elif action_type == "Assessment":
+                details = {
+                    "notes": data.get("notes")
+                }
+            elif action_type == "Inspection":
+                details = {
+                    "deadline": data.get("deadline"),
+                    "inspector": data.get("inspector"),
+                    "location": data.get("location"),
+                    "scope": data.get("scope", []),  
+                }
+            elif action_type == "Invitation":
+                details = {
+                    "to": data.get("to"),
+                    "meeting_date": data.get("meeting_date"),
+                    "meeting_time": data.get("meeting_time"),
+                    "location": data.get("location"),
+                    "agenda": data.get("agenda")
+                }
+
+            # Insert into complaint_history
+            insert_query = """
+            INSERT INTO complaint_history 
+                (complaint_id, assigned_to, type_of_action, action_datetime, details)
+            VALUES (:complaint_id, :assigned_to, :action_type, :action_datetime, :details)
+            """
+
+            db.session.execute(text(insert_query), {
+                'complaint_id': complaint_id,
+                'assigned_to': assigned_to,
+                'action_type': action_type,
+                # 'description': data.get("description"),
+                # 'created_by': user_name,
+                'action_datetime': action_datetime,
+                'details': json.dumps(details)
+            })
+
+            # Update complaint stage
+            update_query = """
+            UPDATE complaints
+            SET complaint_stage = 'Ongoing'
+            WHERE complaint_id = :complaint_id
+            """
             db.session.execute(text(update_query), {'complaint_id': complaint_id})
-        
-        db.session.commit()
-        
-        return jsonify({'success': True, 'message': 'Action added successfully'})
-        
+
+            db.session.commit()
+            return jsonify({'success': True, 'message': f'{action_type} action added successfully'})
+
     except Exception as e:
-        print(f"Error adding action: {e}")
-        db.session.rollback()
-        return jsonify({'error': 'Internal server error'}), 500
+        # Rollback any pending transaction so the DB session stays clean
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        print(f"Error saving action: {e}")
+        return jsonify({'error': str(e)}), 500
+
 
 @complaints_bp.route("/api/resolve", methods=['POST'])
 def api_resolve_complaint():
@@ -684,3 +749,141 @@ def api_resolve_complaint():
         print(f"Error resolving complaint: {e}")
         db.session.rollback()
         return jsonify({'error': 'Internal server error'}), 500
+
+@complaints_bp.route("/api/action_autofill/<int:complaint_id>")
+def api_action_autofill(complaint_id):
+    """
+    Returns data to autofill forms for different action types
+    - Invitation: 'to', 'agenda', 'location'
+    - Inspection: 'location', 'assigned_personnel', 'block_no', 'lot_no'
+    """
+    try:
+        # Get complaint info
+        # Join using the complaint.registration_id and complaint.area_id which match the
+        # database models (Registration.registration_id and Areas.area_id). Previous
+        # joins attempted to use r.area_id/r.block_id which don't exist on the
+        # registration table in this schema and caused OperationalError (unknown column).
+        complaint = db.session.execute(
+            text("""
+            SELECT c.complaint_id,
+                   c.type_of_complaint,
+                   r.first_name,
+                   r.middle_name,
+                   r.last_name,
+                   r.suffix,
+                   r.lot_no,
+                   r.block_no,
+                   a.area_name
+            FROM complaints c
+            LEFT JOIN registration r ON c.registration_id = r.registration_id
+            LEFT JOIN areas a ON c.area_id = a.area_id
+            WHERE c.complaint_id = :id
+            """),
+            {"id": complaint_id}
+        ).fetchone()
+
+        if not complaint:
+            return jsonify({"error": "Complaint not found"}), 404
+
+        complaint_type = complaint.type_of_complaint.lower().replace(" ", "_")
+        autofill_data = {
+            "agenda": complaint.type_of_complaint,
+            "location": "2nd FLR. USAD-PHASELAD OFFICE, BARANGAY MAIN"  # default location for invitation
+        }
+
+        # Default 'to' is complainant name
+        complainant_name = f"{complaint.first_name} {complaint.middle_name or ''} {complaint.last_name} {complaint.suffix or ''}".strip()
+        autofill_data["to"] = complainant_name
+
+        # Additional tables based on complaint type
+        if complaint_type == "overlapping":
+            overlapping = db.session.execute(
+                text("SELECT q1, q8 FROM overlapping WHERE complaint_id=:id"), {"id": complaint_id}
+            ).fetchone()
+            if overlapping:
+                # overlapping.q1 often contains a JSON-encoded block/lot structure.
+                # Do NOT append that JSON blob to the 'to' field (which should be names).
+                # Keep 'to' as complainant and the other party (q8) only.
+                other_party = overlapping.q8 if hasattr(overlapping, 'q8') and overlapping.q8 else ''
+                autofill_data["to"] = f"{complainant_name}{', ' + other_party if other_party else ''}"
+
+                # Try to parse overlapping.q1 into structured data on the server so the
+                # frontend doesn't have to guess encoding/escaping rules.
+                parsed_q1 = None
+                try:
+                    raw = overlapping.q1
+                    if isinstance(raw, str):
+                        # Remove surrounding quotes if accidentally double-encoded
+                        s = raw.strip()
+                        if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
+                            s = s[1:-1]
+                        parsed_q1 = json.loads(s)
+                    else:
+                        parsed_q1 = raw
+                except Exception:
+                    parsed_q1 = None
+
+                # Build a human-friendly inspection location.
+                inspection_block = None
+                inspection_lot = None
+                if parsed_q1:
+                    # parsed_q1 may be a list of objects or a single object
+                    if isinstance(parsed_q1, list) and len(parsed_q1) > 0 and isinstance(parsed_q1[0], dict):
+                        inspection_block = parsed_q1[0].get('block')
+                        inspection_lot = parsed_q1[0].get('lot')
+                    elif isinstance(parsed_q1, dict):
+                        inspection_block = parsed_q1.get('block')
+                        inspection_lot = parsed_q1.get('lot')
+
+                # If parsing did not yield block/lot, fall back to complaint's block/lot
+                inspection_block = inspection_block or complaint.block_no
+                inspection_lot = inspection_lot or complaint.lot_no
+
+                # HOA / area name
+                inspection_hoa = complaint.area_name or ''
+
+                # Human-friendly string
+                inspection_pretty_parts = []
+                if inspection_hoa:
+                    inspection_pretty_parts.append(inspection_hoa)
+                if inspection_block:
+                    inspection_pretty_parts.append(f"Block {inspection_block}")
+                if inspection_lot:
+                    inspection_pretty_parts.append(f"Lot {inspection_lot}")
+                inspection_pretty = ", ".join(inspection_pretty_parts)
+
+                # Return structured and pretty values
+                autofill_data["inspection_location_raw"] = overlapping.q1
+                autofill_data["inspection_location_parsed"] = {
+                    'block': inspection_block,
+                    'lot': inspection_lot,
+                    'hoa': inspection_hoa,
+                    'raw_parsed': parsed_q1
+                }
+                autofill_data["inspection_location_pretty"] = inspection_pretty
+                # This person is the suggested inspector for inspections only.
+                autofill_data["inspection_assigned_personnel"] = "Alberto Nonato Jr."
+                autofill_data["block_no"] = complaint.block_no
+                autofill_data["lot_no"] = complaint.lot_no
+
+        elif complaint_type == "lot_dispute":
+            lot_dispute = db.session.execute(
+                text("SELECT q7 FROM lot_dispute WHERE complaint_id=:id"), {"id": complaint_id}
+            ).fetchone()
+            if lot_dispute:
+                autofill_data["to"] = f"{complainant_name}, {lot_dispute.q7}"
+
+        elif complaint_type == "unauthorized_occupation":
+            unauthorized = db.session.execute(
+                text("SELECT q2 FROM unauthorized_occupation WHERE complaint_id=:id"), {"id": complaint_id}
+            ).fetchone()
+            if unauthorized:
+                autofill_data["to"] = f"{complainant_name}, {unauthorized.q2}"
+
+        # Pathway Dispute and Boundary Dispute use only complainant name, already set
+
+        return jsonify(autofill_data)
+
+    except Exception as e:
+        print("Error fetching autofill data:", e)
+        return jsonify({"error": str(e)}), 500
