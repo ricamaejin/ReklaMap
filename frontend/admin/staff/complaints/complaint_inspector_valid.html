@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css" 
+  integrity="sha512-t7Few9xlddEmgd3oKZQahkNI4dS6l80+eGEzFQiqtyVYdvcSG2D3Iub77R20BdotfRPA9caaRkg1tyaJiPmO0g==" 
+  crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="icon" type="image/png" href="/images/logo.png">
+  <title>ReklaMap</title>
+  <link rel="stylesheet" href="/css/complainants.css">
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo-section">
+      <img src="/images/logo.png" alt="ReklaMap Logo" class="logo">
+      <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
+    </div>
+    <nav class="nav-menu">
+      <!-- Navigation will be populated by navigation.js -->
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="header"><h1>Complaint</h1></header>
+
+    <div class="complaint-layout" style="margin-top: 30px;">
+      <div class="complaint-form">Complaint form data will load here...</div>
+
+      <!-- Right Panel -->
+      <div class="right-panel">
+        <div class="map-card">Map / Asset details here...</div>
+
+        <div class="timeline">
+          <div class="timeline-entry">
+            <h4>6/19/2025 - Send Invitation 
+              <button class="file-btn" data-pdf="sample.pdf"></button> 
+              <span>Josie Rosal</span>
+            </h4>
+            <p>An invitation has been sent...</p>
+          </div>
+          <div class="timeline-entry">
+            <h4>6/13/2025 - Assessment <span>Josie Rosal</span></h4>
+            <p>Upon inspection, the staff verified the complaint’s validity...</p>
+          </div>
+        </div>
+        <button class="update-btn" onclick="openComplaint()">Update Status</button>
+      </div>
+    </div>
+
+    <!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <!-- HEADER -->
+    <div class="modal-top">
+      <div class="left-content">
+        <strong>Assigned To: Alberto Nonato Jr.</strong>
+        <h2 class="modal-title">Inspection</h2>
+      </div>
+      <div id="datetime">
+        <div id="date">21/10/2025</div>
+        <div id="time">9:00 AM</div>
+      </div>
+    </div>
+
+    <!-- FORM BODY -->
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Deadline:</label>
+        <input type="text" value="29/10/2025" readonly />
+      </div>
+
+      <div class="form-group">
+        <label>Lot to Inspect</label>
+        <input type="text" value="Alley 2 Sta. Catalina, Block 1, lot 2" readonly />
+      </div>
+
+      <div class="form-group">
+        <label>Scope of Inspection:</label>
+        <input type="text" value="Affected lot/s" readonly />
+        <input type="text" value="Measurement of lot/s" readonly />
+      </div>
+
+      <hr>
+
+      <div class="form-group">
+        <label for="findings">Inspection Findings:</label>
+        <textarea id="findings" placeholder="Enter inspection findings..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label id="long">Attach Supporting Documents or Evidence for the Inspection:</label>
+        <div class="file-upload">
+          <input type="file" id="inspectionFile" accept=".pdf,.jpg,.jpeg" multiple hidden />
+          <button type="button" onclick="document.getElementById('inspectionFile').click()" style="align-items: flex-start;">Upload</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label style="flex: 0 0 165px;">Attached Files:</label>
+        <div id="inspectionFilesList" class="attached-files"></div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeComplaint()">Cancel</button>
+      <button class="btn-save" onclick="resolveTask()">Update</button>
+    </div>
+  </div>
+</div>
+  </main>
+
+  <script>
+(function () {
+  const modal = document.getElementById('modal');
+  const dateEl = document.getElementById('datetime');
+  const fileInput = document.getElementById("inspectionFile");
+  const previewSection = document.getElementById("inspectionFilesPreview");
+  const filesList = document.getElementById("inspectionFilesList");
+  let interval = null;
+
+  // Update date & time inside Action modal
+  function updateComplaintDateTime() {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', {
+      weekday: 'short', year: 'numeric', month: 'long', day: 'numeric'
+    });
+    const timeStr = now.toLocaleTimeString('en-US', {
+      hour: '2-digit', minute: '2-digit', hour12: true
+    });
+    dateEl.innerHTML = `${dateStr}<br>${timeStr}`;
+  }
+
+  // Open Action modal directly
+  function openComplaint() {
+    modal.style.display = 'flex';
+    updateComplaintDateTime();
+    if (!interval) interval = setInterval(updateComplaintDateTime, 1000);
+
+    // Commented out because these elements don't exist in your HTML
+    // select.value = "";
+    // actionOther.style.display = "none";
+  }
+
+  function closeComplaint() {
+    modal.style.display = 'none';
+    if (interval) {
+      clearInterval(interval);
+      interval = null;
+    }
+  }
+
+  modal.addEventListener('click', e => {
+    if (e.target === modal) closeComplaint();
+  });
+
+  window.openComplaint = openComplaint;
+  window.closeComplaint = closeComplaint;
+  window.updateComplaintDateTime = updateComplaintDateTime;
+
+  // File upload preview
+if (fileInput) {
+  fileInput.addEventListener("change", function () {
+    filesList.innerHTML = "";
+    const files = Array.from(this.files);
+
+    if (files.length > 0) {
+      filesList.style.display = "block"; // show list only if files uploaded
+      files.forEach(file => {
+        const fileRow = document.createElement("div");
+        fileRow.className = "file-item";
+        fileRow.textContent = file.name;
+        filesList.appendChild(fileRow);
+      });
+    } else {
+      filesList.style.display = "none"; // hide if no files
+    }
+  });
+}
+})();
+
+/* Files Modal */
+function openFiles() {
+  const modal = document.getElementById("filesModal");
+  modal.style.display = "flex";
+  updateFilesDateTime();
+}
+
+function closeFiles() {
+  document.getElementById("filesModal").style.display = "none";
+}
+
+function updateFilesDateTime() {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', {
+    weekday: 'short', year: 'numeric', month: 'long', day: 'numeric'
+  });
+  const timeStr = now.toLocaleTimeString('en-US', {
+    hour: '2-digit', minute: '2-digit', hour12: true
+  });
+  document.getElementById("filesDateTime").innerHTML = `${dateStr}<br>${timeStr}`;
+}
+
+document.getElementById("filesModal").addEventListener("click", e => {
+  if (e.target.id === "filesModal") closeFiles();
+});
+
+/* Switch tabs */
+document.querySelectorAll('.file-tabs .tab').forEach(tab => {
+  tab.addEventListener('click', function () {
+    document.querySelectorAll('.file-tabs .tab').forEach(t => t.classList.remove('active'));
+    this.classList.add('active');
+
+    const target = this.getAttribute('data-tab');
+    document.querySelector('.uploaded-list').style.display = target === "uploaded" ? "block" : "none";
+    document.querySelector('.downloadable-list').style.display = target === "downloadable" ? "block" : "none";
+  });
+});
+
+/* Save Button - you don’t have .btn-save in HTML, so I commented this out
+const saveBtn = document.querySelector(".btn-save");
+if (saveBtn) {
+  saveBtn.addEventListener("click", () => {
+    const findings = document.getElementById("findings").value.trim();
+    const files = Array.from(document.getElementById("inspectionFile").files);
+    if (!findings) {
+      alert("Inspection Findings are required.");
+      return;
+    }
+    if (files.length === 0) {
+      alert("Please attach at least one supporting document.");
+      return;
+    }
+
+    const payload = {
+      assigned_to: "Alberto Nonato Jr.", // Placeholder
+      deadline: "29/10/2025",
+      lot: "Alley 2 Sta. Catalina, Block 1, Lot 2",
+      scope: "Affected lot/s, Measurement of lot/s",
+      findings,
+      files: files.map(f => f.name)
+    };
+    console.log("Submitting inspection data:", payload);
+    closeComplaint();
+  });
+}
+*/
+
+// Resolved Task function
+function resolveTask() {
+  const findings = document.getElementById("findings").value.trim();
+  const files = Array.from(document.getElementById("inspectionFile").files);
+
+  // Validation checks
+  if (!findings && files.length === 0) {
+    alert("Please input inspection findings and attach the supporting documents/evidence od the first.");
+    return;
+  }
+  if (!findings) {
+    alert("Please input inspection findings first.");
+    return;
+  }
+  if (files.length === 0) {
+    alert("Please attach the supporting documents or evidence of the inspection first.");
+    return;
+  }
+
+  // If all validations pass → proceed
+  const complaintId = getComplaintIdFromURL();
+  const taskCompletedData = {
+    complaint_id: complaintId,
+    type_of_action: "Task Completed",
+    assigned_to: null,
+    description: findings,
+    files: files.map(f => f.name),
+    action_datetime: new Date().toISOString()
+  };
+
+  console.log("Creating Task Completed entry:", taskCompletedData);
+
+  alert("Task Completed entry would be created (TODO: Backend integration)");
+
+  // Close modal after submission
+  closeComplaint();
+}
+
+function getComplaintIdFromURL() {
+  return 1; // Placeholder
+}
+</script>
+
+</body>
+</html>

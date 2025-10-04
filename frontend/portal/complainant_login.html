@@ -40,6 +40,10 @@
           <div class="btn-wrapper">
             <button type="submit" class="login-btn">SIGN IN</button>
           </div>
+
+          <p class="signup-text">
+          Don’t have an account? <a href="/portal/sign_up.html">Sign Up</a>
+          </p>
         </form>
       </div>
 
@@ -79,12 +83,7 @@
         const result = await response.json();
 
         if (response.ok && result.success) {
-          messageBox.textContent = "Login successful! Redirecting...";
-          messageBox.className = "message success";
-          messageBox.style.display = "block";
-          setTimeout(() => {
-            window.location.href = "/complainant/home/dashboard.html";
-          }, 2000);
+          window.location.href = "/complainant/home/dashboard.html";
         } else {
           messageBox.textContent = result.message || "Login failed!";
           messageBox.className = "message error";

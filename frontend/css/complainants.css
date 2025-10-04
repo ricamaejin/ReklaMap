@@ -766,8 +766,63 @@ i {
   padding: 20px 30px;
   width: 700px;
   max-width: 95%;
+  max-height: 60vh;   /* fixed height relative to viewport */
+  overflow-y: auto;   /* only show scroll if needed */
   position: relative;
   box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  /* Keep modal within viewport and allow internal scrolling for long content */
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Optional: make scrollbar hidden unless scrolling (Webkit browsers) */
+.modal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal::-webkit-scrollbar-thumb {
+  background-color: rgba(255,255,255,0.4);
+  border-radius: 6px;
+}
+
+/* For Firefox */
+.modal {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.4) transparent;
+}
+
+.modal-top {
+  display: flex;
+  justify-content: space-between; /* 2 columns: left & right */
+  align-items: center;            /* vertically align both sides */
+  padding: 10px 0;
+  border-bottom: 1px solid #ccc;
+  margin-bottom: 18px;
+}
+
+/* Left column (stack strong + h2) */
+.left-content {
+  display: flex;
+  flex-direction: column; /* stack vertically */
+  gap: 4px;
+}
+
+/* Right column (date & time stacked, left-aligned) */
+#datetime {
+  display: flex;
+  flex-direction: column;
+  text-align: left;     /* align text to the left */
+  align-items: flex-start; /* center block itself but keep text left */
+  font-size: 0.92rem;
+  font-weight: bold;
+  opacity: 0.95;
+
 }
 
 .modal-header {
@@ -776,20 +831,60 @@ i {
   align-items: center;
 }
 
-/* datetime appearance */
-#datetime {
-  font-size: 0.92rem;
-  opacity: 0.95;
-  text-align: right;
-  font-weight: bold;
-}
-
 .modal-header h2 {
   margin: 0;
   font-size: 1.6rem;
   font-weight: bold;
 }
 
+.form-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.form-group label {
+  flex: 0 0 150px;   /* fixed width for most labels */
+  font-weight: bold;
+  margin-top: 6px;
+}
+
+#long {
+  flex: 0 0 auto;   /* fixed width for most labels */
+  font-weight: bold;
+  margin-top: 6px;
+}
+
+#short{
+  flex: 0 0 195px;   /* fixed width for most labels */
+}
+
+.form-group .stacked,
+.form-group .inline {
+  flex: 1;
+}
+
+/* Inputs in stacked layout */
+.stacked input,
+.stacked button {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+/* Inputs in inline layout */
+.inline input,
+.inline button {
+  width: auto;
+}
+
+.form-group input.short{
+  width: 445px;
+}
+
+#inspectionFilesList {
+  display: none; /* hidden until files uploaded */
+}
 hr {
   border: 0;
   border-top: 1px solid #fff;
@@ -814,21 +909,32 @@ hr {
 }
 
 .modal textarea {
-  min-height: 100px;
+  min-height: 80px;
   resize: vertical;
 }
 
+/* FILE UPLOAD */
 .file-upload {
-  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 .file-upload button {
-  padding: 6px 12px;
+  padding: 6px 14px;
   border: none;
   border-radius: 6px;
   background: white;
-  color: #0d2cb0;
+  color: #0d2fb3;
   font-weight: bold;
   cursor: pointer;
+}
+.attached-files {
+  background: #f8f9fa;
+  padding: 8px;
+  border-radius: 6px;
+  color: #000;
+  font-size: 0.9rem;
+  min-height: 30px;
 }
 
 .modal-footer {
@@ -836,6 +942,13 @@ hr {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 20px;
+  /* Keep footer visible while scrolling inside the modal */
+  position: sticky;
+  bottom: 0;
+  /* match modal background so the footer doesn't look detached when sticky */
+  background: #0d2fb3;
+  padding-top: 12px;
+  padding-bottom: 12px;
 }
 
 .modal-footer button {
@@ -1081,6 +1194,18 @@ input[type="radio"], input[type="checkbox"] {
   align-self: flex-start;
 }
 
+.update-btn {
+  background: #0a36c7;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 20px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 20px;
+  align-self: flex-end;
+}
+
 /* Timeline */
 .timeline {
   background: #fff;
@@ -1318,6 +1443,13 @@ input[type="radio"], input[type="checkbox"] {
   .btn.add{background:#eef6ff;color:var(--accent-strong);border:1px solid #cfe2ff}
   .btn.small{padding:6px 10px;font-size:13px}
 
+
+.section-label {
+  font-weight: bold;
+  font-size: 14px;
+  margin: 10px 0;
+  color: #083048;
+}
 /* Responsive CSS */
 @media (max-width: 768px) {
   body {

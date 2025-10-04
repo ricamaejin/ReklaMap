@@ -10,7 +10,7 @@
   crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
-  <link rel="stylesheet" href="/css/admin.css">
+  <link rel="stylesheet" href="/frontend/css/admin.css">
 </head>
 <body>
 
@@ -39,8 +39,8 @@
     <h1>Complaints</h1>
     
     <!-- Stats -->
-    <div class="stats">
-      <div class="stat-card">
+    <div class="stats-assigned">
+      <div class="stat-card-assigned">
         <i class="bi bi-graph-up-arrow"></i>
         <div>
           <h2 id="total-assigned">0</h2>
@@ -48,15 +48,7 @@
         </div>
       </div>
       
-      <div class="stat-card">
-        <i class="bi bi-person-exclamation"></i>
-        <div>
-          <h2 id="ongoing-count">0</h2>
-          <p>On Going</p>   
-        </div>
-      </div>
-      
-      <div class="stat-card">
+      <div class="stat-card-assigned">
         <i class="bi bi-person-check"></i>
         <div>
          <h2 id="resolved-count">0</h2>
@@ -91,6 +83,26 @@
     </table>
   </div>
 
+  <style>
+    /* Stats */
+.stats-assigned {
+  display: flex;
+  flex-wrap: wrap;       /* allows wrapping */
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.stat-card-assigned {
+  background: #b7d5ff;
+  width: 300px;     /* flexible width, min ~220px */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+  </style>
   <script>
     // Load assigned complaints data
     async function loadAssignedComplaints() {
@@ -207,64 +219,6 @@
       initDropdown();
     });
   </script>
-
-  <style>
-    /* User dropdown */
-    .user-dropdown {
-      position: absolute;
-      top: 20px;
-      right: 30px;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 3px;
-      font-weight: bold;
-      color: #001241;
-      margin-bottom: 30px; 
-    }
-
-    .username {
-      font-weight: bold;
-      color: #001241;
-      text-decoration: underline;
-    }
-
-    /* Arrow button */
-    .dropdown-toggle {
-      background: none;
-      border: none;
-      font-size: 14px;
-      cursor: pointer;
-      color: #4caf50;
-    }
-
-    .dropdown-menu {
-      display: none;
-      position: absolute;
-      top: 25px;   /* spacing below */
-      right: 0;
-      background: #fff;
-      border: 1px solid #ccc;
-      width: 150px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-      z-index: 1000;
-    }
-
-    .dropdown-menu a {
-      display: block;
-      padding: 10px;
-      color: #333;
-      text-decoration: none;
-    }
-
-    .dropdown-menu a:hover {
-      background: #f1f1f1;
-    }
-
-    .user-dropdown.active .dropdown-menu {
-      display: block;
-    }
-  </style>
 
 </body>
 </html>

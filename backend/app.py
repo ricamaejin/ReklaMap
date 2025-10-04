@@ -20,10 +20,15 @@ from backend.complainant.routes import complainant_bp
 from backend.staff.routes import staff_bp
 from backend.shared.routes import shared_bp
 from backend.complainant.memreg import mem_reg_bp
-# Complainant complaints API blueprint
 from backend.complainant.complaints_api import complaints_bp as complainant_complaints_bp
 from backend.complainant.nonmemreg import nonmemreg_bp
 from backend.complainant.famreg import famreg_bp
+# Overlapping blueprint
+from backend.complainant.overlapping import overlapping_bp
+# Lot Dispute blueprint
+from backend.complainant.lot_dispute import lot_dispute_bp
+# Boundary Dispute blueprint
+from backend.complainant.boundary_dispute import boundary_dispute_bp
 
 
 # Set static_folder to your frontend directory, static_url_path to ""
@@ -52,12 +57,14 @@ app.register_blueprint(blocks_bp)
 app.register_blueprint(search_bp)
 app.register_blueprint(policies_bp)
 
-# Register complainant blueprint
 app.register_blueprint(complainant_bp)
 app.register_blueprint(mem_reg_bp)
 app.register_blueprint(complainant_complaints_bp)
 app.register_blueprint(nonmemreg_bp)
 app.register_blueprint(famreg_bp)
+app.register_blueprint(overlapping_bp)
+app.register_blueprint(lot_dispute_bp)
+app.register_blueprint(boundary_dispute_bp)
 
 # Register staff and shared blueprints
 app.register_blueprint(staff_bp)
@@ -71,10 +78,15 @@ def home():
     # Optionally, serve your main frontend page here
     return app.send_static_file("portal/index.html")
 
-# Serve ANY static file from frontend (css, js, images, svg, etc.)
+# Serve static assets only (css, js, images, svg, etc.)
 @app.route("/<path:filename>")
 def serve_frontend_files(filename):
-    return send_from_directory(frontend_path, filename)
+    # Only serve files from asset folders
+    asset_folders = ["css", "js", "images", "svg"]
+    if any(filename.startswith(folder + "/") for folder in asset_folders):
+        return send_from_directory(frontend_path, filename)
+    # Otherwise, let blueprints handle the route
+    return "Not Found", 404
 
 # TESTING PURPOSES (ex. http://127.0.0.1:5000/db_test to test db conn)
 @app.route("/test-admins")

@@ -155,7 +155,7 @@ class Complaint(db.Model):
     __tablename__ = "complaints"   # must match phpMyAdmin table name
 
     complaint_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    registration_id = db.Column(db.Integer, db.ForeignKey("registration.registration_id"), nullable=False)
+    registration_id = db.Column(db.Integer, db.ForeignKey("registration.registration_id", ondelete="CASCADE"), nullable=False)
     type_of_complaint = db.Column(db.String(150), nullable=False)
     date_received = db.Column(db.DateTime, server_default=db.func.current_timestamp())
     status = db.Column(db.Enum("Valid", "Invalid"), nullable=False, default="Valid")
@@ -176,12 +176,11 @@ class Complaint(db.Model):
     description = db.Column(db.Text)
     
     # Relationship to overlapping (one-to-one)
-    overlapping = db.relationship("Overlapping", backref="complaint", uselist=False)
+    overlapping = db.relationship("Overlapping", backref="complaint", uselist=False, passive_deletes=True)
 
     complainant_name = db.Column(db.String(150), nullable=False)
     area_id = db.Column(db.Integer, db.ForeignKey('areas.area_id'), nullable=False)
     address = db.Column(db.String(255), nullable=False)
-
 
     def __repr__(self):
         return f"<Complaint {self.complaint_id}>"
@@ -260,8 +259,8 @@ class Overlapping(db.Model):
     __tablename__ = "overlapping"
 
     overlapping_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    complaint_id = db.Column(db.Integer, db.ForeignKey('complaints.complaint_id'), nullable=False)
-    registration_id = db.Column(db.Integer, db.ForeignKey('registration.registration_id'), nullable=False)
+    complaint_id = db.Column(db.Integer, db.ForeignKey('complaints.complaint_id', ondelete="CASCADE"), nullable=False)
+    registration_id = db.Column(db.Integer, db.ForeignKey('registration.registration_id', ondelete="CASCADE"), nullable=False)
     q1 = db.Column(db.JSON)
     q2 = db.Column(db.String(80))
     q3 = db.Column(db.String(50))
@@ -279,7 +278,7 @@ class Overlapping(db.Model):
     signature = db.Column(db.String(255))
 
     # relationships back to registration
-    registration = db.relationship("Registration", backref="overlapping_complaints")
+    registration = db.relationship("Registration", backref="overlapping_complaints", passive_deletes=True)
 
     def __repr__(self):
         return f"<Overlapping {self.overlapping_id}>"
@@ -292,7 +291,7 @@ class LotDispute(db.Model):
     __tablename__ = "lot_dispute"
 
     lot_dispute_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    complaint_id = db.Column(db.Integer, db.ForeignKey('complaints.complaint_id'), nullable=False)
+    complaint_id = db.Column(db.Integer, db.ForeignKey('complaints.complaint_id', ondelete="CASCADE"), nullable=False)
     q1 = db.Column(db.String(200))
     q2 = db.Column(db.String(200))
     q3 = db.Column(db.Date)
@@ -304,7 +303,7 @@ class LotDispute(db.Model):
     q9 = db.Column(db.Enum("Yes", "No", "Not Sure"))
 
     # Relationship back to complaint
-    complaint = db.relationship("Complaint", backref="lot_dispute")
+    complaint = db.relationship("Complaint", backref="lot_dispute", passive_deletes=True)
 
 # -----------------------
 # Boundary Dispute
@@ -314,7 +313,7 @@ class BoundaryDispute(db.Model):
     __tablename__ = "boundary_dispute"
 
     boundary_dispute_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    complaint_id = db.Column(db.Integer, db.ForeignKey('complaints.complaint_id'), nullable=False)
+    complaint_id = db.Column(db.Integer, db.ForeignKey('complaints.complaint_id', ondelete="CASCADE"), nullable=False)
     q1 = db.Column(db.String(200))  # nature of boundary issue
     q2 = db.Column(db.String(80))   # duration
     q3 = db.Column(db.String(80))   # constructed/under construction
@@ -326,7 +325,7 @@ class BoundaryDispute(db.Model):
     q8 = db.Column(db.Enum('Yes','No','Not Sure'))
 
     # Relationship back to Complaint
-    complaint = db.relationship("Complaint", backref="boundary_dispute")
+    complaint = db.relationship("Complaint", backref="boundary_dispute", passive_deletes=True)
 
 
 
