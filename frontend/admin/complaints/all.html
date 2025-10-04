@@ -13,7 +13,24 @@
     .priority-severe { background-color: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
     .priority-moderate { background-color: #ffc107; color: black; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
     .priority-minor { background-color: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
-    .complaints-table tbody tr:hover { background-color: #f8f9fa; cursor: pointer; }
+    /* Status-based row colors - higher specificity */
+    .complaints-table tbody tr.status-pending { background-color: #FFE6A7 !important; cursor: pointer; }
+    .complaints-table tbody tr.status-pending:hover { background-color: #FFD980 !important; }
+    .complaints-table tbody tr.status-inspection { background-color: #A7D8F2 !important; cursor: pointer; }
+    .complaints-table tbody tr.status-inspection:hover { background-color: #85C7ED !important; }
+    .complaints-table tbody tr.status-invitation { background-color: #9FE2BF !important; cursor: pointer; }
+    .complaints-table tbody tr.status-invitation:hover { background-color: #7DDBA8 !important; }
+    .complaints-table tbody tr.status-mediation { background-color: #C9B6E4 !important; cursor: pointer; }
+    .complaints-table tbody tr.status-mediation:hover { background-color: #B8A1D9 !important; }
+    .complaints-table tbody tr.status-assessment { background-color: #B5E48C !important; cursor: pointer; }
+    .complaints-table tbody tr.status-assessment:hover { background-color: #A0DB70 !important; }
+    .complaints-table tbody tr.status-invalid { background-color: #F6B6B6 !important; cursor: pointer; }
+    .complaints-table tbody tr.status-invalid:hover { background-color: #F19999 !important; }
+    .complaints-table tbody tr.status-assigned { background-color: #FFD6A5 !important; cursor: pointer; }
+    .complaints-table tbody tr.status-assigned:hover { background-color: #FFC885 !important; }
+    .complaints-table tbody tr.status-unresolved { background-color: #D3D3D3 !important; cursor: pointer; }
+    .complaints-table tbody tr.status-unresolved:hover { background-color: #C0C0C0 !important; }
+    .complaints-table tbody tr:hover { cursor: pointer; }
   </style>
 </head>
 <body>
@@ -24,9 +41,10 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/admin/map/index.html" class="nav-item">Map</a>
+      <a href="/admin/dashboard" class="nav-item">Map</a>
       <a href="/admin/complaints/all.html" class="nav-item active">Complaints</a>
-      <a href="/admin/database/beneficiaries.html" class="nav-item">Database</a>
+      <a href="/admin/database/beneficiaries.html" class="nav-item">Beneficiaries</a>
+      <a href="/admin/database/policies.html" class="nav-item">Policies</a>
     </nav>
   </aside>
 
@@ -69,6 +87,7 @@
       <a href="resolved.html">Resolved</a>
       <a href="assigned.html">Assigned</a>
       <a href="invalid.html">Invalid</a>
+      <a href="unresolved.html">Unresolved</a>
     </div>
 
     <!-- Table -->
@@ -116,18 +135,24 @@
     // Load admin statistics
     async function loadStats() {
       try {
-        const response = await fetch(`/admin/complaints/api/stats?_=${Date.now()}`);
-        const data = await response.json();
+        const [statsResponse, unresolvedResponse] = await Promise.all([
+          fetch(`/admin/complaints/api/stats?_=${Date.now()}`),
+          fetch(`/admin/complaints/api/unresolved?_=${Date.now()}`)
+        ]);
         
-        if (data.total !== undefined) {
-          document.querySelector('.stat-card:nth-child(1) h2').textContent = data.total || 0;
-          document.querySelector('.stat-card:nth-child(2) h2').textContent = data.ongoing || 0;
-          document.querySelector('.stat-card:nth-child(3) h2').textContent = data.unresolved || 0;
-        } else if (data.success && data.stats) {
-          document.querySelector('.stat-card:nth-child(1) h2').textContent = data.stats.total_complaints || 0;
-          document.querySelector('.stat-card:nth-child(2) h2').textContent = data.stats.ongoing || 0;
-          document.querySelector('.stat-card:nth-child(3) h2').textContent = data.stats.unresolved || 0;
+        const statsData = await statsResponse.json();
+        const unresolvedData = await unresolvedResponse.json();
+        
+        if (statsData.total !== undefined) {
+          document.querySelector('.stat-card:nth-child(1) h2').textContent = statsData.total || 0;
+          document.querySelector('.stat-card:nth-child(2) h2').textContent = statsData.ongoing || 0;
         }
+        
+        // Count unresolved from dedicated endpoint
+        const unresolvedCount = Array.isArray(unresolvedData) ? unresolvedData.length : 
+                               (unresolvedData.complaints ? unresolvedData.complaints.length : 0);
+        document.querySelector('.stat-card:nth-child(3) h2').textContent = unresolvedCount;
+        
       } catch (error) {
         console.error('Error loading stats:', error);
       }
@@ -146,9 +171,10 @@
       complaints.forEach(complaint => {
         const row = document.createElement('tr');
         row.style.cursor = 'pointer';
+        
         row.addEventListener('click', () => {
           const detailsPage = complaint.status === 'Invalid' ? 'complaint_details_invalid.html' : 'complaint_details_valid.html';
-          window.location.href = `/admin/complaints/${detailsPage}?id=${complaint.complaint_id}`;
+          window.location.href = `/admin/complaints/${detailsPage}?id=${complaint.complaint_id}&referrer=all.html`;
         });
         
         row.innerHTML = `
@@ -157,9 +183,45 @@
           <td>${complaint.type_of_complaint}</td>
           <td>${complaint.address ? complaint.address.split(',')[complaint.address.split(',').length - 1] : 'N/A'}</td>
           <td>${complaint.address}</td>
-          <td>Investigation</td>
+          <td>${complaint.status === 'Invalid' ? 'Invalid' : (complaint.action_needed || 'Pending')}</td>
           <td><button class="priority-${(complaint.priority_level || 'minor').toLowerCase()}">${complaint.priority_level || 'Minor'}</button></td>
         `;
+        
+        // Add status-based styling AFTER setting innerHTML
+        console.log('Complaint data:', complaint); // Debug log
+        if (complaint.status === 'Invalid') {
+          row.classList.add('status-invalid');
+          row.style.backgroundColor = '#F6B6B6'; // Fallback inline style
+          console.log('Applied status-invalid class');
+        } else if (complaint.complaint_stage === 'Pending') {
+          row.classList.add('status-pending');
+          row.style.backgroundColor = '#FFE6A7'; // Fallback inline style
+          console.log('Applied status-pending class');
+        } else if (complaint.complaint_stage === 'Ongoing') {
+          // For ongoing complaints, color based on action_needed (will be implemented later)
+          const actionNeeded = (complaint.action_needed || '').toLowerCase();
+          if (actionNeeded.includes('inspection')) {
+            row.classList.add('status-inspection');
+            row.style.backgroundColor = '#A7D8F2'; // Fallback inline style
+            console.log('Applied status-inspection class');
+          } else if (actionNeeded.includes('invitation')) {
+            row.classList.add('status-invitation');
+            row.style.backgroundColor = '#9FE2BF'; // Fallback inline style
+            console.log('Applied status-invitation class');
+          } else if (actionNeeded.includes('mediation')) {
+            row.classList.add('status-mediation');
+            row.style.backgroundColor = '#C9B6E4'; // Fallback inline style
+            console.log('Applied status-mediation class');
+          } else if (actionNeeded.includes('assessment')) {
+            row.classList.add('status-assessment');
+            row.style.backgroundColor = '#B5E48C'; // Fallback inline style
+            console.log('Applied status-assessment class');
+          }
+        } else if (complaint.assigned_to) {
+          row.classList.add('status-assigned');
+          row.style.backgroundColor = '#FFD6A5'; // Fallback inline style
+          console.log('Applied status-assigned class');
+        }
         
         tbody.appendChild(row);
       });

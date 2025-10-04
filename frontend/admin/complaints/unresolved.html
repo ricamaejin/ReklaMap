@@ -13,8 +13,10 @@
     .priority-severe { background-color: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
     .priority-moderate { background-color: #ffc107; color: black; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
     .priority-minor { background-color: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
-    .complaints-table tbody tr:hover { background-color: #f8f9fa; cursor: pointer; }
-    /* Resolved complaints styling - default background */
+    /* Status-based row colors - higher specificity */
+    .complaints-table tbody tr.status-unresolved { background-color: #D3D3D3 !important; cursor: pointer; }
+    .complaints-table tbody tr.status-unresolved:hover { background-color: #C0C0C0 !important; }
+    .complaints-table tbody tr:hover { cursor: pointer; }
   </style>
 </head>
 <body>
@@ -68,10 +70,10 @@
       <a href="all.html"> All</a>
       <a href="pending.html">Pending</a>
       <a href="ongoing.html">On Going</a>
-      <a href="resolved.html" class="active">Resolved</a>
+      <a href="resolved.html">Resolved</a>
       <a href="assigned.html">Assigned</a>
       <a href="invalid.html">Invalid</a>
-      <a href="unresolved.html">Unresolved</a>
+      <a href="unresolved.html" class="active">Unresolved</a>
     </div>
 
     <!-- Table -->
@@ -98,10 +100,10 @@
 
 
   <script>
-    // Load resolved complaints data
-    async function loadResolvedComplaints() {
+    // Load unresolved complaints data
+    async function loadUnresolvedComplaints() {
       try {
-        const response = await fetch(`/admin/complaints/api/resolved?_=${Date.now()}`);
+        const response = await fetch(`/admin/complaints/api/unresolved?_=${Date.now()}`);
         const data = await response.json();
         
         if (Array.isArray(data)) {
@@ -148,16 +150,17 @@
       tbody.innerHTML = '';
       
       if (complaints.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No resolved complaints</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No unresolved complaints</td></tr>';
         return;
       }
       
       complaints.forEach(complaint => {
         const row = document.createElement('tr');
         row.style.cursor = 'pointer';
+        
         row.addEventListener('click', () => {
           const detailsPage = complaint.status === 'Invalid' ? 'complaint_details_invalid.html' : 'complaint_details_valid.html';
-          window.location.href = `/admin/complaints/${detailsPage}?id=${complaint.complaint_id}&referrer=resolved.html`;
+          window.location.href = `/admin/complaints/${detailsPage}?id=${complaint.complaint_id}&referrer=unresolved.html`;
         });
         
         row.innerHTML = `
@@ -166,13 +169,13 @@
           <td>${complaint.type_of_complaint}</td>
           <td>${complaint.address ? complaint.address.split(',')[complaint.address.split(',').length - 1] : 'N/A'}</td>
           <td>${complaint.address}</td>
-          <td>${complaint.action_needed || 'Pending'}</td>
+          <td>${complaint.action_needed || 'Unresolved'}</td>
           <td><button class="priority-${(complaint.priority_level || 'minor').toLowerCase()}">${complaint.priority_level || 'Minor'}</button></td>
         `;
         
         // Add status-based styling AFTER setting innerHTML
-        row.classList.add('status-resolved');
-        row.style.backgroundColor = '#C4E1C4'; // Fallback inline style
+        row.classList.add('status-unresolved');
+        row.style.backgroundColor = '#D3D3D3'; // Fallback inline style
         
         tbody.appendChild(row);
       });
@@ -180,7 +183,7 @@
 
     // Initialize page
     document.addEventListener('DOMContentLoaded', function() {
-      loadResolvedComplaints();
+      loadUnresolvedComplaints();
       loadStats();
     });
   </script>
