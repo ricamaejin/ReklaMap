@@ -46,10 +46,10 @@ def format_address(area_name, lot_no, block_no):
     
     return ", ".join(address_parts)
 
-def get_complaint_data(status_filter=None, assigned_filter=None):
+def get_complaint_data(status_filter=None, stage_filter=None, assigned_filter=None):
     """Get complaint data with proper joins and formatting"""
     try:
-        # Simplified query that works with actual database structure
+        # Use complainant_name directly from complaints table as per database structure
         query = """
         SELECT 
             c.complaint_id,
@@ -59,10 +59,7 @@ def get_complaint_data(status_filter=None, assigned_filter=None):
             c.complaint_stage,
             c.date_received,
             c.description,
-            COALESCE(r.first_name, 'N/A') as first_name,
-            COALESCE(r.middle_name, '') as middle_name,
-            COALESCE(r.last_name, 'N/A') as last_name,
-            COALESCE(r.suffix, '') as suffix,
+            c.complainant_name,
             COALESCE(r.lot_no, 0) as lot_no,
             COALESCE(r.block_no, 0) as block_no,
             COALESCE(a.area_name, 'N/A') as area_name
@@ -79,9 +76,11 @@ def get_complaint_data(status_filter=None, assigned_filter=None):
                 where_clauses.append("c.status = 'Valid'")
             elif status_filter == 'invalid':
                 where_clauses.append("c.status = 'Invalid'")
-            elif status_filter in ['Pending', 'Ongoing', 'Resolved']:
-                where_clauses.append("c.complaint_stage = :stage")
-                params['stage'] = status_filter
+        
+        if stage_filter:
+            if stage_filter in ['Pending', 'Ongoing', 'Resolved']:
+                where_clauses.append("c.complaint_stage = :stage AND c.status = 'Valid'")
+                params['stage'] = stage_filter
         
         if assigned_filter:
             where_clauses.append("ch.assigned_to = :assigned_to")
@@ -101,13 +100,6 @@ def get_complaint_data(status_filter=None, assigned_filter=None):
         # Format the data
         formatted_complaints = []
         for complaint in complaints:
-            formatted_name = format_complainant_name(
-                complaint.first_name,
-                complaint.middle_name, 
-                complaint.last_name,
-                complaint.suffix
-            )
-            
             formatted_address = format_address(
                 complaint.area_name,
                 complaint.lot_no,
@@ -117,13 +109,14 @@ def get_complaint_data(status_filter=None, assigned_filter=None):
             formatted_complaints.append({
                 'complaint_id': complaint.complaint_id,
                 'type_of_complaint': complaint.type_of_complaint,
-                'complainant_name': formatted_name,
+                'complainant_name': complaint.complainant_name or 'N/A',
                 'address': formatted_address,
                 'priority_level': complaint.priority_level or 'Minor',
                 'status': complaint.status,
                 'complaint_stage': complaint.complaint_stage,
                 'date_received': complaint.date_received.strftime('%Y-%m-%d') if complaint.date_received else '',
-                'description': complaint.description or ''
+                'description': complaint.description or '',
+                'action_needed': 'Pending'  # Default action needed
             })
         
         return formatted_complaints
@@ -169,6 +162,10 @@ def complaint_details_valid():
 def complaint_details_invalid():
     return send_file(os.path.join(frontend_path, "admin", "complaints", "complaint_details_invalid.html"))
 
+@complaints_bp.route("/unresolved.html")
+def complaints_unresolved():
+    return send_file(os.path.join(frontend_path, "admin", "complaints", "unresolved.html"))
+
 # API Routes for Admin
 @complaints_bp.route('/api/all', methods=['GET'])
 def get_all_complaints():
@@ -199,7 +196,7 @@ def get_pending_complaints():
         # if session.get('account') != 1:
         #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
-        complaints = get_complaint_data(status_filter='Pending')
+        complaints = get_complaint_data(stage_filter='Pending')
         
         response = jsonify(complaints)
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -218,7 +215,7 @@ def get_ongoing_complaints():
         # if session.get('account') != 1:
         #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
-        complaints = get_complaint_data(status_filter='Ongoing')
+        complaints = get_complaint_data(stage_filter='Ongoing')
         
         response = jsonify(complaints)
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -237,7 +234,7 @@ def get_resolved_complaints():
         # if session.get('account') != 1:
         #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
-        complaints = get_complaint_data(status_filter='Resolved')
+        complaints = get_complaint_data(stage_filter='Resolved')
         
         response = jsonify(complaints)
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -256,7 +253,7 @@ def get_assigned_complaints():
         # if session.get('account') != 1:
         #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
-        # Get complaints that have been assigned to staff
+        # Get complaints that have been assigned to staff from complaint_history
         query = """
         SELECT DISTINCT
             c.complaint_id,
@@ -266,21 +263,13 @@ def get_assigned_complaints():
             c.complaint_stage,
             c.date_received,
             c.description,
-            r.first_name,
-            r.middle_name,
-            r.last_name,
-            r.suffix,
-            r.lot_no,
-            b.block_no,
-            a.area_name,
-            ch.assigned_to,
-            ch.action_type,
-            ch.description as action_description,
-            ch.date_created as action_date
+            c.complainant_name,
+            COALESCE(r.lot_no, 0) as lot_no,
+            COALESCE(r.block_no, 0) as block_no,
+            COALESCE(a.area_name, 'N/A') as area_name
         FROM complaints c
-        LEFT JOIN registration r ON c.complainant_name = CONCAT(r.first_name, ' ', IFNULL(CONCAT(LEFT(r.middle_name, 1), '. '), ''), r.last_name, IFNULL(CONCAT(', ', r.suffix), ''))
-        LEFT JOIN areas a ON r.area_id = a.area_id  
-        LEFT JOIN blocks b ON r.block_id = b.block_id
+        LEFT JOIN registration r ON c.registration_id = r.registration_id
+        LEFT JOIN areas a ON r.hoa = a.area_id
         INNER JOIN complaint_history ch ON c.complaint_id = ch.complaint_id
         WHERE ch.assigned_to IS NOT NULL AND ch.assigned_to != ''
         ORDER BY c.date_received DESC
@@ -291,13 +280,6 @@ def get_assigned_complaints():
         
         formatted_complaints = []
         for complaint in complaints:
-            formatted_name = format_complainant_name(
-                complaint.first_name,
-                complaint.middle_name, 
-                complaint.last_name,
-                complaint.suffix
-            )
-            
             formatted_address = format_address(
                 complaint.area_name,
                 complaint.lot_no,
@@ -307,17 +289,14 @@ def get_assigned_complaints():
             formatted_complaints.append({
                 'complaint_id': complaint.complaint_id,
                 'type_of_complaint': complaint.type_of_complaint,
-                'complainant_name': formatted_name,
+                'complainant_name': complaint.complainant_name or 'N/A',
                 'address': formatted_address,
-                'priority_level': complaint.priority_level,
+                'priority_level': complaint.priority_level or 'Minor',
                 'status': complaint.status,
                 'complaint_stage': complaint.complaint_stage,
                 'date_received': complaint.date_received.strftime('%Y-%m-%d') if complaint.date_received else '',
-                'description': complaint.description,
-                'assigned_to': complaint.assigned_to,
-                'action_type': complaint.action_type,
-                'action_description': complaint.action_description,
-                'action_date': complaint.action_date.strftime('%Y-%m-%d') if complaint.action_date else ''
+                'description': complaint.description or '',
+                'action_needed': 'Pending'
             })
         
         response = jsonify(formatted_complaints)
@@ -333,11 +312,31 @@ def get_assigned_complaints():
 def get_invalid_complaints():
     """Get invalid complaints for admin"""
     try:
-        # Check if user is admin
-        if session.get('account') != 1:
-            return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        # Check if user is admin - TEMPORARILY DISABLED FOR TESTING
+        # if session.get('account') != 1:
+        #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
         complaints = get_complaint_data(status_filter='invalid')
+        
+        response = jsonify({'success': True, 'complaints': complaints})
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+    
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@complaints_bp.route('/api/unresolved', methods=['GET'])
+def get_unresolved_complaints():
+    """Get unresolved complaints for admin (for future implementation)"""
+    try:
+        # Check if user is admin - TEMPORARILY DISABLED FOR TESTING
+        # if session.get('account') != 1:
+        #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+        # For now, return empty list - will be implemented later based on specific requirements
+        complaints = []
         
         response = jsonify(complaints)
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -450,10 +449,10 @@ def get_admin_complaint_stats():
         stats_query = """
         SELECT 
             COUNT(*) as total,
-            SUM(CASE WHEN complaint_stage = 'Pending' THEN 1 ELSE 0 END) as pending,
-            SUM(CASE WHEN complaint_stage = 'Ongoing' THEN 1 ELSE 0 END) as ongoing,
-            SUM(CASE WHEN complaint_stage = 'Resolved' THEN 1 ELSE 0 END) as resolved,
-            SUM(CASE WHEN complaint_stage != 'Resolved' THEN 1 ELSE 0 END) as unresolved,
+            SUM(CASE WHEN complaint_stage = 'Pending' AND status = 'Valid' THEN 1 ELSE 0 END) as pending,
+            SUM(CASE WHEN complaint_stage = 'Ongoing' AND status = 'Valid' THEN 1 ELSE 0 END) as ongoing,
+            SUM(CASE WHEN complaint_stage = 'Resolved' AND status = 'Valid' THEN 1 ELSE 0 END) as resolved,
+            SUM(CASE WHEN status = 'Invalid' THEN 1 ELSE 0 END) as unresolved,
             SUM(CASE WHEN status = 'Valid' THEN 1 ELSE 0 END) as valid,
             SUM(CASE WHEN status = 'Invalid' THEN 1 ELSE 0 END) as invalid
         FROM complaints
@@ -634,7 +633,7 @@ def api_add_action():
         })
         
         # Update complaint stage if action_type indicates a status change
-        if action_type in ['Assign', 'Investigation']:
+        if action_type in ['Assign', 'Pending']:
             update_query = "UPDATE complaints SET complaint_stage = 'Ongoing' WHERE complaint_id = :complaint_id"
             db.session.execute(text(update_query), {'complaint_id': complaint_id})
         

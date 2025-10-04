@@ -15,15 +15,23 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/admin/map/index.html" class="nav-item">Map</a>
+      <a href="/admin/dashboard" class="nav-item">Map</a>
       <a href="/admin/complaints/all.html" class="nav-item active">Complaints</a>
-      <a href="/admin/database/beneficiaries.html" class="nav-item">Database</a>
+      <a href="/admin/database/beneficiaries.html" class="nav-item">Beneficiaries</a>
+      <a href="/admin/database/policies.html" class="nav-item">Policies</a>
     </nav>
   </aside>
 
   <!-- Main Content -->
   <main class="main-content">
-    <header class="header"><h1>Complaint</h1></header>
+    <header class="header">
+      <div class="header-content">
+        <div class="header-left">
+          <button class="back-arrow" onclick="goBack()" title="Back to Complaints">←</button>
+          <h1>Complaint</h1>
+        </div>
+      </div>
+    </header>
 
     <div class="complaint-layout" style="margin-top: 30px;">
       <!-- Complaint Form Placeholder -->
@@ -393,6 +401,18 @@
     } catch (error) {
       console.error('Error resolving complaint:', error);
       alert('Error resolving complaint. Please try again.');
+    }
+  }
+
+  // Back arrow functionality
+  function goBack() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const referrer = urlParams.get('referrer');
+    
+    if (referrer) {
+      window.location.href = `/admin/complaints/${referrer}`;
+    } else {
+      window.location.href = '/admin/complaints/all.html';
     }
   }
   </script>
