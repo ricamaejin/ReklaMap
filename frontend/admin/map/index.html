@@ -18,7 +18,8 @@
     <nav class="nav-menu">
       <a href="/admin/dashboard" class="nav-item active">Map</a>
       <a href="/admin/complaints/all.html" class="nav-item">Complaints</a>
-      <a href="/admin/database/beneficiaries.html" class="nav-item">Database</a>
+      <a href="/admin/database/beneficiaries.html" class="nav-item">Beneficiaries</a>
+      <a href="/admin/database/policies.html" class="nav-item">Policies</a>
     </nav>
   </aside>
 
@@ -43,9 +44,9 @@
     </header>
 
     <!-- Search -->
-    <div class="search-bar">
-      <input type="text" id="search-input" placeholder="Search..." />
-      <button id="clear-btn" style="display: none;">×</button>
+    <div class="search-bar" style="position: relative;">
+      <input type="text" id="search-input" placeholder="Search..." style="padding-right: 30px;" />
+      <button id="clear-btn" style="display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 16px; color: #666; cursor: pointer; padding: 0; width: 20px; height: 20px;">×</button>
       <div id="search-results" class="search-results" style="display: none;"></div>
     </div>
 
@@ -230,7 +231,7 @@
             const areaCode = area.id || area.getAttribute('data-name') || area.getAttribute('name') || 'unknown';
             const hasCorrespodingSvgFile = hasCorrespondingSvg(areaCode);
             
-            // Only add zoom effect if area has corresponding SVG file
+            // Only add zoom effect and hover if area has corresponding SVG file
             if (hasCorrespodingSvgFile) {
               let zoomTimeout;
 
@@ -288,7 +289,7 @@
       });
     }
 
-    // Search functionality
+    // Search functionality - only search for areas with SVG files
     async function searchDatabase(query) {
       try {
         console.log('Making fetch request to:', `/admin/search?q=${encodeURIComponent(query)}`);
@@ -297,7 +298,18 @@
         if (response.ok) {
           const data = await response.json();
           console.log('Response data:', data);
-          return data;
+          // Filter to only include areas that have corresponding SVG files and match word boundaries
+          const filteredData = data.filter(result => {
+            if (result.type === 'area') {
+              const areaCode = result.area_code?.toLowerCase();
+              const areaName = (result.area_name || '').toLowerCase();
+              const words = areaName.split(/\s+/);
+              const matchesQuery = words.some(word => word.startsWith(query.toLowerCase()));
+              return availableSvgFiles.includes(areaCode) && matchesQuery;
+            }
+            return false; // Only show areas, no beneficiaries or blocks
+          });
+          return filteredData;
         }
         console.error('Response not ok:', response.status, response.statusText);
         return [];
@@ -381,18 +393,9 @@
           let navigateUrl = '';
           
           if (result.type === 'area') {
-            displayText = `📍 ${result.area_name} (Area)`;
+            displayText = `📍 ${result.area_name}`;
             const areaCode = result.area_code?.toLowerCase();
-            navigateUrl = `/admin/map/${areaCode}`;
-          } else if (result.type === 'beneficiary') {
-            const fullName = result.name || `${result.first_name || ''} ${result.last_name || ''}`.trim();
-            displayText = `👤 ${fullName} - ${result.area_name}, Block ${result.block_no}, Lot ${result.lot_no}`;
-            const areaCode = result.area_code?.toLowerCase();
-            navigateUrl = `/admin/map/${areaCode}?highlight=beneficiary&block=${result.block_no}&lot=${result.lot_no}&name=${encodeURIComponent(fullName)}`;
-          } else if (result.type === 'block') {
-            displayText = `🏘️ ${result.area_name} - Block ${result.block_no}`;
-            const areaCode = result.area_code?.toLowerCase();
-            navigateUrl = `/admin/map/${areaCode}?highlight=block-${result.block_no}`;
+            navigateUrl = `/admin/map/${areaCode}`; // Navigate to Flask route
           }
           
           return `<div class="search-result-item" data-index="${index}" data-url="${navigateUrl}" onclick="navigateToResult('${navigateUrl}')">${displayText}</div>`;
@@ -423,6 +426,8 @@
       // Input event for auto-suggestions
       searchInput.addEventListener('input', (e) => {
         console.log('Input event fired, value:', e.target.value);
+        const query = e.target.value.trim();
+        clearBtn.style.display = query.length > 0 ? 'block' : 'none';
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(performSearch, 300);
       });
@@ -562,7 +567,7 @@
 
     .tooltip .data-label {
       color: #293647;
-      font-weight: 500;
+      font-weight: 700;
       flex: 1;
     }
 
@@ -602,27 +607,6 @@
     #search-input:focus {
       outline: none;
       border-color: #3b82f6;
-    }
-
-    #clear-btn {
-      position: absolute;
-      right: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: none;
-      border: none;
-      font-size: 18px;
-      color: #666;
-      cursor: pointer;
-      padding: 4px;
-      border-radius: 4px;
-      transition: background-color 0.2s ease;
-      z-index: 10;
-    }
-
-    #clear-btn:hover {
-      background-color: #f0f0f0;
-      color: #333;
     }
 
     .search-results {
