@@ -152,7 +152,7 @@ def api_assigned_complaints():
                 'type_of_complaint': complaint['type_of_complaint'] or 'N/A',
                 'hoa': complaint['area_name'] or 'N/A',
                 'address': formatted_address,
-                'action_needed': 'Investigation',
+                'action_needed': 'Pending',
                 'priority_level': complaint['priority_level'] or 'Minor',
                 'complaint_stage': complaint['complaint_stage']
             })
@@ -247,7 +247,7 @@ def api_resolved_complaints():
                 'type_of_complaint': complaint['type_of_complaint'] or 'N/A',
                 'hoa': complaint['area_name'] or 'N/A',
                 'address': formatted_address,
-                'action_needed': 'Investigation',
+                'action_needed': 'Pending',
                 'priority_level': complaint['priority_level'] or 'Minor',
                 'complaint_stage': complaint['complaint_stage']
             })
