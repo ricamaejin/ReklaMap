@@ -296,10 +296,6 @@ def complaints_ongoing():
 def complaints_resolved():
     return send_file(os.path.join(frontend_path, "admin", "complaints", "resolved.html"))
 
-@complaints_bp.route("/assigned.html")
-def complaints_assigned():
-    return send_file(os.path.join(frontend_path, "admin", "complaints", "assigned.html"))
-
 @complaints_bp.route("/invalid.html")
 def complaints_invalid():
     return send_file(os.path.join(frontend_path, "admin", "complaints", "invalid.html"))
@@ -387,92 +383,6 @@ def get_resolved_complaints():
         complaints = get_complaint_data_with_proper_areas(stage_filter='Resolved')
         
         response = jsonify(complaints)
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
-        return response
-    
-    except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
-
-@complaints_bp.route('/api/assigned', methods=['GET'])
-def get_assigned_complaints():
-    """Get complaints assigned by the current admin"""
-    try:
-        # Check if user is admin - TEMPORARILY DISABLED FOR TESTING
-        # if session.get('account') != 1:
-        #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-        
-        # Get complaints assigned to the current admin from session
-        admin_name = session.get('admin_name')
-        if not admin_name:
-            return jsonify({'success': False, 'message': 'Admin name not found in session'}), 401
-        
-        query = """
-        SELECT DISTINCT
-            c.complaint_id,
-            c.type_of_complaint,
-            c.priority_level,
-            c.status,
-            c.complaint_stage,
-            c.date_received,
-            c.description,
-            c.complainant_name,
-            c.address,
-            COALESCE(r.lot_no, 0) as lot_no,
-            COALESCE(r.block_no, 0) as block_no,
-            COALESCE(a.area_name, 'N/A') as area_name,
-            ch_latest.assigned_to,
-            ch_latest.action_datetime,
-            ch_latest.type_of_action as latest_action
-        FROM complaints c
-        LEFT JOIN registration r ON c.registration_id = r.registration_id
-        LEFT JOIN areas a ON c.area_id = a.area_id
-        LEFT JOIN (
-            SELECT 
-                ch1.complaint_id,
-                ch1.assigned_to,
-                ch1.action_datetime,
-                ch1.type_of_action,
-                ROW_NUMBER() OVER (PARTITION BY ch1.complaint_id ORDER BY ch1.action_datetime DESC) as rn
-            FROM complaint_history ch1
-        ) ch_latest ON c.complaint_id = ch_latest.complaint_id AND ch_latest.rn = 1
-        WHERE ch_latest.assigned_to = :admin_name
-        ORDER BY c.date_received DESC
-        """
-        
-        result = db.session.execute(text(query), {'admin_name': admin_name})
-        complaints = result.fetchall()
-        
-        formatted_complaints = []
-        for complaint in complaints:
-            # Use address directly from complaints table if available, otherwise format from components
-            if complaint.address:
-                formatted_address = complaint.address
-            else:
-                formatted_address = format_address(
-                    complaint.area_name,
-                    complaint.lot_no,
-                    complaint.block_no
-                )
-            
-            formatted_complaints.append({
-                'complaint_id': complaint.complaint_id,
-                'type_of_complaint': complaint.type_of_complaint,
-                'complainant_name': complaint.complainant_name or 'N/A',
-                'address': formatted_address,
-                'priority_level': complaint.priority_level or 'Minor',
-                'status': complaint.status,
-                'complaint_stage': complaint.complaint_stage,
-                'date_received': complaint.date_received.strftime('%Y-%m-%d') if complaint.date_received else '',
-                'description': complaint.description or '',
-                'assigned_to': complaint.assigned_to,
-                'action_datetime': complaint.action_datetime.isoformat() if complaint.action_datetime else None,
-                'latest_action': complaint.latest_action or 'Pending',
-                'action_needed': complaint.latest_action or 'Pending'
-            })
-        
-        response = jsonify(formatted_complaints)
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
@@ -715,8 +625,7 @@ def get_admin_complaint_stats():
             'resolved': stats.resolved or 0,
             'unresolved': stats.unresolved or 0,
             'valid': stats.valid or 0,
-            'invalid': stats.invalid or 0,
-            'assigned': 0  # Will be calculated from complaint_history if needed
+            'invalid': stats.invalid or 0
         })
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
@@ -952,10 +861,10 @@ def api_add_action():
         account_type = session.get('account', 1)  # Default to admin if not set
         
         # #restrict actions
-        if account_type == 1 and action_type not in ["Assessment", "Mediation"]:
-            return jsonify({'error': 'Admins can only add Assessment or Mediation'}), 403
-        if account_type == 2 and action_type not in ["Inspection", "Invitation"]:
-            return jsonify({'error': 'Staff can only add Inspection or Invitation'}), 403
+        # if account_type == 1 and action_type not in ["Assessment", "Mediation"]:
+        #     return jsonify({'error': 'Admins can only add Assessment or Mediation'}), 403
+        # if account_type == 2 and action_type not in ["Inspection", "Invitation"]:
+        #     return jsonify({'error': 'Staff can only add Inspection or Invitation'}), 403
 
         # #build details JSON depending on action type - preserve frontend detail building
         details = {}

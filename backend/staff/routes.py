@@ -1,5 +1,5 @@
 import os
-from flask import Blueprint, request, jsonify, session, redirect, Response
+from flask import Blueprint, request, jsonify, session, redirect, Response, render_template
 from ..database.models import Admin, Complaint, ComplaintHistory, Area
 from ..database.db import db
 from sqlalchemy import text
@@ -112,12 +112,14 @@ def get_staff_complaint_data_with_proper_areas(staff_name=None, stage_filter=Non
                 'complainant': complaint.complainant_name or 'N/A',
                 'type_of_complaint': complaint.type_of_complaint or 'N/A',
                 'hoa': complaint.area_name or 'N/A',
-                'area_name': complaint.area_name or 'N/A',  # ADD THIS LINE - Include area_name for consistency
+                'area_name': complaint.area_name or 'N/A',
                 'address': formatted_address,
                 'priority_level': complaint.priority_level or 'Minor',
                 'complaint_stage': complaint.complaint_stage or 'N/A',
                 'assigned_to': complaint.assigned_to or 'N/A',
-                'latest_action': complaint.latest_action or 'N/A'
+                'latest_action': complaint.latest_action or 'N/A',
+                'action_datetime': complaint.action_datetime.isoformat() if complaint.action_datetime else None,
+                'action_needed': complaint.latest_action or 'Assignment'  # Map latest_action to action_needed
             })
         
         print(f"[DEBUG STAFF] Found {len(complaints_data)} complaints")
@@ -196,6 +198,29 @@ def api_assigned_complaints():
             stage_filter=None  # All stages except resolved
         )
         
+        # Debug: Log the data structure for the first complaint
+        if complaints_data:
+            print(f"[DEBUG] First complaint data structure: {complaints_data[0]}")
+        else:
+            print(f"[DEBUG] No complaints found for staff: {staff_name}")
+            
+            # Debug: Show what staff names are actually in the database
+            try:
+                debug_query = """
+                SELECT DISTINCT ch.assigned_to, COUNT(*) as count
+                FROM complaint_history ch
+                WHERE ch.assigned_to IS NOT NULL AND ch.assigned_to != ''
+                GROUP BY ch.assigned_to
+                ORDER BY count DESC
+                """
+                debug_result = db.session.execute(text(debug_query))
+                available_staff = debug_result.fetchall()
+                print(f"[DEBUG] Available staff assignments in database:")
+                for staff in available_staff:
+                    print(f"  - '{staff.assigned_to}': {staff.count} assignments")
+            except Exception as debug_error:
+                print(f"[DEBUG] Could not fetch available staff: {debug_error}")
+        
         response = jsonify({
             'success': True,
             'complaints': complaints_data
@@ -239,6 +264,31 @@ def api_resolved_complaints():
     except Exception as e:
         print(f"Error in resolved complaints API: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@staff_bp.route('/api/current-staff')
+def api_current_staff():
+    """API endpoint to get current staff info for routing"""
+    # TEMPORARILY DISABLE AUTH FOR DEBUGGING
+    # Allow testing with different staff names via query parameter
+    test_staff = request.args.get('test_staff')
+    
+    if test_staff:
+        staff_name = test_staff
+    else:
+        staff_name = session.get('admin_name') or "Alberto Nonato Jr."  # Default to Alberto for testing
+    
+    print(f"[DEBUG] Current staff API returning: {staff_name}")
+    
+    response = jsonify({
+        'success': True,
+        'admin_name': staff_name,
+        'name': staff_name  # For compatibility with existing code
+    })
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @staff_bp.route('/api/stats')
 def api_staff_stats():
