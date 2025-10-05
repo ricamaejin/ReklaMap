@@ -393,7 +393,7 @@
             }
         }
 
-    // Update date & time inside whichever modal is open
+    // Update date & time inside whichever modal is open - uses frontend current time
     function updateComplaintDateTime(targetId) {
       const now = new Date();
       const dateStr = now.toLocaleDateString('en-US', {
@@ -816,31 +816,35 @@
     return text.substring(0, maxLength).trim() + '...';
   }
   
-  // Map action types to standardized timeline status labels
-  function mapActionToTimelineStatus(actionType, isCompleted = false) {
+  // Map action types to standardized timeline status labels - ONLY 7 ALLOWED STATUSES
+  function mapActionToTimelineStatus(actionType, isCompleted = false, role = 'admin') {
+    // ADMIN VIEW: Only allowed sequential flow statuses
     const statusMap = {
-      'Inspection': isCompleted ? 'Inspection done' : 'Inspection',
-      'Invitation': 'Send Invitation',
-      'Mediation': 'Mediation',
-      'Assessment': 'Assessment',
-      'Accepted Invitation': 'Accepted Invitation'
+      'Submitted': 'Submitted a Valid Complaint',
+      'Inspection': 'Inspection',
+      'Inspection done': 'Inspection done',
+      'Invitation': 'Send Invitation',  // Admin creates invitation task - show as assignment
+      'Send Invitation': 'Send Invitation',  // Map legacy to new label
+      'Sent Invitation': 'Sent Invitation',
+      'Task Completed': 'Inspection done',  // Map legacy Task Completed to Inspection done
+      'Resolved': 'Resolved'
     };
     return statusMap[actionType] || actionType;
   }
   
-  // Generate default messages for actions without descriptions
+  // Generate default messages for actions without descriptions - ONLY 7 ALLOWED STATUSES
   function getDefaultMessage(actionType, assignedTo) {
     const timelineStatus = mapActionToTimelineStatus(actionType);
     const messages = {
-      'Inspection': `Staff has already inspected the site`,
-      'Inspection done': `Site inspection completed`,
-      'Send Invitation': `Invitation sent to involved parties`,
-      'Accepted Invitation': `Both parties have accepted the invitation`,
-      'Mediation': `Mediation session conducted`,
-      'Assessment': `Assessment completed by ${assignedTo || 'staff'}`,
-      'Task Completed': `Task completed and passed back to admin`
+      'Submitted a Valid Complaint': 'Complaint has been received and validated',
+      'Inspection': `Site inspection assigned to ${assignedTo || 'staff'}`,
+      'Inspection done': `Site inspection completed by ${assignedTo || 'staff'}`,
+      'Send Invitation': `Invitation task assigned to ${assignedTo || 'staff'}`,
+      'Sent Invitation': `Invitation sent to parties by ${assignedTo || 'staff'}`,
+      'Task Completed': `Task completed and passed back to admin`,
+      'Resolved': 'Complaint has been resolved'
     };
-    return messages[timelineStatus] || `${timelineStatus} completed`;
+    return messages[timelineStatus] || `${timelineStatus} - status unknown`;
   }
   
   // Format date for timeline display
@@ -885,14 +889,15 @@
         truncateDescription(entry.description) : 
         getDefaultMessage(entry.type_of_action, entry.assigned_to);
       
+      // File download button for files uploaded by staff/admin (especially for Sent Invitation entries)
       const fileButton = entry.has_file ? 
-        `<button class="file-btn" data-pdf="${entry.file_path || '#'}" onclick="openTimelineFile('${entry.file_path || '#'}')"></button>` : 
+        `<button class="file-btn" data-pdf="${entry.file_path || '#'}" onclick="openTimelineFile('${entry.file_path || '#'}')" style="background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; margin-left: 10px;">📄 Download File</button>` : 
         '';
       
       const assignedTo = entry.assigned_to ? `<span>${entry.assigned_to}</span>` : '';
       
-      // Add "Accepted Invitation" button for Send Invitation entries
-      const acceptInvitationButton = timelineStatus === 'Send Invitation' ?
+      // Add "Mark as Accepted" button for "Sent Invitation" entries (admin.account == 1 only)
+      const acceptInvitationButton = timelineStatus === 'Sent Invitation' ?
         `<button class="accept-invitation-btn" onclick="showAcceptInvitationModal(${entry.history_id})" style="margin-left: 10px; background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Mark as Accepted</button>` : '';
       
       return `

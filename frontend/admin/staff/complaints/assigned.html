@@ -224,20 +224,23 @@
       }
     }
 
-    // Load staff statistics
+    // Load staff statistics - resolved count will be loaded separately
     async function loadStats() {
       try {
-        const response = await fetch(`/staff/api/stats?_=${Date.now()}`);
-        const data = await response.json();
+        // Load resolved count for current staff only
+        const resolvedResponse = await fetch(`/staff/api/complaints/resolved?_=${Date.now()}`);
+        const resolvedData = await resolvedResponse.json();
         
-        if (data.success) {
-          document.getElementById('total-assigned').textContent = data.total_assigned || 0;
-          document.getElementById('resolved-count').textContent = data.resolved || 0;
+        if (resolvedData.success) {
+          // Update resolved count based on current staff's resolved complaints
+          document.getElementById('resolved-count').textContent = resolvedData.complaints ? resolvedData.complaints.length : 0;
         } else {
-          console.error('Error loading stats:', data.message);
+          console.error('Error loading resolved stats:', resolvedData.message);
+          document.getElementById('resolved-count').textContent = '0';
         }
       } catch (error) {
         console.error('Error loading stats:', error);
+        document.getElementById('resolved-count').textContent = '0';
       }
     }
 
@@ -250,8 +253,13 @@
       
       if (!complaints || complaints.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">No assigned complaints found</td></tr>';
+        // Update assigned count to 0
+        document.getElementById('total-assigned').textContent = '0';
         return;
       }
+      
+      // Update assigned count based on visible complaints in this table
+      document.getElementById('total-assigned').textContent = complaints.length;
       
       complaints.forEach(complaint => {
         const row = document.createElement('tr');

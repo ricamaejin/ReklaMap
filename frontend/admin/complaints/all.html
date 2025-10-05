@@ -226,11 +226,11 @@
           
           if (daysDiff < 0) {
             status = 'Overdue';
-            countdown = `<br/><small style="color: red; font-weight: bold;">${Math.abs(daysDiff)} days overdue</small>`;
+            countdown = `<br/><small style="color: red; font-weight: bold;">${Math.abs(daysDiff)} day/s overdue</small>`;
           } else if (daysDiff === 0) {
             countdown = '<br/><small style="color: orange; font-weight: bold;">Due today</small>';
           } else {
-            countdown = `<br/><small style="color: green;">${daysDiff} days left</small>`;
+            countdown = `<br/><small style="color: green;">${daysDiff} day/s left</small>`;
           }
           
           return status + countdown;
@@ -275,23 +275,23 @@
           row.style.backgroundColor = '#FFE6A7'; // Fallback inline style
           console.log('Applied status-pending class');
         } else if (complaint.complaint_stage === 'Ongoing') {
-          // For ongoing complaints, color based on action_needed (will be implemented later)
-          const actionNeeded = (complaint.action_needed || '').toLowerCase();
+          // Apply styling based on action needed - whole row gets colored
+          const actionNeeded = (complaint.action_needed || complaint.latest_action || '').toLowerCase();
           if (actionNeeded.includes('inspection')) {
             row.classList.add('status-inspection');
-            row.style.backgroundColor = '#A7D8F2'; // Fallback inline style
+            row.style.backgroundColor = '#A7D8F2'; // Light blue for inspection/inspection done
             console.log('Applied status-inspection class');
           } else if (actionNeeded.includes('invitation')) {
             row.classList.add('status-invitation');
-            row.style.backgroundColor = '#9FE2BF'; // Fallback inline style
+            row.style.backgroundColor = '#9FE2BF'; // Light green for invitation/sent invitation
             console.log('Applied status-invitation class');
           } else if (actionNeeded.includes('mediation')) {
             row.classList.add('status-mediation');
-            row.style.backgroundColor = '#C9B6E4'; // Fallback inline style
+            row.style.backgroundColor = '#C9B6E4'; // Light purple for mediation
             console.log('Applied status-mediation class');
           } else if (actionNeeded.includes('assessment')) {
             row.classList.add('status-assessment');
-            row.style.backgroundColor = '#B5E48C'; // Fallback inline style
+            row.style.backgroundColor = '#B5E48C'; // Light green for assessment
             console.log('Applied status-assessment class');
           }
         } else if (complaint.assigned_to) {

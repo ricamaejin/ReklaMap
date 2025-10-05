@@ -40,7 +40,8 @@
       <div class="right-panel">
         <div class="map-card">Map / Asset details here...</div>
 
-        <!-- Dynamic Timeline Component for Staff -->
+        <!-- Dynamic Timeline Component for Staff (copied from admin layout) -->
+        <!-- TODO BACKEND: Replace static timeline entries with timeline data from DB -->
         <div class="timeline" id="complaintTimeline">
           <div class="timeline-loading" id="timelineLoading" style="text-align: center; padding: 20px; color: #666;">
             Loading timeline...
@@ -66,36 +67,33 @@
     </div>
 
     <div class="modal-body">
-      <!-- TODO Backend: connect to admin's instructions -->
+      <!-- Dynamic data loaded from admin's invitation assignment -->
       <div class="form-group">
         <label>Individuals to be informed:</label>
-        <div class="stacked-inputs">
-          <input type="text" value="Ofelia Aranzado" readonly />
-          <input type="text" value="Danilo Palmero Sr." readonly />
-          <input type="text" value="Elpidia Gilbuela" readonly />
-          <input type="text" value="Racelyn Degala" readonly />
+        <div class="stacked-inputs" id="staffInvIndividuals">
+          <input type="text" value="Loading..." readonly />
         </div>
       </div>
       <hr>
 
       <div class="form-group">
         <label>Date:</label>
-        <input type="text" value="21/10/2025" class="short" readonly />
+        <input type="text" id="staffInvDate" value="Loading..." class="short" readonly />
       </div>
 
       <div class="form-group">
         <label>Time:</label>
-        <input type="text" value="9:00 AM" class="short" readonly />
+        <input type="text" id="staffInvTime" value="Loading..." class="short" readonly />
       </div>
 
       <div class="form-group">
         <label>Venue</label>
-        <input type="text" value="2nd Floor USAD-PHASELAD Office, Main Brgy. Holy Spirit" class="short" readonly />
+        <input type="text" id="staffInvVenue" value="Loading..." class="short" readonly />
       </div>
 
       <div class="form-group">
         <label>Agenda</label>
-        <input type="text" value="Reblocking" class="short" readonly />
+        <input type="text" id="staffInvAgenda" value="Loading..." class="short" readonly />
       </div>
 
       <hr>
@@ -144,16 +142,142 @@
     dateEl.innerHTML = `${dateStr}<br>${timeStr}`;
   }
 
-  // Open Action modal directly
+  // Load invitation data from database using staff-specific endpoint
+  async function loadInvitationData() {
+    try {
+      const complaintId = getComplaintIdFromURL();
+      if (!complaintId) {
+        console.error('No complaint ID found for loading invitation data');
+        return;
+      }
+
+      console.log(`[STAFF DATA] Loading invitation data for complaint ${complaintId}`);
+      
+      // Fetch the actual invitation details that admin inputted when creating the Invitation action
+      const response = await fetch(`/admin/complaints/api/staff_invitation_data/${complaintId}`, {
+        credentials: 'same-origin'
+      });
+
+      if (!response.ok) {
+        console.error(`Failed to load invitation data: ${response.status}`);
+        // Set fallback values if API fails
+        const individualsContainer = document.getElementById('staffInvIndividuals');
+        const dateEl = document.getElementById('staffInvDate');
+        const timeEl = document.getElementById('staffInvTime');
+        const venueEl = document.getElementById('staffInvVenue');
+        const agendaEl = document.getElementById('staffInvAgenda');
+        
+        if (individualsContainer) individualsContainer.innerHTML = '<input type="text" value="Not assigned yet" readonly />';
+        if (dateEl) dateEl.value = 'Not set';
+        if (timeEl) timeEl.value = 'Not set';
+        if (venueEl) venueEl.value = 'Not specified';
+        if (agendaEl) agendaEl.value = 'Not specified';
+        return;
+      }
+
+      const result = await response.json();
+      console.log('[STAFF DATA] Admin invitation data received:', result);
+      
+      // Extract the invitation details (already processed by backend)
+      const individuals = result.individuals;
+      const meetingDate = result.meeting_date;
+      const meetingTime = result.meeting_time;
+      const venue = result.venue;
+      const agenda = result.agenda;
+      
+      // Fill readonly fields with data from admin's invitation action
+      const individualsContainer = document.getElementById('staffInvIndividuals');
+      const dateEl = document.getElementById('staffInvDate');
+      const timeEl = document.getElementById('staffInvTime');
+      const venueEl = document.getElementById('staffInvVenue');
+      const agendaEl = document.getElementById('staffInvAgenda');
+      
+      // Handle individuals to invite (already split by backend)
+      if (individualsContainer && individuals) {
+        const individualsList = Array.isArray(individuals) ? individuals : [individuals];
+        individualsContainer.innerHTML = individualsList.map(person => 
+          `<input type="text" value="${person}" readonly />`
+        ).join('');
+      } else if (individualsContainer) {
+        individualsContainer.innerHTML = '<input type="text" value="Not specified" readonly />';
+      }
+      
+      if (dateEl) dateEl.value = meetingDate || 'Not specified';
+      if (timeEl) timeEl.value = meetingTime || 'Not specified';
+      if (venueEl) venueEl.value = venue || 'Not specified';
+      if (agendaEl) agendaEl.value = agenda || 'Not specified';
+      
+    } catch (error) {
+      console.error('[STAFF DATA] Error loading admin invitation action details:', error);
+      // Set error values
+      const individualsContainer = document.getElementById('staffInvIndividuals');
+      const dateEl = document.getElementById('staffInvDate');
+      const timeEl = document.getElementById('staffInvTime');
+      const venueEl = document.getElementById('staffInvVenue');
+      const agendaEl = document.getElementById('staffInvAgenda');
+      
+      if (individualsContainer) individualsContainer.innerHTML = '<input type="text" value="Error loading admin data" readonly />';
+      if (dateEl) dateEl.value = 'Error loading data';
+      if (timeEl) timeEl.value = 'Error loading data';
+      if (venueEl) venueEl.value = 'Error loading data';
+      if (agendaEl) agendaEl.value = 'Error loading data';
+    }
+  }
+
+  // Check if page is in readonly mode (resolved complaints)
+  function isReadonlyMode() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('readonly') === 'true';
+  }
+
+  // Open Action modal directly and load invitation data
   function openComplaint() {
+    // Check if in readonly mode
+    if (isReadonlyMode()) {
+      alert('This complaint has been resolved and cannot be modified.');
+      return;
+    }
+    
     modal.style.display = 'flex';
     updateComplaintDateTime();
     if (!interval) interval = setInterval(updateComplaintDateTime, 1000);
-
-    // Commented out because these elements don't exist in your HTML
-    // select.value = "";
-    // actionOther.style.display = "none";
+    
+    // Load invitation assignment data from database
+    loadInvitationData();
   }
+
+// Apply readonly styles and disable functionality for resolved complaints
+function applyReadonlyState() {
+  if (isReadonlyMode()) {
+    // Gray out and disable the Action button
+    const actionBtn = document.querySelector('.action-btn');
+    if (actionBtn) {
+      actionBtn.style.opacity = '0.5';
+      actionBtn.style.cursor = 'not-allowed';
+      actionBtn.style.backgroundColor = '#6c757d';
+      actionBtn.title = 'This complaint has been resolved';
+    }
+    
+    // Disable all form fields in the modal
+    const modal = document.getElementById('modal');
+    if (modal) {
+      const formElements = modal.querySelectorAll('input, textarea, select, button');
+      formElements.forEach(element => {
+        if (element.type !== 'button' || element.textContent === 'Update') {
+          element.disabled = true;
+          element.style.opacity = '0.6';
+          element.style.cursor = 'not-allowed';
+        }
+      });
+    }
+    
+    // Add visual indicator
+    const header = document.querySelector('.header h1');
+    if (header) {
+      header.innerHTML += ' <span style="color: #6c757d; font-size: 0.8em;">(Resolved - Read Only)</span>';
+    }
+  }
+}
 
   function closeComplaint() {
     modal.style.display = 'none';
@@ -192,43 +316,67 @@ if (fileInput) {
 }
 })();
 
-/* Files Modal */
+/* Files Modal - Removed because filesModal element doesn't exist in HTML */
+// These functions were causing TypeError: Cannot read properties of null
+// Commented out until filesModal is added to HTML structure
+
+/*
 function openFiles() {
   const modal = document.getElementById("filesModal");
-  modal.style.display = "flex";
-  updateFilesDateTime();
+  if (modal) {
+    modal.style.display = "flex";
+    updateFilesDateTime();
+  }
 }
 
 function closeFiles() {
-  document.getElementById("filesModal").style.display = "none";
+  const modal = document.getElementById("filesModal");
+  if (modal) {
+    modal.style.display = "none";
+  }
 }
 
 function updateFilesDateTime() {
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('en-US', {
-    weekday: 'short', year: 'numeric', month: 'long', day: 'numeric'
-  });
-  const timeStr = now.toLocaleTimeString('en-US', {
-    hour: '2-digit', minute: '2-digit', hour12: true
-  });
-  document.getElementById("filesDateTime").innerHTML = `${dateStr}<br>${timeStr}`;
+  const filesDateTime = document.getElementById("filesDateTime");
+  if (filesDateTime) {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', {
+      weekday: 'short', year: 'numeric', month: 'long', day: 'numeric'
+    });
+    const timeStr = now.toLocaleTimeString('en-US', {
+      hour: '2-digit', minute: '2-digit', hour12: true
+    });
+    filesDateTime.innerHTML = `${dateStr}<br>${timeStr}`;
+  }
 }
 
-document.getElementById("filesModal").addEventListener("click", e => {
-  if (e.target.id === "filesModal") closeFiles();
-});
+const filesModal = document.getElementById("filesModal");
+if (filesModal) {
+  filesModal.addEventListener("click", e => {
+    if (e.target.id === "filesModal") closeFiles();
+  });
+}
+*/
 
-/* Switch tabs */
+/* Switch tabs - Removed because .file-tabs elements don't exist in HTML */
+// These selectors were causing potential errors
+// Commented out until file-tabs are added to HTML structure
+
+/*
 document.querySelectorAll('.file-tabs .tab').forEach(tab => {
   tab.addEventListener('click', function () {
     document.querySelectorAll('.file-tabs .tab').forEach(t => t.classList.remove('active'));
     this.classList.add('active');
 
     const target = this.getAttribute('data-tab');
-    document.querySelector('.uploaded-list').style.display = target === "uploaded" ? "block" : "none";
-    document.querySelector('.downloadable-list').style.display = target === "downloadable" ? "block" : "none";
+    const uploadedList = document.querySelector('.uploaded-list');
+    const downloadableList = document.querySelector('.downloadable-list');
+    
+    if (uploadedList) uploadedList.style.display = target === "uploaded" ? "block" : "none";
+    if (downloadableList) downloadableList.style.display = target === "downloadable" ? "block" : "none";
   });
 });
+*/
 
 /* Save Button - you don’t have .btn-save in HTML, so I commented this out
 const saveBtn = document.querySelector(".btn-save");
@@ -259,9 +407,10 @@ if (saveBtn) {
 }
 */
 
-// Resolved Task function
+// Resolved Task function - implements Staff workflow for invitation completion
+// When staff clicks Update: last timeline status changes to "Sent Invitation"
+// Complaint then transitions to appear under resolved.html for staff view
 async function resolveTask() {
-  const findings = document.getElementById("findings").value.trim();
   const files = Array.from(document.getElementById("inspectionFile").files);
 
   // Validation checks
@@ -278,40 +427,50 @@ async function resolveTask() {
     return;
   }
 
-  // If all validations pass → proceed
+  // If validation passes → proceed with Sent Invitation workflow
   const complaintId = getComplaintIdFromURL();
   
   try {
-    const response = await fetch('/admin/complaints/api/action', {
+    console.log('[STAFF WORKFLOW] Submitting Sent Invitation for complaint:', complaintId);
+    
+    const response = await fetch('/admin/complaints/api/staff_complete_task', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         complaint_id: complaintId,
-        action_type: 'Task Completed',
-        description: findings,
-        files: files.map(f => f.name)
+        action_type: 'Sent Invitation',
+        description: 'Notice of Meeting sent to all parties',
+        files: files.map(f => f.name),
+        staff_account_type: currentStaffAccount, // admin.account == 2
+        completed_by_staff: true, // Flag to mark this as staff completion
+        task_type: 'invitation', // Specify this is invitation completion
+        invitation_details: {
+          notice_attached: true,
+          file_count: files.length,
+          completion_notes: 'Meeting notice distributed to all specified individuals'
+        }
       })
     });
     
     const result = await response.json();
     
     if (result.success) {
-      alert('Task completed successfully!');
+      // Update timeline to show "Sent Invitation" status
+      await refreshTimeline();
       
       // Update resolved counter
       updateResolvedCounter();
       
-      // Redirect to resolved view
+      // Redirect to staff resolved view (complaint should now appear there)
       window.location.href = '/staff/complaints/resolved';
     } else {
-      alert('Error completing task: ' + (result.error || result.message));
+      console.error('Error completing invitation task:', result.error || result.message);
     }
     
   } catch (error) {
-    console.error('Error completing task:', error);
-    alert('Error completing task. Please try again.');
+    console.error('[STAFF WORKFLOW] Error completing invitation task:', error);
   } finally {
     // Close modal after submission
     closeComplaint();
@@ -320,7 +479,10 @@ async function resolveTask() {
 
 function getComplaintIdFromURL() {
   const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get('id') || '1';
+  const id = urlParams.get('id');
+  console.log('URL parameters:', window.location.search);
+  console.log('Extracted complaint ID:', id);
+  return id || '1';
 }
 
 // Back button functionality
@@ -362,38 +524,41 @@ window.updateResolvedCounter = updateResolvedCounter;
 // DYNAMIC TIMELINE SYSTEM FOR STAFF
 // =====================================
 
-// Timeline management
+// Timeline management for Staff View
 let timelineData = [];
 let currentRole = 'staff'; // Staff role for this page
+let currentStaffAccount = 2; // Staff account type (admin.account == 2)
 
-// Load timeline data from API
+// Load real timeline data from API for staff view
+// Shows: previously saved status entries from admin up to staff's assigned task
 async function loadTimelineData() {
   try {
     const complaintId = getComplaintIdFromURL();
     if (!complaintId) {
-      console.error('No complaint ID found');
+      console.error('[STAFF TIMELINE] No complaint ID found in URL');
       return [];
     }
     
-    console.log(`Loading timeline for complaint ${complaintId} with role ${currentRole}`);
+    console.log(`[STAFF TIMELINE] Loading timeline for complaint ${complaintId} with staff role`);
     
-    const response = await fetch(`/admin/complaints/api/timeline/${complaintId}?role=staff`, {
+    const response = await fetch(`/admin/complaints/api/timeline/${complaintId}?role=staff&account_type=2`, {
       credentials: 'same-origin'
     });
     
-    console.log(`Timeline API response status: ${response.status}`);
+    console.log(`[STAFF TIMELINE] API response status: ${response.status}`);
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Timeline API error: ${response.status} - ${errorText.substring(0, 200)}`);
+      console.error(`[STAFF TIMELINE] API error: ${response.status} - ${errorText.substring(0, 200)}`);
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
     const data = await response.json();
-    console.log('Timeline data received:', data);
+    console.log('[STAFF TIMELINE] Real timeline data received:', data);
+    
     return data.timeline || [];
   } catch (error) {
-    console.error('Error loading timeline data:', error);
+    console.error('[STAFF TIMELINE] Error loading timeline data:', error);
     return [];
   }
 }
@@ -419,63 +584,145 @@ function truncateDescription(text, maxLength = 80) {
   return text.substring(0, maxLength).trim() + '...';
 }
 
-// Generate default messages for actions without descriptions
-function getDefaultMessage(actionType, assignedTo) {
-  const messages = {
-    'Inspection': `Inspection assigned and completed`,
-    'Invitation': `Invitation sent to involved parties`,
-    'Task Completed': `Task completed and passed back to admin`
+// Map action types to standardized timeline status labels - ONLY 7 ALLOWED STATUSES
+function mapActionToTimelineStatus(actionType, isCompleted = false, role = 'staff') {
+  // STAFF VIEW: Only allowed sequential flow statuses
+  const statusMap = {
+    'Submitted': 'Submitted a Valid Complaint',
+    'Inspection': isCompleted ? 'Inspection done' : 'Inspection',
+    'Invitation': isCompleted ? 'Sent Invitation' : 'Send Invitation',
+    'Task Completed': 'Task Completed',
+    'Resolved': 'Resolved'
   };
-  return messages[actionType] || `${actionType} action completed`;
+  return statusMap[actionType] || actionType;
 }
 
-// Render timeline entries for staff
+// Generate default messages for actions without descriptions - ONLY 7 ALLOWED STATUSES
+function getDefaultMessage(actionType, assignedTo) {
+  const timelineStatus = mapActionToTimelineStatus(actionType);
+  const messages = {
+    'Submitted a Valid Complaint': 'Your complaint has been received and validated',
+    'Inspection': `Site inspection assigned to ${assignedTo || 'inspector'}`,
+    'Inspection done': `Site inspection completed by ${assignedTo || 'inspector'}`,
+    'Send Invitation': `Invitation task assigned to ${assignedTo || 'staff'}`,
+    'Sent Invitation': `Invitation sent to involved parties by ${assignedTo || 'staff'}`,
+    'Task Completed': `Task completed and passed back to admin`,
+    'Resolved': 'Complaint has been resolved'
+  };
+  return messages[timelineStatus] || `${timelineStatus} completed`;
+}
+
+// Filter timeline entries based on user role
+function filterEntriesByRole(entries, role) {
+  switch (role) {
+    case 'admin':
+      // Admin sees all entries
+      return entries;
+      
+    case 'staff':
+      // Staff sees previously saved status entries from admin up to their assigned task
+      // Show ALL entries from admin work PLUS any staff completed tasks
+      console.log('[STAFF FILTER] Original entries:', entries);
+      const filteredForStaff = entries.filter(entry => {
+        // Show all admin entries (account type 1) and staff completed entries
+        return entry.admin_account_type === 1 || entry.completed_by_staff === true;
+      }).map(entry => {
+        // If this is the staff's completed task, show "Task Completed"
+        if (entry.completed_by_staff) {
+          return {
+            ...entry,
+            type_of_action: 'Task Completed',
+            description: 'Task completed and passed back to admin for further processing'
+          };
+        }
+        return entry;
+      });
+      console.log('[STAFF FILTER] Filtered entries for staff:', filteredForStaff);
+      return filteredForStaff;
+      
+    case 'complainant':
+      // Complainant sees only milestone completions
+      const milestones = ['Inspection done', 'Sent Invitation', 'Assessment', 'Resolved'];
+      return entries.filter(entry => {
+        const status = mapActionToTimelineStatus(entry.type_of_action);
+        return milestones.includes(status) || entry.type_of_action === 'Submitted';
+      }).map(entry => {
+        // Simplify for complainant view
+        if (entry.type_of_action === 'Submitted') {
+          return {
+            ...entry,
+            type_of_action: 'Submitted a valid complaint',
+            description: 'Your complaint has been received and validated'
+          };
+        }
+        return entry;
+      });
+      
+    default:
+      return entries;
+  }
+}
+
+// Render timeline entries for staff view (real data only)
 function renderTimeline(entries) {
+  console.log('[STAFF TIMELINE] renderTimeline called with entries:', entries);
+  
   const timelineContainer = document.getElementById('complaintTimeline');
   const loadingElement = document.getElementById('timelineLoading');
+  
+  if (!timelineContainer) {
+    console.error('[STAFF TIMELINE] Timeline container not found!');
+    return;
+  }
   
   if (loadingElement) {
     loadingElement.style.display = 'none';
   }
   
   if (!entries || entries.length === 0) {
-    timelineContainer.innerHTML = '<div class="timeline-empty" style="text-align: center; padding: 20px; color: #888;">No timeline entries found</div>';
+    console.log('[STAFF TIMELINE] No timeline entries found from database');
+    timelineContainer.innerHTML = `
+      <div class="timeline-empty" style="text-align: center; padding: 20px; color: #666;">
+        <h4>Timeline Status</h4>
+        <p>No timeline entries available for this complaint.</p>
+        <p><small>Timeline will show once admin assigns tasks and you begin work.</small></p>
+      </div>`;
     return;
   }
   
+  console.log(`[STAFF TIMELINE] Rendering ${entries.length} real timeline entries`);
+  
+  // Filter entries for staff view: previously saved status entries from admin up to staff's assigned task
+  let filteredEntries = filterEntriesByRole(entries, 'staff');
+  
   // Sort entries by date (most recent first)
-  entries.sort((a, b) => new Date(b.action_datetime) - new Date(a.action_datetime));
+  filteredEntries.sort((a, b) => new Date(b.action_datetime) - new Date(a.action_datetime));
   
-  // Generate HTML for timeline entries (staff view: actions performed + current status + task completion)
-  const timelineHTML = entries.map(entry => {
-    const date = formatTimelineDate(entry.action_datetime);
-    const description = entry.description ? 
-      truncateDescription(entry.description) : 
-      getDefaultMessage(entry.type_of_action, entry.assigned_to);
-    
-    const fileButton = entry.has_file ? 
-      `<button class="file-btn" data-pdf="${entry.file_path || '#'}" style="background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">📄 File</button>` : 
-      '';
-    
-    const assignedTo = entry.assigned_to ? `<span style="color: #666; font-size: 12px;">(${entry.assigned_to})</span>` : '';
-    
-    // Highlight task completion entries
-    const isTaskCompletion = entry.type_of_action.includes('Task Completed') || entry.type_of_action.includes('Task completed');
-    const entryStyle = isTaskCompletion ? 'border-left: 3px solid #ff9800; background-color: #fff3e0;' : 'border-left: 3px solid #2196F3; background-color: #f5f5f5;';
-    
-    return `
-      <div class="timeline-entry" style="margin-bottom: 15px; padding: 10px; ${entryStyle}">
-        <div class="timeline-date" style="font-size: 12px; color: #666; margin-bottom: 5px;">${date}</div>
-        <div class="timeline-content">
-          <h4 style="margin: 0 0 5px 0; color: #333; font-size: 14px;">${entry.type_of_action} ${assignedTo}</h4>
-          <p style="margin: 0 0 10px 0; font-size: 13px; color: #555;">${description}</p>
-          ${fileButton}
+    // Generate HTML for timeline entries (copy admin design structure)
+    const timelineHTML = filteredEntries.map(entry => {
+      const timelineStatus = mapActionToTimelineStatus(entry.type_of_action, false, 'staff');
+      const date = formatTimelineDate(entry.action_datetime);
+      const description = entry.description ? 
+        truncateDescription(entry.description) : 
+        getDefaultMessage(entry.type_of_action, entry.assigned_to);
+      
+      // File download button for files uploaded by staff/admin 
+      const fileButton = entry.has_file ? 
+        `<button class="file-btn" data-pdf="${entry.file_path || '#'}" onclick="openTimelineFile('${entry.file_path || '#'}')" style="background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; margin-left: 10px;">📄 Download File</button>` : 
+        '';
+      
+      const assignedTo = entry.assigned_to ? `<span>${entry.assigned_to}</span>` : '';
+      
+      return `
+        <div class="timeline-entry" data-status="${timelineStatus.toLowerCase().replace(/\s+/g, '-')}">
+          <h4>${date} - ${timelineStatus} 
+            ${fileButton}
+            ${assignedTo}
+          </h4>
+          <p>${description}</p>
         </div>
-      </div>
-    `;
-  }).join('');
-  
-  timelineContainer.innerHTML = timelineHTML;
+      `;
+    }).join('');  timelineContainer.innerHTML = timelineHTML;
   
   // Re-attach file button event listeners
   attachFileButtonListeners();
@@ -484,38 +731,77 @@ function renderTimeline(entries) {
 // Re-attach event listeners to file buttons
 function attachFileButtonListeners() {
   document.querySelectorAll('.file-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const pdfUrl = btn.getAttribute('data-pdf');
-      if (pdfUrl && pdfUrl !== '#') {
-        window.open(pdfUrl, '_blank');
-      } else {
-        alert('No file available for this entry.');
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const pdfPath = this.getAttribute('data-pdf');
+      if (pdfPath && pdfPath !== '#') {
+        openTimelineFile(pdfPath);
       }
     });
   });
 }
 
+// Open timeline file
+function openTimelineFile(filePath) {
+  if (filePath && filePath !== '#') {
+    window.open(filePath, '_blank');
+  } else {
+    alert('No file available for this entry.');
+  }
+}
+
 // Refresh timeline data
 async function refreshTimeline() {
+  console.log('[TIMELINE DEBUG] refreshTimeline() called');
+  
   try {
     const loadingElement = document.getElementById('timelineLoading');
     if (loadingElement) {
       loadingElement.style.display = 'block';
+      loadingElement.textContent = 'Loading timeline...';
+      console.log('[TIMELINE DEBUG] Showing loading element');
     }
     
+    console.log('[TIMELINE DEBUG] Starting timeline refresh...');
     const entries = await loadTimelineData();
+    console.log('[TIMELINE DEBUG] Timeline entries loaded:', entries);
+    
+    if (!entries) {
+      console.error('[TIMELINE DEBUG] loadTimelineData returned null/undefined');
+      throw new Error('Failed to load timeline data');
+    }
+    
     timelineData = entries;
+    console.log(`[TIMELINE DEBUG] About to render ${entries.length} entries`);
     renderTimeline(entries);
+    console.log('[TIMELINE DEBUG] Timeline refresh completed successfully');
+    
   } catch (error) {
-    console.error('Error refreshing timeline:', error);
+    console.error('[TIMELINE DEBUG] Error refreshing timeline:', error);
     const timelineContainer = document.getElementById('complaintTimeline');
-    timelineContainer.innerHTML = '<div class="timeline-error" style="text-align: center; padding: 20px; color: #d32f2f;">Error loading timeline. Please refresh the page.</div>';
+    if (timelineContainer) {
+      timelineContainer.innerHTML = `
+        <div class="timeline-error" style="text-align: center; padding: 20px; color: #d32f2f; border: 2px solid #f44336; border-radius: 8px; background: #ffebee;">
+          <h4>Timeline Loading Error</h4>
+          <p>Error: ${error.message}</p>
+          <p><small>Check browser console for details.</small></p>
+          <button onclick="refreshTimeline()" style="margin-top: 10px; padding: 8px 16px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">Retry</button>
+        </div>`;
+    }
   }
 }
 
-// Initialize timeline on page load
+// Removed showFallbackTimeline - staff view uses real database data only
+
+// Initialize timeline on page load - load real data only
 document.addEventListener('DOMContentLoaded', function() {
+  console.log('[STAFF TIMELINE] Page loaded, loading real timeline data from database');
+  
+  // Load real timeline data immediately (no sample data)
   refreshTimeline();
+  
+  // Apply readonly state if needed
+  applyReadonlyState();
 });
 
 // Make timeline functions globally available

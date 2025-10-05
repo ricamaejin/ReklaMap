@@ -227,16 +227,16 @@
         const latestAction = (complaint.latest_action || complaint.action_needed || '').toLowerCase();
         if (latestAction.includes('inspection')) {
           row.classList.add('status-inspection');
-          row.style.backgroundColor = '#A7D8F2'; // Fallback inline style
+          row.style.backgroundColor = '#A7D8F2'; // Light blue for inspection/inspection done
         } else if (latestAction.includes('invitation')) {
           row.classList.add('status-invitation');
-          row.style.backgroundColor = '#9FE2BF'; // Fallback inline style
+          row.style.backgroundColor = '#9FE2BF'; // Light green for invitation/sent invitation
         } else if (latestAction.includes('mediation')) {
           row.classList.add('status-mediation');
-          row.style.backgroundColor = '#C9B6E4'; // Fallback inline style
+          row.style.backgroundColor = '#C9B6E4'; // Light purple for mediation
         } else if (latestAction.includes('assessment')) {
           row.classList.add('status-assessment');
-          row.style.backgroundColor = '#B5E48C'; // Fallback inline style
+          row.style.backgroundColor = '#B5E48C'; // Light green for assessment
         }
         
         tbody.appendChild(row);

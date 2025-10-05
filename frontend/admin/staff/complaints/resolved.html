@@ -101,20 +101,42 @@
       }
     }
 
-    // Load staff statistics
+    // Load staff statistics - assigned count will be loaded separately
     async function loadStats() {
       try {
-        const response = await fetch(`/staff/api/stats?_=${Date.now()}`);
-        const data = await response.json();
+        // Load assigned count for current staff only
+        const assignedResponse = await fetch(`/staff/api/complaints/assigned?_=${Date.now()}`);
+        const assignedData = await assignedResponse.json();
         
-        if (data.success) {
-          document.getElementById('total-assigned').textContent = data.total_assigned || 0;
-          document.getElementById('resolved-count').textContent = data.resolved || 0;
+        if (assignedData.success) {
+          // Update assigned count based on current staff's assigned complaints
+          document.getElementById('total-assigned').textContent = assignedData.complaints ? assignedData.complaints.length : 0;
         } else {
-          console.error('Error loading stats:', data.message);
+          console.error('Error loading assigned stats:', assignedData.message);
+          document.getElementById('total-assigned').textContent = '0';
         }
       } catch (error) {
         console.error('Error loading stats:', error);
+        document.getElementById('total-assigned').textContent = '0';
+      }
+    }
+
+    // Format action_datetime for Date Resolved column (date on top, time on bottom)
+    function formatDateResolved(actionDateTime) {
+      if (!actionDateTime) return 'N/A';
+      
+      try {
+        const date = new Date(actionDateTime);
+        const dateStr = date.toLocaleDateString('en-US', {
+          month: 'short', day: 'numeric', year: 'numeric'
+        });
+        const timeStr = date.toLocaleTimeString('en-US', {
+          hour: '2-digit', minute: '2-digit', hour12: true
+        });
+        return `${dateStr}<br/>${timeStr}`;
+      } catch (error) {
+        console.error('Error formatting date:', error);
+        return 'N/A';
       }
     }
 
@@ -125,25 +147,46 @@
       
       if (complaints.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No resolved complaints found</td></tr>';
+        // Update resolved count to 0
+        document.getElementById('resolved-count').textContent = '0';
         return;
       }
+      
+      // Update resolved count based on visible complaints in this table
+      document.getElementById('resolved-count').textContent = complaints.length;
       
       complaints.forEach(complaint => {
         const row = document.createElement('tr');
         row.style.cursor = 'pointer';
         row.onclick = () => {
-          const detailsPage = complaint.status === 'Invalid' ? 'complaint_details_invalid.html' : 'complaint_details_valid.html';
-          window.location.href = `/admin/complaints/${detailsPage}?id=${complaint.complaint_id}`;
+          // Determine which staff detail page to show based on action_needed
+          const actionNeeded = (complaint.action_needed || '').toLowerCase();
+          let staffDetailPage = 'complaint_inspector_valid.html'; // default
+          
+          if (actionNeeded.includes('invitation')) {
+            staffDetailPage = 'complaint_assistant_valid.html';
+          } else if (actionNeeded.includes('inspection')) {
+            staffDetailPage = 'complaint_inspector_valid.html';
+          }
+          
+          // Redirect to staff detail page with referrer=resolved&readonly=true for disabled state
+          window.location.href = `/admin/staff/complaints/${staffDetailPage}?id=${complaint.complaint_id}&referrer=resolved&readonly=true`;
         };
         
+        // Format date received
+        const dateReceived = complaint.date_received ? new Date(complaint.date_received).toLocaleDateString() : 'N/A';
+        
+        // Format date resolved from action_datetime
+        const dateResolvedFormatted = formatDateResolved(complaint.action_datetime);
+        
         row.innerHTML = `
-          <td>${complaint.date_received}</td>
-          <td>${complaint.date_resolved || 'N/A'}</td>
-          <td>${complaint.complainant}</td>
-          <td>${complaint.type_of_complaint}</td>
-          <td>${complaint.area_name || complaint.hoa || 'N/A'}</td>
-          <td>${complaint.address}</td>
-          <td>${complaint.resolution_action || complaint.action_needed}</td>
+          <td style="text-align: center;">${dateReceived}</td>
+          <td style="text-align: center;">${dateResolvedFormatted}</td>
+          <td style="text-align: center;">${complaint.complainant}</td>
+          <td style="text-align: center;">${complaint.type_of_complaint}</td>
+          <td style="text-align: center;">${complaint.area_name || complaint.hoa || 'N/A'}</td>
+          <td style="text-align: center;">${complaint.address}</td>
+          <td style="text-align: center;">${complaint.resolution_action || complaint.action_needed}</td>
         `;
         
         tbody.appendChild(row);
