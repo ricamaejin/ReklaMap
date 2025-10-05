@@ -81,13 +81,14 @@
     <table class="complaints-table">
       <thead>
         <tr>
-          <th>Date Submitted</th>
-          <th>Complainant</th>
-          <th>Type of Complaint</th>
-          <th>HOA</th>
-          <th>Address</th>
-          <th>Action Needed</th>
-          <th>Priority Level</th>
+          <th style="text-align: center;">Date Submitted</th>
+          <th style="text-align: center;">Complainant</th>
+          <th style="text-align: center;">Type of Complaint</th>
+          <th style="text-align: center;">HOA</th>
+          <th style="text-align: center;">Assigned To</th>
+          <th style="text-align: center;">Deadline</th>
+          <th style="text-align: center;">Action Needed</th>
+          <th style="text-align: center;">Priority Level</th>
         </tr>
       </thead>
         
@@ -150,7 +151,7 @@
       tbody.innerHTML = '';
       
       if (complaints.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No assigned complaints</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No assigned complaints</td></tr>';
         return;
       }
       
@@ -163,13 +164,23 @@
           window.location.href = `/admin/complaints/${detailsPage}?id=${complaint.complaint_id}&referrer=assigned.html`;
         });
         
+        // Format deadline from action_datetime
+        const formatDeadline = (datetime) => {
+          if (!datetime) return 'N/A';
+          const date = new Date(datetime);
+          const dateStr = date.toLocaleDateString();
+          const timeStr = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          return `${dateStr}<br/>${timeStr}`;
+        };
+        
         row.innerHTML = `
           <td>${complaint.date_received}</td>
           <td>${complaint.complainant_name || complaint.complainant || 'N/A'}</td>
           <td>${complaint.type_of_complaint}</td>
-          <td>${complaint.address ? complaint.address.split(',')[complaint.address.split(',').length - 1] : 'N/A'}</td>
-          <td>${complaint.address}</td>
-          <td>${complaint.action_needed || 'Pending'}</td>
+          <td>${complaint.area_name || 'N/A'}</td>
+          <td>${complaint.assigned_to || 'N/A'}</td>
+          <td>${formatDeadline(complaint.action_datetime)}</td>
+          <td>${complaint.latest_action || complaint.action_needed || 'Pending'}</td>
           <td><button class="priority-${(complaint.priority_level || 'minor').toLowerCase()}">${complaint.priority_level || 'Minor'}</button></td>
         `;
         
