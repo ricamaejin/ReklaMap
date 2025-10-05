@@ -726,6 +726,29 @@ i {
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
+/* Make latest complaint card feel interactive */
+.status-item.clickable {
+  cursor: pointer;
+  transition: transform 0.06s ease, box-shadow 0.1s ease;
+}
+.status-item.clickable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+
+/* Color-code status like submitted_complaints */
+.status-item.valid {
+  background: #d8f5d2;         /* light green */
+  border-left: 5px solid #2e7d32; /* dark green accent */
+}
+.status-item.valid .dot { background: #2e7d32; }
+
+.status-item.invalid {
+  background: #f8d7da;          /* light red */
+  border-left: 5px solid #c62828; /* dark red accent */
+}
+.status-item.invalid .dot { background: #c62828; }
+
 .status-text strong {
   font-size: 0.9rem;
   color: #111827;
@@ -995,6 +1018,66 @@ select {
     white-space: pre-line;
 }
 
+/* Modal body scroller for add-complaint popup */
+.modal-body-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+/* Match dashboard behavior for the invalid page's Add Complaint modal */
+#addComplaintModal .modal {
+  /* Prevent overall modal from scrolling; let inner body scroll instead */
+  overflow-y: hidden;
+  overflow-x: hidden; /* remove bottom scrollbar */
+  max-height: 90vh;   /* align with dashboard modal height */
+}
+
+/* Ensure inner body scrolls vertically only */
+#addComplaintModal .modal-body-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Avoid horizontal overflow caused by left margin + 100% width */
+#addComplaintModal #addComplaintDesc {
+  margin-left: 15px;   /* match dashboard alignment */
+  padding-left: 0;
+}
+
+/* Align the title with the description text box padding */
+#addComplaintModal #addComplaintDesc h3 {
+  padding-left: 10px; /* match #addComplaintDescText padding */
+}
+
+/* Slightly reduce select width to ensure no overflow within padded modal */
+#addComplaintModal .modal select {
+  width: 98%;
+  height: auto;
+  overflow: hidden;
+}
+
+/* Prevent left border clipping and keep sizing safe */
+#addComplaintModal #addComplaintDescText {
+  box-sizing: border-box;
+  display: block;
+  margin: 0 10px; /* equal left and right spacing */
+}
+
+/* Small margin-left helper */
+.ml-15 { margin-left: 15px; }
+
+/* Ensure paragraph description styling matches dashboard */
+#addComplaintDescText {
+  white-space: pre-line;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+}
+
 /* Complaint form */
 .form-container {
   background: #fff;
@@ -1004,6 +1087,31 @@ select {
   border-radius: 6px;
   box-shadow: 0px 2px 6px rgba(0,0,0,0.1);
   margin-top: 30px;
+}
+
+/* Title underline helper for preview pages */
+.underlined-title {
+  text-decoration: underline;
+}
+
+/* Invalid complaint link style */
+.invalid-link {
+  cursor: pointer;
+  color: #d32f2f;
+  font-weight: bold;
+  text-decoration: underline;
+  font-size: 1.2em;
+  display: inline-block;
+  margin-bottom: 12px;
+}
+
+/* Centered invalid header above the form */
+.invalid-header {
+  text-align: center;
+  color: #d32f2f;
+  font-weight: 800;
+  margin: 0 0 10px;
+  cursor: pointer;
 }
 
 h1 {
@@ -1092,6 +1200,11 @@ input[type="radio"], input[type="checkbox"] {
   min-height: 150px;
 }
 
+/* Indentation for nested follow-up questions in previews */
+.indent-subquestion {
+  margin-left: 22px;
+}
+
 /* Dropdown Card */
 .dropdown-card {
   background: #fff;
@@ -1158,8 +1271,8 @@ input[type="radio"], input[type="checkbox"] {
   padding: 20px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.1);
   min-height: 500px;
-  font-style: italic;
-  color: #777;
+  font-style: normal;  /* match invalid preview (no italics) */
+  color: #000;         /* match invalid preview (black text) */
   overflow-y: auto;
 }
 
@@ -1566,3 +1679,19 @@ input[type="radio"], input[type="checkbox"] {
     margin-left: 0;
   }
 }
+
+/* ----- Utilities and global inputs (appended) ----- */
+/* Standalone date inputs (outside .form-grid) */
+input[type="date"] {
+  width: 95%;
+  padding: 8px;
+  margin-top: 6px;
+  margin-bottom: 12px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  margin-left: 15px;
+}
+
+/* Small utilities for spacing and subtitles used in previews */
+.mt-20 { margin-top: 20px; }
+.subtitle { color: #083048; margin-bottom: 10px; }

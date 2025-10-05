@@ -260,21 +260,45 @@
                 complaintList.classList.remove("hidden");
                 complaintList.innerHTML = ""; // clear any placeholder
 
-                // Loop through complaints and add them
-                data.complaints.forEach(c => {
+                // Show only the most recent complaint (API is already sorted desc by date)
+                const latest = data.complaints[0];
+                if (latest) {
                     const statusItem = document.createElement("div");
-                    statusItem.classList.add("status-item");
+                    statusItem.classList.add("status-item", "clickable");
+                    statusItem.setAttribute("role", "button");
+                    statusItem.setAttribute("tabindex", "0");
+                    statusItem.setAttribute("aria-label", `Open ${latest.status} ${latest.type} complaint from ${latest.created_at}`);
+
+                    // color-code by status (match submitted_complaints)
+                    const statusLower = (latest.status || "").toLowerCase();
+                    if (statusLower === "valid") {
+                        statusItem.classList.add("valid");
+                    } else if (statusLower === "invalid") {
+                        statusItem.classList.add("invalid");
+                    }
 
                     statusItem.innerHTML = `
                         <span class="dot"></span>
                         <div class="status-text">
-                            <strong>${c.created_at} - Submitted a ${c.status} Complaint</strong><br>
-                            <span>Type: ${c.type}</span>
+                            <strong>${latest.created_at} - Submitted a ${latest.status} Complaint</strong><br>
+                            <span>Type: ${latest.type}</span>
                         </div>
                     `;
 
+                    // Click and keyboard access navigate to the complaint preview page
+                    const targetUrl = `/complainant/complaint/${latest.complaint_id}`;
+                    statusItem.addEventListener("click", () => {
+                        window.location.href = targetUrl;
+                    });
+                    statusItem.addEventListener("keydown", (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            window.location.href = targetUrl;
+                        }
+                    });
+
                     complaintList.appendChild(statusItem);
-                });
+                }
 
                 // Check if user can add another complaint
                 // They can only add if ALL complaints are invalid
