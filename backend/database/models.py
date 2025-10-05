@@ -301,6 +301,8 @@ class LotDispute(db.Model):
     q7 = db.Column(db.String(100))
     q8 = db.Column(db.String(100))
     q9 = db.Column(db.Enum("Yes", "No", "Not Sure"))
+    description = db.Column(db.Text)
+    signature = db.Column(db.String(255))
 
     # Relationship back to complaint
     complaint = db.relationship("Complaint", backref="lot_dispute", passive_deletes=True)

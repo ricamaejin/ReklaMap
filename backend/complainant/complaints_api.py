@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, session
-from backend.database.models import Complaint, Overlapping, Registration
+from backend.database.models import Complaint, Overlapping, Registration, LotDispute
 import json
 
 complaints_bp = Blueprint("complaints_bp", __name__, url_prefix="/complainant/complaints")
@@ -106,25 +106,61 @@ def get_submitted_complaints():
 
         result = []
         for c in complaints:
-            o = c.overlapping  # Overlapping row (one-to-one)
-            block, lot = None, None
-            try:
-                pairs = extract_pairs(o)
-                block, lot = _first_block_lot(pairs)
-            except Exception:
-                block, lot = None, None
+            person_name = "Unknown"
+            person_block = None
+            person_lot = None
+            person_role = None
+            description = c.description
+
+            # Prefer complaint.registration when available; fallback safe
+            reg = getattr(c, "registration", None)
+            if not reg:
+                try:
+                    reg = Registration.query.get(c.registration_id)
+                except Exception:
+                    reg = None
+
+            if c.type_of_complaint == "Lot Dispute":
+                # Populate from LotDispute: q7 = opposing claimant name, q8 = relationship
+                try:
+                    lotd = LotDispute.query.filter_by(complaint_id=c.complaint_id).first()
+                except Exception:
+                    lotd = None
+                if lotd:
+                    person_name = lotd.q7 or person_name
+                    # Relationship shown instead of HOA role; ensure safe fallback
+                    person_role = f"Relationship: {lotd.q8}" if (lotd.q8 and str(lotd.q8).strip()) else "Relationship: N/A"
+                    description = lotd.q4 or description
+                # Block should be same as complainant's block (lot dispute context)
+                if reg:
+                    person_block = reg.block_no
+                    person_lot = reg.lot_no
+            else:
+                # Overlapping and other types: fallback to overlapping logic
+                o = c.overlapping
+                try:
+                    pairs = extract_pairs(o)
+                    b, l = _first_block_lot(pairs)
+                    person_block, person_lot = b, l
+                except Exception:
+                    person_block, person_lot = None, None
+                if o and hasattr(o, 'q8'):
+                    person_name = o.q8 or person_name
+                # Default role
+                person_role = "HOA Member"
 
             result.append({
                 "complaint_id": c.complaint_id,
                 "type": c.type_of_complaint,
                 "status": c.status,
                 "created_at": c.date_received.strftime("%B %d, %Y") if c.date_received else "",
-                "description": o.description if o else c.description,
+                "created_at_ts": int(c.date_received.timestamp() * 1000) if c.date_received else 0,
+                "description": description,
                 "person": {
-                    "name": (o.q8 if o and hasattr(o, 'q8') else "Unknown"),
-                    "block": block,
-                    "lot": lot,
-                    "role": "HOA Member"
+                    "name": person_name,
+                    "block": person_block,
+                    "lot": person_lot,
+                    "role": person_role or ""
                 }
             })
 
@@ -149,30 +185,61 @@ def get_complaint_details(complaint_id):
         if complaint.registration.user_id != user_id:
             return jsonify({"success": False, "message": "Unauthorized"}), 403
 
-        o = complaint.overlapping
+        # Build person/details depending on complaint type
+        person_name = "Unknown"
+        person_block = None
+        person_lot = None
+        person_role = None
+        description = complaint.description
+        signature = None
 
-        # Extract block & lot: prefer new q2 JSON pairs, fallback to legacy q1 JSON
-        block, lot = None, None
-        try:
-            pairs = _parse_pairs_field(getattr(o, "q2", None)) if o else []
-            if not pairs and o:
-                pairs = _parse_pairs_field(getattr(o, "q1", None))
-            block, lot = _first_block_lot(pairs)
-        except Exception:
-            block, lot = None, None
+        reg = getattr(complaint, "registration", None)
+        if not reg:
+            try:
+                reg = Registration.query.get(complaint.registration_id)
+            except Exception:
+                reg = None
+
+        if complaint.type_of_complaint == "Lot Dispute":
+            try:
+                lotd = LotDispute.query.filter_by(complaint_id=complaint.complaint_id).first()
+            except Exception:
+                lotd = None
+            if lotd:
+                person_name = lotd.q7 or person_name
+                person_role = f"Relationship: {lotd.q8}" if (lotd.q8 and str(lotd.q8).strip()) else "Relationship: N/A"
+                description = lotd.q4 or description
+            if reg:
+                person_block = reg.block_no
+                person_lot = reg.lot_no
+        else:
+            o = complaint.overlapping
+            try:
+                pairs = _parse_pairs_field(getattr(o, "q2", None)) if o else []
+                if not pairs and o:
+                    pairs = _parse_pairs_field(getattr(o, "q1", None))
+                person_block, person_lot = _first_block_lot(pairs)
+            except Exception:
+                person_block, person_lot = None, None
+            if o and hasattr(o, 'q8'):
+                person_name = o.q8 or person_name
+            description = (o.description if o else description)
+            signature = (o.signature if o else None)
+            person_role = "HOA Member"
 
         result = {
             "complaint_id": complaint.complaint_id,
             "type": complaint.type_of_complaint,
             "status": complaint.status,
             "created_at": complaint.date_received.strftime("%B %d, %Y") if complaint.date_received else "",
-            "description": o.description if o else complaint.description,
-            "signature": o.signature if o else None,
+            "created_at_ts": int(complaint.date_received.timestamp() * 1000) if complaint.date_received else 0,
+            "description": description,
+            "signature": signature,
             "person": {
-                "name": (o.q8 if o and hasattr(o, 'q8') else "Unknown"),
-                "block": block,
-                "lot": lot,
-                "role": "HOA Member"
+                "name": person_name,
+                "block": person_block,
+                "lot": person_lot,
+                "role": person_role or ""
             }
         }
 

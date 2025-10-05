@@ -104,7 +104,12 @@ def mem_reg():
                 mismatches.append("Suffix")
             if existing_beneficiary.lot_no != lot_asn:
                 mismatches.append("Lot Assignment")
-            if existing_beneficiary.block_id != blk:
+            # Compare provided block number against beneficiary's block.block_no (not block_id)
+            try:
+                benef_block_no = existing_beneficiary.block.block_no if existing_beneficiary.block else None
+            except Exception:
+                benef_block_no = None
+            if benef_block_no != blk:
                 mismatches.append("Block Assignment")
             if existing_beneficiary.area_id != hoa:
                 mismatches.append("HOA")
@@ -168,9 +173,9 @@ def mem_reg():
             if complaint_type == "Overlapping":
                 next_url = "/complainant/overlapping/new_overlap_form"
             elif complaint_type == "Lot Dispute":
-                next_url = "/complainant/new_lot_dispute_form"
+                next_url = "/complainant/lot_dispute/new_lot_dispute_form"
             elif complaint_type == "Boundary Dispute":
-                next_url = "/complainant/new_boundary_dispute_form"
+                next_url = "/complainant/boundary_dispute/new_boundary_dispute_form"
             elif complaint_type == "Pathway Dispute":
                 next_url = "/complainant/complaints/pathway_dispute.html"
             elif complaint_type == "Unauthorized Occupation":

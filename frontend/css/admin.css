@@ -779,6 +779,32 @@ svg g.selected-area {
   background-color: transparent;
 }
 
+/*Generation of Complaint Report */
+#generateReportBtn {
+  background: #1a33a0;
+  color: #fff;
+  padding: 8px 20px;
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-bottom: 5px;
+}
+
+#reportMonthPicker {
+  display: none;
+  background-color: #ffffff;
+  border: 2px solid #1a33a0;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 14px;
+  font-weight: 500;
+  outline: none;
+  transition: 0.3s ease;
+  cursor: pointer;
+}
+
+
 /* Responsive adjustments for new elements */
 @media (max-width: 768px) {
   .page-header {
@@ -796,3 +822,21 @@ svg g.selected-area {
     font-size: 16px;
   }
 }
+
+@media (max-width: 480px) {
+  .nav-item { font-size: 14px; padding: 6px; }
+
+  .search-bar { flex-direction: column; }
+  .search-bar input,
+  .search-bar button {
+    width: 100%;
+    padding: 12px;
+  }
+
+  .stat-card { flex: 1 1 100%; }
+
+  .user-dropdown {
+    justify-content: center;
+  }
+}
+

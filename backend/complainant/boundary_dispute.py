@@ -1,6 +1,6 @@
 import os, json, time
 from flask import Blueprint, session, render_template, jsonify, request
-from backend.database.models import Registration, Complaint, BoundaryDispute
+from backend.database.models import Registration, Complaint, BoundaryDispute, Beneficiary, Block
 from backend.database.db import db
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -34,10 +34,58 @@ def submit_boundary_dispute():
         registration = Registration.query.get(registration_id)
         if not registration:
             return jsonify({"success": False, "message": "Parent registration not found"}), 400
+        # Build required Complaint fields similar to overlapping route
+        def clean_field(val):
+            if not val:
+                return None
+            val_str = str(val).strip()
+            if val_str.lower() in {"na", "n/a", "none", ""}:
+                return None
+            return val_str
+
+        middle_name = clean_field(registration.middle_name)
+        suffix = clean_field(registration.suffix)
+        name_parts = [registration.first_name, middle_name, registration.last_name, suffix]
+        complainant_name = " ".join([p for p in name_parts if p])
+        address = registration.current_address or ""
+
+        area_id = None
+        try:
+            if registration.block_no and registration.lot_no:
+                bn = registration.block_no
+                ln = registration.lot_no
+                try:
+                    bn = int(bn)
+                except Exception:
+                    pass
+                try:
+                    ln = int(ln)
+                except Exception:
+                    pass
+                beneficiary = Beneficiary.query.filter_by(block_id=bn, lot_no=ln).first()
+                if not beneficiary:
+                    blk = Block.query.filter_by(block_no=bn).first()
+                    if blk:
+                        beneficiary = Beneficiary.query.filter_by(block_id=blk.block_id, lot_no=ln).first()
+                if beneficiary:
+                    area_id = beneficiary.area_id
+        except Exception:
+            area_id = None
+
+        if area_id is None:
+            return jsonify({
+                "success": False,
+                "message": "Cannot submit complaint: Area assignment not found for your block and lot. Please contact admin.",
+                "mismatches": ["Area Assignment"]
+            }), 400
+
         new_complaint = Complaint(
             registration_id=registration.registration_id,
             type_of_complaint="Boundary Dispute",
-            status="Valid"
+            status="Valid",
+            complainant_name=complainant_name,
+            area_id=area_id,
+            address=address
         )
         db.session.add(new_complaint)
         db.session.flush()

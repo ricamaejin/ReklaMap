@@ -141,7 +141,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       dropdownContent.innerHTML = ""; // clear history placeholder
 
       // --- Helper: parse date ---
-      function parseDateValue(v) {
+      function parseDateValue(c) {
+        // Prefer server-provided timestamp for reliable sorting
+        if (c && typeof c.created_at_ts === "number") return c.created_at_ts;
+        const v = c && c.created_at ? c.created_at : 0;
         if (!v && v !== 0) return 0;
         if (typeof v === "number") return v;
         if (/^\d+$/.test(String(v))) return parseInt(v, 10);
@@ -149,10 +152,34 @@ document.addEventListener("DOMContentLoaded", async () => {
         return isNaN(t) ? 0 : t;
       }
 
-      // --- Sort complaints newest → oldest ---
-      const sortedComplaints = [...data.complaints].sort((a, b) => {
-        return parseDateValue(b.created_at) - parseDateValue(a.created_at);
-      });
+      // --- Build a stable key and prefer richer entries when duplicates exist ---
+      const keyOf = (c) => {
+        const ts = parseDateValue(c);
+        const t = c?.type ?? c?.type_of_complaint ?? '';
+        return c?.complaint_id ? String(c.complaint_id) : `${t}|${ts}`;
+      };
+      const richness = (c) => {
+        const name = c?.person?.name;
+        const role = c?.person?.role;
+        const block = c?.person?.block;
+        let s = 0;
+        if (name && String(name).trim().toLowerCase() !== 'unknown') s += 2;
+        if (role && String(role).trim()) s += 1;
+        if (block && String(block).trim()) s += 1;
+        return s;
+      };
+      const coalescedMap = new Map();
+      for (const c of (data.complaints || [])) {
+        const k = keyOf(c);
+        if (!k) continue;
+        const prev = coalescedMap.get(k);
+        if (!prev || richness(c) > richness(prev)) {
+          coalescedMap.set(k, c);
+        }
+      }
+      const coalesced = Array.from(coalescedMap.values());
+      // --- Sort newest → oldest ---
+      const sortedComplaints = coalesced.sort((a, b) => parseDateValue(b) - parseDateValue(a));
 
       // --- Show ONLY the most recent complaint in left panel ---
       const mostRecent = sortedComplaints[0];
@@ -161,12 +188,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         complaintList.appendChild(recentCard);
       }
 
-      // --- Show all past complaints (same card style) in history dropdown ---
-      sortedComplaints.slice(1).forEach((c) => {
-        const historyCard = buildComplaintCard(c);
-        historyCard.classList.add("history-card"); // optional for styling
-        dropdownContent.appendChild(historyCard);
-      });
+      // --- Show all past complaints (exclude the currently shown one by stable key) ---
+      const excludeKey = mostRecent ? keyOf(mostRecent) : null;
+      sortedComplaints
+        .filter(c => !excludeKey || keyOf(c) !== excludeKey)
+        .forEach((c) => {
+          const historyCard = buildComplaintCard(c);
+          historyCard.classList.add("history-card"); // optional for styling
+          dropdownContent.appendChild(historyCard);
+        });
 
     } else {
       if (emptyCard) emptyCard.style.display = "block";
@@ -197,7 +227,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const status = (c.status ?? c.state ?? "").toLowerCase(); // normalize for comparison
   const personName = (c.person && c.person.name) || c.q12 || c.person_name || "Unknown";
   const personBlock = (c.person && c.person.block) || (c.property && c.property.block) || c.block || "N/A";
-  const personRole = (c.person && c.person.role) || "HOA Member";
+  const personRole = (c.person && c.person.role) || "";
 
   const card = document.createElement("div");
   card.classList.add("complaint-card", "clickable-card");
@@ -218,7 +248,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       <p><strong>Person Involved:</strong></p>
       <p>Name: ${escapeHtml(personName)}</p>
       <p>Block: ${escapeHtml(personBlock)}</p>
-      <p>${escapeHtml(personRole)}</p>
+  ${personRole ? `<p>${escapeHtml(personRole)}</p>` : ''}
     </div>
   `;
 

@@ -87,12 +87,13 @@ def get_overlap_session_data():
         "phone_number": reg.phone_number,
         "year_of_residence": reg.year_of_residence,
         "recipient_of_other_housing": reg.recipient_of_other_housing,
+        # Expose HOA (Area) for all categories when available
+        "hoa": get_area_name(reg.hoa) if reg.hoa else "",
     }
     
     # Add lot information only for HOA members and family members
     if reg.category in ["hoa_member", "family_of_member"]:
         data.update({
-            "hoa": get_area_name(reg.hoa) if reg.hoa else "",
             "blk_num": reg.block_no,
             "lot_num": reg.lot_no,
             "lot_size": reg.lot_size,
@@ -249,7 +250,11 @@ def submit_overlap():
         # Accept new form input but store to legacy schema
         # New inputs: current_status CSV, q2 block/lot pairs JSON
         current_status_csv = request.form.get("current_status") or ""
-        q2_pairs = json.loads(request.form.get("q2") or "[]")
+        # Pairs can come under 'q2' (preferred) or 'q1' (fallback from older/newer clients)
+        try:
+            q2_pairs = json.loads(request.form.get("q2") or request.form.get("q1") or "[]")
+        except Exception:
+            q2_pairs = []
         q4 = json.loads(request.form.get("evidence") or "[]")
         q5 = json.loads(request.form.get("discover") or "[]")
         q9 = json.loads(request.form.get("other_claim") or "[]")
@@ -322,7 +327,8 @@ def submit_overlap():
                 if ben:
                     person_bens.append({
                         'name': pname,
-                        'block_id': ben.block_id,
+                        # Use block_no from related Block, not block_id
+                        'block_no': (ben.block.block_no if hasattr(ben, 'block') and ben.block else None),
                         'lot_no': ben.lot_no
                     })
 
@@ -331,20 +337,20 @@ def submit_overlap():
                 for idx, pair in enumerate(pairs):
                     b = pair.get('block')
                     l = pair.get('lot')
-                    if idx >= len(person_bens) or not bl_equal(b, l, person_bens[idx]['block_id'], person_bens[idx]['lot_no']):
+                    if idx >= len(person_bens) or not bl_equal(b, l, person_bens[idx]['block_no'], person_bens[idx]['lot_no']):
                         mismatches.append(f"Pair {idx+1}: Block/Lot does not match person '{persons[idx]}'")
             elif len(pairs) == 1 and persons:
                 # at least one person matches
                 p = pairs[0]
                 b, l = p.get('block'), p.get('lot')
-                any_match = any(bl_equal(b, l, pb['block_id'], pb['lot_no']) for pb in person_bens)
+                any_match = any(bl_equal(b, l, pb['block_no'], pb['lot_no']) for pb in person_bens)
                 if not any_match:
                     mismatches.append("At least one involved person must match the provided block/lot")
             else:
                 # multiple pairs, fewer or more persons -> each pair must have some matching person
                 for idx, pair in enumerate(pairs):
                     b, l = pair.get('block'), pair.get('lot')
-                    has_match = any(bl_equal(b, l, pb['block_id'], pb['lot_no']) for pb in person_bens)
+                    has_match = any(bl_equal(b, l, pb['block_no'], pb['lot_no']) for pb in person_bens)
                     if not has_match:
                         mismatches.append(f"Pair {idx+1}: No involved person matches block/lot")
         else:
@@ -366,21 +372,31 @@ def submit_overlap():
         complainant_name = " ".join([part for part in name_parts if part])
         area_id = None
         address = registration.current_address
-        if registration.block_no and registration.lot_no:
-            beneficiary = Beneficiary.query.filter_by(block_id=registration.block_no, lot_no=registration.lot_no).first()
-            if beneficiary:
-                area_id = beneficiary.area_id
-            # If there are no mismatches so far, mark valid
-            if not mismatches:
-                complaint_status = "Valid"
-
-            # If there are mismatches, do not save complaint, return error
-            if complaint_status == "Invalid" and mismatches:
-                return jsonify({
-                    "success": False,
-                    "message": "Mismatch found in the following field(s): " + ", ".join(mismatches) + ". Please correct them before submitting again.",
-                    "mismatches": mismatches
-                }), 400
+        # Prefer explicit registration.hoa (Area) when available; it's stored as Area.area_id in Registration
+        try:
+            if registration.hoa is not None and str(registration.hoa).strip() != "":
+                area_id = int(str(registration.hoa))
+        except Exception:
+            area_id = None
+        if registration.block_no:
+            # Fallback: resolve via Blocks by block_no
+            if area_id is None:
+                try:
+                    from backend.database.models import Block
+                    blk_no = int(registration.block_no) if registration.block_no is not None else None
+                    if blk_no is not None:
+                        # If registration.hoa is present, narrow by area; else take the first match
+                        q = Block.query.filter_by(block_no=blk_no)
+                        if registration.hoa:
+                            try:
+                                q = q.filter_by(area_id=int(str(registration.hoa)))
+                            except Exception:
+                                pass
+                        block_row = q.first()
+                        if block_row:
+                            area_id = block_row.area_id
+                except Exception:
+                    area_id = None
 
         # Block complaint if area_id is missing
         if area_id is None:
@@ -389,6 +405,15 @@ def submit_overlap():
                 "message": "Cannot submit complaint: Area assignment not found for your block and lot. Please contact admin.",
                 "mismatches": ["Area Assignment"]
             }), 400
+        # Decide validity based on mismatches regardless of category
+        if mismatches:
+            return jsonify({
+                "success": False,
+                "message": "Mismatch found in the following field(s): " + ", ".join(mismatches) + ". Please correct them before submitting again.",
+                "mismatches": mismatches
+            }), 400
+        else:
+            complaint_status = "Valid"
         # Prevent duplicate complaints for the same registration unless previous complaint is invalid or resolved
         existing_complaint = Complaint.query.filter_by(
             registration_id=registration.registration_id,
