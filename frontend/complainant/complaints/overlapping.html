@@ -52,7 +52,16 @@
         <!-- Section 1 -->
         <div class="section-header">LOT DETAILS AND CLAIM:</div>
 
-          <p>1. What are the specific block and lot numbers involved in the overlap excluding yours?</p>
+          <p>1. What is the current status of your assigned lot? <i style="font-size: 14px; font-weight: normal; color: grey;">(Select all that apply)</i></p>
+          <label><input type="checkbox" name="current_status" value="survey_overlap"> Official subdivision or site survey shows overlapping boundaries</label>
+          <label><input type="checkbox" name="current_status" value="coords_in_docs"> My assigned lot number/coordinates also appear in someone else’s documents</label>
+          <label><input type="checkbox" name="current_status" value="residing"> I am currently residing or building on the lot</label>
+          <label><input type="checkbox" name="current_status" value="vacant_overlap_records"> The lot is vacant, but subdivision/records show overlapping assignments</label>
+          <label><input type="checkbox" name="current_status" value="built_by_other"> Someone else has built or is using part of the same lot</label>
+          <label><input type="checkbox" name="current_status" value="other_has_docs"> Another person has documents showing the same lot as mine</label>
+          <label><input type="checkbox" name="current_status" value="unsure_told_overlap" style="margin-bottom: 12px;"> I am unsure of the current usage, but I was told there is an overlap</label>
+
+          <p>2. What are the specific block and lot numbers involved in the overlap? <i style="font-size: 14px; font-weight: normal; color: grey;">(Excluding yours)</i></p>
           <div class="pairs" id="pairsContainer" aria-live="polite">
             <!-- rows will be added here -->
           </div>
@@ -61,18 +70,12 @@
             <span style="color:var(--muted);font-size:13px;margin-left:8px"><i style="font-size: 14px; font-weight: normal; color: grey;">(If more than one area is affected, list all applicable pairs.)</i></span>
           </div>
 
-          <p>2. What is the current status of the lot?</p>
-          <label><input type="radio" name="current_status" value="residing"> I am currently residing or building on the lot</label>
-          <label><input type="radio" name="current_status" value="built_by_other"> Someone else has built or is using part of the same lot</label>
-          <label><input type="radio" name="current_status" value="no_one_using"> No one is using the lot, but another person also claims it</label>
-          <label><input type="radio" name="current_status" value="multiple_structures" style="margin-bottom: 12px;"> There are multiple structures claiming the same lot area</label>
-
-        <p>3. How long have you been assigned to or occupying this lot?<p>
-        <label><input type="radio" name="occupancy_duration" > Less than 6 months</label>
-        <label><input type="radio" name="occupancy_duration" > 6 months-1 year</label>
-        <label><input type="radio" name="occupancy_duration" > 1–3 years</label>
-        <label><input type="radio" name="occupancy_duration" > 3–5 years</label>
-        <label><input type="radio" name="occupancy_duration" style="margin-bottom: 12px;"> More than 5 years</label>
+          <p>3. How long have you been assigned to or occupying this lot?<p>
+          <label><input type="radio" name="occupancy_duration" value="<6m"> Less than 6 months</label>
+          <label><input type="radio" name="occupancy_duration" value="6m-1y"> 6 months-1 year</label>
+          <label><input type="radio" name="occupancy_duration" value="1-3y"> 1–3 years</label>
+          <label><input type="radio" name="occupancy_duration" value="3-5y"> 3–5 years</label>
+          <label><input type="radio" name="occupancy_duration" value=">5y" style="margin-bottom: 12px;"> More than 5 years</label>
 
           <p>4. What shows that your lot is overlapping with another claim? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
           <label><input type="checkbox" name="evidence" value="survey"> Official subdivision or site survey shows overlapping lot boundaries</label>
@@ -88,7 +91,7 @@
           <label><input type="checkbox" name="discover" value="compared_docs"> I compared documents and noticed the same block/lot number</label>
           <label><input type="checkbox" name="discover" value="advised_survey" style="margin-bottom: 12px;"> I was advised during a survey, inspection, or mapping activity</label>
 
-          <p>6. When did the construction begin?</p>
+          <p>6. When did the overlapping begin?</p>
           <label><input type="radio" name="construction_timeframe" value="<3m"> Less than 3 months</label>
           <label><input type="radio" name="construction_timeframe" value="3-6m"> 3–6 months</label>
           <label><input type="radio" name="construction_timeframe" value="6-12m"> 6–12 months</label>
@@ -103,13 +106,24 @@
           <label><input type="radio" name="who_else" value="unknown" style="margin-bottom: 12px;"> I do not know who the other claimant is</label>
 
           <p>8. What is the name of the involved person?</p>
-          <input type="text" id="involved_person_name" name="involved_person_name" placeholder="Enter name (if known)">
+          <div id="involvedPersonsContainer">
+            <div class="person-input">
+              <input type="text" class="involved_person_name" name="involved_person_name[]" placeholder="Enter name (if known)">
+            </div>
+          </div>
+          <button type="button" class="btn add small" id="addPersonBtn" style="margin-left: 15px;">+ Add another person</button>
 
-          <p>9. What do you know about the other party’s claim?  <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
-          <label><input type="checkbox" name="other_claim" value="different_doc"> They showed a different assignment document</label>
-          <label><input type="checkbox" name="other_claim" value="refused_to_vacate"> They refused to vacate or adjust</label>
-          <label><input type="checkbox" name="other_claim" value="structure_covers"> Their structure covers part of my lot</label>
-          <label><input type="checkbox" name="other_claim" value="no_docs_seen" style="margin-bottom: 12px;"> I have not seen any documents from their side</label>
+          <p>9. Is there someone who claims that your lot is overlapping with theirs?</p>
+          <label><input type="radio" name="approach" value="yes" id="approachYes"> Yes</label>
+          <div id="approachYesDetails" style="display: none; margin-left: 22px;">
+            <p>What information or evidence do they have about the overlapping?</p>
+            <label><input type="checkbox" name="approachDetails" value="same_lot_number"> Their documents show the same lot number as mine</label>
+            <label><input type="checkbox" name="approachDetails" value="different_doc"> I saw documents but they did not match mine</label>
+            <label><input type="checkbox" name="approachDetails" value="no_docs_seen"> I have not seen any documents from their side</label>
+            <label><input type="checkbox" name="approachDetails" value="structure_covers"> Their structure covers part of my lot</label>
+            <label><input type="checkbox" name="approachDetails" value="not_sure"> I am not sure / No information</label>
+          </div>
+          <label><input type="radio" name="approach" value="no" id="approachNo"> No</label>
 
           <p>10. Have you reported this to any office or authority?</p>
             <label><input type="radio" name="reported_to" value="barangay"> Yes – Barangay</label>
@@ -129,14 +143,16 @@
           <label><input type="radio" name="report_result" value="gather_docs"> I was advised to gather more documents</label>
           <label><input type="radio" name="report_result" value="no_action"> No action was taken</label>
           <label><input type="radio" name="report_result" value="under_investigation"> The issue is still under investigation</label>
-          <label><input type="radio" name="report_result" value="overlapping_assign" style="margin-bottom: 12px;"> I was told the lot has overlapping assignments</label>
+          <label><input type="radio" name="report_result" value="overlapping_assign"> I was told the lot has overlapping assignments</label>
+          <label><input type="radio" name="report_result" value="not_applicable" style="margin-bottom: 12px;"> Not applicable / No report filed</label>
 
           <p>13. What has the overlap issue caused or affected?</p>
           <label><input type="radio" name="impact" value="cannot_build"> I cannot build or renovate due to the boundary issue</label>
           <label><input type="radio" name="impact" value="conflict_with_family"> I am in conflict with another family over the lot</label>
           <label><input type="radio" name="impact" value="threats_or_eviction"> I received threats or was told to leave</label>
           <label><input type="radio" name="impact" value="lost_use"> I lost use of part/all of the land I was assigned</label>
-          <label><input type="radio" name="impact" value="public_path" style="margin-bottom: 12px;"> A public path or neighbor's property is also affected</label>
+          <label><input type="radio" name="impact" value="public_path"> A public path or neighbor's property is also affected</label>
+          <label><input type="radio" name="impact" value="none" style="margin-bottom: 12px;"> None of the above</label>
 
           <!-- Section 2 -->
           <p style="font-weight: bold;">Please describe what happened briefly, including how you found out about the issue.</p>
@@ -304,6 +320,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const submitBtn = document.getElementById('submitBtn');
   const signatureInput = document.getElementById('signatureInput');
   const signatureFileName = document.getElementById('signatureFileName');
+  const addPersonBtn = document.getElementById('addPersonBtn');
+  const involvedPersonsContainer = document.getElementById('involvedPersonsContainer');
+  const approachYes = document.getElementById('approachYes');
+  const approachNo = document.getElementById('approachNo');
+  const approachYesDetails = document.getElementById('approachYesDetails');
 
   if (!overlapForm) {
     console.error("Form not found!");
@@ -329,8 +350,8 @@ document.addEventListener("DOMContentLoaded", () => {
     formData.set('complaint_id', complaintIdInput.value); 
     formData.set('registration_id', registrationIdInput.value); 
 
-    // q1 block/lot pairs 
-    const q1 = Array.from(document.querySelectorAll('#pairsContainer .pair-row')).map(row => { 
+    // q2 block/lot pairs 
+    const q2 = Array.from(document.querySelectorAll('#pairsContainer .pair-row')).map(row => { 
       const blockInput = row.querySelector('input[name="block_no[]"]'); 
       const lotInput   = row.querySelector('input[name="lot_no[]"]'); 
       return { 
@@ -338,7 +359,7 @@ document.addEventListener("DOMContentLoaded", () => {
         lot:   lotInput ? lotInput.value : "" 
       }; 
     }); 
-    formData.set('q1', JSON.stringify(q1)); 
+    formData.set('q2', JSON.stringify(q2)); 
 
     // Checkbox groups 
     function addCheckboxes(name){ 
@@ -346,14 +367,37 @@ document.addEventListener("DOMContentLoaded", () => {
                           .map(cb => cb.value); 
       formData.set(name, JSON.stringify(values)); 
     } 
+  // New Q1: current_status as checkbox group (stored as CSV)
+    addCheckboxes('current_status');
+    // Store current_status as CSV instead of JSON to fit varchar length better
+    try {
+      const csRaw = formData.get('current_status') || '[]';
+      const csArr = JSON.parse(csRaw);
+      if (Array.isArray(csArr)) {
+        formData.set('current_status', csArr.join(', '));
+      }
+    } catch (_) {}
     addCheckboxes('evidence'); 
     addCheckboxes('discover'); 
-    addCheckboxes('other_claim'); 
+    // Map new Q9 (approach/approachDetails) to existing other_claim for backend
+    // If user picked Yes but no specific details, include a sentinel so previews
+    // can still render the follow-up section (unchecked options visible).
+    const approach = document.querySelector('input[name="approach"]:checked');
+    if (approach && approach.value === 'yes') {
+      const details = Array.from(document.querySelectorAll('input[name="approachDetails"]:checked')).map(cb => cb.value);
+      if (details.length === 0) {
+        formData.set('other_claim', JSON.stringify(['__yes_no_details__']));
+      } else {
+        formData.set('other_claim', JSON.stringify(details));
+      }
+    } else {
+      formData.set('other_claim', JSON.stringify([]));
+    }
 
     // Single-value fields 
     const singleFields = [ 
-      'current_status', 'occupancy_duration', 'construction_timeframe', 'who_else', 
-      'involved_person_name', 'reported_to', 'inspection', 'report_result', 'impact', 'description' 
+      'occupancy_duration', 'construction_timeframe', 'who_else', 
+      'reported_to', 'inspection', 'report_result', 'impact', 'description' 
     ]; 
     singleFields.forEach(name => { 
       const elChecked = document.querySelector(`[name="${name}"]:checked`); 
@@ -364,6 +408,18 @@ document.addEventListener("DOMContentLoaded", () => {
         formData.set(name, elText.value || ''); 
       } 
     }); 
+
+    // Join multiple involved persons to a single string (backend stores single q8)
+    const personInputs = document.querySelectorAll('.involved_person_name');
+    if (personInputs && personInputs.length) {
+      const names = Array.from(personInputs).map(i => i.value).filter(Boolean);
+      if (names.length) {
+        // Send array for validation
+        formData.set('involved_persons', JSON.stringify(names));
+        // Keep the existing single string for storage
+        formData.set('involved_person_name', names.join(', '));
+      }
+    }
 
     // Signature 
     if (signatureInput && signatureInput.files[0]) { 
@@ -433,6 +489,36 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+  
+  // -------------------------
+  // Add person button
+  // -------------------------
+  if (addPersonBtn && involvedPersonsContainer) {
+    addPersonBtn.addEventListener('click', function() {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'person-input';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'involved_person_name';
+      input.name = 'involved_person_name[]';
+      input.placeholder = 'Enter name (if known)';
+      wrapper.appendChild(input);
+      involvedPersonsContainer.appendChild(wrapper);
+      input.focus();
+    });
+  }
+
+  // -------------------------
+  // Toggle approach details
+  // -------------------------
+  function updateApproachDetails() {
+    if (!approachYesDetails) return;
+    const yesChecked = approachYes && approachYes.checked;
+    approachYesDetails.style.display = yesChecked ? '' : 'none';
+  }
+  if (approachYes) approachYes.addEventListener('change', updateApproachDetails);
+  if (approachNo) approachNo.addEventListener('change', updateApproachDetails);
+  updateApproachDetails();
 });
 </script>
 
