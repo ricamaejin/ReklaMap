@@ -6,6 +6,36 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
+  <style>
+    .accept-invitation-btn {
+      background: #28a745 !important;
+      color: white !important;
+      border: none !important;
+      padding: 5px 10px !important;
+      border-radius: 3px !important;
+      cursor: pointer !important;
+      margin-left: 10px !important;
+      font-size: 12px !important;
+    }
+    .accept-invitation-btn:hover {
+      background: #218838 !important;
+    }
+    .modal-body p {
+      margin: 10px 0;
+    }
+    .modal-actions {
+      margin-top: 20px;
+      text-align: center;
+    }
+    .timeline-entry[data-status="accepted-invitation"] {
+      border-left: 4px solid #28a745;
+      background-color: #f8fff9;
+    }
+    .timeline-entry[data-status="send-invitation"] {
+      border-left: 4px solid #ffc107;
+      background-color: #fffbf0;
+    }
+  </style>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <body>
   <!-- Sidebar -->
@@ -15,15 +45,23 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/admin/map/index.html" class="nav-item">Map</a>
+      <a href="/admin/dashboard" class="nav-item">Map</a>
       <a href="/admin/complaints/all.html" class="nav-item active">Complaints</a>
-      <a href="/admin/database/beneficiaries.html" class="nav-item">Database</a>
+      <a href="/admin/database/beneficiaries.html" class="nav-item">Beneficiaries</a>
+      <a href="/admin/database/policies.html" class="nav-item">Policies</a>
     </nav>
   </aside>
 
   <!-- Main Content -->
   <main class="main-content">
-    <header class="header"><h1>Complaint</h1></header>
+    <header class="header">
+      <div class="header-content">
+        <div class="header-left">
+          <button class="back-arrow" onclick="goBack()" title="Back to Complaints">←</button>
+          <h1>Complaint</h1>
+        </div>
+      </div>
+    </header>
 
     <div class="complaint-layout" style="margin-top: 30px;">
       <!-- Complaint Form Placeholder -->
@@ -36,17 +74,10 @@
         <button class="action-btn" onclick="openComplaint()">Action</button>
 
         <!-- TODO BACKEND: Replace static timeline entries with timeline data from DB -->
-        <div class="timeline">
-          <div class="timeline-entry">
-            <h4>6/19/2025 - Send Invitation 
-              <button class="file-btn" data-pdf="sample.pdf"></button> 
-              <span>Josie Rosal</span>
-            </h4>
-            <p>An invitation has been sent...</p>
-          </div>
-          <div class="timeline-entry">
-            <h4>6/13/2025 - Assessment <span>Josie Rosal</span></h4>
-            <p>Upon inspection, the staff verified the complaint’s validity...</p>
+         <!-- Dynamic Timeline Component -->
+        <div class="timeline" id="complaintTimeline">
+          <div class="timeline-loading" id="timelineLoading" style="text-align: center; padding: 20px; color: #666;">
+            Loading timeline...
           </div>
         </div>
         <button class="resolved-btn" onclick="resolveComplaint()">Resolved</button>
@@ -257,6 +288,24 @@
         <div class="modal-footer">
           <button class="btn-cancel" onclick="(function(){ closeComplaint(); recommendModal.style.display='flex'; })()">Cancel</button>
           <button id="assignSaveBtn" class="btn-save" onclick="saveAction()">Save</button> 
+        </div>
+      </div>
+    </div>
+
+    <!-- ACCEPTED INVITATION MODAL -->
+    <div class="modal-overlay" id="acceptInvitationModal" style="display:none;">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Confirm Accepted Invitation</h3>
+          <button onclick="closeAcceptInvitationModal()" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure both parties have accepted the invitation?</p>
+          <p><strong>This will update the timeline status to "Accepted Invitation".</strong></p>
+          <div class="modal-actions">
+            <button onclick="confirmAcceptedInvitation()" style="background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; margin-right: 10px; cursor: pointer;">Yes, Both Parties Accepted</button>
+            <button onclick="closeAcceptInvitationModal()" style="background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">Cancel</button>
+          </div>
         </div>
       </div>
     </div>
@@ -727,15 +776,23 @@
           try { closeComplaint(); } catch (e) { /* fallback */ }
           try { document.getElementById('recommendModal').style.display = 'none'; } catch (e) {}
           if (interval) { clearInterval(interval); interval = null; }
-          alert(`${actionType} saved successfully!`);
+          
+          // Refresh timeline to show new entry and close modal automatically
+          if (typeof refreshTimeline === 'function') {
+            refreshTimeline();
+          }
+          
+          // Close the modal automatically after successful save
+          closeComplaint();
         } else {
-          alert("Error: " + (res.error || res.message));
+          // Only show error messages, no success messages
+          console.error("Error saving action:", res.error || res.message);
         }
       })
       .catch(err => {
         if (modalSaveBtn) modalSaveBtn.disabled = false;
         if (assignSaveBtn) assignSaveBtn.disabled = false;
-        alert('Network or server error: ' + err);
+        console.error('Network or server error:', err);
       });
     }
 
@@ -755,6 +812,305 @@
     window.addFileUpload = addFileUpload;
     window.saveAction = saveAction;
   })();
+
+  // =====================================
+  // DYNAMIC TIMELINE SYSTEM
+  // =====================================
+  
+  // Timeline management
+  let timelineData = [];
+  let currentRole = 'admin'; // Default role, will be detected from URL or API
+  
+  // Detect user role from URL parameters or make API call
+  function detectUserRole() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roleParam = urlParams.get('role');
+    if (roleParam) {
+      currentRole = roleParam;
+      return Promise.resolve(roleParam);
+    }
+    
+    // Fallback: detect from current path or make API call
+    if (window.location.pathname.includes('/admin/')) {
+      currentRole = 'admin';
+    } else if (window.location.pathname.includes('/staff/')) {
+      currentRole = 'staff';
+    } else if (window.location.pathname.includes('/complainant/')) {
+      currentRole = 'complainant';
+    }
+    return Promise.resolve(currentRole);
+  }
+  
+  // Load timeline data from API
+  async function loadTimelineData() {
+    try {
+      const complaintId = new URLSearchParams(window.location.search).get('id');
+      if (!complaintId) {
+        console.error('No complaint ID found in URL');
+        return [];
+      }
+      
+      const role = await detectUserRole();
+      console.log(`Loading timeline for complaint ${complaintId} with role ${role}`);
+      
+      const response = await fetch(`/admin/complaints/api/timeline/${complaintId}?role=${role}`, {
+        credentials: 'same-origin'
+      });
+      
+      console.log(`Timeline API response status: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Timeline API error: ${response.status} - ${errorText.substring(0, 200)}`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Timeline data received:', data);
+      return data.timeline || [];
+    } catch (error) {
+      console.error('Error loading timeline data:', error);
+      return [];
+    }
+  }
+  
+  // Truncate description to one line with ellipsis
+  function truncateDescription(text, maxLength = 80) {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength).trim() + '...';
+  }
+  
+  // Map action types to standardized timeline status labels
+  function mapActionToTimelineStatus(actionType, isCompleted = false) {
+    const statusMap = {
+      'Inspection': isCompleted ? 'Inspection done' : 'Inspection',
+      'Invitation': 'Send Invitation',
+      'Mediation': 'Mediation',
+      'Assessment': 'Assessment',
+      'Accepted Invitation': 'Accepted Invitation'
+    };
+    return statusMap[actionType] || actionType;
+  }
+  
+  // Generate default messages for actions without descriptions
+  function getDefaultMessage(actionType, assignedTo) {
+    const timelineStatus = mapActionToTimelineStatus(actionType);
+    const messages = {
+      'Inspection': `Staff has already inspected the site`,
+      'Inspection done': `Site inspection completed`,
+      'Send Invitation': `Invitation sent to involved parties`,
+      'Accepted Invitation': `Both parties have accepted the invitation`,
+      'Mediation': `Mediation session conducted`,
+      'Assessment': `Assessment completed by ${assignedTo || 'staff'}`,
+      'Task Completed': `Task completed and passed back to admin`
+    };
+    return messages[timelineStatus] || `${timelineStatus} completed`;
+  }
+  
+  // Format date for timeline display
+  function formatTimelineDate(dateString) {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch (error) {
+      return dateString;
+    }
+  }
+  
+  // Render timeline entries based on role
+  function renderTimeline(entries) {
+    const timelineContainer = document.getElementById('complaintTimeline');
+    const loadingElement = document.getElementById('timelineLoading');
+    
+    if (loadingElement) {
+      loadingElement.style.display = 'none';
+    }
+    
+    if (!entries || entries.length === 0) {
+      timelineContainer.innerHTML = '<div class="timeline-empty" style="text-align: center; padding: 20px; color: #888; font-style: italic;">No actions have been taken yet on this complaint.</div>';
+      return;
+    }
+    
+    // Filter entries based on role
+    let filteredEntries = filterEntriesByRole(entries, currentRole);
+    
+    // Sort entries by date (most recent first)
+    filteredEntries.sort((a, b) => new Date(b.action_datetime) - new Date(a.action_datetime));
+    
+    // Generate HTML for timeline entries
+    const timelineHTML = filteredEntries.map(entry => {
+      const timelineStatus = mapActionToTimelineStatus(entry.type_of_action);
+      const date = formatTimelineDate(entry.action_datetime);
+      const description = entry.description ? 
+        truncateDescription(entry.description) : 
+        getDefaultMessage(entry.type_of_action, entry.assigned_to);
+      
+      const fileButton = entry.has_file ? 
+        `<button class="file-btn" data-pdf="${entry.file_path || '#'}" onclick="openTimelineFile('${entry.file_path || '#'}')"></button>` : 
+        '';
+      
+      const assignedTo = entry.assigned_to ? `<span>${entry.assigned_to}</span>` : '';
+      
+      // Add "Accepted Invitation" button for Send Invitation entries
+      const acceptInvitationButton = timelineStatus === 'Send Invitation' ?
+        `<button class="accept-invitation-btn" onclick="showAcceptInvitationModal(${entry.history_id})" style="margin-left: 10px; background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Mark as Accepted</button>` : '';
+      
+      return `
+        <div class="timeline-entry" data-status="${timelineStatus.toLowerCase().replace(/\s+/g, '-')}">
+          <h4>${date} - ${timelineStatus} 
+            ${fileButton}
+            ${assignedTo}
+            ${acceptInvitationButton}
+          </h4>
+          <p>${description}</p>
+        </div>
+      `;
+    }).join('');
+    
+    timelineContainer.innerHTML = timelineHTML;
+    
+    // Re-attach file button event listeners
+    attachFileButtonListeners();
+  }
+  
+  // Filter timeline entries based on user role
+  function filterEntriesByRole(entries, role) {
+    switch (role) {
+      case 'admin':
+        // Admin sees all entries
+        return entries;
+        
+      case 'staff':
+        // Staff sees their assignments and completions, plus completion message
+        const staffEntries = entries.filter(entry => 
+          entry.assigned_to && entry.assigned_to.toLowerCase().includes('staff') ||
+          entry.type_of_action === 'Task Completed'
+        );
+        
+        // Add completion message for staff if they have completed tasks
+        const hasCompletedTasks = staffEntries.some(entry => entry.type_of_action === 'Task Completed');
+        if (hasCompletedTasks) {
+          staffEntries.push({
+            action_datetime: new Date().toISOString(),
+            type_of_action: 'Status Update',
+            assigned_to: 'System',
+            description: 'Task completed and passed back to admin for further processing',
+            has_file: false
+          });
+        }
+        return staffEntries;
+        
+      case 'complainant':
+        // Complainant sees only milestone completions
+        const milestones = ['Inspection', 'Invitation', 'Assessment', 'Resolved'];
+        return entries.filter(entry => 
+          milestones.includes(entry.type_of_action) && 
+          !entry.type_of_action.includes('Assign')
+        );
+        
+      default:
+        return entries;
+    }
+  }
+  
+  // Re-attach event listeners to file buttons
+  function attachFileButtonListeners() {
+    document.querySelectorAll('.file-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pdfUrl = btn.getAttribute('data-pdf');
+        if (pdfUrl && pdfUrl !== '#') {
+          window.open(pdfUrl, '_blank');
+        } else {
+          alert('No file available for this entry.');
+        }
+      });
+    });
+  }
+  
+  // Open timeline file
+  function openTimelineFile(filePath) {
+    if (filePath && filePath !== '#') {
+      window.open(filePath, '_blank');
+    } else {
+      alert('No file available for this entry.');
+    }
+  }
+  
+  // Refresh timeline data
+  async function refreshTimeline() {
+    try {
+      const loadingElement = document.getElementById('timelineLoading');
+      if (loadingElement) {
+        loadingElement.style.display = 'block';
+      }
+      
+      const entries = await loadTimelineData();
+      timelineData = entries;
+      renderTimeline(entries);
+    } catch (error) {
+      console.error('Error refreshing timeline:', error);
+      const timelineContainer = document.getElementById('complaintTimeline');
+      timelineContainer.innerHTML = '<div class="timeline-error" style="text-align: center; padding: 20px; color: #d32f2f;">Error loading timeline. Please refresh the page.</div>';
+    }
+  }
+  
+  // Initialize timeline on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    refreshTimeline();
+  });
+  
+  // Accepted Invitation Modal Functions
+  let currentInvitationHistoryId = null;
+  
+  function showAcceptInvitationModal(historyId) {
+    currentInvitationHistoryId = historyId;
+    document.getElementById('acceptInvitationModal').style.display = 'flex';
+  }
+  
+  function closeAcceptInvitationModal() {
+    document.getElementById('acceptInvitationModal').style.display = 'none';
+    currentInvitationHistoryId = null;
+  }
+  
+  async function confirmAcceptedInvitation() {
+    if (!currentInvitationHistoryId) return;
+    
+    try {
+      const complaintId = new URLSearchParams(window.location.search).get('id');
+      const response = await fetch('/admin/complaints/api/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          complaint_id: complaintId,
+          action_type: 'Accepted Invitation',
+          assigned_to: 'Admin',
+          description: 'Both parties have accepted the invitation',
+          original_invitation_id: currentInvitationHistoryId
+        })
+      });
+      
+      if (response.ok) {
+        closeAcceptInvitationModal();
+        refreshTimeline();
+      } else {
+        console.error('Failed to confirm accepted invitation');
+      }
+    } catch (error) {
+      console.error('Error confirming accepted invitation:', error);
+    }
+  }
+
+  // Make functions globally available
+  window.refreshTimeline = refreshTimeline;
+  window.openTimelineFile = openTimelineFile;
+  window.showAcceptInvitationModal = showAcceptInvitationModal;
+  window.closeAcceptInvitationModal = closeAcceptInvitationModal;
+  window.confirmAcceptedInvitation = confirmAcceptedInvitation;
 
   /* Timeline: Open PDF */
   document.querySelectorAll('.file-btn').forEach(btn => {
@@ -886,6 +1242,18 @@
     } catch (error) {
       console.error('Error resolving complaint:', error);
       alert('Error resolving complaint. Please try again.');
+    }
+  }
+
+  // Back arrow functionality
+  function goBack() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const referrer = urlParams.get('referrer');
+    
+    if (referrer) {
+      window.location.href = `/admin/complaints/${referrer}`;
+    } else {
+      window.location.href = '/admin/complaints/all.html';
     }
   }
   </script>

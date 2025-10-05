@@ -24,7 +24,8 @@
     <nav class="nav-menu">
       <a href="/admin/dashboard" class="nav-item active">Map</a>
       <a href="/admin/complaints/all.html" class="nav-item">Complaints</a>
-      <a href="/admin/database/beneficiaries.html" class="nav-item">Database</a> 
+      <a href="/admin/database/beneficiaries.html" class="nav-item">Beneficiaries</a>
+      <a href="/admin/database/policies.html" class="nav-item">Policies</a>
     </nav>
   </aside>
 
@@ -32,8 +33,20 @@
   <main class="main-content">
 
     <!-- Header -->
-    <header class="page-header">
-      <h1 id="area-title">Loading...</h1>
+    <header class="page-header" style="margin-top: -10px; padding-top: 0px;">
+      <div class="header-content">
+        <div class="header-left">
+          <button class="back-arrow" onclick="goBack()" title="Back to Map">◀</button>
+          <h1 id="area-title">Loading...</h1>
+        </div>
+        <div class="header-right">
+          <div class="search-bar" style="position: relative;">
+            <input type="text" id="search-input" placeholder="Search residents..." style="padding-right: 30px;"/>
+            <button id="clear-btn" style="display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 16px; color: #666; cursor: pointer; padding: 0; width: 20px; height: 20px;">×</button>
+            <div id="search-results" class="search-results" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 9999; margin-top: 4px;"></div>
+          </div>
+        </div>
+      </div>
     </header>
 
     <div class="map-layout">
@@ -182,6 +195,7 @@
       match.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
+    // Bidirectional highlighting: highlight corresponding SVG area
     const svgGroups = Array.from(container.querySelectorAll('svg g'));
     const matchArea = svgGroups.find(g => {
       const aBlock = parseBlockFromId(g.id);
@@ -189,8 +203,11 @@
       return String(aBlock) === String(block) && String(aLot) === String(lot);
     });
 
-    if (matchArea) highlightSvgArea(matchArea);
-    else clearSvgSelection();
+    // Clear previous SVG selections and apply new one
+    clearSvgSelection();
+    if (matchArea) {
+      highlightSvgArea(matchArea);
+    }
   }
 
   function parseBlockFromId(id) {
@@ -882,6 +899,268 @@
   setTimeout(handleUrlHighlighting, 2000);
 
 })();
+
+// Search functionality for residents
+function initSearch() {
+  console.log('🔍 Initializing search functionality...');
+  
+  const searchInput = document.getElementById('search-input');
+  const clearBtn = document.getElementById('clear-btn');
+  const searchResults = document.getElementById('search-results');
+  
+  console.log('Search elements:', {
+    searchInput: !!searchInput,
+    clearBtn: !!clearBtn,
+    searchResults: !!searchResults
+  });
+  
+  if (!searchInput || !clearBtn || !searchResults) {
+    console.error('❌ Search elements not found!');
+    return;
+  }
+  
+  let searchTimeout;
+  let selectedIndex = -1;
+  let currentResults = [];
+
+  function performSearch() {
+    const query = searchInput.value.trim().toLowerCase();
+    
+    if (query.length < 2) {
+      searchResults.style.display = 'none';
+      currentResults = [];
+      selectedIndex = -1;
+      clearHighlights();
+      return;
+    }
+    
+    // Get current table rows for searching
+    const residentTable = document.getElementById('resident-table');
+    if (!residentTable) {
+      searchResults.innerHTML = '<div class="search-result-item no-results">Table not loaded</div>';
+      searchResults.style.display = 'block';
+      return;
+    }
+    
+    const rows = Array.from(residentTable.querySelectorAll('tbody tr'));
+      const filteredResults = rows.filter(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length < 1) return false;
+        const name = cells[0].textContent.toLowerCase();
+        // Match words that start with the query
+        const words = name.split(/\s+/);
+        return words.some(word => word.startsWith(query));
+      }).slice(0, 3); // Show maximum 3 results
+    
+    displaySearchResults(filteredResults, query);
+  }
+
+  function displaySearchResults(results, query) {
+    if (results.length === 0) {
+      searchResults.innerHTML = '<div class="search-result-item no-results">No residents found</div>';
+      searchResults.style.display = 'block';
+      return;
+    }
+    
+    currentResults = results;
+    const resultsHTML = results.map((row, index) => {
+      const cells = row.querySelectorAll('td');
+      const name = cells[0].textContent;
+      const block = cells[1] ? cells[1].textContent : 'N/A';
+      const lot = cells[2] ? cells[2].textContent : 'N/A';
+      return `<div class="search-result-item" data-index="${index}">${name} (Blk ${block}, Lot ${lot})</div>`;
+    }).join('');
+    
+    searchResults.innerHTML = resultsHTML;
+    searchResults.style.display = 'block';
+    selectedIndex = -1;
+    
+    // Add click handlers
+    searchResults.querySelectorAll('.search-result-item').forEach((item, index) => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        selectResult(index);
+      });
+    });
+  }
+
+  function selectResult(index) {
+    if (index >= 0 && index < currentResults.length) {
+      const row = currentResults[index];
+      const cells = row.querySelectorAll('td');
+      const block = cells[1] ? cells[1].textContent : null;
+      const lot = cells[2] ? cells[2].textContent : null;
+      
+      // Clear search UI
+      searchInput.value = '';
+      searchResults.style.display = 'none';
+      
+      // Highlight table row (without affecting layout)
+      clearHighlights();
+      row.classList.add('highlight');
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      
+      // Highlight corresponding SVG area (without affecting layout)
+      if (block && lot) {
+        highlightSvgByBlockLot(block, lot);
+      }
+    }
+  }
+
+  function highlightSvgByBlockLot(block, lot) {
+    const container = document.getElementById('map-container');
+    if (!container) return;
+    
+    // Clear any existing search highlights
+    container.querySelectorAll('svg g.search-highlight').forEach(g => {
+      g.classList.remove('search-highlight');
+    });
+    
+    const svgGroups = Array.from(container.querySelectorAll('svg g'));
+    const matchArea = svgGroups.find(g => {
+      const id = g.id || '';
+      const aBlock = parseBlockFromId(id);
+      const aLot = parseLotFromId(id);
+      return String(aBlock) === String(block) && String(aLot) === String(lot);
+    });
+    
+    if (matchArea) {
+      matchArea.classList.add('search-highlight');
+    }
+  }
+
+  function clearHighlights() {
+    // Clear table highlights
+    const residentTable = document.getElementById('resident-table');
+    if (residentTable) {
+      residentTable.querySelectorAll('tr').forEach(r => r.classList.remove('highlight'));
+    }
+    
+    // Clear SVG search highlights (preserve original layout)
+    const container = document.getElementById('map-container');
+    if (container) {
+      container.querySelectorAll('svg g.search-highlight').forEach(g => {
+        g.classList.remove('search-highlight');
+      });
+    }
+  }
+
+  function clearSearch() {
+    searchInput.value = '';
+    searchResults.style.display = 'none';
+    clearBtn.style.display = 'none';
+    clearHighlights();
+    searchInput.focus();
+  }
+
+  // Show/hide clear button based on input content
+  searchInput.addEventListener('input', (e) => {
+    const query = e.target.value.trim();
+    console.log('🔤 Input event - query:', query, 'length:', query.length);
+    
+    // Show clear button immediately when there's text
+    clearBtn.style.display = query.length > 0 ? 'block' : 'none';
+    
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(performSearch, 300);
+  });
+
+  clearBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    clearSearch();
+  });
+
+  // Keyboard navigation
+  searchInput.addEventListener('keydown', (e) => {
+    const items = searchResults.querySelectorAll('.search-result-item:not(.no-results)');
+    
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+      updateSelection();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIndex = Math.max(selectedIndex - 1, -1);
+      updateSelection();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedIndex >= 0) {
+        selectResult(selectedIndex);
+      }
+    } else if (e.key === 'Escape') {
+      clearSearch();
+    }
+  });
+
+  function updateSelection() {
+    const items = searchResults.querySelectorAll('.search-result-item:not(.no-results)');
+    items.forEach((item, index) => {
+      item.classList.toggle('selected', index === selectedIndex);
+    });
+  }
+  
+  // Hide results when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-bar')) {
+      searchResults.style.display = 'none';
+    }
+  });
+
+  // Show clear button on focus if there's text
+  searchInput.addEventListener('focus', () => {
+    if (searchInput.value.trim().length > 0) {
+      clearBtn.style.display = 'block';
+    }
+  });
+}
+
+// Parse block and lot functions (moved outside for search access)
+function parseBlockFromId(id) {
+  if (!id) return null;
+  const patterns = [
+    /[Bb](\d+)/,
+    /Block[\s_-]*(\d+)/i,
+    /blk[\s_-]*(\d+)/i,
+    /b[\s_-]*(\d+)/i
+  ];
+  
+  for (const pattern of patterns) {
+    const match = id.match(pattern);
+    if (match) return parseInt(match[1]);
+  }
+  return null;
+}
+
+function parseLotFromId(id) {
+  if (!id) return null;
+  const patterns = [
+    /[Ll](\d+)/,
+    /Lot[\s_-]*(\d+)/i,
+    /lot[\s_-]*(\d+)/i,
+    /l[\s_-]*(\d+)/i
+  ];
+  
+  for (const pattern of patterns) {
+    const match = id.match(pattern);
+    if (match) return parseInt(match[1]);
+  }
+  return null;
+}
+
+// Back arrow functionality
+function goBack() {
+  window.location.href = '/admin/map/index.html';
+}
+
+// Initialize search when page loads
+document.addEventListener('DOMContentLoaded', function() {
+  // Wait longer for all data to load before initializing search
+  setTimeout(() => {
+    console.log('Initializing search functionality...');
+    initSearch();
+  }, 2500);
+});
 </script>
 
 <style>
@@ -1098,6 +1377,23 @@ svg g.selected-area circle {
   stroke: #2196f3 !important;
   stroke-width: 2 !important;
   filter: brightness(1.1);
+}
+
+/* Separate highlighting style for search results */
+svg g.search-highlight path,
+svg g.search-highlight rect,
+svg g.search-highlight polygon,
+svg g.search-highlight circle {
+  stroke: #ff9800 !important;
+  stroke-width: 3 !important;
+  filter: brightness(1.3) saturate(1.2);
+  stroke-dasharray: 5,5;
+  animation: search-pulse 2s infinite;
+}
+
+@keyframes search-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 /* Loading states */

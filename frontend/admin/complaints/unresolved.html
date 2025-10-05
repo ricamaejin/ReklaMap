@@ -13,7 +13,28 @@
     .priority-severe { background-color: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
     .priority-moderate { background-color: #ffc107; color: black; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
     .priority-minor { background-color: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
-    .complaints-table tbody tr:hover { background-color: #f8f9fa; cursor: pointer; }
+    /* Uniform table row styling with consistent row heights */
+    .complaints-table tbody tr { 
+      min-height: 70px; 
+      height: 70px;
+    }
+    .complaints-table tbody td { 
+      padding: 12px 8px; 
+      vertical-align: middle; 
+      word-wrap: break-word; 
+      line-height: 1.4;
+      max-height: 70px;
+      overflow: hidden;
+    }
+    /* Center align all table contents and adjust column widths (7-column layout) */
+    .complaints-table th, .complaints-table td { text-align: center; }
+    .complaints-table th:nth-child(2), .complaints-table td:nth-child(2) { min-width: 150px; width: 150px; } /* Complainant */
+    .complaints-table th:nth-child(4), .complaints-table td:nth-child(4) { min-width: 140px; width: 140px; } /* HOA - increased width */
+    .complaints-table th:nth-child(5), .complaints-table td:nth-child(5) { min-width: 180px; width: 180px; } /* Address */
+    /* Status-based row colors - higher specificity */
+    .complaints-table tbody tr.status-unresolved { background-color: #D3D3D3 !important; cursor: pointer; }
+    .complaints-table tbody tr.status-unresolved:hover { background-color: #C0C0C0 !important; }
+    .complaints-table tbody tr:hover { cursor: pointer; }
   </style>
 </head>
 <body>
@@ -24,9 +45,10 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/admin/map/index.html" class="nav-item">Map</a>
+      <a href="/admin/dashboard" class="nav-item">Map</a>
       <a href="/admin/complaints/all.html" class="nav-item active">Complaints</a>
-      <a href="/admin/database/beneficiaries.html" class="nav-item">Database</a>
+      <a href="/admin/database/beneficiaries.html" class="nav-item">Beneficiaries</a>
+      <a href="/admin/database/policies.html" class="nav-item">Policies</a>
     </nav>
   </aside>
 
@@ -67,8 +89,8 @@
       <a href="pending.html">Pending</a>
       <a href="ongoing.html">On Going</a>
       <a href="resolved.html">Resolved</a>
-      <a href="assigned.html" class="active">Assigned</a>
       <a href="invalid.html">Invalid</a>
+      <a href="unresolved.html" class="active">Unresolved</a>
     </div>
 
     <!-- Table -->
@@ -76,13 +98,13 @@
     <table class="complaints-table">
       <thead>
         <tr>
-          <th>Date Submitted</th>
-          <th>Complainant</th>
-          <th>Type of Complaint</th>
-          <th>HOA</th>
-          <th>Address</th>
-          <th>Action Needed</th>
-          <th>Priority Level</th>
+          <th style="text-align: center;">Date Submitted</th>
+          <th style="text-align: center;">Complainant</th>
+          <th style="text-align: center;">Type of Complaint</th>
+          <th style="text-align: center;">HOA</th>
+          <th style="text-align: center;">Address</th>
+          <th style="text-align: center;">Action Needed</th>
+          <th style="text-align: center;">Priority Level</th>
         </tr>
       </thead>
         
@@ -92,13 +114,13 @@
     </table>
     </div>
   </div>
-  </div>
+
 
   <script>
-    // Load assigned complaints data
-    async function loadAssignedComplaints() {
+    // Load unresolved complaints data
+    async function loadUnresolvedComplaints() {
       try {
-        const response = await fetch(`/admin/complaints/api/assigned?_=${Date.now()}`);
+        const response = await fetch(`/admin/complaints/api/unresolved?_=${Date.now()}`);
         const data = await response.json();
         
         if (Array.isArray(data)) {
@@ -116,18 +138,24 @@
     // Load admin statistics
     async function loadStats() {
       try {
-        const response = await fetch(`/admin/complaints/api/stats?_=${Date.now()}`);
-        const data = await response.json();
+        const [statsResponse, unresolvedResponse] = await Promise.all([
+          fetch(`/admin/complaints/api/stats?_=${Date.now()}`),
+          fetch(`/admin/complaints/api/unresolved?_=${Date.now()}`)
+        ]);
         
-        if (data.total !== undefined) {
-          document.querySelector('.stat-card:nth-child(1) h2').textContent = data.total || 0;
-          document.querySelector('.stat-card:nth-child(2) h2').textContent = data.ongoing || 0;
-          document.querySelector('.stat-card:nth-child(3) h2').textContent = data.unresolved || 0;
-        } else if (data.success && data.stats) {
-          document.querySelector('.stat-card:nth-child(1) h2').textContent = data.stats.total_complaints || 0;
-          document.querySelector('.stat-card:nth-child(2) h2').textContent = data.stats.ongoing || 0;
-          document.querySelector('.stat-card:nth-child(3) h2').textContent = data.stats.unresolved || 0;
+        const statsData = await statsResponse.json();
+        const unresolvedData = await unresolvedResponse.json();
+        
+        if (statsData.total !== undefined) {
+          document.querySelector('.stat-card:nth-child(1) h2').textContent = statsData.total || 0;
+          document.querySelector('.stat-card:nth-child(2) h2').textContent = statsData.ongoing || 0;
         }
+        
+        // Count unresolved from dedicated endpoint
+        const unresolvedCount = Array.isArray(unresolvedData) ? unresolvedData.length : 
+                               (unresolvedData.complaints ? unresolvedData.complaints.length : 0);
+        document.querySelector('.stat-card:nth-child(3) h2').textContent = unresolvedCount;
+        
       } catch (error) {
         console.error('Error loading stats:', error);
       }
@@ -139,27 +167,32 @@
       tbody.innerHTML = '';
       
       if (complaints.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No assigned complaints</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No unresolved complaints</td></tr>';
         return;
       }
       
       complaints.forEach(complaint => {
         const row = document.createElement('tr');
         row.style.cursor = 'pointer';
+        
         row.addEventListener('click', () => {
           const detailsPage = complaint.status === 'Invalid' ? 'complaint_details_invalid.html' : 'complaint_details_valid.html';
-          window.location.href = `/admin/complaints/${detailsPage}?id=${complaint.complaint_id}`;
+          window.location.href = `/admin/complaints/${detailsPage}?id=${complaint.complaint_id}&referrer=unresolved.html`;
         });
         
         row.innerHTML = `
           <td>${complaint.date_received}</td>
           <td>${complaint.complainant_name || complaint.complainant || 'N/A'}</td>
           <td>${complaint.type_of_complaint}</td>
-          <td>${complaint.address ? complaint.address.split(',')[complaint.address.split(',').length - 1] : 'N/A'}</td>
-          <td>${complaint.address}</td>
-          <td>Investigation</td>
+          <td>${complaint.area_name || 'N/A'}</td>
+          <td>${complaint.address || 'N/A'}</td>
+          <td>${complaint.action_needed || 'Unresolved'}</td>
           <td><button class="priority-${(complaint.priority_level || 'minor').toLowerCase()}">${complaint.priority_level || 'Minor'}</button></td>
         `;
+        
+        // Add status-based styling AFTER setting innerHTML
+        row.classList.add('status-unresolved');
+        row.style.backgroundColor = '#D3D3D3'; // Fallback inline style
         
         tbody.appendChild(row);
       });
@@ -167,7 +200,7 @@
 
     // Initialize page
     document.addEventListener('DOMContentLoaded', function() {
-      loadAssignedComplaints();
+      loadUnresolvedComplaints();
       loadStats();
     });
   </script>

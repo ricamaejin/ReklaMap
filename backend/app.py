@@ -11,6 +11,7 @@ from backend.database.models import Admin
 from backend.admin.routes.auth import auth_bp
 from backend.admin.routes.map import map_bp
 from backend.admin.routes.complaints import complaints_bp
+from backend.admin.routes.timeline import timeline_bp
 from backend.admin.routes.areas import areas_bp
 from backend.admin.routes.beneficiaries import beneficiaries_bp
 from backend.admin.routes.blocks import blocks_bp
@@ -51,6 +52,7 @@ db.init_app(app)
 app.register_blueprint(auth_bp)
 app.register_blueprint(map_bp)
 app.register_blueprint(complaints_bp)
+app.register_blueprint(timeline_bp)
 app.register_blueprint(areas_bp)
 app.register_blueprint(beneficiaries_bp)
 app.register_blueprint(blocks_bp)

@@ -16,24 +16,30 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/admin/map/index.html" class="nav-item ">Map</a>
+      <a href="/admin/dashboard" class="nav-item">Map</a>
       <a href="/admin/complaints/all.html" class="nav-item">Complaints</a>
-      <a href="/admin/database/beneficiaries.html" class="nav-item active">Database</a>
+      <a href="/admin/database/beneficiaries.html" class="nav-item">Beneficiaries</a>
+      <a href="/admin/database/policies.html" class="nav-item active">Policies</a>
     </nav>
   </aside>
 
   <!-- Main Content -->
   <main class="main-content">
     <header class="header">
-      <h1>Data</h1>
+      <div class="header-content">
+        <div class="header-left">
+          <h1>Policies</h1>
+        </div>
+        <div class="header-right">
+          <div class="search-bar" style="position: relative;">
+            <input type="text" id="search-input" placeholder="Search policy code, law..." style="padding-right: 30px;" />
+            <button id="clear-btn" style="display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 16px; color: #666; cursor: pointer; padding: 0; width: 20px; height: 20px;">×</button>
+            <div id="search-results" class="search-results" style="display: none;"></div>
+          </div>
+        </div>
+      </div>
       <hr class="header-line">
     </header>
-
-    <!-- Tabs -->
-    <div class="tabs">
-      <a href="beneficiaries.html" class="tab">Beneficiaries</a>
-      <a href="policies.html" class="tab active">Policies</a>
-    </div>
 
     <!-- Table -->
     <div class="poli-table">
@@ -89,13 +95,23 @@
       
       let tableHTML = '';
       policies.forEach(policy => {
+        let applicationText = policy.application || 'N/A';
+
+        if (applicationText !== 'N/A' && applicationText.length > 0) {
+          applicationText = applicationText
+          .split(/\r?\n/)
+          .map(part => part.trim())
+          .filter(part => part.length > 0)
+          .join('<br>');
+        }
+
         tableHTML += `
           <tr>
             <td>${policy.policy_code || 'N/A'}</td>
             <td>${policy.law || 'N/A'}</td>
             <td>${policy.section_number || 'N/A'}</td>
             <td>${policy.description || 'N/A'}</td>
-            <td>${policy.application || 'N/A'}</td>
+            <td>${applicationText}</td>
           </tr>
         `;
       });
@@ -116,7 +132,180 @@
     // Load policies when the page loads
     document.addEventListener('DOMContentLoaded', function() {
       loadPolicies();
+      initSearch();
     });
+
+    // Search functionality
+    function initSearch() {
+      const searchInput = document.getElementById('search-input');
+      const clearBtn = document.getElementById('clear-btn');
+      const searchResults = document.getElementById('search-results');
+      
+      if (!searchInput || !clearBtn || !searchResults) return;
+      
+      let searchTimeout;
+      let selectedIndex = -1;
+      let currentResults = [];
+
+      function performSearch() {
+        const query = searchInput.value.trim().toLowerCase();
+        
+        // Show/hide clear button
+        clearBtn.style.display = query.length > 0 ? 'block' : 'none';
+        
+        if (query.length < 2) {
+          searchResults.style.display = 'none';
+          currentResults = [];
+          selectedIndex = -1;
+          clearHighlights();
+          return;
+        }
+        
+        // Get current table rows for searching
+        const tableBody = document.getElementById('policies-table-body');
+        if (!tableBody) {
+          searchResults.innerHTML = '<div class="search-result-item no-results">Table not loaded</div>';
+          searchResults.style.display = 'block';
+          return;
+        }
+        
+        const rows = Array.from(tableBody.querySelectorAll('tr'));
+        
+        // Filter out loading/error rows and search policy code and law only
+        const validRows = rows.filter(row => {
+          const cells = row.querySelectorAll('td');
+          return cells.length >= 5; // Must have all columns
+        });
+        
+        const filteredResults = validRows.filter(row => {
+          const cells = row.querySelectorAll('td');
+          const policyCode = cells[0].textContent.toLowerCase();
+          const law = cells[1].textContent.toLowerCase();
+          
+          // Match words that start with the query
+          const policyWords = policyCode.split(/\s+/);
+          const lawWords = law.split(/\s+/);
+          
+          return policyWords.some(word => word.startsWith(query)) || 
+                 lawWords.some(word => word.startsWith(query));
+        }).slice(0, 10);
+        
+        displaySearchResults(filteredResults, query);
+      }
+
+      function displaySearchResults(results, query) {
+        if (results.length === 0) {
+          searchResults.innerHTML = '<div class="search-result-item no-results">No policies found</div>';
+          searchResults.style.display = 'block';
+          return;
+        }
+        
+        currentResults = results;
+        const resultsHTML = results.map((row, index) => {
+          const cells = row.querySelectorAll('td');
+          const policyCode = cells[0].textContent;
+          const law = cells[1].textContent;
+          const sectionNumber = cells[2].textContent;
+          return `<div class="search-result-item" data-index="${index}">⚖️ ${policyCode}: ${law} [${sectionNumber}]</div>`;
+        }).join('');
+        
+        searchResults.innerHTML = resultsHTML;
+        searchResults.style.display = 'block';
+        selectedIndex = -1;
+        
+        // Add click handlers
+        searchResults.querySelectorAll('.search-result-item').forEach((item, index) => {
+          item.addEventListener('click', (e) => {
+            e.preventDefault();
+            selectResult(index);
+          });
+        });
+      }
+
+      function selectResult(index) {
+        if (index >= 0 && index < currentResults.length) {
+          const targetRow = currentResults[index];
+          
+          // Clear search UI
+          searchInput.value = '';
+          searchResults.style.display = 'none';
+          clearBtn.style.display = 'none';
+          
+          // Highlight and scroll to row
+          clearHighlights();
+          targetRow.classList.add('highlight');
+          targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+
+      function clearHighlights() {
+        document.querySelectorAll('.poli-table tr').forEach(r => r.classList.remove('highlight'));
+      }
+
+      function clearSearch() {
+        searchInput.value = '';
+        searchResults.style.display = 'none';
+        clearBtn.style.display = 'none';
+        clearHighlights();
+        searchInput.focus();
+      }
+
+      function updateSelection() {
+        const items = searchResults.querySelectorAll('.search-result-item:not(.no-results)');
+        items.forEach((item, index) => {
+          item.classList.toggle('selected', index === selectedIndex);
+        });
+      }
+
+      // Show/hide clear button based on input content
+      searchInput.addEventListener('input', () => {
+        const query = searchInput.value.trim();
+        clearBtn.style.display = query.length > 0 ? 'block' : 'none';
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(performSearch, 300);
+      });
+
+      clearBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        clearSearch();
+      });
+
+      // Keyboard navigation
+      searchInput.addEventListener('keydown', (e) => {
+        const items = searchResults.querySelectorAll('.search-result-item:not(.no-results)');
+        
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+          updateSelection();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          selectedIndex = Math.max(selectedIndex - 1, -1);
+          updateSelection();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (selectedIndex >= 0) {
+            selectResult(selectedIndex);
+          }
+        } else if (e.key === 'Escape') {
+          clearSearch();
+        }
+      });
+      
+      // Hide results when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-bar')) {
+          searchResults.style.display = 'none';
+        }
+      });
+      
+      // Show clear button on focus if there's text
+      searchInput.addEventListener('focus', () => {
+        if (searchInput.value.trim().length > 0) {
+          clearBtn.style.display = 'block';
+        }
+      });
+    }
   </script>
 
 </body>

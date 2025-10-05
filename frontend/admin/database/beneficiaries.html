@@ -16,31 +16,37 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <a href="/admin/map/index.html" class="nav-item ">Map</a>
+      <a href="/admin/dashboard" class="nav-item">Map</a>
       <a href="/admin/complaints/all.html" class="nav-item">Complaints</a>
-      <a href="/admin/database/beneficiaries.html" class="nav-item active">Database</a>
+      <a href="/admin/database/beneficiaries.html" class="nav-item active">Beneficiaries</a>
+      <a href="/admin/database/policies.html" class="nav-item">Policies</a>
     </nav>
   </aside>
 
   <!-- Main Content -->
   <main class="main-content">
     <header class="header">
-      <h1>Data</h1>
+      <div class="header-content">
+        <div class="header-left">
+          <h1>Beneficiaries</h1>
+        </div>
+        <div class="header-right">
+          <div class="search-bar" style="position: relative;">
+            <input type="text" id="search-input" placeholder="Search names..." style="padding-right: 30px;" />
+            <button id="clear-btn" style="display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 16px; color: #666; cursor: pointer; padding: 0; width: 20px; height: 20px;">×</button>
+            <div id="search-results" class="search-results" style="display: none;"></div>
+          </div>
+        </div>
+      </div>
       <hr class="header-line">
     </header>
-
-    <!-- Tabs -->
-    <div class="tabs">
-      <a href="beneficiaries.html" class="tab active">Beneficiaries</a>
-      <a href="policies.html" class="tab">Policies</a>
-    </div>
 
     <!-- Pagination Header -->
     <div class="pagination-header">
       <span id="pagination-info">Loading...</span>
       <div class="pagination-controls">
         <button id="prev-btn" class="pagination-btn" disabled>‹ Previous</button>
-        <span id="page-info">Page 1</span>
+        <span>Page </span><input type="number" id="page-input" min="1" style="width: 60px; text-align: center; border: 1px solid #ccc; border-radius: 3px; padding: 2px;"> <span id="page-total">of 1</span>
         <button id="next-btn" class="pagination-btn" disabled>Next ›</button>
       </div>
     </div>
@@ -70,7 +76,7 @@
     <div class="pagination-footer">
       <div class="pagination-controls">
         <button id="prev-btn-footer" class="pagination-btn" disabled>‹ Previous</button>
-        <span id="page-info-footer">Page 1</span>
+        <span>Page </span><input type="number" id="page-input-footer" min="1" style="width: 60px; text-align: center; border: 1px solid #ccc; border-radius: 3px; padding: 2px;"> <span id="page-total-footer">of 1</span>
         <button id="next-btn-footer" class="pagination-btn" disabled>Next ›</button>
       </div>
       <span id="pagination-info-footer">Loading...</span>
@@ -81,26 +87,116 @@
     let currentPage = 1;
     let totalPages = 1;
     let totalRecords = 0;
-    const recordsPerPage = 20;
+    const recordsPerPage = 30;
+
+    // Function to highlight beneficiary by ID (defined early to avoid reference errors)
+    function highlightBeneficiary(beneficiaryId) {
+      setTimeout(() => {
+        const rows = document.querySelectorAll('.bene-table tbody tr');
+        rows.forEach(row => {
+          const rowId = row.getAttribute('data-id');
+          if (rowId === String(beneficiaryId)) {
+            clearHighlights();
+            row.classList.add('highlight');
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        });
+      }, 300);
+    }
+
+    function clearHighlights() {
+      document.querySelectorAll('.bene-table tr').forEach(r => r.classList.remove('highlight'));
+    }
 
     // Function to load beneficiaries from database (including generated_lots with name fields)
     async function loadBeneficiaries(page = 1) {
       try {
         showLoading();
-        const response = await fetch(`/admin/beneficiaries/?page=${page}&per_page=${recordsPerPage}&include_generated_lots=true`);
+        
+        // Load all data using the existing endpoint with include_generated_lots parameter
+        const response = await fetch(`/admin/beneficiaries/?page=1&per_page=10000&include_generated_lots=true`);
         
         if (!response.ok) {
           throw new Error('Failed to fetch beneficiaries');
         }
         
         const data = await response.json();
-        displayBeneficiaries(data.beneficiaries);
-        updatePagination(data.pagination);
+        
+        // Process and format the combined data
+        const processedData = processAllBeneficiaries(data.beneficiaries || []);
+        const totalCombined = processedData.length;
+        const totalPagesCombined = Math.ceil(totalCombined / recordsPerPage);
+        
+        // Paginate the combined data
+        const startIndex = (page - 1) * recordsPerPage;
+        const paginatedData = processedData.slice(startIndex, startIndex + recordsPerPage);
+        
+        displayBeneficiaries(paginatedData);
+        updatePagination({
+          page: page,
+          total_pages: totalPagesCombined,
+          total: totalCombined
+        });
+        
+        // Store processed data globally for search
+        window.allCombinedData = processedData;
+        
+        // Check if we need to highlight a specific beneficiary
+        const highlightId = sessionStorage.getItem('highlightBeneficiaryId');
+        if (highlightId) {
+          highlightBeneficiary(highlightId);
+          sessionStorage.removeItem('highlightBeneficiaryId');
+        }
         
       } catch (error) {
         console.error('Error loading beneficiaries:', error);
         displayError('Failed to load beneficiaries. Please try again later.');
       }
+    }
+
+    // Function to process all beneficiaries data (regular + generated_lots)
+    function processAllBeneficiaries(allData) {
+      const processed = [];
+      
+      allData.forEach((item, index) => {
+        // Check if this is a generated_lot entry (has is_generated_lot flag or genlot_id)
+        const isGeneratedLot = item.is_generated_lot || item.genlot_id;
+        
+        // Format name properly
+        let fullName = '';
+        if (item.name) {
+          // If name is already formatted, use it directly
+          fullName = item.name;
+        } else if (item.first_name || item.last_name) {
+          // Format name from individual components
+          const nameParts = [
+            item.first_name,
+            item.middle_initial,
+            item.last_name,
+            item.suffix
+          ].filter(part => part && part.trim() !== '');
+          fullName = nameParts.join(' ');
+        }
+        
+        // Generate unique ID for each entry
+        let uniqueId;
+        if (isGeneratedLot) {
+          uniqueId = item.genlot_id ? `gen_${item.genlot_id}` : `genidx_${index}`;
+        } else {
+          uniqueId = item.beneficiary_id ? `bene_${item.beneficiary_id}` : `beneidx_${index}`;
+        }
+        
+        processed.push({
+          ...item,
+          name: fullName || 'N/A',
+          is_generated_lot: isGeneratedLot || false,
+          beneficiary_id: uniqueId,
+          sort_key: `${item.area_name || 'ZZZ'}_${String(item.block_no || 0).padStart(3, '0')}_${String(item.lot_no || 0).padStart(5, '0')}`
+        });
+      });
+      
+      // Sort by area_name, block_no, lot_no
+      return processed.sort((a, b) => a.sort_key.localeCompare(b.sort_key));
     }
 
     // Function to display beneficiaries in the table
@@ -123,7 +219,7 @@
         const rowClass = isGeneratedLot ? ' class="generated-lot-row"' : '';
         
         tableHTML += `
-          <tr${rowClass}>
+          <tr${rowClass} data-id="${beneficiary.beneficiary_id || ''}">
             <td style="text-align: left;">${beneficiary.name || 'N/A'}</td>
             <td>Block ${beneficiary.block_no || 'N/A'}</td>
             <td>Lot ${beneficiary.lot_no || 'N/A'}</td>
@@ -152,9 +248,14 @@
       document.getElementById('pagination-info-footer').textContent = paginationText;
       
       // Update page info
-      const pageText = `Page ${currentPage} of ${totalPages}`;
-      document.getElementById('page-info').textContent = pageText;
-      document.getElementById('page-info-footer').textContent = pageText;
+      document.getElementById('page-input').value = currentPage;
+      document.getElementById('page-input-footer').value = currentPage;
+      document.getElementById('page-total').textContent = `of ${totalPages}`;
+      document.getElementById('page-total-footer').textContent = `of ${totalPages}`;
+      
+      // Set max value for input fields
+      document.getElementById('page-input').max = totalPages;
+      document.getElementById('page-input-footer').max = totalPages;
       
       // Update button states
       const prevDisabled = currentPage <= 1;
@@ -222,7 +323,232 @@
       
       // Load initial data
       loadBeneficiaries(1);
+      
+      // Initialize search
+      initSearch();
+      
+      // Add page input functionality
+      document.getElementById('page-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          const page = parseInt(e.target.value);
+          if (page && page >= 1 && page <= totalPages) {
+            loadBeneficiaries(page);
+          } else {
+            e.target.value = currentPage; // Reset to current page if invalid
+          }
+        }
+      });
+      
+      document.getElementById('page-input-footer').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          const page = parseInt(e.target.value);
+          if (page && page >= 1 && page <= totalPages) {
+            loadBeneficiaries(page);
+          } else {
+            e.target.value = currentPage; // Reset to current page if invalid
+          }
+        }
+      });
+      
+      // Load all beneficiaries for search after initial page load
+      setTimeout(() => {
+        const searchInstance = window.searchInstance;
+        if (searchInstance && searchInstance.loadAllBeneficiaries) {
+          searchInstance.loadAllBeneficiaries();
+        }
+      }, 1000);
     });
+
+    // Search functionality
+    function initSearch() {
+      const searchInput = document.getElementById('search-input');
+      const clearBtn = document.getElementById('clear-btn');
+      const searchResults = document.getElementById('search-results');
+      
+      if (!searchInput || !clearBtn || !searchResults) return;
+      
+      let searchTimeout;
+      let selectedIndex = -1;
+      let currentResults = [];
+      let allBeneficiaries = []; // Store all beneficiaries for global search
+
+      // Function to load all beneficiaries for search
+      async function loadAllBeneficiaries() {
+        // Use the globally stored combined data if available
+        if (window.allCombinedData) {
+          allBeneficiaries = window.allCombinedData;
+        } else {
+          try {
+            // Fallback: load data using the existing endpoint
+            const response = await fetch(`/admin/beneficiaries/?page=1&per_page=10000&include_generated_lots=true`);
+            
+            if (response.ok) {
+              const data = await response.json();
+              const processedData = processAllBeneficiaries(data.beneficiaries || []);
+              allBeneficiaries = processedData;
+              window.allCombinedData = processedData; // Store globally
+            }
+          } catch (error) {
+            console.error('Error loading all beneficiaries:', error);
+          }
+        }
+      }
+
+      function performSearch() {
+        const query = searchInput.value.trim().toLowerCase();
+        
+        // Show/hide clear button
+        clearBtn.style.display = query.length > 0 ? 'block' : 'none';
+        
+        if (query.length < 2) {
+          searchResults.style.display = 'none';
+          currentResults = [];
+          selectedIndex = -1;
+          clearHighlights();
+          return;
+        }
+        
+        // Search from all loaded beneficiaries and generated lots
+        const filteredResults = allBeneficiaries.filter(beneficiary => {
+          const name = (beneficiary.name || '').toLowerCase();
+          // Match words that start with the query
+          const words = name.split(/\s+/);
+          return words.some(word => word.startsWith(query));
+        }).slice(0, 10);
+        displaySearchResults(filteredResults, query);
+      }
+
+      function displaySearchResults(results, query) {
+        if (results.length === 0) {
+          searchResults.innerHTML = '<div class="search-result-item no-results">No beneficiaries found</div>';
+          searchResults.style.display = 'block';
+          return;
+        }
+        
+        currentResults = results;
+        const resultsHTML = results.map((beneficiary, index) => {
+          const name = beneficiary.name || 'N/A';
+          const block = beneficiary.block_no || 'N/A';
+          const lot = beneficiary.lot_no || 'N/A';
+          return `<div class="search-result-item" data-index="${index}">👤 ${name} (Block ${block}, Lot ${lot})</div>`;
+        }).join('');
+        
+        searchResults.innerHTML = resultsHTML;
+        searchResults.style.display = 'block';
+        selectedIndex = -1;
+        
+        // Add click handlers
+        searchResults.querySelectorAll('.search-result-item').forEach((item, index) => {
+          item.addEventListener('click', (e) => {
+            e.preventDefault();
+            selectResult(index);
+          });
+        });
+      }
+
+      function selectResult(index) {
+        if (index >= 0 && index < currentResults.length) {
+          const beneficiary = currentResults[index];
+          
+          // Clear search UI
+          searchInput.value = '';
+          searchResults.style.display = 'none';
+          clearBtn.style.display = 'none';
+          
+          // Find the index of this beneficiary in the complete dataset
+          const beneficiaryId = beneficiary.beneficiary_id;
+          if (beneficiaryId && window.allCombinedData && window.allCombinedData.length > 0) {
+            const globalIndex = window.allCombinedData.findIndex(b => b.beneficiary_id === beneficiaryId);
+            if (globalIndex !== -1) {
+              // Calculate which page this beneficiary is on
+              const targetPage = Math.ceil((globalIndex + 1) / recordsPerPage);
+              
+              // Navigate to that page and highlight the beneficiary
+              if (targetPage !== currentPage) {
+                // Store beneficiary ID to highlight after page load
+                sessionStorage.setItem('highlightBeneficiaryId', beneficiaryId);
+                loadBeneficiaries(targetPage);
+              } else {
+                // Already on correct page, just highlight
+                highlightBeneficiary(beneficiaryId);
+              }
+            }
+          }
+        }
+      }
+
+
+
+      function clearSearch() {
+        searchInput.value = '';
+        searchResults.style.display = 'none';
+        clearBtn.style.display = 'none';
+        clearHighlights();
+        searchInput.focus();
+      }
+
+      function updateSelection() {
+        const items = searchResults.querySelectorAll('.search-result-item:not(.no-results)');
+        items.forEach((item, index) => {
+          item.classList.toggle('selected', index === selectedIndex);
+        });
+      }
+
+      // Show/hide clear button based on input content
+      searchInput.addEventListener('input', () => {
+        const query = searchInput.value.trim();
+        clearBtn.style.display = query.length > 0 ? 'block' : 'none';
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(performSearch, 300);
+      });
+
+      clearBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        clearSearch();
+      });
+
+      // Keyboard navigation
+      searchInput.addEventListener('keydown', (e) => {
+        const items = searchResults.querySelectorAll('.search-result-item:not(.no-results)');
+        
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+          updateSelection();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          selectedIndex = Math.max(selectedIndex - 1, -1);
+          updateSelection();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (selectedIndex >= 0) {
+            selectResult(selectedIndex);
+          }
+        } else if (e.key === 'Escape') {
+          clearSearch();
+        }
+      });
+      
+      // Hide results when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-bar')) {
+          searchResults.style.display = 'none';
+        }
+      });
+
+      // Show clear button on focus if there's text
+      searchInput.addEventListener('focus', () => {
+        if (searchInput.value.trim().length > 0) {
+          clearBtn.style.display = 'block';
+        }
+      });
+      
+      // Load all beneficiaries for global search
+      loadAllBeneficiaries();
+      
+      // Expose for external access
+      window.searchInstance = { loadAllBeneficiaries };
+    }
   </script>
 
   <style>
@@ -317,6 +643,62 @@
 
     .bene-table tr.generated-lot-row:hover td {
       background-color: #e9ecef;
+    }
+
+    /* Highlighting styles */
+    .bene-table tr.highlight td {
+      background-color: #e3f2fd !important;
+      border-left: 3px solid #2196f3;
+    }
+
+    /* Search results styles */
+    .search-results {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      z-index: 9999;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 4px;
+    }
+
+    .search-result-item {
+      padding: 12px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f0f0;
+      transition: background-color 0.2s ease;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .search-result-item:hover,
+    .search-result-item.selected {
+      background-color: #f8f9fa;
+    }
+
+    .search-result-item.selected {
+      background-color: #e3f2fd;
+      border-left: 3px solid #2196f3;
+    }
+
+    .search-result-item:last-child {
+      border-bottom: none;
+    }
+
+    .search-result-item.no-results {
+      color: #666;
+      text-align: center;
+      font-style: italic;
+      cursor: default;
+    }
+
+    .search-result-item.no-results:hover {
+      background-color: transparent;
     }
 
     /* Responsive adjustments */

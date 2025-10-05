@@ -52,6 +52,7 @@ def get_all_beneficiaries():
                     "lot_no": beneficiary.lot_no,
                     "sqm": beneficiary.sqm,
                     "area_name": area.area_name,
+                    "beneficiary_id": beneficiary.beneficiary_id,
                     "is_generated_lot": False,
                     "sort_key": f"{area.area_name}_{block.block_no:03d}_{beneficiary.lot_no:03d}"
                 })
@@ -61,11 +62,11 @@ def get_all_beneficiaries():
                 full_name = " ".join(
                     filter(None, [gen_lot.first_name, gen_lot.middle_initial, gen_lot.last_name, gen_lot.suffix])
                 )
-                # Add remarks in parentheses or default (GLS)
-                if gen_lot.remarks:
+                # Add remarks in parentheses if present
+                if gen_lot.remarks and gen_lot.remarks.strip():
                     display_name = f"{full_name} ({gen_lot.remarks})"
                 else:
-                    display_name = f"{full_name} (GLS)"
+                    display_name = full_name
                 
                 combined_results.append({
                     "name": display_name,
@@ -73,6 +74,7 @@ def get_all_beneficiaries():
                     "lot_no": gen_lot.lot_no,
                     "sqm": gen_lot.sqm,
                     "area_name": area.area_name,
+                    "genlot_id": gen_lot.genlot_id,
                     "is_generated_lot": True,
                     "sort_key": f"{area.area_name}_{block.block_no:03d}_{gen_lot.lot_no:03d}"
                 })
@@ -136,6 +138,45 @@ def get_all_beneficiaries():
     except Exception as e:
         print(f"Error fetching beneficiaries: {e}")
         return jsonify({"error": "Failed to fetch beneficiaries"}), 500
+
+# GET all beneficiaries without pagination (for search functionality)
+@beneficiaries_bp.route("/all")
+def get_all_beneficiaries_no_pagination():
+    try:
+        # Get all beneficiaries
+        beneficiaries_query = db.session.query(
+            Beneficiary, Block, Area
+        ).join(
+            Block, Beneficiary.block_id == Block.block_id
+        ).join(
+            Area, Beneficiary.area_id == Area.area_id
+        ).order_by(
+            Area.area_name, Block.block_no, Beneficiary.lot_no
+        )
+        
+        beneficiaries = beneficiaries_query.all()
+        
+        result = []
+        for beneficiary, block, area in beneficiaries:
+            # Combine name parts into one string
+            full_name = " ".join(
+                filter(None, [beneficiary.first_name, beneficiary.middle_initial, beneficiary.last_name, beneficiary.suffix])
+            )
+            result.append({
+                "name": full_name,
+                "block_no": block.block_no,
+                "lot_no": beneficiary.lot_no,
+                "sqm": beneficiary.sqm,
+                "area_name": area.area_name,
+                "beneficiary_id": beneficiary.beneficiary_id,
+                "is_generated_lot": False
+            })
+        
+        return jsonify({"beneficiaries": result})
+        
+    except Exception as e:
+        print(f"Error fetching all beneficiaries: {e}")
+        return jsonify({"error": "Failed to fetch all beneficiaries"}), 500
 
 # GET beneficiaries by area_id (keep existing route for compatibility)
 @beneficiaries_bp.route("/<int:area_id>")

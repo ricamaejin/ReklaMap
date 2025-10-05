@@ -20,7 +20,7 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <!-- Navigation will be populated by navigation.js -->
+      <a href="/staff/complaints/assigned" class="nav-item active">Complaints</a>
     </nav>
   </aside>
 
@@ -48,14 +48,6 @@
       </div>
       
       <div class="stat-card">
-        <i class="bi bi-person-exclamation"></i>
-        <div>
-          <h2 id="ongoing-count">0</h2>
-          <p>On Going</p>   
-        </div>
-      </div>
-      
-      <div class="stat-card">
         <i class="bi bi-person-check"></i>
         <div>
          <h2 id="resolved-count">0</h2>
@@ -75,13 +67,13 @@
     <table class="complaints-table">
       <thead>
         <tr>
-          <th>Date Submitted</th>
-          <th>Date Resolved</th>
-          <th>Complainant</th>
-          <th>Type of Complaint</th>
-          <th>HOA</th>
-          <th>Address</th>
-          <th>Resolution Action</th>
+          <th style="text-align: center;">Date Submitted</th>
+          <th style="text-align: center;">Date Resolved</th>
+          <th style="text-align: center;">Complainant</th>
+          <th style="text-align: center;">Type of Complaint</th>
+          <th style="text-align: center;">HOA</th>
+          <th style="text-align: center;">Address</th>
+          <th style="text-align: center;">Resolution Action</th>
         </tr>
       </thead>
         
@@ -116,8 +108,10 @@
         const data = await response.json();
         
         if (data.success) {
-          document.querySelector('.stat-card:nth-child(1) h2').textContent = data.total_assigned || 0;
-          document.querySelector('.stat-card:nth-child(3) h2').textContent = data.resolved || 0;
+          document.getElementById('total-assigned').textContent = data.total_assigned || 0;
+          document.getElementById('resolved-count').textContent = data.resolved || 0;
+        } else {
+          console.error('Error loading stats:', data.message);
         }
       } catch (error) {
         console.error('Error loading stats:', error);
@@ -144,12 +138,12 @@
         
         row.innerHTML = `
           <td>${complaint.date_received}</td>
+          <td>${complaint.date_resolved || 'N/A'}</td>
           <td>${complaint.complainant}</td>
           <td>${complaint.type_of_complaint}</td>
-          <td>${complaint.hoa}</td>
+          <td>${complaint.area_name || complaint.hoa || 'N/A'}</td>
           <td>${complaint.address}</td>
-          <td>${complaint.action_needed}</td>
-          <td><button class="priority-${complaint.priority_level.toLowerCase()}">${complaint.priority_level}</button></td>
+          <td>${complaint.resolution_action || complaint.action_needed}</td>
         `;
         
         tbody.appendChild(row);
@@ -262,6 +256,27 @@
     .user-dropdown.active .dropdown-menu {
       display: block;
     }
+    
+    /* Uniform table styling with consistent row heights */
+    .complaints-table tbody tr {
+      min-height: 70px;
+      height: 70px;
+    }
+    
+    .complaints-table tbody td {
+      padding: 12px 8px;
+      vertical-align: middle;
+      word-wrap: break-word;
+      line-height: 1.4;
+      max-height: 70px;
+      overflow: hidden;
+    }
+    
+    /* Center align all table contents and adjust column widths (7-column layout) */
+    .complaints-table th, .complaints-table td { text-align: center; }
+    .complaints-table th:nth-child(3), .complaints-table td:nth-child(3) { min-width: 150px; width: 150px; } /* Complainant */
+    .complaints-table th:nth-child(5), .complaints-table td:nth-child(5) { min-width: 150px; width: 150px; } /* HOA - increased width */
+    .complaints-table th:nth-child(6), .complaints-table td:nth-child(6) { min-width: 180px; width: 180px; } /* Address */
   </style>
 
 </body>

@@ -255,16 +255,32 @@ def view_complaint(complaint_id):
     if complaint.type_of_complaint == "Overlapping":
         overlap = Overlapping.query.filter_by(complaint_id=complaint_id).first()
         if overlap:
+            # New DB: q1 CSV current_status, q2 JSON pairs
+            # q2 -> pairs list
+            q2_pairs = []
+            try:
+                # overlap.q2 is JSON-typed; if driver returns dict/list, use directly; if string, parse
+                if isinstance(overlap.q2, (list, dict)):
+                    q2_pairs = overlap.q2 if isinstance(overlap.q2, list) else [overlap.q2]
+                else:
+                    q2_pairs = json.loads(overlap.q2 or "[]")
+            except Exception:
+                q2_pairs = []
+            # q1 -> current_status list for checkbox rendering
+            q1_list = []
+            if overlap.q1:
+                q1_list = [s.strip() for s in str(overlap.q1).split(',') if s.strip()]
             answers = {
-                "q1": json.loads(overlap.q1 or "[]"),
-                "q2": overlap.q2,
+                "q1": q1_list,
+                "q2": q2_pairs,
                 "q3": overlap.q3,
-                "q4": json.loads(overlap.q4 or "[]"),
-                "q5": json.loads(overlap.q5 or "[]"),
+                "q4": (overlap.q4 if isinstance(overlap.q4, list) else json.loads(overlap.q4 or "[]") if overlap.q4 else []),
+                "q5": (overlap.q5 if isinstance(overlap.q5, list) else json.loads(overlap.q5 or "[]") if overlap.q5 else []),
+                # q6 is now plain string
                 "q6": overlap.q6,
                 "q7": overlap.q7,
                 "q8": overlap.q8,
-                "q9": json.loads(overlap.q9 or "[]"),
+                "q9": (overlap.q9 if isinstance(overlap.q9, list) else json.loads(overlap.q9 or "[]") if overlap.q9 else []),
                 "q10": overlap.q10,
                 "q11": overlap.q11,
                 "q12": overlap.q12,
@@ -272,6 +288,22 @@ def view_complaint(complaint_id):
                 "description": overlap.description,
                 "signature": overlap.signature
             }
+            # Derive whether someone claimed overlap (Yes/No)
+            # If a sentinel '__yes_no_details__' exists, it means user picked Yes without selecting specific details.
+            try:
+                q9_list = answers.get("q9") or []
+                if isinstance(q9_list, str):
+                    # tolerate string-encoded JSON
+                    q9_list = json.loads(q9_list or "[]")
+                has_yes = False
+                if isinstance(q9_list, list):
+                    has_yes = len(q9_list) > 0
+                    # Special-case sentinel
+                    if not has_yes and "__yes_no_details__" in q9_list:
+                        has_yes = True
+                answers["q9_approach"] = "yes" if has_yes else "no"
+            except Exception:
+                answers["q9_approach"] = "no"
     # Add more complaint types here as needed
     
     # For family members, add parent info and relationship
@@ -319,11 +351,34 @@ def view_complaint(complaint_id):
     
     print(f"[DEBUG] Final values - parent_info: {parent_info is not None}, relationship: {relationship}")
     
+    # Determine whether to show Q9 follow-up (checkbox block) based on answers
+    form_structure_display = form_structure
+    try:
+        show_q9_followup = False
+        if answers:
+            # Primary: explicit derived flag
+            if answers.get("q9_approach") == "yes":
+                show_q9_followup = True
+            else:
+                # Fallback: inspect q9 list (handles sentinel and actual selections)
+                q9_list = answers.get("q9") or []
+                if isinstance(q9_list, str):
+                    try:
+                        q9_list = json.loads(q9_list or "[]")
+                    except Exception:
+                        q9_list = []
+                if isinstance(q9_list, list) and ("__yes_no_details__" in q9_list or len(q9_list) > 0):
+                    show_q9_followup = True
+        if not show_q9_followup:
+            form_structure_display = [f for f in form_structure if f.get("name") != "q9"]
+    except Exception:
+        form_structure_display = form_structure
+
     return render_template(
         "complaint_details_valid.html" if complaint.status == "Valid" else "complaint_details_invalid.html",
         complaint=complaint,
         registration=registration,
-        form_structure=form_structure,
+        form_structure=form_structure_display,
         answers=answers,
         parent_info=parent_info,
         relationship=relationship,
