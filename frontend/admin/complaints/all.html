@@ -9,6 +9,9 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/admin.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
   <style>
     .priority-severe { background-color: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
     .priority-moderate { background-color: #ffc107; color: black; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
@@ -99,21 +102,40 @@
     </div>
         
     <!-- Tabs -->
-    <div class="tabs">
-      <a href="all.html" class="active"> All</a>
-      <a href="pending.html">Pending</a>
-      <a href="ongoing.html">On Going</a>
-      <a href="resolved.html">Resolved</a>
-      <a href="invalid.html">Invalid</a>
-      <a href="unresolved.html">Unresolved</a>
-    </div>
+    <div class="tabs" style="display: flex; justify-content: space-between; align-items: center;">
+  <div>
+    <a href="all.html" class="active"> All</a>
+    <a href="pending.html">Pending</a>
+    <a href="ongoing.html">On Going</a>
+    <a href="resolved.html">Resolved</a>
+    <a href="invalid.html">Invalid</a>
+    <a href="unresolved.html">Unresolved</a>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 10px;">
+    <input type="month" id="reportMonthPicker" style="padding: 6px; border-radius: 4px;">
+    <button id="generateReportBtn" class="btn btn-danger">
+      <i class="bi bi-file-earmark-pdf"></i> Generate PDF
+    </button>
+  </div>
+</div>
 
     <!-- Table -->
     <div class="table-container">
     <table class="complaints-table">
       <thead>
-        <tr>
-          <th style="text-align: center;">Date Submitted</th>
+        <th class="date-submitted" style="position: relative; text-align: center;">
+  Date Submitted 
+  <i class="bi bi-caret-down-fill" id="dateDropdownToggle" 
+     style="font-size: 12px; color: gray; cursor: pointer; margin-left: 4px;"></i>
+
+  <div id="dateDropdownMenu" 
+       style="display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+              background: white; border: 1px solid #ccc; border-radius: 4px; z-index: 999; width: 140px;
+              box-shadow: 0 2px 5px rgba(0,0,0,0.15);">
+  </div>
+</th>
+
           <th style="text-align: center;">Complainant</th>
           <th style="text-align: center;">Type of Complaint</th>
           <th style="text-align: center;">HOA</th>
@@ -195,8 +217,6 @@
           const detailsPage = complaint.status === 'Invalid' ? 'complaint_details_invalid.html' : 'complaint_details_valid.html';
           window.location.href = `/admin/complaints/${detailsPage}?id=${complaint.complaint_id}&referrer=all.html`;
         });
-        
-
         
         // Calculate status with deadline countdown
         const calculateStatusWithDeadline = (complaint) => {
@@ -308,6 +328,324 @@
     document.addEventListener('DOMContentLoaded', function() {
       loadAllComplaints();
       loadStats();
+    });
+  </script>
+
+  <script>
+    function formatDeadline(complaint) {
+      if (!complaint.action_datetime) return 'N/A';
+      const actionDate = new Date(complaint.action_datetime);
+      const actionType = (complaint.latest_action || complaint.action_needed || '').toLowerCase();
+
+      let daysToAdd = 1;
+      if (actionType.includes('inspection')) daysToAdd = 3;
+      else if (actionType.includes('invitation')) daysToAdd = 1;
+      else if (actionType.includes('mediation')) daysToAdd = 1;
+      else if (actionType.includes('assessment')) daysToAdd = 1;
+
+      const deadline = new Date(actionDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+      const now = new Date();
+      const daysDiff = Math.ceil((deadline - now) / (1000 * 3600 * 24));
+
+      const dateStr = deadline.toLocaleDateString();
+
+      if (daysDiff < 0) {
+        return `${dateStr} (Overdue by ${Math.abs(daysDiff)}d)`;
+      } else if (daysDiff === 0) {
+        return `${dateStr} (Due today)`;
+      } else if (daysDiff <= 2) {
+        return `${dateStr} (${daysDiff}d left)`;
+      } else {
+        return `${dateStr} (${daysDiff}d left)`;
+      }
+    }
+
+    function calculatePendingDeadline(complaint) {
+      const submittedDate = new Date(complaint.date_received);
+      const deadline = new Date(submittedDate.getTime() + (7 * 24 * 60 * 60 * 1000));
+      const now = new Date();
+      const timeDiff = deadline.getTime() - now.getTime();
+      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+      const dateStr = deadline.toLocaleDateString();
+
+      if (daysDiff < 0) {
+        return `${dateStr} (Overdue by ${Math.abs(daysDiff)}d)`;
+      } else if (daysDiff === 0) {
+        return `${dateStr} (Due today)`;
+      } else if (daysDiff <= 2) {
+        return `${dateStr} (${daysDiff}d left)`;
+      } else {
+        return `${dateStr} (${daysDiff}d left)`;
+      }
+    }
+
+    // Report generation
+    async function generateReport() {
+      try {
+        const monthPicker = document.getElementById("reportMonthPicker");
+        const selectedMonth = monthPicker.value; 
+
+        if (!selectedMonth) {
+          alert("Please select a month first.");
+          return;
+        }
+
+        // Fetch all complaints
+        const response = await fetch(`/admin/complaints/api/all?_=${Date.now()}`);
+        const data = await response.json();
+        const complaints = Array.isArray(data) ? data : data.complaints || [];
+
+        // Filter by month and year
+        const [year, month] = selectedMonth.split("-").map(Number);
+        const filteredComplaints = complaints.filter(c => {
+          if (!c.date_received) return false;
+          const date = new Date(c.date_received);
+          return date.getFullYear() === year && date.getMonth() + 1 === month;
+        });
+
+        if (!filteredComplaints.length) {
+          alert("No complaints found for the selected month.");
+          return;
+        }
+
+        // Initialize jsPDF
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('landscape');
+
+        // Title & Date
+        const monthNames = [
+          "January","February","March","April","May","June",
+          "July","August","September","October","November","December"
+        ];
+        const monthYear = `${monthNames[month - 1]} ${year}`;
+        const now = new Date();
+        const formattedDate = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        const formattedTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+        doc.setFontSize(16);
+        doc.text(`Complaints Report - ${monthYear}`, 14, 15);
+        doc.setFontSize(10);
+        doc.text(`Generated on: ${formattedDate}, ${formattedTime}`, 14, 22);
+
+        // Prepare table data using your deadline functions
+        const tableData = filteredComplaints.map(c => {
+          let deadlineText = "N/A";
+          if (c.status === "Pending") {
+            deadlineText = calculatePendingDeadline(c);
+          } else if (c.status !== "Invalid" && c.action_datetime) {
+            deadlineText = formatDeadline(c);
+          }
+
+          return [
+            c.date_received || "N/A",
+            c.complainant_name || c.complainant || "N/A",
+            c.type_of_complaint || "N/A",
+            c.area_name || "N/A",
+            c.assigned_to || "N/A",
+            c.status || "N/A",
+            deadlineText,
+            c.latest_action || c.action_needed || "N/A",
+            c.priority_level || "Minor"
+          ];
+        });
+
+        // Generate PDF Table
+        doc.autoTable({
+          head: [[
+            "Date Submitted",
+            "Complainant",
+            "Type of Complaint",
+            "HOA",
+            "Assigned To",
+            "Status",
+            "Deadline",
+            "Action Needed",
+            "Priority Level"
+          ]],
+          body: tableData,
+          startY: 28,
+          theme: "grid",
+          headStyles: {
+            fillColor: [26, 51, 160],
+            textColor: [255, 255, 255],
+            fontStyle: "bold",
+            lineWidth: 0.3
+          },
+          styles: {
+            fontSize: 9,
+            lineWidth: 0.2,
+            lineColor: [0, 0, 0],
+            textColor: [0, 0, 0]
+          },
+        });
+
+        // Save PDF
+        doc.save(`Complaints_Report_${monthYear}.pdf`);
+      } catch (error) {
+        console.error("Error generating report:", error);
+        alert("Failed to generate report. Please try again.");
+      }
+    }
+
+    // ✅ Button logic
+    document.addEventListener("DOMContentLoaded", () => {
+      loadAllComplaints();
+      loadStats();
+
+      const monthPicker = document.getElementById("reportMonthPicker");
+      const generateBtn = document.getElementById("generateReportBtn");
+
+      let pickerVisible = false;
+
+      generateBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!pickerVisible) {
+          monthPicker.style.display = "inline-block";
+          monthPicker.focus();
+          pickerVisible = true;
+        } else {
+          monthPicker.style.display = "none";
+          pickerVisible = false;
+        }
+      });
+
+      monthPicker.addEventListener("change", async () => {
+        pickerVisible = false;
+        monthPicker.style.display = "none";
+        await generateReport();
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!monthPicker.contains(e.target) && !generateBtn.contains(e.target)) {
+          monthPicker.style.display = "none";
+          pickerVisible = false;
+        }
+      });
+    });
+  </script>
+
+ <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const toggle = document.getElementById("dateDropdownToggle");
+      const menu = document.getElementById("dateDropdownMenu");
+      let calendarVisible = false;
+
+      if (!menu) return;
+
+      // Create dropdown content if it doesn't exist
+      if (!menu.innerHTML.trim()) {
+        menu.innerHTML = `
+          <div id="dropdownContent" style="
+            display: flex; 
+            flex-direction: column; 
+            padding: 8px; 
+            background: white; 
+            border: 1px solid #ccc; 
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            min-width: 220px;
+          ">
+            <input type="date" id="dateFilterInput" style="
+              padding: 6px; 
+              font-size: 14px; 
+              border: 1px solid #1a33a0; 
+              border-radius: 4px; 
+              margin-bottom: 8px;
+              outline: none;
+            ">
+            <button id="showAllBtn" style="
+              background: #1a33a0; 
+              color: white; 
+              border: none; 
+              border-radius: 4px; 
+              padding: 6px;
+              cursor: pointer;
+            ">Show All</button>
+          </div>
+        `;
+      }
+
+      const dateInput = menu.querySelector("#dateFilterInput");
+      const showAllBtn = menu.querySelector("#showAllBtn");
+
+      // Toggle dropdown visibility
+      toggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        calendarVisible = !calendarVisible;
+        menu.style.display = calendarVisible ? "block" : "none";
+        menu.style.position = "absolute";
+
+        // Add a little margin (e.g., 6-8px) below the toggle
+        const verticalOffset = toggle.offsetHeight + 6; // 6px margin
+        menu.style.top = verticalOffset + "px";
+        menu.style.zIndex = "9999";
+      });
+
+
+      // Close dropdown if clicking outside
+      document.addEventListener("click", (e) => {
+        if (!menu.contains(e.target) && !toggle.contains(e.target)) {
+          menu.style.display = "none";
+          calendarVisible = false;
+        }
+      });
+
+      function filterTableByDate(selectedDate) {
+        const rows = document.querySelectorAll("#complaints-table-body tr");
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+          const dateCell = row.querySelector("td:nth-child(1)");
+          if (!dateCell) return;
+
+          // Use local date instead of UTC
+          const cellDateObj = new Date(dateCell.textContent.trim());
+          const cellDate = cellDateObj.getFullYear() + '-' +
+                          String(cellDateObj.getMonth() + 1).padStart(2, '0') + '-' +
+                          String(cellDateObj.getDate()).padStart(2, '0');
+
+          if (!selectedDate || cellDate === selectedDate) {
+            row.style.display = "";
+            visibleCount++;
+          } else {
+            row.style.display = "none";
+          }
+        });
+
+        // Remove existing "No complaints" message
+        const emptyMsg = document.getElementById("noComplaintsMsg");
+        if (emptyMsg) emptyMsg.remove();
+
+        // Add message only if no rows are visible
+        if (visibleCount === 0) {
+          const msgRow = document.createElement("tr");
+          msgRow.id = "noComplaintsMsg";
+          msgRow.innerHTML = `<td colspan="8" style="text-align:center; color:#888; padding:8px;">No complaints found for this date.</td>`;
+          document.querySelector("#complaints-table-body").appendChild(msgRow);
+        }
+      }
+
+      dateInput.addEventListener("change", () => {
+        filterTableByDate(dateInput.value);
+      });
+
+      showAllBtn.addEventListener("click", () => {
+        dateInput.value = "";
+
+        // Remove any existing "No complaints" message immediately
+        const emptyMsg = document.getElementById("noComplaintsMsg");
+        if (emptyMsg) emptyMsg.remove();
+
+        // Show all rows
+        const rows = document.querySelectorAll("#complaints-table-body tr");
+        rows.forEach(row => {
+          row.style.display = "";
+        });
+
+        // Hide the dropdown
+        menu.style.display = "none";
+        calendarVisible = false;
+      });
     });
   </script>
 
