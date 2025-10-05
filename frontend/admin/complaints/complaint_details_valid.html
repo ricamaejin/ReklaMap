@@ -6,7 +6,37 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
-</head>
+  <style>
+    .accept-invitation-btn {
+      background: #28a745 !important;
+      color: white !important;
+      border: none !important;
+      padding: 5px 10px !important;
+      border-radius: 3px !important;
+      cursor: pointer !important;
+      margin-left: 10px !important;
+      font-size: 12px !important;
+    }
+    .accept-invitation-btn:hover {
+      background: #218838 !important;
+    }
+    .modal-body p {
+      margin: 10px 0;
+    }
+    .modal-actions {
+      margin-top: 20px;
+      text-align: center;
+    }
+    .timeline-entry[data-status="accepted-invitation"] {
+      border-left: 4px solid #28a745;
+      background-color: #f8fff9;
+    }
+    .timeline-entry[data-status="send-invitation"] {
+      border-left: 4px solid #ffc107;
+      background-color: #fffbf0;
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <body>
   <!-- Sidebar -->
   <aside class="sidebar">
@@ -44,17 +74,10 @@
         <button class="action-btn" onclick="openComplaint()">Action</button>
 
         <!-- TODO BACKEND: Replace static timeline entries with timeline data from DB -->
-        <div class="timeline">
-          <div class="timeline-entry">
-            <h4>6/19/2025 - Send Invitation 
-              <button class="file-btn" data-pdf="sample.pdf"></button> 
-              <span>Josie Rosal</span>
-            </h4>
-            <p>An invitation has been sent...</p>
-          </div>
-          <div class="timeline-entry">
-            <h4>6/13/2025 - Assessment <span>Josie Rosal</span></h4>
-            <p>Upon inspection, the staff verified the complaint’s validity...</p>
+         <!-- Dynamic Timeline Component -->
+        <div class="timeline" id="complaintTimeline">
+          <div class="timeline-loading" id="timelineLoading" style="text-align: center; padding: 20px; color: #666;">
+            Loading timeline...
           </div>
         </div>
         <button class="resolved-btn" onclick="resolveComplaint()">Resolved</button>
@@ -82,67 +105,83 @@
 
     <!-- ACTION MODAL -->
     <div class="modal-overlay" id="modal" style="display:none;">
-      <div class="modal">
+      <div class="modal" style="display:flex; flex-direction:column; max-height:80vh;">
         <div class="modal-header">
           <h2>Action</h2>
           <div id="actionDatetime"><div id="actionDate"></div><div id="actionTime"></div></div>
         </div>
         <hr>
 
-        <label for="actionType">Type of Action:</label>
-        <div class="type-action-row">
-          <select id="actionType" name="actionType" aria-label="Type of Action">
-            <option value="" disabled selected hidden>Select Action</option>
-            <option value="Assessment">Assessment</option>
-            <option value="Mediation">Mediation</option>
-          </select>
-        </div>
+        <div class="modal-body" style="flex:1; overflow-y:auto; overflow-x:hidden; padding-right:10px; padding-left:0;">
+          <label for="actionType">Type of Action:</label>
+          <div class="type-action-row">
+            <select id="actionType" name="actionType" aria-label="Type of Action">
+              <option value="" disabled selected hidden>Select Action</option>
+              <option value="Assessment">Assessment</option>
+              <option value="Mediation">Mediation</option>
+            </select>
+          </div>
 
-        <!-- FIELDS FOR ASSESSMENT -->
-        <div class="action-fields" id="actionAssessmentFields" style="display:none;">
-          <label>Assessment Notes:</label>
-          <textarea id="assessmentNotes" required></textarea>
-        </div>
+          <!-- FIELDS FOR ASSESSMENT -->
+          <div class="action-fields" id="actionAssessmentFields" style="display:none;">
+            <label>Assessment Notes:</label>
+            <textarea id="assessmentNotes" required></textarea>
+          </div>
 
 
-        <!-- FIELDS FOR MEDIATION -->
-        <div class="action-fields" id="actionMediationFields" style="display:none;">
-  
-          <!-- Advisors/Witnesses -->
-          <label>Advisors / Witnesses:</label>
-          <div id="witnessContainer">
-            <div class="witness-row">
-              <input type="text" name="witness[]" placeholder="Enter name" required>
+          <!-- FIELDS FOR MEDIATION -->
+          <div class="action-fields" id="actionMediationFields" style="display:none;">
+            <!-- Advisors/Witnesses -->
+            <div class="form-group">
+              <label>Advisors / Witnesses:</label>
+              <div id="witnessContainer">
+                <div class="witness-row">
+                  <input type="text" name="witness[]" placeholder="Enter name" required>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <button class="form-group-button" type="button" onclick="addWitness()">+ Add Witness</button>
+            </div>
+
+            <!-- Assigned Personnel -->
+            <div class="form-group">
+            <label>Assigned Personnel:</label>
+            <input id="medAssignedPersonnel" type="text" name="medAssignedPersonnel" value="Josie Rosal" readonly>
+            </div>
+            <!-- Parties Involved  -->
+            <div class="form-group">
+              <label>Parties Involved:</label>
+              <div id="medPartiesInvolved"></div>
+            </div>
+
+            <!-- Agenda -->
+            <div class="form-group">
+            <label>Agenda:</label>
+            <input type="text" name="agenda" placeholder="Agenda">
+            </div>
+
+            
+            <!-- Summary -->
+            <div class="form-group">
+            <label>Summary:</label>
+            <textarea name="summary" placeholder="Enter mediation summary" required></textarea>
+            </div>
+
+            <!-- File uploads -->
+            <div class="form-group">
+              <label>Upload Files:</label>
+              <div id="fileUploadContainer">
+                <div class="fileUp-row">
+                  <input type="text" name="fileDescription[]" placeholder="File type (e.g. Proof, Document)" required>
+                  <input type="file" name="mediationFiles[]" class="file-input-small">
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <button class="form-group-button" type="button" onclick="addFileUpload()">+ Add Another File</button>
             </div>
           </div>
-          <button type="button" onclick="addWitness()">+ Add Witness</button>
-
-
-          <!-- Assigned Personnel -->
-          <label>Assigned Personnel:</label>
-          <input id="medAssignedPersonnel" type="text" name="medAssignedPersonnel" value="Josie Rosal" readonly>
-
-          <!-- Parties Involved  -->
-          <label>Parties Involved:</label>
-          <textarea id="medPartiesInvolved" name="parties_involved" rows="3" placeholder="Names of parties involved" readonly></textarea>
-
-          <!-- Agenda -->
-          <label>Agenda:</label>
-          <input type="text" name="agenda" placeholder="Agenda">
-
-          <!-- Summary -->
-          <label>Summary:</label>
-          <textarea name="summary" placeholder="Enter mediation summary" required></textarea>
-
-          <!-- File uploads -->
-          <label>Upload Files:</label>
-          <div id="fileUploadContainer">
-            <div class="file-row">
-              <input type="file" name="mediationFiles[]">
-              <input type="text" name="fileDescription[]" placeholder="File type (e.g. Proof, Document)" required>
-            </div>
-          </div>
-          <button class="btn-action" type="button" onclick="addFileUpload()">+ Add Another File</button>
         </div>
 
         <div class="modal-footer">
@@ -154,80 +193,119 @@
 
     <!-- ASSIGN MODAL -->
     <div class="modal-overlay" id="assignModal" style="display:none;"> 
-      <div class="modal">
+      <div class="modal" style="display:flex; flex-direction:column; max-height:80vh;">
         <div class="modal-header">
           <h2>Assign</h2>
           <div id="assignDatetime"><div id="assignDate"></div><div id="assignTime"></div></div>
         </div>
         <hr>
 
-        <label for="assignType">Type of Assignment:</label>
-        <div class="type-action-row">
-          <select id="assignType" name="assignType" aria-label="Type of Assignment">
-            <option value="" disabled selected hidden>Select Assignment</option>
-            <option value="Inspection">Inspection</option>
-            <option value="Invitation">Invitation</option>
-          </select>
-        </div>
-
-        <!-- FIELDS FOR INSPECTION -->
-        <div class="action-fields" id="assignInspectionFields" style="display:none;">
-          <!-- Assigned Personnel -->
-          <label>Assigned Personnel:</label>
-          <input id="assignedPersonnel" type="text" value="Ram" readonly>
-
-          <!-- Deadline -->
-          <label>Deadline:</label>
-          <input id="inspectionDeadline" type="date" required>
-
-          <!-- Location of Inspection -->
-          <label>Location of Inspection:</label>
-          <input id="inspectionLocation" type="text" value="Alley 2 HOA" readonly>
-
-          <!-- Scope of Inspection -->
-          <label>Scope of Inspection:</label>
-          <div class="checkbox-group">
-            <label><input type="checkbox" name="scope[]" value="safety"> Safety</label><br>
-            <label><input type="checkbox" name="scope[]" value="affected_lots"> Affected lot/s</label><br>
-            <label><input type="checkbox" name="scope[]" value="measurement"> Measurement of lot/s</label><br>
-            <label><input type="checkbox" name="scope[]" value="relation_owner"> Relation to the lot owner (if non-HOA)</label>
+        <!-- Scrollable body for assign modal -->
+        <div class="modal-body" style="flex:1; overflow-y:auto; overflow-x:hidden; padding-right:10px; padding-left:0;">
+          <label for="assignType">Type of Assignment:</label>
+          <div class="type-action-row">
+            <select id="assignType" name="assignType" aria-label="Type of Assignment">
+              <option value="" disabled selected hidden>Select Assignment</option>
+              <option value="Inspection">Inspection</option>
+              <option value="Invitation">Invitation</option>
+            </select>
           </div>
-        </div>
 
-       <!-- FIELDS FOR INVITATION -->
-        <div class="action-fields" id="assignInvitationFields" style="display:none;">
-          <!-- Assigned Personnel -->
-          <label for="invAssignedPersonnel">Assigned Personnel:</label>
-          <select id="invAssignedPersonnel" name="assigned_personnel" required>
-            <option value="" disabled selected hidden>Select Personnel</option>
-            <option value="Maybelen Jamorawon">Maybelen Jamorawon</option>
-            <option value="Agnes Bartolome">Agnes Bartolome</option>
-          </select>
+          <!-- FIELDS FOR INSPECTION -->
+          <div class="action-fields" id="assignInspectionFields" style="display:none;">
+            <!-- Assigned Personnel -->
+            <div class="form-group">
+              <label>Assigned Personnel:</label>
+              <input id="assignedPersonnel" type="text" readonly>
+            </div>
+            <!-- Deadline -->
+            <div class="form-group">
+              <label>Deadline:</label>
+              <input id="inspectionDeadline" type="date" required style="margin-left: 30x;">
+            </div>
+            <!-- Location of Inspection -->
+            <div class="form-group">
+              <label>Location of Inspection:</label>
+              <input id="inspectionLocation" type="text" value="Alley 2 HOA" readonly>
+            </div>
+            <!-- Scope of Inspection (compact) -->
+            <div class="form-group">
+              <label>Scope of Inspection:</label>
+                <div class="checkbox-group-compact">
+                  <label class="checkbox-item-compact"><input type="checkbox" name="scope[]" value="safety"> Safety</label>
+                  <label class="checkbox-item-compact"><input type="checkbox" name="scope[]" value="affected_lots"> Affected lot/s</label>
+                  <label class="checkbox-item-compact"><input type="checkbox" name="scope[]" value="measurement"> Measurement of lot/s</label>
+                  <label class="checkbox-item-compact"><input type="checkbox" name="scope[]" value="relation_owner"> Relation to the lot owner (if non-HOA)</label>
+                </div>
+            </div>
+          </div>
 
-          <!-- To -->
-          <label for="invTo">To:</label>
-          <textarea id="invTo" name="to" rows="3" readonly>Autofilled Name</textarea>
+         <!-- FIELDS FOR INVITATION -->
+          <div class="action-fields" id="assignInvitationFields" style="display:none;">
+            <!-- Assigned Personnel -->
+            <div class="form-group">
+              <label for="invAssignedPersonnel">Assigned Personnel:</label>
+            <select id="invAssignedPersonnel" name="assigned_personnel" required>
+              <option value="" disabled selected hidden>Select Personnel</option>
+              <option value="Maybelen Jamorawon">Maybelen Jamorawon</option>
+              <option value="Agnes Bartolome">Agnes Bartolome</option>
+            </select>
+            </div>
+  
 
-          <!-- Date of Meeting -->
-          <label for="invDate">Date of Meeting:</label>
-          <input id="invDate" type="date" name="meeting_date" required>
+            <!-- To -->
+            <div class="form-group">
+              <label for="invTo">To:</label>
+              <div id="invTo"></div>
+            </div>
 
-          <!-- Time of Meeting -->
-          <label for="invTime">Time of Meeting:</label>
-          <input id="invTime" type="time" name="meeting_time" required>
-
-          <!-- Location -->
-          <label for="invLocation">Location:</label>
-          <input id="invLocation" type="text" name="location" value="Autofilled Location" readonly>
-
-          <!-- Agenda -->
-          <label for="invAgenda">Agenda:</label>
-          <textarea id="invAgenda" name="agenda" readonly>Autofilled Agenda</textarea>
+            <!-- Date of Meeting -->
+            <div class="form-group">
+              <label for="invDate">Date of Meeting:</label>
+              <input id="invDate" type="date" name="meeting_date" required>
+            </div>
+            
+            <!-- Time of Meeting -->
+            <div class="form-group">
+              <label for="invTime">Time of Meeting:</label>
+              <input id="invTime" type="time" name="meeting_time" required>
+            </div>
+            
+            <!-- Location -->
+            <div class="form-group">
+              <label for="invLocation">Location:</label>
+              <input id="invLocation" type="text" name="location" value="Autofilled Location" readonly>
+            </div>
+            
+            <!-- Agenda -->
+            <div class="form-group">
+              <label for="invAgenda">Agenda:</label>
+              <input type="text" id="invAgenda" name="agenda" readonly>
+            </div>
+          </div>
         </div>
 
         <div class="modal-footer">
           <button class="btn-cancel" onclick="(function(){ closeComplaint(); recommendModal.style.display='flex'; })()">Cancel</button>
           <button id="assignSaveBtn" class="btn-save" onclick="saveAction()">Save</button> 
+        </div>
+      </div>
+    </div>
+
+    <!-- ACCEPTED INVITATION MODAL -->
+    <div class="modal-overlay" id="acceptInvitationModal" style="display:none;">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Confirm Accepted Invitation</h3>
+          <button onclick="closeAcceptInvitationModal()" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure both parties have accepted the invitation?</p>
+          <p><strong>This will update the timeline status to "Accepted Invitation".</strong></p>
+          <div class="modal-actions">
+            <button onclick="confirmAcceptedInvitation()" style="background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; margin-right: 10px; cursor: pointer;">Yes, Both Parties Accepted</button>
+            <button onclick="closeAcceptInvitationModal()" style="background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">Cancel</button>
+          </div>
         </div>
       </div>
     </div>
@@ -310,9 +388,23 @@
       const invDateEl = document.getElementById("invDate");
       const invTimeEl = document.getElementById("invTime");
       if (invToEl) {
-        const names = (data.to || '').split(',').map(s => s.trim()).filter(Boolean);
-        invToEl.value = names.length ? names.join('\n') : '';
+        invToEl.innerHTML = ""; // clear any existing fields
+        const names = (data.to || "")
+          .split(",")
+          .map(s => s.trim())
+          .filter(Boolean);
+
+        names.forEach(name => {
+          const input = document.createElement("input");
+          input.type = "text";
+          input.name = "to[]"; // match your form naming
+          input.value = name;
+          input.readOnly = true;
+          input.classList.add("party-input"); // reuse same styling
+          invToEl.appendChild(input);
+        });
       }
+
       if (invAgendaEl) invAgendaEl.value = data.agenda || '';
       if (invLocationEl) invLocationEl.value = data.location || '2nd FLR. USAD-PHASELAD OFFICE, BARANGAY MAIN';
 
@@ -347,9 +439,22 @@
 
             const medPartiesEl = document.getElementById('medPartiesInvolved');
             if (medPartiesEl) {
-              const inviteNames = (data.to || '').split(',').map(s => s.trim()).filter(Boolean);
-              medPartiesEl.value = inviteNames.join('\n');
-            }
+              medPartiesEl.innerHTML = ''; // clear any existing fields
+              const inviteNames = (data.to || '')
+                .split(',')
+                .map(s => s.trim())
+                .filter(Boolean);
+
+              inviteNames.forEach(name => {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.name = 'parties_involved[]';
+                input.value = name;
+                input.readOnly = true;
+                input.classList.add('party-input');
+                medPartiesEl.appendChild(input);
+            });
+          }
         }
 
     // Update date & time inside whichever modal is open
@@ -490,29 +595,30 @@
 
      // Add new witness row
     function addWitness() {
-      const container = document.getElementById("witnessContainer");
-      const div = document.createElement("div");
-      div.style.display = "flex";
-      div.style.alignItems = "center";
-      div.style.gap = "8px";
-      div.innerHTML = `
-        <input type="text" name="witness[]" placeholder="Enter witness/advisor name" required>
-        <button type="button" onclick="this.parentElement.remove()">❌</button>
-      `;
-      container.appendChild(div);
+    const container = document.getElementById("witnessContainer");
+    const div = document.createElement("div");
+    div.classList.add("witness-row"); 
+    div.innerHTML = `
+      <input type="text" name="witness[]" placeholder="Enter witness/advisor name" required>
+      <button type="button" class="remove-btn-wit" onclick="this.parentElement.remove()">
+        <span class="material-icons">close</span>
+      </button>
+    `;
+
+    container.appendChild(div);
     }
 
     // Add new file row
     function addFileUpload() {
       const container = document.getElementById("fileUploadContainer");
       const div = document.createElement("div");
-      div.style.display = "flex";
-      div.style.alignItems = "center";
-      div.style.gap = "8px";
+      div.classList.add("fileUp-row");  
       div.innerHTML = `
-        <input type="file" name="mediationFiles[]">
         <input type="text" name="fileDescription[]" placeholder="File type (e.g. Proof, Document)" required>
-        <button type="button" onclick="this.parentElement.remove()">❌</button>
+        <input type="file" name="mediationFiles[]">
+        <button type="button" class="remove-btn-wit" onclick="this.parentElement.remove()">
+          <span class="material-icons">close</span>
+        </button>      
       `;
       container.appendChild(div);
     }
@@ -670,15 +776,23 @@
           try { closeComplaint(); } catch (e) { /* fallback */ }
           try { document.getElementById('recommendModal').style.display = 'none'; } catch (e) {}
           if (interval) { clearInterval(interval); interval = null; }
-          alert(`${actionType} saved successfully!`);
+          
+          // Refresh timeline to show new entry and close modal automatically
+          if (typeof refreshTimeline === 'function') {
+            refreshTimeline();
+          }
+          
+          // Close the modal automatically after successful save
+          closeComplaint();
         } else {
-          alert("Error: " + (res.error || res.message));
+          // Only show error messages, no success messages
+          console.error("Error saving action:", res.error || res.message);
         }
       })
       .catch(err => {
         if (modalSaveBtn) modalSaveBtn.disabled = false;
         if (assignSaveBtn) assignSaveBtn.disabled = false;
-        alert('Network or server error: ' + err);
+        console.error('Network or server error:', err);
       });
     }
 
@@ -698,6 +812,305 @@
     window.addFileUpload = addFileUpload;
     window.saveAction = saveAction;
   })();
+
+  // =====================================
+  // DYNAMIC TIMELINE SYSTEM
+  // =====================================
+  
+  // Timeline management
+  let timelineData = [];
+  let currentRole = 'admin'; // Default role, will be detected from URL or API
+  
+  // Detect user role from URL parameters or make API call
+  function detectUserRole() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roleParam = urlParams.get('role');
+    if (roleParam) {
+      currentRole = roleParam;
+      return Promise.resolve(roleParam);
+    }
+    
+    // Fallback: detect from current path or make API call
+    if (window.location.pathname.includes('/admin/')) {
+      currentRole = 'admin';
+    } else if (window.location.pathname.includes('/staff/')) {
+      currentRole = 'staff';
+    } else if (window.location.pathname.includes('/complainant/')) {
+      currentRole = 'complainant';
+    }
+    return Promise.resolve(currentRole);
+  }
+  
+  // Load timeline data from API
+  async function loadTimelineData() {
+    try {
+      const complaintId = new URLSearchParams(window.location.search).get('id');
+      if (!complaintId) {
+        console.error('No complaint ID found in URL');
+        return [];
+      }
+      
+      const role = await detectUserRole();
+      console.log(`Loading timeline for complaint ${complaintId} with role ${role}`);
+      
+      const response = await fetch(`/admin/complaints/api/timeline/${complaintId}?role=${role}`, {
+        credentials: 'same-origin'
+      });
+      
+      console.log(`Timeline API response status: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Timeline API error: ${response.status} - ${errorText.substring(0, 200)}`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Timeline data received:', data);
+      return data.timeline || [];
+    } catch (error) {
+      console.error('Error loading timeline data:', error);
+      return [];
+    }
+  }
+  
+  // Truncate description to one line with ellipsis
+  function truncateDescription(text, maxLength = 80) {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength).trim() + '...';
+  }
+  
+  // Map action types to standardized timeline status labels
+  function mapActionToTimelineStatus(actionType, isCompleted = false) {
+    const statusMap = {
+      'Inspection': isCompleted ? 'Inspection done' : 'Inspection',
+      'Invitation': 'Send Invitation',
+      'Mediation': 'Mediation',
+      'Assessment': 'Assessment',
+      'Accepted Invitation': 'Accepted Invitation'
+    };
+    return statusMap[actionType] || actionType;
+  }
+  
+  // Generate default messages for actions without descriptions
+  function getDefaultMessage(actionType, assignedTo) {
+    const timelineStatus = mapActionToTimelineStatus(actionType);
+    const messages = {
+      'Inspection': `Staff has already inspected the site`,
+      'Inspection done': `Site inspection completed`,
+      'Send Invitation': `Invitation sent to involved parties`,
+      'Accepted Invitation': `Both parties have accepted the invitation`,
+      'Mediation': `Mediation session conducted`,
+      'Assessment': `Assessment completed by ${assignedTo || 'staff'}`,
+      'Task Completed': `Task completed and passed back to admin`
+    };
+    return messages[timelineStatus] || `${timelineStatus} completed`;
+  }
+  
+  // Format date for timeline display
+  function formatTimelineDate(dateString) {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch (error) {
+      return dateString;
+    }
+  }
+  
+  // Render timeline entries based on role
+  function renderTimeline(entries) {
+    const timelineContainer = document.getElementById('complaintTimeline');
+    const loadingElement = document.getElementById('timelineLoading');
+    
+    if (loadingElement) {
+      loadingElement.style.display = 'none';
+    }
+    
+    if (!entries || entries.length === 0) {
+      timelineContainer.innerHTML = '<div class="timeline-empty" style="text-align: center; padding: 20px; color: #888; font-style: italic;">No actions have been taken yet on this complaint.</div>';
+      return;
+    }
+    
+    // Filter entries based on role
+    let filteredEntries = filterEntriesByRole(entries, currentRole);
+    
+    // Sort entries by date (most recent first)
+    filteredEntries.sort((a, b) => new Date(b.action_datetime) - new Date(a.action_datetime));
+    
+    // Generate HTML for timeline entries
+    const timelineHTML = filteredEntries.map(entry => {
+      const timelineStatus = mapActionToTimelineStatus(entry.type_of_action);
+      const date = formatTimelineDate(entry.action_datetime);
+      const description = entry.description ? 
+        truncateDescription(entry.description) : 
+        getDefaultMessage(entry.type_of_action, entry.assigned_to);
+      
+      const fileButton = entry.has_file ? 
+        `<button class="file-btn" data-pdf="${entry.file_path || '#'}" onclick="openTimelineFile('${entry.file_path || '#'}')"></button>` : 
+        '';
+      
+      const assignedTo = entry.assigned_to ? `<span>${entry.assigned_to}</span>` : '';
+      
+      // Add "Accepted Invitation" button for Send Invitation entries
+      const acceptInvitationButton = timelineStatus === 'Send Invitation' ?
+        `<button class="accept-invitation-btn" onclick="showAcceptInvitationModal(${entry.history_id})" style="margin-left: 10px; background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Mark as Accepted</button>` : '';
+      
+      return `
+        <div class="timeline-entry" data-status="${timelineStatus.toLowerCase().replace(/\s+/g, '-')}">
+          <h4>${date} - ${timelineStatus} 
+            ${fileButton}
+            ${assignedTo}
+            ${acceptInvitationButton}
+          </h4>
+          <p>${description}</p>
+        </div>
+      `;
+    }).join('');
+    
+    timelineContainer.innerHTML = timelineHTML;
+    
+    // Re-attach file button event listeners
+    attachFileButtonListeners();
+  }
+  
+  // Filter timeline entries based on user role
+  function filterEntriesByRole(entries, role) {
+    switch (role) {
+      case 'admin':
+        // Admin sees all entries
+        return entries;
+        
+      case 'staff':
+        // Staff sees their assignments and completions, plus completion message
+        const staffEntries = entries.filter(entry => 
+          entry.assigned_to && entry.assigned_to.toLowerCase().includes('staff') ||
+          entry.type_of_action === 'Task Completed'
+        );
+        
+        // Add completion message for staff if they have completed tasks
+        const hasCompletedTasks = staffEntries.some(entry => entry.type_of_action === 'Task Completed');
+        if (hasCompletedTasks) {
+          staffEntries.push({
+            action_datetime: new Date().toISOString(),
+            type_of_action: 'Status Update',
+            assigned_to: 'System',
+            description: 'Task completed and passed back to admin for further processing',
+            has_file: false
+          });
+        }
+        return staffEntries;
+        
+      case 'complainant':
+        // Complainant sees only milestone completions
+        const milestones = ['Inspection', 'Invitation', 'Assessment', 'Resolved'];
+        return entries.filter(entry => 
+          milestones.includes(entry.type_of_action) && 
+          !entry.type_of_action.includes('Assign')
+        );
+        
+      default:
+        return entries;
+    }
+  }
+  
+  // Re-attach event listeners to file buttons
+  function attachFileButtonListeners() {
+    document.querySelectorAll('.file-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pdfUrl = btn.getAttribute('data-pdf');
+        if (pdfUrl && pdfUrl !== '#') {
+          window.open(pdfUrl, '_blank');
+        } else {
+          alert('No file available for this entry.');
+        }
+      });
+    });
+  }
+  
+  // Open timeline file
+  function openTimelineFile(filePath) {
+    if (filePath && filePath !== '#') {
+      window.open(filePath, '_blank');
+    } else {
+      alert('No file available for this entry.');
+    }
+  }
+  
+  // Refresh timeline data
+  async function refreshTimeline() {
+    try {
+      const loadingElement = document.getElementById('timelineLoading');
+      if (loadingElement) {
+        loadingElement.style.display = 'block';
+      }
+      
+      const entries = await loadTimelineData();
+      timelineData = entries;
+      renderTimeline(entries);
+    } catch (error) {
+      console.error('Error refreshing timeline:', error);
+      const timelineContainer = document.getElementById('complaintTimeline');
+      timelineContainer.innerHTML = '<div class="timeline-error" style="text-align: center; padding: 20px; color: #d32f2f;">Error loading timeline. Please refresh the page.</div>';
+    }
+  }
+  
+  // Initialize timeline on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    refreshTimeline();
+  });
+  
+  // Accepted Invitation Modal Functions
+  let currentInvitationHistoryId = null;
+  
+  function showAcceptInvitationModal(historyId) {
+    currentInvitationHistoryId = historyId;
+    document.getElementById('acceptInvitationModal').style.display = 'flex';
+  }
+  
+  function closeAcceptInvitationModal() {
+    document.getElementById('acceptInvitationModal').style.display = 'none';
+    currentInvitationHistoryId = null;
+  }
+  
+  async function confirmAcceptedInvitation() {
+    if (!currentInvitationHistoryId) return;
+    
+    try {
+      const complaintId = new URLSearchParams(window.location.search).get('id');
+      const response = await fetch('/admin/complaints/api/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          complaint_id: complaintId,
+          action_type: 'Accepted Invitation',
+          assigned_to: 'Admin',
+          description: 'Both parties have accepted the invitation',
+          original_invitation_id: currentInvitationHistoryId
+        })
+      });
+      
+      if (response.ok) {
+        closeAcceptInvitationModal();
+        refreshTimeline();
+      } else {
+        console.error('Failed to confirm accepted invitation');
+      }
+    } catch (error) {
+      console.error('Error confirming accepted invitation:', error);
+    }
+  }
+
+  // Make functions globally available
+  window.refreshTimeline = refreshTimeline;
+  window.openTimelineFile = openTimelineFile;
+  window.showAcceptInvitationModal = showAcceptInvitationModal;
+  window.closeAcceptInvitationModal = closeAcceptInvitationModal;
+  window.confirmAcceptedInvitation = confirmAcceptedInvitation;
 
   /* Timeline: Open PDF */
   document.querySelectorAll('.file-btn').forEach(btn => {

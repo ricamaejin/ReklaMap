@@ -13,6 +13,24 @@
     .priority-severe { background-color: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
     .priority-moderate { background-color: #ffc107; color: black; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
     .priority-minor { background-color: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+    /* Uniform table row styling with consistent row heights */
+    .complaints-table tbody tr { 
+      min-height: 70px; 
+      height: 70px;
+    }
+    .complaints-table tbody td { 
+      padding: 12px 8px; 
+      vertical-align: middle; 
+      word-wrap: break-word; 
+      line-height: 1.4;
+      max-height: 70px;
+      overflow: hidden;
+    }
+    /* Center align all table contents and adjust column widths */
+    .complaints-table th, .complaints-table td { text-align: center; }
+    .complaints-table th:nth-child(2), .complaints-table td:nth-child(2) { min-width: 150px; width: 150px; } /* Complainant */
+    .complaints-table th:nth-child(4), .complaints-table td:nth-child(4) { min-width: 120px; width: 120px; } /* HOA */
+    .complaints-table th:nth-child(5), .complaints-table td:nth-child(5) { min-width: 180px; width: 180px; } /* Address */
     /* Status-based row colors - higher specificity */
     .complaints-table tbody tr.status-invalid { background-color: #F6B6B6 !important; cursor: pointer; }
     .complaints-table tbody tr.status-invalid:hover { background-color: #F19999 !important; }
@@ -71,7 +89,6 @@
       <a href="pending.html">Pending</a>
       <a href="ongoing.html">On Going</a>
       <a href="resolved.html">Resolved</a>
-      <a href="assigned.html">Assigned</a>
       <a href="invalid.html" class="active">Invalid</a>
       <a href="unresolved.html">Unresolved</a>
     </div>
@@ -81,13 +98,13 @@
     <table class="complaints-table">
       <thead>
         <tr>
-          <th>Date Submitted</th>
-          <th>Complainant</th>
-          <th>Type of Complaint</th>
-          <th>HOA</th>
-          <th>Address</th>
-          <th>Action Needed</th>
-          <th>Priority Level</th>
+          <th style="text-align: center;">Date Submitted</th>
+          <th style="text-align: center;">Complainant</th>
+          <th style="text-align: center;">Type of Complaint</th>
+          <th style="text-align: center;">HOA</th>
+          <th style="text-align: center;">Address</th>
+          <th style="text-align: center;">Action Needed</th>
+          <th style="text-align: center;">Priority Level</th>
         </tr>
       </thead>
         
@@ -164,8 +181,8 @@
           <td>${complaint.date_received}</td>
           <td>${complaint.complainant_name || 'N/A'}</td>
           <td>${complaint.type_of_complaint}</td>
-          <td>${complaint.address ? complaint.address.split(',')[complaint.address.split(',').length - 1] : 'N/A'}</td>
-          <td>${complaint.address}</td>
+          <td>${complaint.area_name || 'N/A'}</td>
+          <td>${complaint.address || 'N/A'}</td>
           <td>Invalid</td>
           <td><button class="priority-${complaint.priority_level.toLowerCase()}">${complaint.priority_level}</button></td>
         `;

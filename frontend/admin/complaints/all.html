@@ -13,6 +13,25 @@
     .priority-severe { background-color: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
     .priority-moderate { background-color: #ffc107; color: black; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
     .priority-minor { background-color: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+    /* Uniform table row styling with consistent row heights */
+    .complaints-table tbody tr { 
+      min-height: 70px; 
+      height: 70px;
+    }
+    .complaints-table tbody td { 
+      padding: 12px 8px; 
+      vertical-align: middle; 
+      word-wrap: break-word; 
+      line-height: 1.4;
+      max-height: 70px;
+      overflow: hidden;
+    }
+    /* Center align all table contents and adjust column widths */
+    .complaints-table th, .complaints-table td { text-align: center; }
+    .complaints-table th:nth-child(2), .complaints-table td:nth-child(2) { min-width: 150px; width: 150px; } /* Complainant */
+    .complaints-table th:nth-child(4), .complaints-table td:nth-child(4) { min-width: 140px; width: 140px; } /* HOA - increased width */
+    .complaints-table th:nth-child(5), .complaints-table td:nth-child(5) { min-width: 140px; width: 140px; } /* Assigned To */
+    .complaints-table th:nth-child(7), .complaints-table td:nth-child(7) { min-width: 140px; width: 140px; } /* Action Needed - reduced width */
     /* Status-based row colors - higher specificity */
     .complaints-table tbody tr.status-pending { background-color: #FFE6A7 !important; cursor: pointer; }
     .complaints-table tbody tr.status-pending:hover { background-color: #FFD980 !important; }
@@ -85,7 +104,6 @@
       <a href="pending.html">Pending</a>
       <a href="ongoing.html">On Going</a>
       <a href="resolved.html">Resolved</a>
-      <a href="assigned.html">Assigned</a>
       <a href="invalid.html">Invalid</a>
       <a href="unresolved.html">Unresolved</a>
     </div>
@@ -95,13 +113,14 @@
     <table class="complaints-table">
       <thead>
         <tr>
-          <th>Date Submitted</th>
-          <th>Complainant</th>
-          <th>Type of Complaint</th>
-          <th>HOA</th>
-          <th>Address</th>
-          <th>Action Needed</th>
-          <th>Priority Level</th>
+          <th style="text-align: center;">Date Submitted</th>
+          <th style="text-align: center;">Complainant</th>
+          <th style="text-align: center;">Type of Complaint</th>
+          <th style="text-align: center;">HOA</th>
+          <th style="text-align: center;">Assigned To</th>
+          <th style="text-align: center;">Status</th>
+          <th style="text-align: center;">Action Needed</th>
+          <th style="text-align: center;">Priority Level</th>
         </tr>
       </thead>
         
@@ -164,7 +183,7 @@
       tbody.innerHTML = '';
       
       if (complaints.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No complaints found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No complaints found</td></tr>';
         return;
       }
       
@@ -177,13 +196,71 @@
           window.location.href = `/admin/complaints/${detailsPage}?id=${complaint.complaint_id}&referrer=all.html`;
         });
         
+
+        
+        // Calculate status with deadline countdown
+        const calculateStatusWithDeadline = (complaint) => {
+          if (complaint.status === 'Invalid') return '<em>N/A</em>';
+          if (complaint.complaint_stage === 'Pending' || !complaint.latest_action) return '<em>Pending</em>';
+          if (complaint.complaint_stage === 'Resolved') return 'Resolved';
+          
+          // For ongoing complaints, calculate deadline
+          if (!complaint.action_datetime) return complaint.complaint_stage || 'Ongoing';
+          
+          const actionDate = new Date(complaint.action_datetime);
+          const actionType = (complaint.latest_action || '').toLowerCase();
+          
+          let daysToAdd = 1;
+          if (actionType.includes('inspection')) daysToAdd = 3;
+          else if (actionType.includes('invitation')) daysToAdd = 1;
+          else if (actionType.includes('mediation')) daysToAdd = 1;
+          else if (actionType.includes('assessment')) daysToAdd = 1;
+          
+          const deadline = new Date(actionDate.getTime() + (daysToAdd * 24 * 60 * 60 * 1000));
+          const now = new Date();
+          const timeDiff = deadline.getTime() - now.getTime();
+          const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+          
+          let status = complaint.complaint_stage || 'Ongoing';
+          let countdown = '';
+          
+          if (daysDiff < 0) {
+            status = 'Overdue';
+            countdown = `<br/><small style="color: red; font-weight: bold;">${Math.abs(daysDiff)} days overdue</small>`;
+          } else if (daysDiff === 0) {
+            countdown = '<br/><small style="color: orange; font-weight: bold;">Due today</small>';
+          } else {
+            countdown = `<br/><small style="color: green;">${daysDiff} days left</small>`;
+          }
+          
+          return status + countdown;
+        };
+        
+        // Handle different complaint states
+        let assignedToDisplay, statusDisplay, actionNeededDisplay;
+        
+        if (complaint.status === 'Invalid') {
+          assignedToDisplay = '<em>N/A</em>';
+          statusDisplay = '<em>N/A</em>';
+          actionNeededDisplay = 'Invalid';
+        } else if (complaint.complaint_stage === 'Pending' || !complaint.latest_action) {
+          assignedToDisplay = '<em>Pending</em>';
+          statusDisplay = '<em>Pending</em>';
+          actionNeededDisplay = complaint.latest_action || 'Pending';
+        } else {
+          assignedToDisplay = complaint.assigned_to || 'N/A';
+          statusDisplay = calculateStatusWithDeadline(complaint);
+          actionNeededDisplay = complaint.latest_action || 'Pending';
+        }
+        
         row.innerHTML = `
           <td>${complaint.date_received}</td>
           <td>${complaint.complainant_name || complaint.complainant || 'N/A'}</td>
           <td>${complaint.type_of_complaint}</td>
-          <td>${complaint.address ? complaint.address.split(',')[complaint.address.split(',').length - 1] : 'N/A'}</td>
-          <td>${complaint.address}</td>
-          <td>${complaint.status === 'Invalid' ? 'Invalid' : (complaint.action_needed || 'Pending')}</td>
+          <td>${complaint.area_name}</td>
+          <td>${assignedToDisplay}</td>
+          <td>${statusDisplay}</td>
+          <td>${actionNeededDisplay}</td>
           <td><button class="priority-${(complaint.priority_level || 'minor').toLowerCase()}">${complaint.priority_level || 'Minor'}</button></td>
         `;
         
