@@ -246,7 +246,9 @@
       const tbody = document.getElementById('complaints-table-body');
       tbody.innerHTML = '';
       
-      if (complaints.length === 0) {
+      console.log('Populating table with complaints:', complaints);
+      
+      if (!complaints || complaints.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">No assigned complaints found</td></tr>';
         return;
       }
@@ -263,11 +265,11 @@
           try {
             // Get current staff name to determine redirect destination
             console.log('Fetching staff data...');
-            const staffResponse = await fetch('/admin/current-user');
+            const staffResponse = await fetch('/staff/api/current-staff');
             const staffData = await staffResponse.json();
             console.log('Staff data received:', staffData);
             
-            if (staffData && staffData.admin_name) {
+            if (staffData && staffData.success && staffData.admin_name) {
               const adminName = staffData.admin_name.toLowerCase();
               console.log('Admin name (lowercase):', adminName);
               let redirectUrl;
@@ -322,9 +324,22 @@
           });
         }
         
-        // Calculate deadline and countdown
-        const deadlineInfo = calculateDeadlineDisplay(complaint);
+        // Calculate deadline dynamically from action_datetime like ongoing.html
+        console.log('Processing complaint for deadline:', {
+          complaint_id: complaint.complaint_id,
+          action_datetime: complaint.action_datetime,
+          date_received: complaint.date_received,
+          action_needed: complaint.action_needed,
+          latest_action: complaint.latest_action
+        });
+        
+        const deadlineInfo = calculateDeadlineFromActionDateTime(complaint);
         const statusWithCountdown = formatStatusWithCountdown(complaint);
+        
+        console.log('Calculated deadline and status:', {
+          deadlineInfo,
+          statusWithCountdown
+        });
         
         row.innerHTML = `
           <td>${dateReceived}</td>
@@ -369,10 +384,10 @@
     // Load staff name dynamically
     async function loadStaffName() {
       try {
-        const response = await fetch('/admin/current-user');
+        const response = await fetch('/staff/api/current-staff');
         if (response.ok) {
           const data = await response.json();
-          document.getElementById('staff-name').textContent = data.name || 'Unknown Staff';
+          document.getElementById('staff-name').textContent = data.admin_name || 'Unknown Staff';
         } else {
           document.getElementById('staff-name').textContent = 'Unknown Staff';
         }
@@ -382,63 +397,101 @@
       }
     }
 
-    // Calculate deadline display with countdown
-    function calculateDeadlineDisplay(complaint) {
-      // Debug log to see what data we have
-      console.log('Calculating deadline for complaint:', {
-        complaint_id: complaint.complaint_id,
-        action_datetime: complaint.action_datetime,
-        action_needed: complaint.action_needed,
-        latest_action: complaint.latest_action,
-        latest_action_details: complaint.latest_action_details
-      });
+    // Calculate deadline from action_datetime (same logic as ongoing.html)
+    function calculateDeadlineFromActionDateTime(complaint) {
+      // Try to get action_datetime, fallback to date_received if not available
+      let baseDate = null;
       
-      let deadline = null;
-      
-      // Try to get deadline from latest action details
-      if (complaint.latest_action_details) {
-        try {
-          const details = typeof complaint.latest_action_details === 'string' ? 
-            JSON.parse(complaint.latest_action_details) : complaint.latest_action_details;
-          if (details.deadline) {
-            deadline = new Date(details.deadline);
-          }
-        } catch (e) {
-          console.error('Error parsing action details:', e);
-        }
-      }
-      
-      // Calculate deadline based on action_datetime + standard days for action type
-      if (!deadline) {
-        // Use action_datetime if available, otherwise use current date
-        const baseDate = complaint.action_datetime ? new Date(complaint.action_datetime) : new Date();
-        const actionType = (complaint.action_needed || complaint.latest_action || '').toLowerCase();
-        
-        console.log('Using base date:', baseDate, 'for action type:', actionType);
-        
-        let daysToAdd = 1; // default
-        if (actionType.includes('inspection')) {
-          daysToAdd = 3;
-        } else if (actionType.includes('invitation')) {
-          daysToAdd = 1;
-        } else if (actionType.includes('mediation')) {
-          daysToAdd = 1;
-        } else if (actionType.includes('assessment')) {
-          daysToAdd = 1;
-        }
-        
-        deadline = new Date(baseDate.getTime() + (daysToAdd * 24 * 60 * 60 * 1000));
-      }
-      
-      if (!deadline || isNaN(deadline.getTime())) {
-        console.log('No valid deadline calculated, returning N/A');
+      if (complaint.action_datetime) {
+        baseDate = new Date(complaint.action_datetime);
+      } else if (complaint.date_received) {
+        // Fallback to date_received if no action_datetime
+        baseDate = new Date(complaint.date_received);
+      } else {
         return 'N/A';
       }
       
-      const dateStr = deadline.toLocaleDateString();
-      const timeStr = deadline.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-      console.log('Calculated deadline:', dateStr, timeStr);
-      return `${dateStr}<br/>${timeStr}`;
+      // If date is invalid, return N/A
+      if (isNaN(baseDate.getTime())) {
+        return 'N/A';
+      }
+      
+      const actionType = (complaint.action_needed || complaint.latest_action || '').toLowerCase();
+      
+      let daysToAdd = 3; // default to 3 days for inspection
+      if (actionType.includes('inspection')) {
+        daysToAdd = 3;
+      } else if (actionType.includes('invitation')) {
+        daysToAdd = 1;
+      } else if (actionType.includes('mediation')) {
+        daysToAdd = 1;
+      } else if (actionType.includes('assessment')) {
+        daysToAdd = 1;
+      }
+      
+      const deadline = new Date(baseDate.getTime() + (daysToAdd * 24 * 60 * 60 * 1000));
+      
+      try {
+        const dateStr = deadline.toLocaleDateString();
+        const timeStr = deadline.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        return `${dateStr}<br/>${timeStr}`;
+      } catch (error) {
+        console.error('Error formatting deadline:', error);
+        return 'N/A';
+      }
+    }
+    
+    // Calculate deadline display with countdown
+    function calculateDeadlineDisplay(complaint) {
+      // Try to get action_datetime, fallback to date_received if not available
+      let baseDate = null;
+      
+      if (complaint.action_datetime) {
+        baseDate = new Date(complaint.action_datetime);
+      } else if (complaint.date_received) {
+        // Fallback to date_received if no action_datetime
+        baseDate = new Date(complaint.date_received);
+      } else {
+        return 'N/A';
+      }
+      
+      // If date is invalid, return N/A
+      if (isNaN(baseDate.getTime())) {
+        return 'N/A';
+      }
+      
+      const actionType = (complaint.action_needed || complaint.latest_action || '').toLowerCase();
+      
+      let daysToAdd = 3; // default to 3 days for inspection
+      if (actionType.includes('inspection')) {
+        daysToAdd = 3;
+      } else if (actionType.includes('invitation')) {
+        daysToAdd = 1;
+      } else if (actionType.includes('mediation')) {
+        daysToAdd = 1;
+      } else if (actionType.includes('assessment')) {
+        daysToAdd = 1;
+      }
+      
+      try {
+        const deadline = new Date(baseDate.getTime() + (daysToAdd * 24 * 60 * 60 * 1000));
+        const now = new Date();
+        const timeDiff = deadline.getTime() - now.getTime();
+        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        
+        if (daysDiff > 1) {
+          return `${daysDiff} days left`;
+        } else if (daysDiff === 1) {
+          return '1 day left';
+        } else if (daysDiff === 0) {
+          return 'DUE TODAY';
+        } else {
+          return `OVERDUE by ${Math.abs(daysDiff)} days`;
+        }
+      } catch (error) {
+        console.error('Error calculating deadline display:', error);
+        return 'N/A';
+      }
     }
     
     // Format status with countdown

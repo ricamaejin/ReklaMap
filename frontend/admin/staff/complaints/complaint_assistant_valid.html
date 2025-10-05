@@ -260,13 +260,13 @@ if (saveBtn) {
 */
 
 // Resolved Task function
-function resolveTask() {
+async function resolveTask() {
   const findings = document.getElementById("findings").value.trim();
   const files = Array.from(document.getElementById("inspectionFile").files);
 
   // Validation checks
   if (!findings && files.length === 0) {
-    alert("Please input inspection findings and attach the supporting documents/evidence od the first.");
+    alert("Please input inspection findings and attach the supporting documents/evidence first.");
     return;
   }
   if (!findings) {
@@ -280,28 +280,47 @@ function resolveTask() {
 
   // If all validations pass → proceed
   const complaintId = getComplaintIdFromURL();
-  const taskCompletedData = {
-    complaint_id: complaintId,
-    type_of_action: "Task Completed",
-    assigned_to: null,
-    description: findings,
-    files: files.map(f => f.name),
-    action_datetime: new Date().toISOString()
-  };
-
-  console.log("Creating Task Completed entry:", taskCompletedData);
-
-  alert("Task Completed entry would be created (TODO: Backend integration)");
-
-  // Update resolved counter
-  updateResolvedCounter();
-
-  // Close modal after submission
-  closeComplaint();
+  
+  try {
+    const response = await fetch('/admin/complaints/api/action', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        complaint_id: complaintId,
+        action_type: 'Task Completed',
+        description: findings,
+        files: files.map(f => f.name)
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      alert('Task completed successfully!');
+      
+      // Update resolved counter
+      updateResolvedCounter();
+      
+      // Redirect to resolved view
+      window.location.href = '/staff/complaints/resolved';
+    } else {
+      alert('Error completing task: ' + (result.error || result.message));
+    }
+    
+  } catch (error) {
+    console.error('Error completing task:', error);
+    alert('Error completing task. Please try again.');
+  } finally {
+    // Close modal after submission
+    closeComplaint();
+  }
 }
 
 function getComplaintIdFromURL() {
-  return 1; // Placeholder
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('id') || '1';
 }
 
 // Back button functionality
