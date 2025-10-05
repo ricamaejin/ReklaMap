@@ -171,13 +171,17 @@ def submit_lot_dispute():
                 "mismatches": ["Area Assignment"]
             }), 400
 
+        # Capture free-text description from form
+        description = request.form.get("description")
+
         new_complaint = Complaint(
             registration_id=registration.registration_id,
             type_of_complaint="Lot Dispute",
             status="Valid",
             complainant_name=complainant_name,
             area_id=area_id,
-            address=address
+            address=address,
+            description=description
         )
         db.session.add(new_complaint)
         db.session.flush()
@@ -207,7 +211,8 @@ def submit_lot_dispute():
             q6=q6,
             q7=q7,
             q8=q8,
-            q9=q9
+            q9=q9,
+            description=description
         )
         db.session.add(lot_dispute_entry)
         
@@ -222,6 +227,8 @@ def submit_lot_dispute():
                 file.save(dest)
                 # store only the filename; previews use a route that resolves the path
                 registration.signature_path = safe_name
+                # also keep a copy reference on lot_dispute
+                lot_dispute_entry.signature = safe_name
         except Exception:
             # Do not fail submission if signature save fails
             pass
@@ -344,6 +351,11 @@ def get_form_structure(type_of_complaint: str):
                 ("No", "No"),
                 ("Not Sure", "Not sure"),
             ],
+        },
+        {
+            "type": "textarea",
+            "name": "description",
+            "label": "Please describe what happened briefly, including how you found out about the issue.",
         },
         {
             "type": "signature",

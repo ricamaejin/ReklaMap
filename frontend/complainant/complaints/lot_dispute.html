@@ -114,7 +114,7 @@
       <label><input type="radio" name="legal_docs" value="Not Sure"> Not sure</label>
 
       <p class="section-label">Please describe what happened briefly, including how you found out about the issue.</p>
-      <textarea id="description" placeholder=""></textarea>
+  <textarea id="description" name="description" placeholder="" title="Please describe what happened briefly, including how you found out about the issue."></textarea>
 
       <!-- Section 3 -->
       <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
@@ -346,6 +346,9 @@
       fd.append('opposing_name', opposingName);
       fd.append('relationship_with_person', relationshipWithPerson);
       fd.append('legal_docs', legalDocs);
+      // Include free-text description so backend can persist it
+      const descriptionText = (document.getElementById('description')?.value || '').trim();
+      fd.append('description', descriptionText);
       if (sigInput && sigInput.files[0]) {
         fd.append('signature', sigInput.files[0]);
       }

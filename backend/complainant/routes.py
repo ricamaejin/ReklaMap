@@ -332,8 +332,9 @@ def view_complaint(complaint_id):
                 "q7": lot.q7,
                 "q8": lot.q8,
                 "q9": lot.q9,
-                # Use registration signature if available for preview link
-                "signature": (registration.signature_path or ""),
+                # Prefer lot-level description/signature, fallback to complaint/registration
+                "description": (getattr(lot, "description", None) or complaint.description or ""),
+                "signature": (getattr(lot, "signature", None) or registration.signature_path or ""),
             }
     # Add more complaint types here as needed
     
