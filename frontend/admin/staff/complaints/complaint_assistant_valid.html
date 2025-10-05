@@ -18,13 +18,20 @@
       <span class="title"><span class="blue-text">Rekla</span><span class="green-text">Map</span></span>
     </div>
     <nav class="nav-menu">
-      <!-- Navigation will be populated by navigation.js -->
+      <a href="/staff/complaints/assigned" class="nav-item active">Complaints</a>
     </nav>
   </aside>
 
   <!-- Main Content -->
   <main class="main-content">
-    <header class="header"><h1>Complaint</h1></header>
+    <header class="header">
+      <div class="header-content">
+        <div class="header-left">
+          <button class="back-arrow" onclick="goBack()" title="Back to Complaints">←</button>
+          <h1>Complaint</h1>
+        </div>
+      </div>
+    </header>
 
     <div class="complaint-layout" style="margin-top: 30px;">
       <div class="complaint-form">Complaint form data will load here...</div>
@@ -33,17 +40,10 @@
       <div class="right-panel">
         <div class="map-card">Map / Asset details here...</div>
 
-        <div class="timeline">
-          <div class="timeline-entry">
-            <h4>6/19/2025 - Send Invitation 
-              <button class="file-btn" data-pdf="sample.pdf"></button> 
-              <span>Josie Rosal</span>
-            </h4>
-            <p>An invitation has been sent...</p>
-          </div>
-          <div class="timeline-entry">
-            <h4>6/13/2025 - Assessment <span>Josie Rosal</span></h4>
-            <p>Upon inspection, the staff verified the complaint’s validity...</p>
+        <!-- Dynamic Timeline Component for Staff -->
+        <div class="timeline" id="complaintTimeline">
+          <div class="timeline-loading" id="timelineLoading" style="text-align: center; padding: 20px; color: #666;">
+            Loading timeline...
           </div>
         </div>
         <button class="update-btn" onclick="openComplaint()">Update Status</button>
@@ -293,6 +293,9 @@ function resolveTask() {
 
   alert("Task Completed entry would be created (TODO: Backend integration)");
 
+  // Update resolved counter
+  updateResolvedCounter();
+
   // Close modal after submission
   closeComplaint();
 }
@@ -300,6 +303,204 @@ function resolveTask() {
 function getComplaintIdFromURL() {
   return 1; // Placeholder
 }
+
+// Back button functionality
+function goBack() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const referrer = urlParams.get('referrer');
+  
+  if (referrer) {
+    window.location.href = `/staff/complaints/${referrer}`;
+  } else {
+    window.location.href = '/staff/complaints/assigned';
+  }
+}
+
+// Update resolved counter function
+function updateResolvedCounter() {
+  // Call parent window to refresh stats if available
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.loadStats();
+    } catch (e) {
+      console.log('Could not update parent stats:', e);
+    }
+  }
+  
+  // Also try to update local counter if element exists
+  const resolvedElement = document.getElementById('resolved-count');
+  if (resolvedElement) {
+    const currentCount = parseInt(resolvedElement.textContent) || 0;
+    resolvedElement.textContent = currentCount + 1;
+  }
+}
+
+// Make functions globally available
+window.goBack = goBack;
+window.updateResolvedCounter = updateResolvedCounter;
+
+// =====================================
+// DYNAMIC TIMELINE SYSTEM FOR STAFF
+// =====================================
+
+// Timeline management
+let timelineData = [];
+let currentRole = 'staff'; // Staff role for this page
+
+// Load timeline data from API
+async function loadTimelineData() {
+  try {
+    const complaintId = getComplaintIdFromURL();
+    if (!complaintId) {
+      console.error('No complaint ID found');
+      return [];
+    }
+    
+    console.log(`Loading timeline for complaint ${complaintId} with role ${currentRole}`);
+    
+    const response = await fetch(`/admin/complaints/api/timeline/${complaintId}?role=staff`, {
+      credentials: 'same-origin'
+    });
+    
+    console.log(`Timeline API response status: ${response.status}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Timeline API error: ${response.status} - ${errorText.substring(0, 200)}`);
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Timeline data received:', data);
+    return data.timeline || [];
+  } catch (error) {
+    console.error('Error loading timeline data:', error);
+    return [];
+  }
+}
+
+// Format date for timeline display
+function formatTimelineDate(dateString) {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'numeric',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  } catch (error) {
+    return dateString;
+  }
+}
+
+// Truncate description to one line with ellipsis
+function truncateDescription(text, maxLength = 80) {
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength).trim() + '...';
+}
+
+// Generate default messages for actions without descriptions
+function getDefaultMessage(actionType, assignedTo) {
+  const messages = {
+    'Inspection': `Inspection assigned and completed`,
+    'Invitation': `Invitation sent to involved parties`,
+    'Task Completed': `Task completed and passed back to admin`
+  };
+  return messages[actionType] || `${actionType} action completed`;
+}
+
+// Render timeline entries for staff
+function renderTimeline(entries) {
+  const timelineContainer = document.getElementById('complaintTimeline');
+  const loadingElement = document.getElementById('timelineLoading');
+  
+  if (loadingElement) {
+    loadingElement.style.display = 'none';
+  }
+  
+  if (!entries || entries.length === 0) {
+    timelineContainer.innerHTML = '<div class="timeline-empty" style="text-align: center; padding: 20px; color: #888;">No timeline entries found</div>';
+    return;
+  }
+  
+  // Sort entries by date (most recent first)
+  entries.sort((a, b) => new Date(b.action_datetime) - new Date(a.action_datetime));
+  
+  // Generate HTML for timeline entries (staff view: actions performed + current status + task completion)
+  const timelineHTML = entries.map(entry => {
+    const date = formatTimelineDate(entry.action_datetime);
+    const description = entry.description ? 
+      truncateDescription(entry.description) : 
+      getDefaultMessage(entry.type_of_action, entry.assigned_to);
+    
+    const fileButton = entry.has_file ? 
+      `<button class="file-btn" data-pdf="${entry.file_path || '#'}" style="background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">📄 File</button>` : 
+      '';
+    
+    const assignedTo = entry.assigned_to ? `<span style="color: #666; font-size: 12px;">(${entry.assigned_to})</span>` : '';
+    
+    // Highlight task completion entries
+    const isTaskCompletion = entry.type_of_action.includes('Task Completed') || entry.type_of_action.includes('Task completed');
+    const entryStyle = isTaskCompletion ? 'border-left: 3px solid #ff9800; background-color: #fff3e0;' : 'border-left: 3px solid #2196F3; background-color: #f5f5f5;';
+    
+    return `
+      <div class="timeline-entry" style="margin-bottom: 15px; padding: 10px; ${entryStyle}">
+        <div class="timeline-date" style="font-size: 12px; color: #666; margin-bottom: 5px;">${date}</div>
+        <div class="timeline-content">
+          <h4 style="margin: 0 0 5px 0; color: #333; font-size: 14px;">${entry.type_of_action} ${assignedTo}</h4>
+          <p style="margin: 0 0 10px 0; font-size: 13px; color: #555;">${description}</p>
+          ${fileButton}
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  timelineContainer.innerHTML = timelineHTML;
+  
+  // Re-attach file button event listeners
+  attachFileButtonListeners();
+}
+
+// Re-attach event listeners to file buttons
+function attachFileButtonListeners() {
+  document.querySelectorAll('.file-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pdfUrl = btn.getAttribute('data-pdf');
+      if (pdfUrl && pdfUrl !== '#') {
+        window.open(pdfUrl, '_blank');
+      } else {
+        alert('No file available for this entry.');
+      }
+    });
+  });
+}
+
+// Refresh timeline data
+async function refreshTimeline() {
+  try {
+    const loadingElement = document.getElementById('timelineLoading');
+    if (loadingElement) {
+      loadingElement.style.display = 'block';
+    }
+    
+    const entries = await loadTimelineData();
+    timelineData = entries;
+    renderTimeline(entries);
+  } catch (error) {
+    console.error('Error refreshing timeline:', error);
+    const timelineContainer = document.getElementById('complaintTimeline');
+    timelineContainer.innerHTML = '<div class="timeline-error" style="text-align: center; padding: 20px; color: #d32f2f;">Error loading timeline. Please refresh the page.</div>';
+  }
+}
+
+// Initialize timeline on page load
+document.addEventListener('DOMContentLoaded', function() {
+  refreshTimeline();
+});
+
+// Make timeline functions globally available
+window.refreshTimeline = refreshTimeline;
 </script>
 
 </body>
