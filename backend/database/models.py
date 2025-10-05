@@ -195,10 +195,9 @@ class ComplaintHistory(db.Model):
     history_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     complaint_id = db.Column(db.Integer, db.ForeignKey('complaints.complaint_id'), nullable=False)
     assigned_to = db.Column(db.String(150), nullable=True)  # Staff member name
-    action_type = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text)
-    date_created = db.Column(db.DateTime, server_default=db.func.now())
-    created_by = db.Column(db.String(150), nullable=False)  # Admin/Staff who made the entry
+    type_of_action = db.Column(db.String(100), nullable=False)
+    details = db.Column(JSON)
+    action_datetime = db.Column(db.DateTime, server_default=db.func.now())
 
     def __repr__(self):
         return f"<ComplaintHistory {self.history_id}>"

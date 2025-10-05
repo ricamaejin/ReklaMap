@@ -10,6 +10,293 @@ complaints_bp = Blueprint("complaints", __name__, url_prefix="/admin/complaints"
 
 frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../frontend"))
 
+# Staff Inspection Data Endpoint - loads inspection assignment details for staff modal
+@complaints_bp.route('/api/staff_inspection_data/<int:complaint_id>', methods=['GET'])
+def get_staff_inspection_data(complaint_id):
+    """Get inspection assignment data for staff modal - deadline, location, scope from admin assignment"""
+    try:
+        # Query complaint_history for the most recent Inspection assignment
+        inspection_query = text("""
+            SELECT ch.details, ch.assigned_to, ch.action_datetime
+            FROM complaint_history ch
+            WHERE ch.complaint_id = :complaint_id 
+            AND ch.type_of_action = 'Inspection'
+            ORDER BY ch.action_datetime DESC
+            LIMIT 1
+        """)
+        
+        result = db.session.execute(inspection_query, {'complaint_id': complaint_id})
+        inspection_row = result.fetchone()
+        
+        if not inspection_row:
+            return jsonify({
+                'success': False,
+                'error': 'No inspection assignment found for this complaint'
+            }), 404
+        
+        # Parse details JSON to extract inspection data
+        inspection_details = {}
+        if inspection_row.details:
+            try:
+                if isinstance(inspection_row.details, str):
+                    inspection_details = json.loads(inspection_row.details)
+                else:
+                    inspection_details = inspection_row.details
+            except (json.JSONDecodeError, TypeError):
+                inspection_details = {}
+        
+        # Extract inspection assignment data
+        staff_data = {
+            'deadline': inspection_details.get('deadline', 'No deadline set'),
+            'location': inspection_details.get('location', 'No location specified'),
+            'scope': inspection_details.get('scope', []),
+            'inspector': inspection_row.assigned_to or 'Not assigned',
+            'assigned_date': inspection_row.action_datetime.strftime('%Y-%m-%d') if inspection_row.action_datetime else None
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': staff_data,
+            **staff_data  # Flatten for easier access in frontend
+        })
+        
+    except Exception as e:
+        print(f"Error loading staff inspection data: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+# Staff Invitation Data Endpoint - loads invitation assignment details for staff modal
+@complaints_bp.route('/api/staff_invitation_data/<int:complaint_id>', methods=['GET'])
+def get_staff_invitation_data(complaint_id):
+    """Get invitation assignment data for staff modal - individuals, date, time, venue, agenda from admin assignment"""
+    try:
+        # Query complaint_history for the most recent Invitation assignment
+        invitation_query = text("""
+            SELECT ch.details, ch.assigned_to, ch.action_datetime
+            FROM complaint_history ch
+            WHERE ch.complaint_id = :complaint_id 
+            AND ch.type_of_action = 'Invitation'
+            ORDER BY ch.action_datetime DESC
+            LIMIT 1
+        """)
+        
+        result = db.session.execute(invitation_query, {'complaint_id': complaint_id})
+        invitation_row = result.fetchone()
+        
+        if not invitation_row:
+            return jsonify({
+                'success': False,
+                'error': 'No invitation assignment found for this complaint'
+            }), 404
+        
+        # Parse details JSON to extract invitation data
+        invitation_details = {}
+        if invitation_row.details:
+            try:
+                if isinstance(invitation_row.details, str):
+                    invitation_details = json.loads(invitation_row.details)
+                else:
+                    invitation_details = invitation_row.details
+            except (json.JSONDecodeError, TypeError):
+                invitation_details = {}
+        
+        # Extract invitation assignment data using admin action field names
+        to_field = invitation_details.get('to', 'No recipients specified')
+        individuals_list = [name.strip() for name in to_field.split(',')] if to_field != 'No recipients specified' else ['No recipients specified']
+        
+        staff_data = {
+            'individuals': individuals_list,  # Convert comma-separated 'to' field to list
+            'meeting_date': invitation_details.get('meeting_date', 'No date set'),
+            'meeting_time': invitation_details.get('meeting_time', 'No time set'),
+            'venue': invitation_details.get('location', 'No venue specified'),  # Admin uses 'location' field
+            'agenda': invitation_details.get('agenda', 'No agenda specified'),
+            'assistant': invitation_row.assigned_to or 'Not assigned',
+            'assigned_date': invitation_row.action_datetime.strftime('%Y-%m-%d') if invitation_row.action_datetime else None
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': staff_data,
+            **staff_data  # Flatten for easier access in frontend
+        })
+        
+    except Exception as e:
+        print(f"Error loading staff invitation data: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+# Action Details Endpoint - fetch specific action details that admin inputted
+@complaints_bp.route('/api/action_details/<int:complaint_id>/<string:action_type>', methods=['GET'])
+def get_action_details(complaint_id, action_type):
+    """Get action details that admin inputted when creating the action (e.g., Invitation details)"""
+    try:
+        # Query complaint_history for the most recent action of the specified type
+        action_query = text("""
+            SELECT ch.details, ch.assigned_to, ch.action_datetime, ch.description
+            FROM complaint_history ch
+            WHERE ch.complaint_id = :complaint_id 
+            AND ch.type_of_action = :action_type
+            ORDER BY ch.action_datetime DESC
+            LIMIT 1
+        """)
+        
+        result = db.session.execute(action_query, {
+            'complaint_id': complaint_id, 
+            'action_type': action_type
+        })
+        action_row = result.fetchone()
+        
+        if not action_row:
+            return jsonify({
+                'success': False,
+                'error': f'No {action_type} action found for this complaint'
+            }), 404
+        
+        # Parse details JSON to extract action data
+        action_details = {}
+        if action_row.details:
+            try:
+                if isinstance(action_row.details, str):
+                    action_details = json.loads(action_row.details)
+                else:
+                    action_details = action_row.details
+            except (json.JSONDecodeError, TypeError):
+                action_details = {}
+        
+        return jsonify({
+            'success': True,
+            'action_details': {
+                'details': action_details,
+                'assigned_to': action_row.assigned_to,
+                'action_datetime': action_row.action_datetime.isoformat() if action_row.action_datetime else None,
+                'description': action_row.description
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error loading action details: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+# Staff Complete Task Endpoint - handles when staff clicks "Update" button
+@complaints_bp.route('/api/staff_complete_task', methods=['POST'])
+def staff_complete_task():
+    """Handle staff task completion - updates timeline status to 'Task Completed'"""
+    try:
+        data = request.get_json()
+        complaint_id = data.get('complaint_id')
+        description = data.get('description', '')
+        files = data.get('files', [])
+        staff_account_type = data.get('staff_account_type', 2)  # admin.account == 2
+        
+        if not complaint_id:
+            return jsonify({'success': False, 'error': 'Complaint ID is required'}), 400
+        
+        # Determine completion status based on task type
+        request_data = data  # Use the request data to determine task type
+        task_type = request_data.get('task_type', 'inspection')  # Default to inspection
+        
+        if task_type == 'invitation':
+            completion_status = 'Sent Invitation'
+            task_description = 'invitation'
+        else:
+            completion_status = 'Inspection done'
+            task_description = 'inspection'
+        
+        # Create detailed completion record with task findings
+        completion_details = {
+            f'{task_description}_findings': description,
+            'attached_files': files,
+            'completed_by_staff': True,
+            'staff_account_type': staff_account_type,
+            'completion_datetime': datetime.now().isoformat(),
+            'task_type': task_type
+        }
+        
+        # Get staff name from session using correct session key
+        staff_name = session.get('admin_name')
+        
+        if not staff_name:
+            # Try to get staff name from latest assignment in complaint_history
+            staff_query = text("""
+                SELECT assigned_to FROM complaint_history 
+                WHERE complaint_id = :complaint_id 
+                AND type_of_action IN ('Inspection', 'Send Invitation')
+                ORDER BY action_datetime DESC LIMIT 1
+            """)
+            staff_result = db.session.execute(staff_query, {'complaint_id': complaint_id})
+            staff_row = staff_result.fetchone()
+            staff_name = staff_row.assigned_to if staff_row else 'Staff Member'
+        
+        # Get action_datetime from request or use current time as fallback
+        action_datetime = data.get('action_datetime')
+        if action_datetime:
+            # Convert ISO 8601 format to MySQL-compatible datetime format
+            try:
+                # Parse ISO string (handles both 'Z' suffix and microseconds)
+                if action_datetime.endswith('Z'):
+                    action_datetime = action_datetime[:-1] + '+00:00'
+                dt = datetime.fromisoformat(action_datetime.replace('Z', '+00:00'))
+                # Format for MySQL (YYYY-MM-DD HH:MM:SS)
+                action_datetime = dt.strftime('%Y-%m-%d %H:%M:%S')
+            except (ValueError, AttributeError) as e:
+                print(f"Error parsing action_datetime '{action_datetime}': {e}")
+                # Fallback to current time
+                action_datetime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            action_datetime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Use raw SQL to insert into complaint_history with proper field names
+        # Store all data including task findings in details column as JSON
+        insert_query = text("""
+            INSERT INTO complaint_history (complaint_id, type_of_action, assigned_to, details, action_datetime)
+            VALUES (:complaint_id, :completion_status, :staff_name, :details, :action_datetime)
+        """)
+        
+        db.session.execute(insert_query, {
+            'complaint_id': complaint_id,
+            'completion_status': completion_status,
+            'staff_name': staff_name,
+            'details': json.dumps(completion_details),
+            'action_datetime': action_datetime
+        })
+        
+        # Keep complaint status as 'Ongoing' - staff completion only affects timeline
+        # The complaint_stage should remain 'Ongoing' until admin resolves it
+        # Staff completion is only reflected in the timeline, not complaint stage
+        update_complaint_query = text("""
+            UPDATE complaints 
+            SET complaint_stage = 'Ongoing'
+            WHERE complaint_id = :complaint_id
+        """)
+        
+        db.session.execute(update_complaint_query, {
+            'complaint_id': complaint_id
+        })
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'{task_description.title()} completed successfully',
+            'complaint_id': complaint_id,
+            'status': completion_status
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error completing staff task: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 def format_complainant_name(first_name, middle_name, last_name, suffix):
     """Format complainant name as 'FirstName M. LastName, Suffix'"""
     name_parts = []
@@ -312,6 +599,19 @@ def complaint_details_invalid():
 def complaints_unresolved():
     return send_file(os.path.join(frontend_path, "admin", "complaints", "unresolved.html"))
 
+@complaints_bp.route("/timeline_test.html")
+def timeline_test():
+    return send_file(os.path.join(frontend_path, "timeline_test.html"))
+
+# Staff complaint detail pages
+@complaints_bp.route("/staff/complaints/complaint_inspector_valid.html")
+def staff_complaint_inspector_valid():
+    return send_file(os.path.join(frontend_path, "admin", "staff", "complaints", "complaint_inspector_valid.html"))
+
+@complaints_bp.route("/staff/complaints/complaint_assistant_valid.html")
+def staff_complaint_assistant_valid():
+    return send_file(os.path.join(frontend_path, "admin", "staff", "complaints", "complaint_assistant_valid.html"))
+
 # API Routes for Admin
 @complaints_bp.route('/api/all', methods=['GET'])
 def get_all_complaints():
@@ -519,18 +819,23 @@ def handle_complaint_action(complaint_id):
         if not action_type:
             return jsonify({'success': False, 'message': 'Missing action type'}), 400
         
-        # Insert into complaint_history
+        # Insert into complaint_history with correct column names
+        action_details = {
+            'description': description,
+            'created_by': session.get('name', 'Admin'),
+            'action_datetime': datetime.now().isoformat()
+        }
+        
         insert_query = """
-        INSERT INTO complaint_history (complaint_id, assigned_to, action_type, description, created_by, date_created)
-        VALUES (:complaint_id, :assigned_to, :action_type, :description, :created_by, NOW())
+        INSERT INTO complaint_history (complaint_id, assigned_to, type_of_action, details, action_datetime)
+        VALUES (:complaint_id, :assigned_to, :type_of_action, :details, NOW())
         """
         
         db.session.execute(text(insert_query), {
             'complaint_id': complaint_id,
             'assigned_to': assigned_to,
-            'action_type': action_type,
-            'description': description,
-            'created_by': session.get('name', 'Admin')
+            'type_of_action': action_type,
+            'details': json.dumps(action_details)
         })
         
         # Update complaint stage based on action
@@ -570,16 +875,21 @@ def resolve_complaint(complaint_id):
         update_query = "UPDATE complaints SET complaint_stage = 'Resolved' WHERE complaint_id = :complaint_id"
         db.session.execute(text(update_query), {'complaint_id': complaint_id})
         
-        # Insert history record
+        # Insert history record with correct column names
+        resolution_details = {
+            'description': f'Complaint marked as resolved by {admin_name}',
+            'created_by': admin_name,
+            'resolution_datetime': datetime.now().isoformat()
+        }
+        
         insert_query = """
-        INSERT INTO complaint_history (complaint_id, action_type, description, created_by, date_created)
-        VALUES (:complaint_id, 'Resolved', :description, :created_by, NOW())
+        INSERT INTO complaint_history (complaint_id, type_of_action, details, action_datetime)
+        VALUES (:complaint_id, 'Resolved', :details, NOW())
         """
         
         db.session.execute(text(insert_query), {
             'complaint_id': complaint_id,
-            'description': f'Complaint marked as resolved by {admin_name}',
-            'created_by': admin_name
+            'details': json.dumps(resolution_details)
         })
         
         db.session.commit()
@@ -1149,11 +1459,10 @@ def get_staff_stats():
             staff_name = "Test Staff"
             print(f"[DEBUG] Using test staff name for debugging: {staff_name}")
         
-        # Count assigned complaints (currently assigned and not resolved)
+        # Count assigned complaints (currently assigned and not completed)
         assigned_query = """
         SELECT COUNT(DISTINCT c.complaint_id) as count
         FROM complaints c
-        JOIN admin staff_admin ON staff_admin.name = :staff_name AND staff_admin.account = 2
         LEFT JOIN (
             SELECT 
                 ch1.complaint_id,
@@ -1165,11 +1474,12 @@ def get_staff_stats():
         WHERE ch_latest.assigned_to = :staff_name 
         AND c.status = 'Valid'
         AND c.complaint_stage != 'Resolved'
+        AND ch_latest.type_of_action NOT IN ('Inspection done', 'Sent Invitation')
         AND NOT EXISTS (
             SELECT 1 FROM complaint_history ch_completed 
             WHERE ch_completed.complaint_id = c.complaint_id 
-            AND ch_completed.assigned_to = :staff_name 
-            AND ch_completed.type_of_action = 'Task Completed'
+            AND (ch_completed.assigned_to = :staff_name OR ch_completed.assigned_to = 'Staff Member')
+            AND ch_completed.type_of_action IN ('Inspection done', 'Sent Invitation')
         )
         """
         
@@ -1178,9 +1488,8 @@ def get_staff_stats():
         SELECT COUNT(DISTINCT c.complaint_id) as count
         FROM complaints c
         JOIN complaint_history ch ON c.complaint_id = ch.complaint_id
-        JOIN admin staff_admin ON staff_admin.name = :staff_name AND staff_admin.account = 2
-        WHERE ch.assigned_to = :staff_name 
-        AND ch.type_of_action = 'Task Completed'
+        WHERE (ch.assigned_to = :staff_name OR ch.assigned_to = 'Staff Member')
+        AND ch.type_of_action IN ('Inspection done', 'Sent Invitation')
         AND c.status = 'Valid'
         """
         
@@ -1236,7 +1545,7 @@ def get_staff_assigned_complaints():
                 'test_data': []
             })
         
-        # Main query with proper area join
+        # Main query with proper area join - exclude completed tasks
         query = """
         SELECT DISTINCT
             c.complaint_id,
@@ -1270,6 +1579,13 @@ def get_staff_assigned_complaints():
         WHERE ch_latest.assigned_to = :staff_name 
         AND c.status = 'Valid'
         AND c.complaint_stage != 'Resolved'
+        AND ch_latest.type_of_action NOT IN ('Inspection done', 'Sent Invitation')
+        AND NOT EXISTS (
+            SELECT 1 FROM complaint_history ch_completed 
+            WHERE ch_completed.complaint_id = c.complaint_id 
+            AND ch_completed.assigned_to = :staff_name
+            AND ch_completed.type_of_action IN ('Inspection done', 'Sent Invitation')
+        )
         ORDER BY c.date_received DESC
         """
         
@@ -1401,8 +1717,26 @@ def get_staff_resolved_complaints():
     try:
         # Get current staff name from session
         staff_name = session.get('name')
+        print(f"[STAFF RESOLVED] Session staff name: {staff_name}")
+        
+        # For debugging - also try to get any staff completions
+        debug_query = """
+        SELECT DISTINCT assigned_to, type_of_action, complaint_id
+        FROM complaint_history 
+        WHERE type_of_action IN ('Inspection done', 'Sent Invitation')
+        ORDER BY action_datetime DESC LIMIT 10
+        """
+        debug_result = db.session.execute(text(debug_query))
+        debug_completions = debug_result.fetchall()
+        print(f"[STAFF RESOLVED] Recent completions: {[dict(row._mapping) for row in debug_completions]}")
+        
         if not staff_name:
-            return jsonify({'success': False, 'message': 'Staff name not found in session'}), 401
+            # Try to use any staff name that has completed tasks for debugging
+            if debug_completions:
+                staff_name = debug_completions[0].assigned_to
+                print(f"[STAFF RESOLVED] Using fallback staff name: {staff_name}")
+            else:
+                return jsonify({'success': False, 'message': 'Staff name not found in session and no completed tasks found'}), 401
         
         query = """
         SELECT DISTINCT
@@ -1419,14 +1753,13 @@ def get_staff_resolved_complaints():
             COALESCE(r.block_no, 0) as block_no,
             COALESCE(a.area_name, 'N/A') as area_name,
             ch_completed.action_datetime as completion_date,
-            ch_completed.description as resolution_action
+            CONCAT(ch_completed.type_of_action, ' completed by ', ch_completed.assigned_to) as resolution_action
         FROM complaints c
         LEFT JOIN registration r ON c.registration_id = r.registration_id
         LEFT JOIN areas a ON c.area_id = a.area_id
         JOIN complaint_history ch_completed ON c.complaint_id = ch_completed.complaint_id
-        JOIN admin staff_admin ON staff_admin.name = :staff_name AND staff_admin.account = 2
-        WHERE ch_completed.assigned_to = :staff_name 
-        AND ch_completed.type_of_action = 'Task Completed'
+        WHERE (ch_completed.assigned_to = :staff_name OR ch_completed.assigned_to = 'Staff Member')
+        AND ch_completed.type_of_action IN ('Inspection done', 'Sent Invitation')
         AND c.status = 'Valid'
         ORDER BY ch_completed.action_datetime DESC
         """

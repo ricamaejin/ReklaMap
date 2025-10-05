@@ -74,10 +74,29 @@ def get_staff_complaint_data_with_proper_areas(staff_name=None, stage_filter=Non
             params['staff_name'] = staff_name
         
         if stage_filter:
-            where_clauses.append("c.complaint_stage = :stage")
-            params['stage'] = stage_filter
-        elif stage_filter != 'Resolved':  # For assigned complaints, exclude resolved
-            where_clauses.append("c.complaint_stage != 'Resolved'")
+            if stage_filter == 'Resolved':
+                # For resolved view: show complaints where this staff completed their task
+                where_clauses.append("""
+                    EXISTS (
+                        SELECT 1 FROM complaint_history ch_completed 
+                        WHERE ch_completed.complaint_id = c.complaint_id 
+                        AND ch_completed.assigned_to = :staff_name
+                        AND ch_completed.type_of_action IN ('Inspection done', 'Sent Invitation')
+                    )
+                """)
+            else:
+                where_clauses.append("c.complaint_stage = :stage")
+                params['stage'] = stage_filter
+        else:
+            # For assigned complaints: exclude those where staff has completed their task
+            where_clauses.append("""
+                NOT EXISTS (
+                    SELECT 1 FROM complaint_history ch_completed 
+                    WHERE ch_completed.complaint_id = c.complaint_id 
+                    AND ch_completed.assigned_to = :staff_name
+                    AND ch_completed.type_of_action IN ('Inspection done', 'Sent Invitation')
+                )
+            """)
         
         if where_clauses:
             query += " WHERE " + " AND ".join(where_clauses)

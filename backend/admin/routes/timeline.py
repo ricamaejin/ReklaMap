@@ -2,25 +2,122 @@ from flask import Blueprint, jsonify, request
 from ...database.db import db
 from ...database.models import ComplaintHistory
 
-def generate_action_description(action_type, assigned_to):
-    """Generate a description for the action since description column may not exist in database"""
-    descriptions = {
-        'Assessment': f'Assessment completed by {assigned_to}' if assigned_to else 'Assessment completed',
-        'Mediation': f'Mediation session conducted by {assigned_to}' if assigned_to else 'Mediation session conducted',
-        'Inspection': f'Site inspection completed by {assigned_to}' if assigned_to else 'Site inspection completed',
-        'Invitation': f'Invitation sent by {assigned_to}' if assigned_to else 'Invitation sent to involved parties',
-        'Accepted Invitation': 'Both parties have accepted the invitation',
-        'Task Completed': 'Task completed and passed back to admin',
-        'Task completed/resolved, passed to admin': 'Task completed/resolved, passed to admin',
-        'Submitted': 'Submitted a valid complaint',
-        'Resolved': 'Complaint resolved'
+def generate_action_description(action_type, assigned_to, role='admin'):
+    """Generate descriptions based on UPDATED SEQUENTIAL FLOW requirements"""
+    
+    # ADMIN VIEW (admin.account == 1) - Only 7 allowed statuses
+    admin_descriptions = {
+        'Submitted': 'Submitted a Valid Complaint (default status after complaint submitted)',
+        'Inspection': f'Site inspection assigned to {assigned_to}' if assigned_to else 'Inspection task assigned to staff',
+        'Inspection done': f'Site inspection completed by {assigned_to}' if assigned_to else 'Site inspection completed by staff',
+        'Send Invitation': f'Send Invitation task assigned to {assigned_to}' if assigned_to else 'Send Invitation task assigned to staff', 
+        'Sent Invitation': f'Invitation sent by {assigned_to}' if assigned_to else 'Invitation sent to involved parties by staff',
+        'Task Completed': 'Task completed by staff and passed back to admin',
+        'Resolved': 'Complaint resolved and moved to resolved view'
     }
-    return descriptions.get(action_type, f'{action_type} action completed')
+    
+    # STAFF VIEW (admin.account == 2) - Previously saved status entries + Task Completed
+    staff_descriptions = {
+        'Submitted': 'Complaint submitted and validated',
+        'Assessment': 'Initial assessment completed by admin',
+        'Inspection': f'Site inspection assigned to you ({assigned_to})' if assigned_to else 'Site inspection assigned to you',
+        'Inspection done': 'Site inspection completed - task done',
+        'Invitation': f'Send Invitation assigned to you ({assigned_to})' if assigned_to else 'Send Invitation assigned to you',
+        'Sent Invitation': 'Invitation sent to parties - task done', 
+        'Task Completed': 'Task completed and passed back to admin for further processing'
+    }
+    
+    # COMPLAINANT VIEW - Simplified milestones only
+    complainant_descriptions = {
+        'Submitted': 'Submitted a valid complaint',
+        'Inspection done': 'Site inspection completed',
+        'Sent Invitation': 'Invitation sent to involved parties',
+        'Assessment': 'Assessment completed',
+        'Resolved': 'Complaint has been resolved'
+    }
+    
+    # Select appropriate description set based on role
+    if role == 'staff':
+        descriptions = staff_descriptions
+    elif role == 'complainant':
+        descriptions = complainant_descriptions
+    else:
+        descriptions = admin_descriptions
+    
+    return descriptions.get(action_type, f'{action_type} completed')
 
 from sqlalchemy import text
 import json
 
 timeline_bp = Blueprint("timeline", __name__, url_prefix="/admin/complaints")
+
+# Add test data route for debugging timeline
+@timeline_bp.route('/api/timeline/test/<int:complaint_id>', methods=['POST'])
+def add_test_timeline_data(complaint_id):
+    """Add test timeline data for a complaint - for debugging purposes"""
+    try:
+        from datetime import datetime, timedelta
+        from ...database.models import ComplaintHistory
+        
+        # Check if test data already exists
+        existing = ComplaintHistory.query.filter_by(complaint_id=complaint_id).first()
+        if existing:
+            return jsonify({
+                'success': True,
+                'message': 'Test data already exists for this complaint'
+            })
+        
+        # Create test timeline entries
+        test_entries = [
+            {
+                'action_type': 'Assessment',
+                'assigned_to': 'Admin Staff',
+                'description': 'Initial assessment completed',
+                'date_offset': 0  # Current time
+            },
+            {
+                'action_type': 'Inspection',
+                'assigned_to': 'Inspector John',
+                'description': 'Site inspection assigned to field staff',
+                'date_offset': -1  # 1 day ago
+            },
+            {
+                'action_type': 'Invitation',
+                'assigned_to': 'Assistant Mary',
+                'description': 'Invitation sent to involved parties',
+                'date_offset': -2  # 2 days ago
+            }
+        ]
+        
+        for entry_data in test_entries:
+            entry_date = datetime.now() + timedelta(days=entry_data['date_offset'])
+            
+            details = {
+                'description': entry_data['description']
+            }
+            
+            timeline_entry = ComplaintHistory(
+                complaint_id=complaint_id,
+                type_of_action=entry_data['action_type'],
+                assigned_to=entry_data['assigned_to'],
+                details=details,
+                action_datetime=entry_date
+            )
+            db.session.add(timeline_entry)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Added {len(test_entries)} test timeline entries for complaint {complaint_id}'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @timeline_bp.route('/api/timeline/<int:complaint_id>', methods=['GET'])
 def get_complaint_timeline(complaint_id):
@@ -33,7 +130,7 @@ def get_complaint_timeline(complaint_id):
         if role not in ['admin', 'staff', 'complainant']:
             role = 'admin'
         
-        # Query real data from database using actual structure (details JSON column instead of description)
+        # Query real data from database using actual database structure
         query = text("""
             SELECT 
                 ch.history_id,
@@ -44,7 +141,9 @@ def get_complaint_timeline(complaint_id):
                 ch.details,
                 0 as has_file,
                 NULL as file_path,
-                NULL as file_name
+                NULL as file_name,
+                1 as admin_account_type,
+                0 as completed_by_staff
             FROM complaint_history ch
             WHERE ch.complaint_id = :complaint_id
             ORDER BY ch.action_datetime DESC
@@ -62,21 +161,17 @@ def get_complaint_timeline(complaint_id):
         timeline_entries = []
         
         for entry in entries:
-            # Parse details JSON field and extract description or generate one
-            details_dict = {}
+            # Extract description from details JSON field or generate one
             description = ''
-            
             try:
                 if entry.details:
                     import json
                     details_dict = json.loads(entry.details) if isinstance(entry.details, str) else entry.details
-                    # Try to get description from details, or generate one
                     description = details_dict.get('description', '') or generate_action_description(entry.type_of_action, entry.assigned_to)
                 else:
                     description = generate_action_description(entry.type_of_action, entry.assigned_to)
             except (json.JSONDecodeError, TypeError):
                 description = generate_action_description(entry.type_of_action, entry.assigned_to)
-                details_dict = {}
             
             timeline_entry = {
                 'history_id': entry.history_id,
@@ -85,36 +180,42 @@ def get_complaint_timeline(complaint_id):
                 'assigned_to': entry.assigned_to,
                 'description': description,
                 'action_datetime': entry.action_datetime.isoformat() if entry.action_datetime else '',
-                'details': details_dict,
+                'details': {},
                 'has_file': bool(entry.has_file),
                 'file_path': entry.file_path,
-                'file_name': entry.file_name
+                'file_name': entry.file_name,
+                'admin_account_type': getattr(entry, 'admin_account_type', 1),  # Default to admin entries
+                'completed_by_staff': getattr(entry, 'completed_by_staff', False)
             }
             
-            # Create dual entries for staff assignments (one for assignment, one for completion)
-            if entry.type_of_action in ['Inspection', 'Invitation'] and entry.assigned_to:
-                # Add assignment entry
-                assignment_entry = timeline_entry.copy()
-                assignment_entry['type_of_action'] = f"Assign {entry.type_of_action}"
-                assignment_entry['description'] = f"{entry.type_of_action} assigned to {entry.assigned_to}"
-                timeline_entries.append(assignment_entry)
-                
-                # Add completion entry (modify original)
-                timeline_entry['description'] = f"{entry.type_of_action} completed by {entry.assigned_to}"
-            
+            # Only show actual database entries - no artificial dual entries
+            # Assignment entries are created when admin assigns tasks
+            # Completion entries are only created when staff completes tasks via Update button
             timeline_entries.append(timeline_entry)
         
         # If no entries found, return empty array (no sample data)
         print(f"Processed {len(timeline_entries)} timeline entries for complaint {complaint_id}")
         
         # Apply role-based filtering
+        print(f'[TIMELINE API] Before filtering: {len(timeline_entries)} entries')
+        print(f'[TIMELINE API] Raw entries: {[entry.get("type_of_action") for entry in timeline_entries]}')
+        
         filtered_entries = filter_entries_by_role(timeline_entries, role)
+        
+        print(f'[TIMELINE API] After filtering for {role}: {len(filtered_entries)} entries')
+        print(f'[TIMELINE API] Filtered entries: {[entry.get("type_of_action") for entry in filtered_entries]}')
         
         return jsonify({
             'success': True,
             'timeline': filtered_entries,
             'role': role,
-            'total_entries': len(filtered_entries)
+            'total_entries': len(filtered_entries),
+            'debug_info': {
+                'original_count': len(timeline_entries),
+                'filtered_count': len(filtered_entries),
+                'original_actions': [entry.get("type_of_action") for entry in timeline_entries],
+                'filtered_actions': [entry.get("type_of_action") for entry in filtered_entries]
+            }
         })
         
     except Exception as e:
@@ -125,62 +226,77 @@ def get_complaint_timeline(complaint_id):
             'timeline': []
         }), 500
 
-def generate_action_description(action_type, assigned_to):
-    """Generate a description for the action since description column may not exist in database"""
-    descriptions = {
-        'Assessment': f'Assessment completed by {assigned_to}' if assigned_to else 'Assessment completed',
-        'Mediation': f'Mediation session conducted by {assigned_to}' if assigned_to else 'Mediation session conducted',
-        'Inspection': f'Site inspection completed by {assigned_to}' if assigned_to else 'Site inspection completed',
-        'Invitation': f'Invitation sent by {assigned_to}' if assigned_to else 'Invitation sent to involved parties',
-        'Task Completed': 'Task completed and passed back to admin'
-    }
-    return descriptions.get(action_type, f'{action_type} action completed')
-
 def filter_entries_by_role(entries, role):
-    """Filter timeline entries based on user role"""
+    """Filter timeline entries based on UPDATED SEQUENTIAL FLOW requirements"""
+    
     if role == 'admin':
-        # Admin sees all entries
+        # ADMIN VIEW (admin.account == 1): Full sequential flow
+        # 1. "Submitted a Valid Complaint" → 2. "Inspection" → 3. "Inspection done" → 
+        # 4. "Send Invitation" → 5. "Sent Invitation" → 6. "Accepted Invitation" → 
+        # 7. "Mediation" → 8. "Assessment" → moves to resolved.html
         return entries
     
     elif role == 'staff':
-        # Staff sees actions they performed + current status + Task completed/resolved passed to admin
+        # STAFF VIEW (admin.account == 2): Show ALL admin entries (account_type=1) 
+        # PLUS any staff completed entries. Frontend will handle additional filtering.
+        print(f'[BACKEND STAFF FILTER] Processing {len(entries)} entries for staff view')
+        
         staff_entries = []
         for entry in entries:
-            # Include if assigned to staff, is a task completion, or shows current status
-            if (entry.get('assigned_to') and 
-                ('staff' in entry['assigned_to'].lower() or 
-                 entry['assigned_to'].lower() in ['ram', 'inspector', 'field_staff'])) or \
-               entry.get('type_of_action') in ['Task Completed', 'Resolved', 'Task completed/resolved, passed to admin']:
+            entry_type = entry.get('type_of_action', '')
+            admin_account = entry.get('admin_account_type', 1)
+            completed_by_staff = entry.get('completed_by_staff', False)
+            
+            # Show all admin entries (from admin account type 1)
+            if admin_account == 1:
+                print(f'[BACKEND STAFF FILTER] Including admin entry: {entry_type}')
                 staff_entries.append(entry)
+            # Show staff completed entries  
+            elif completed_by_staff:
+                print(f'[BACKEND STAFF FILTER] Including staff completed entry: {entry_type}')
+                staff_entries.append(entry)
+            else:
+                print(f'[BACKEND STAFF FILTER] Filtering out entry: {entry_type} (admin_account={admin_account}, completed_by_staff={completed_by_staff})')
         
-        # Ensure staff timeline ends with task completion
-        has_completion = any(entry.get('type_of_action') in ['Task Completed', 'Resolved', 'Task completed/resolved, passed to admin'] for entry in staff_entries)
-        if not has_completion and staff_entries:
-            # Add a completion entry if none exists
-            completion_entry = staff_entries[-1].copy()
-            completion_entry['type_of_action'] = 'Task completed/resolved, passed to admin'
-            completion_entry['description'] = 'Task completed/resolved, passed to admin'
-            staff_entries.append(completion_entry)
-        
+        print(f'[BACKEND STAFF FILTER] Returning {len(staff_entries)} entries to staff view')
         return staff_entries
     
     elif role == 'complainant':
-        # Complainant sees simplified view: only completed task milestones
-        milestone_actions = ['Inspection', 'Invitation', 'Assessment', 'Mediation', 'Resolved']
+        # COMPLAINANT VIEW: Simplified View - Shows only completed task milestones
+        # ✅ Submitted a valid complaint → ✅ Inspection done → ✅ Invitation Sent → 
+        # ✅ Assessment → ✅ Resolved
         complainant_entries = []
         
-        # Always start with submission
-        if entries:
-            submission_entry = entries[0].copy()
-            submission_entry['type_of_action'] = 'Submitted'
-            submission_entry['description'] = 'Submitted a valid complaint'
-            complainant_entries.append(submission_entry)
+        # Always include submission as first entry
+        submission_entry = {
+            'type_of_action': 'Submitted',
+            'description': 'Submitted a valid complaint',
+            'assigned_to': '',
+            'action_datetime': entries[0]['action_datetime'] if entries else '',
+            'has_file': False
+        }
+        complainant_entries.append(submission_entry)
         
-        # Add only completed milestones (not assignments)
+        # Include only completed milestones (complainant-focused)
+        milestone_actions = ['Inspection done', 'Sent Invitation', 'Assessment', 'Resolved']
         for entry in entries:
-            if (entry.get('type_of_action') in milestone_actions and 
-                not entry['type_of_action'].startswith('Assign')):
-                complainant_entries.append(entry)
+            if entry.get('type_of_action') in milestone_actions:
+                # Simplify description for complainant view
+                simplified_entry = entry.copy()
+                action_type = entry['type_of_action']
+                
+                if action_type == 'Inspection done':
+                    simplified_entry['description'] = 'Site inspection completed'
+                elif action_type == 'Sent Invitation':
+                    simplified_entry['description'] = 'Invitation sent to involved parties'
+                elif action_type == 'Assessment':
+                    simplified_entry['description'] = 'Assessment completed'
+                elif action_type == 'Resolved':
+                    simplified_entry['description'] = 'Complaint has been resolved'
+                
+                # Remove staff assignment details for clean complainant view
+                simplified_entry['assigned_to'] = ''
+                complainant_entries.append(simplified_entry)
         
         return complainant_entries
     
