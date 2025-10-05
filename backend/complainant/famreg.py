@@ -64,8 +64,15 @@ def famreg():
 
             # Add block, lot, or HOA checks if these fields exist in your form
             try:
-                if parent_blk and parent_beneficiary.block and str(parent_blk) != str(parent_beneficiary.block.block_no):
-                    mismatches.append("Block Assignment")
+                if parent_blk and parent_beneficiary.block:
+                    # Compare as integers when possible
+                    try:
+                        submitted_blk = int(parent_blk)
+                    except (TypeError, ValueError):
+                        submitted_blk = None
+                    benef_blk_no = parent_beneficiary.block.block_no
+                    if submitted_blk != benef_blk_no:
+                        mismatches.append("Block Assignment")
             except Exception as e:
                 print(f"Block comparison error: {e}")
                 
@@ -140,28 +147,31 @@ def famreg():
             # --- Step 4: Save parent HOA member info in RegistrationFamOfMember ---
             try:
                 print(f"Creating family member record for parent: {parent_first} {parent_last}")
+                # Supporting documents from form (if present)
+                docs = {
+                    "title": bool(request.form.get("doc_title")),
+                    "contract": bool(request.form.get("doc_contract")),
+                    "fullpay": bool(request.form.get("doc_fullpay")),
+                    "award": bool(request.form.get("doc_award")),
+                    "agreement": bool(request.form.get("doc_agreement")),
+                    "deed": bool(request.form.get("doc_deed")),
+                }
+
                 fam_member = RegistrationFamOfMember(
                     registration_id=registration.registration_id,
+                    beneficiary_id=parent_beneficiary.beneficiary_id,
                     last_name=parent_last,
                     first_name=parent_first,
                     middle_name=input_middle,
                     suffix=input_suffix,
                     date_of_birth=datetime.strptime(parent_dob, "%Y-%m-%d") if parent_dob else None,
-                    sex=parent_sex,
+                    sex=parent_sex if parent_sex in ("Male", "Female") else None,
                     citizenship=parent_cit,
-                    age=int(parent_age) if parent_age else None,
-                    phone_number=None,  # Parent phone not collected in form
-                    year_of_residence=int(parent_year) if parent_year and parent_year.isdigit() else None,
+                    age=int(parent_age) if parent_age and str(parent_age).isdigit() else None,
+                    phone_number=None,
+                    year_of_residence=int(parent_year) if parent_year and str(parent_year).isdigit() else None,
                     relationship=relationship,
-                    supporting_documents={
-                        "title": bool(request.form.get("doc_title")),
-                        "contract": bool(request.form.get("doc_contract")),
-                        "fullpay": bool(request.form.get("doc_fullpay")),
-                        "award": bool(request.form.get("doc_award")),
-                        "agreement": bool(request.form.get("doc_agreement")),
-                        "deed": bool(request.form.get("doc_deed")),
-                    },
-                    beneficiary_id=parent_beneficiary.beneficiary_id  # Link to parent's beneficiary record
+                    supporting_documents=docs
                 )
                 db.session.add(fam_member)
                 db.session.commit()

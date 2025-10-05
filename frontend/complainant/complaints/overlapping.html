@@ -654,13 +654,13 @@ function populateComplainantDetails(data) {
               <label class="small">HOA:</label>
               <input type="text" name="hoa" value="${data.hoa || ''}" readonly>
             </div>
+          </div>
+
+          <div class="pair-row">
             <div class="col">
               <label class="small">Block Assignment:</label>
               <input type="text" name="blk_num" value="${data.blk_num || ''}" readonly>
             </div>
-          </div>
-          
-          <div class="pair-row">
             <div class="col">
               <label class="small">Lot Assignment:</label>
               <input type="text" name="lot_num" value="${data.lot_num || ''}" readonly>
@@ -753,6 +753,15 @@ function populateComplainantDetails(data) {
 
           <div class="pair-row">
             <div class="col">
+              <label class="small">Area (HOA):</label>
+              <input type="text" name="hoa" value="${data.hoa || ''}" readonly>
+            </div>
+            <div class="col">
+            </div>
+          </div>
+
+          <div class="pair-row">
+            <div class="col">
               <label class="small">Recipient of other housing programs:</label>
               <input type="text" name="recipient_of_other_housing" value="${data.recipient_of_other_housing || ''}" readonly>
             </div>
@@ -799,6 +808,9 @@ function populateComplainantDetails(data) {
               <label class="small">Current Address:</label>
               <input type="text" name="cur_add" value="${data.cur_add || ''}" readonly>
             </div>
+          </div>
+
+          <div class="pair-row">
             <div class="col">
               <label class="small">HOA:</label>
               <input type="text" name="hoa" value="${data.hoa || ''}" readonly>
@@ -807,15 +819,15 @@ function populateComplainantDetails(data) {
 
           <div class="pair-row">
             <div class="col">
-              <label class="small">Block Assignment Number:</label>
+              <label class="small">Block Assignment:</label>
               <input type="text" name="blk_num" value="${data.blk_num || ''}" readonly>
             </div>
             <div class="col">
-              <label class="small">Lot Assignment Number:</label>
+              <label class="small">Lot Assignment:</label>
               <input type="text" name="lot_num" value="${data.lot_num || ''}" readonly>
             </div>
             <div class="col">
-              <label class="small">Lot Area Size:</label>
+              <label class="small">Lot Size:</label>
               <input type="text" name="lot_size" value="${data.lot_size || ''}" readonly>
             </div>
           </div>

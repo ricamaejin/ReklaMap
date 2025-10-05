@@ -4,7 +4,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from backend.database.models import User, Overlapping, Registration, Complaint, LotDispute, BoundaryDispute, RegistrationFamOfMember
 from backend.database.db import db
-from backend.complainant.overlapping import get_form_structure
+from backend.complainant.overlapping import get_form_structure as get_overlap_form_structure
+from backend.complainant.lot_dispute import get_form_structure as get_lot_form_structure
 import os, json, time
 from werkzeug.utils import secure_filename
 
@@ -250,7 +251,13 @@ def view_complaint(complaint_id):
 
     # Get answers from the correct table
     answers = {}
-    form_structure = get_form_structure(complaint.type_of_complaint)
+    # Select form structure provider by complaint type
+    if complaint.type_of_complaint == "Overlapping":
+        form_structure = get_overlap_form_structure("Overlapping")
+    elif complaint.type_of_complaint == "Lot Dispute":
+        form_structure = get_lot_form_structure("Lot Dispute")
+    else:
+        form_structure = []
 
     if complaint.type_of_complaint == "Overlapping":
         overlap = Overlapping.query.filter_by(complaint_id=complaint_id).first()
@@ -304,6 +311,30 @@ def view_complaint(complaint_id):
                 answers["q9_approach"] = "yes" if has_yes else "no"
             except Exception:
                 answers["q9_approach"] = "no"
+    elif complaint.type_of_complaint == "Lot Dispute":
+        # Build answers for Lot Dispute
+        lot = LotDispute.query.filter_by(complaint_id=complaint_id).first()
+        if lot:
+            # q5 is stored as JSON in DB (may be a JSON string) -> parse to list
+            try:
+                q5_list = lot.q5 if isinstance(lot.q5, list) else json.loads(lot.q5 or "[]")
+            except Exception:
+                q5_list = []
+            # q3 is a date
+            q3_val = lot.q3.strftime("%Y-%m-%d") if lot.q3 else ""
+            answers = {
+                "q1": lot.q1,
+                "q2": lot.q2,
+                "q3": q3_val,
+                "q4": lot.q4,
+                "q5": q5_list,
+                "q6": lot.q6,
+                "q7": lot.q7,
+                "q8": lot.q8,
+                "q9": lot.q9,
+                # Use registration signature if available for preview link
+                "signature": (registration.signature_path or ""),
+            }
     # Add more complaint types here as needed
     
     # For family members, add parent info and relationship
@@ -351,28 +382,29 @@ def view_complaint(complaint_id):
     
     print(f"[DEBUG] Final values - parent_info: {parent_info is not None}, relationship: {relationship}")
     
-    # Determine whether to show Q9 follow-up (checkbox block) based on answers
+    # Determine whether to show Overlapping-specific Q9 follow-up (checkbox block)
     form_structure_display = form_structure
-    try:
-        show_q9_followup = False
-        if answers:
-            # Primary: explicit derived flag
-            if answers.get("q9_approach") == "yes":
-                show_q9_followup = True
-            else:
-                # Fallback: inspect q9 list (handles sentinel and actual selections)
-                q9_list = answers.get("q9") or []
-                if isinstance(q9_list, str):
-                    try:
-                        q9_list = json.loads(q9_list or "[]")
-                    except Exception:
-                        q9_list = []
-                if isinstance(q9_list, list) and ("__yes_no_details__" in q9_list or len(q9_list) > 0):
+    if complaint.type_of_complaint == "Overlapping":
+        try:
+            show_q9_followup = False
+            if answers:
+                # Primary: explicit derived flag
+                if answers.get("q9_approach") == "yes":
                     show_q9_followup = True
-        if not show_q9_followup:
-            form_structure_display = [f for f in form_structure if f.get("name") != "q9"]
-    except Exception:
-        form_structure_display = form_structure
+                else:
+                    # Fallback: inspect q9 list (handles sentinel and actual selections)
+                    q9_list = answers.get("q9") or []
+                    if isinstance(q9_list, str):
+                        try:
+                            q9_list = json.loads(q9_list or "[]")
+                        except Exception:
+                            q9_list = []
+                    if isinstance(q9_list, list) and ("__yes_no_details__" in q9_list or len(q9_list) > 0):
+                        show_q9_followup = True
+            if not show_q9_followup:
+                form_structure_display = [f for f in form_structure if f.get("name") != "q9"]
+        except Exception:
+            form_structure_display = form_structure
 
     return render_template(
         "complaint_details_valid.html" if complaint.status == "Valid" else "complaint_details_invalid.html",
@@ -403,9 +435,11 @@ def start_complaint():
         if complaint_type == "Overlapping":
             return redirect("/complainant/overlapping/new_overlap_form")
         elif complaint_type == "Lot Dispute":
-            return redirect("/complainant/new_lot_dispute_form")
+            # Route belongs to the lot_dispute blueprint
+            return redirect("/complainant/lot_dispute/new_lot_dispute_form")
         elif complaint_type == "Boundary Dispute":
-            return redirect("/complainant/new_boundary_dispute_form")
+            # Route belongs to the boundary_dispute blueprint
+            return redirect("/complainant/boundary_dispute/new_boundary_dispute_form")
         elif complaint_type == "Pathway Dispute":
             return redirect("/complainant/complaints/pathway_dispute.html")
         elif complaint_type == "Unauthorized Occupation":

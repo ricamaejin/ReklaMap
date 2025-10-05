@@ -1147,6 +1147,14 @@ label, p {
   display: block;
   }
 
+/* Smaller hint text used inside question prompts */
+.hint {
+  font-size: 12px;
+  color: #6b7280; /* slate-500 */
+  font-style: italic;
+  font-weight: normal;
+}
+
 input[type="text"], textarea, select {
   width: 95%;
   padding: 8px;
@@ -1695,3 +1703,23 @@ input[type="date"] {
 /* Small utilities for spacing and subtitles used in previews */
 .mt-20 { margin-top: 20px; }
 .subtitle { color: #083048; margin-bottom: 10px; }
+
+/* Transient toast popup used in complainant forms */
+.toast-pop {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 999;
+  background: #e3f2fd;
+  color: #083048;
+  width: max-content;
+  padding: 16px 28px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  font-weight: 500;
+  min-width: 220px;
+  max-width: 340px;
+  transition: opacity .2s;
+}
