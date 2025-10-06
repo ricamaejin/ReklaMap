@@ -1686,6 +1686,88 @@ input[type="radio"], input[type="checkbox"] {
   margin: 10px 0;
   color: #083048;
 }
+
+/*Staff CSS */
+#alertModal {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+/* Modal container */
+.warning-modal {
+  width: 420px;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  font-family: Arial, sans-serif;
+}
+
+/* Header */
+.warning-header {
+  background: #162b7a;
+  color: #fff;
+  padding: 12px;
+  font-weight: bold;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+/* Body */
+.warning-body {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  gap: 15px;
+}
+
+.warning-icon {
+  font-size: 48px;
+  color: #d9534f; /* red icon */
+}
+
+.warning-text h3 {
+  margin: 0;
+  font-size: 22px;
+  color: #d9534f;
+  font-weight: bold;
+}
+
+.warning-text p {
+  margin-top: 8px;
+  text-align: justify;
+  font-size: 15px;
+  color: #444;
+}
+
+/* Footer */
+.warning-footer {
+  padding: 12px;
+  text-align: right;
+  background: #f9f9f9;
+}
+
+.warning-footer button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 20px;
+  background: #d9534f; /* red button */
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.warning-footer button:hover {
+  background: #c9302c;
+}
+
 /* Responsive CSS */
 @media (max-width: 768px) {
   body {
