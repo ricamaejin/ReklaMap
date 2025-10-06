@@ -1464,15 +1464,15 @@ input[type="radio"], input[type="checkbox"] {
   padding-left: 40px;
   margin-bottom: 25px;
 }
-.timeline-entry::before {
-  content: "";
+
+.timeline-entry .bullet {
   position: absolute;
   left: 10px;
-  top: 5px;
-  width: 16px;
-  height: 16px;
-  background: #0a36c7;
+  top: 6px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.03) inset;
 }
 .timeline-entry h4 {
   font-size: 1rem;

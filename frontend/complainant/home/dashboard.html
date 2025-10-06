@@ -246,6 +246,86 @@
         const noComplaintDiv = document.querySelector(".no-complaint");
         const addComplaintSection = document.querySelector(".add-complaint-section");
         
+        // Utility: derive a high-level stage from timeline entries
+        function deriveStageFromTimeline(entries) {
+            if (!Array.isArray(entries) || entries.length === 0) return "Pending";
+            const types = new Set(entries.map(e => (e.type_of_action || e.action_type || "").toLowerCase()));
+            if (types.has("resolved")) return "Resolved";
+            if (types.has("assessment")) return "Assessment";
+            if (types.has("mediation") || types.has("accepted invitation")) return "Mediation";
+            if (types.has("sent invitation")) return "Invitation Sent";
+            if (types.has("send invitation") || types.has("invitation")) return "Send Invitation";
+            if (types.has("inspection done")) return "Inspection done";
+            if (types.has("inspection")) return "Inspection";
+            if (types.has("submitted")) return "Submitted";
+            return "Ongoing";
+        }
+
+        // Fetch admin timeline for a complaint (complainant role)
+        async function fetchTimeline(complaintId) {
+            try {
+                // Use admin role to reflect ALL statuses/actions set in admin UI; add cache-busting
+                let res = await fetch(`/admin/complaints/api/timeline/${complaintId}?role=admin&_=${Date.now()}`, { credentials: "include" });
+                if (res.status === 401 || res.status === 403) {
+                    // Fallback to complainant role if admin is blocked
+                    res = await fetch(`/admin/complaints/api/timeline/${complaintId}?role=complainant&_=${Date.now()}`, { credentials: "include" });
+                }
+                const data = await res.json();
+                if (data && data.success) return data.timeline || [];
+            } catch (e) {
+                console.error("Failed to load timeline:", e);
+            }
+            return [];
+        }
+
+        // Render small timeline under a status item
+        function renderMiniTimeline(containerEl, entries) {
+            if (!containerEl) return;
+            if (!entries || entries.length === 0) {
+                containerEl.insertAdjacentHTML("beforeend", `<div class="mini-timeline" style="margin-top:8px;color:#666;">No updates yet.</div>`);
+                return;
+            }
+
+            // Sort most-recent first
+            const sorted = entries.slice().sort((a,b) => new Date(b.action_datetime||0) - new Date(a.action_datetime||0));
+            const recent = sorted; // show all entries
+
+            const itemsHtml = recent.map(e => {
+                const type = e.type_of_action || e.action_type || "";
+                const desc = e.description || type;
+                const date = e.action_datetime ? new Date(e.action_datetime).toLocaleDateString('en-US', { month:'short', day:'2-digit' }) : "";
+                // color map
+                const t = type.toLowerCase();
+                let color = "#6c757d"; // default gray
+                if (t.includes("submitted")) color = "#17a2b8";
+                else if (t.includes("inspection done")) color = "#28a745";
+                else if (t.includes("inspection")) color = "#007bff";
+                else if (t.includes("sent invitation")) color = "#28a745";
+                else if (t.includes("invitation")) color = "#ffc107";
+                else if (t.includes("assessment")) color = "#6f42c1";
+                else if (t.includes("mediation")) color = "#8e44ad";
+                else if (t.includes("resolved")) color = "#20c997";
+
+                return `
+                    <div class="mini-timeline-item" style="display:flex;align-items:flex-start;gap:8px;margin:6px 0;">
+                        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-top:6px;"></span>
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;justify-content:space-between;gap:8px;">
+                                <strong style="font-size:12px;color:${color};text-transform:capitalize;">${type}</strong>
+                                <span style="font-size:11px;color:#888;white-space:nowrap;">${date}</span>
+                            </div>
+                            <div style="font-size:12px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${desc}</div>
+                        </div>
+                    </div>`;
+            }).join("");
+
+            containerEl.insertAdjacentHTML("beforeend", `
+                <div class="mini-timeline" style="margin-top:10px;padding-top:8px;border-top:1px solid #eee;max-height:220px;overflow:auto;">
+                    ${itemsHtml}
+                </div>
+            `);
+        }
+        
         try {
             const res = await fetch("/complainant/complaints/submitted");
             const data = await res.json();
@@ -276,9 +356,11 @@
 
                     statusItem.innerHTML = `
                         <span class="dot"></span>
-                        <div class="status-text">
-                            <strong>${latest.created_at} - Submitted a ${latest.status} Complaint</strong><br>
+                        <div class="status-text" style="width:100%">
+                            <strong id="headline-${latest.complaint_id}">${latest.created_at} - Submitted a ${latest.status} Complaint</strong><br>
                             <span>Type: ${latest.type}</span>
+                            <div class="stage-pill" style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:12px;background:#eef3ff;color:#3554d1;font-size:11px;vertical-align:middle;" id="stage-${latest.complaint_id}">Loading stage…</div>
+                            <div id="mini-timeline-${latest.complaint_id}"></div>
                         </div>
                     `;
 
@@ -295,6 +377,50 @@
                     });
 
                     complaintList.appendChild(statusItem);
+
+                    // Fetch and render timeline for this complaint
+                    const timeline = await fetchTimeline(latest.complaint_id);
+                    // Ensure newest first for both headline and mini timeline
+                    let sorted = timeline.slice().sort((a,b) => new Date(b.action_datetime||0) - new Date(a.action_datetime||0));
+                    // Ensure a Submitted entry exists (some DBs may not record it in history)
+                    const hasSubmitted = sorted.some(e => ((e.type_of_action||e.action_type||'').toLowerCase()==='submitted'));
+                    if (!hasSubmitted) {
+                        // Use created_at as the submitted date
+                        let submittedISO = null;
+                        try {
+                            const dt = latest.created_at ? new Date(latest.created_at) : null;
+                            if (dt && !isNaN(dt)) submittedISO = dt.toISOString();
+                        } catch {}
+                        sorted.push({
+                            type_of_action: 'Submitted',
+                            description: 'Submitted a Valid Complaint',
+                            action_datetime: submittedISO || new Date().toISOString()
+                        });
+                        // Resort after push
+                        sorted = sorted.sort((a,b) => new Date(b.action_datetime||0) - new Date(a.action_datetime||0));
+                    }
+                    const stage = deriveStageFromTimeline(sorted);
+                    const stageEl = document.getElementById(`stage-${latest.complaint_id}`);
+                    if (stageEl) stageEl.textContent = stage;
+                    // Update headline to reflect the most recent action
+                    const headlineEl = document.getElementById(`headline-${latest.complaint_id}`);
+                    if (headlineEl && sorted.length > 0) {
+                        const recent = sorted[0];
+                        const recentDate = recent.action_datetime ? new Date(recent.action_datetime).toLocaleDateString('en-US', { month:'long', day:'2-digit', year:'numeric' }) : latest.created_at;
+                        const recentType = recent.type_of_action || recent.action_type || 'Update';
+                        headlineEl.textContent = `${recentDate} - ${recentType}`;
+                    }
+                    const containerEl = document.getElementById(`mini-timeline-${latest.complaint_id}`);
+
+// If the complaint is invalid, do not show any timeline at all
+if ((latest.status || "").toLowerCase() === "invalid") {
+    containerEl.innerHTML = "";
+} else {
+    // Skip the first (most recent) entry in the timeline to avoid duplication with headline
+    renderMiniTimeline(containerEl, sorted.slice(1));
+}
+
+
                 }
 
                 // Check if user can add another complaint

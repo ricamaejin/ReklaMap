@@ -414,7 +414,7 @@
                             <div id="timelineLoading">Loading timeline...</div>
                           </div>
                           <a href="/complainant/complaints/submitted_complaints.html">
-                            <button class="resolved-btn">Close</button>
+                            <button class="resolved-btn" style="margin-top: 2px;">Close</button>
                           </a>
                         </div>
                       </div>
@@ -427,28 +427,70 @@
 
                     // Get complaint ID from URL parameters
                     function getComplaintIdFromURL() {
+                      // First try path: /complainant/complaint/{id}
+                      const m = window.location.pathname.match(/\/complainant\/complaint\/(\d+)/);
+                      if (m && m[1]) return m[1];
+                      // Fallback to query param ?id=
                       const urlParams = new URLSearchParams(window.location.search);
                       const id = urlParams.get('id');
-                      console.log('URL parameters:', window.location.search);
-                      console.log('Extracted complaint ID:', id);
-                      return id || '1';
+                      return id || '';
                     }
 
-                    // Load timeline data from API for complainant view
+                    // Load timeline data using the same admin timeline API as the dashboard (with fallback)
+                    async function fetchTimeline(complaintId) {
+                      try {
+                        let res = await fetch(`/admin/complaints/api/timeline/${complaintId}?role=admin&_=${Date.now()}`, { credentials: 'include' });
+                        if (res.status === 401 || res.status === 403) {
+                          res = await fetch(`/admin/complaints/api/timeline/${complaintId}?role=complainant&_=${Date.now()}`, { credentials: 'include' });
+                        }
+                        const data = await res.json();
+                        if (data && data.success) return data.timeline || [];
+                      } catch (e) {
+                        console.error('[COMPLAINANT TIMELINE] Failed to load timeline:', e);
+                      }
+                      return [];
+                    }
+
+                    // Fetch complaint details for created_at (to pin a Submitted baseline)
+                    async function fetchComplaintDetails(complaintId) {
+                      try {
+                        const res = await fetch(`/complainant/complaints/details/${complaintId}?_=${Date.now()}`, { credentials: 'include' });
+                        const data = await res.json();
+                        if (data && data.success) return data.complaint || null;
+                      } catch (e) {
+                        console.warn('[COMPLAINANT TIMELINE] Failed to load complaint details:', e);
+                      }
+                      return null;
+                    }
+
                     async function loadComplainantTimeline() {
                       try {
                         const complaintId = getComplaintIdFromURL();
                         console.log('[COMPLAINANT TIMELINE] Loading timeline for complaint:', complaintId);
-                        
-                        const response = await fetch(`/admin/complaints/api/complainant_timeline/${complaintId}?_=${Date.now()}`);
-                        const data = await response.json();
-                        
-                        if (data.success) {
-                          renderComplainantTimeline(data.timeline || []);
-                        } else {
-                          console.error('Failed to load complainant timeline:', data.message);
-                          showTimelineError();
+
+                        const [timeline, details] = await Promise.all([
+                          fetchTimeline(complaintId),
+                          fetchComplaintDetails(complaintId)
+                        ]);
+
+                        // Ensure a Submitted entry exists
+                        let entries = Array.isArray(timeline) ? timeline.slice() : [];
+                        const hasSubmitted = entries.some(e => ((e.type_of_action || e.action_type || '').toLowerCase() === 'submitted'));
+                        if (!hasSubmitted) {
+                          let submittedISO = null;
+                          const createdAt = details && details.created_at ? details.created_at : null;
+                          try {
+                            const dt = createdAt ? new Date(createdAt) : null;
+                            if (dt && !isNaN(dt)) submittedISO = dt.toISOString();
+                          } catch {}
+                          entries.push({
+                            type_of_action: 'Submitted',
+                            description: 'Submitted a Valid Complaint',
+                            action_datetime: submittedISO || new Date().toISOString()
+                          });
                         }
+
+                        renderComplainantTimeline(entries, details);
                       } catch (error) {
                         console.error('Error loading complainant timeline:', error);
                         showTimelineError();
@@ -471,7 +513,7 @@
                     }
 
                     // Render timeline entries for complainant view
-                    function renderComplainantTimeline(entries) {
+                    function renderComplainantTimeline(entries, details) {
                       console.log('[COMPLAINANT TIMELINE] renderComplainantTimeline called with entries:', entries);
                       
                       const timelineContainer = document.getElementById('complainantTimeline');
@@ -498,20 +540,65 @@
                       
                       console.log(`[COMPLAINANT TIMELINE] Rendering ${entries.length} timeline entries`);
                       
+                      // If complaint is invalid, do not show any timeline (match dashboard behavior)
+                      if (details && (details.status || '').toLowerCase() === 'invalid') {
+                        timelineContainer.innerHTML = '';
+                        return;
+                      }
+
                       // Sort entries by date (most recent first for display)
-                      entries.sort((a, b) => new Date(b.action_datetime) - new Date(a.action_datetime));
-                      
+                      const sorted = entries.slice().sort((a, b) => {
+                        const aType = (a.type_of_action || a.action_type || '').toLowerCase();
+                        const bType = (b.type_of_action || b.action_type || '').toLowerCase();
+
+                        // Always push "Submitted" to the bottom
+                        if (aType.includes('submitted') && !bType.includes('submitted')) return 1;
+                        if (!aType.includes('submitted') && bType.includes('submitted')) return -1;
+
+                        // Otherwise, sort by datetime descending (most recent first)
+                        return new Date(b.action_datetime || 0) - new Date(a.action_datetime || 0);
+                      });
+
+
+                      // Build HTML with all entries (no skip). If there are no entries, show Submitted baseline if possible
                       let timelineHTML = '';
-                      entries.forEach(entry => {
+                      if (!sorted.length) {
+                        const submittedDate = details && details.created_at ? formatTimelineDate(details.created_at) : '';
+                        if (submittedDate) {
+                          timelineHTML += `
+                            <div class="timeline-entry" style="border-left:4px solid #17a2b8;background:#f4fcff;">
+                              <h4 style="color:#0f6e7d;">${submittedDate} - Submitted</h4>
+                              <p>Submitted a Valid Complaint</p>
+                            </div>
+                          `;
+                          timelineContainer.innerHTML = timelineHTML;
+                          return;
+                        }
+                      }
+                      const colorFor = (type) => {
+                        const t = (type||'').toLowerCase();
+                        if (t.includes('resolved')) return '#20c997';
+                        if (t.includes('mediation') || t.includes('accepted invitation')) return '#8e44ad';
+                        if (t.includes('assessment')) return '#6f42c1';
+                        if (t.includes('sent invitation')) return '#28a745';
+                        if (t.includes('invitation')) return '#ffc107';
+                        if (t.includes('inspection done')) return '#28a745';
+                        if (t.includes('inspection')) return '#007bff';
+                        if (t.includes('submitted')) return '#17a2b8';
+                        return '#6c757d';
+                      };
+
+                      sorted.forEach(entry => {
+                        const type = entry.type_of_action || entry.action_type || 'Update';
                         const formattedDate = formatTimelineDate(entry.action_datetime);
-                        const staffName = entry.assigned_to || 'Staff';
-                        const description = entry.description || 'Processing your complaint.';
-                        
+                        const staffName = entry.assigned_to ? ` <span>${entry.assigned_to}</span>` : '';
+                        const description = entry.description || type;
+                        const color = colorFor(type);
+
                         timelineHTML += `
-                          <div class="timeline-entry">
-                            <h4>${formattedDate} - ${entry.status}
-                              <span>${staffName}</span>
-                            </h4>
+                          <div class="timeline-entry" style="border-left:4px solid ${color};">
+                            <span class="bullet" style="background:${color};"></span>
+                            <h4 style="color:${color}; font-weight:600;">${formattedDate} - ${type}${staffName}</h4>
                             <p>${description}</p>
                           </div>
                         `;

@@ -1,5 +1,7 @@
 from flask import Blueprint, jsonify, session
 from backend.database.models import Complaint, Overlapping, Registration, LotDispute
+from backend.database.db import db
+from sqlalchemy import text
 import json
 
 complaints_bp = Blueprint("complaints_bp", __name__, url_prefix="/complainant/complaints")
@@ -149,6 +151,39 @@ def get_submitted_complaints():
                 # Default role
                 person_role = "HOA Member"
 
+            # Fetch latest action from timeline
+            latest_action = None
+            latest_action_time = None
+            try:
+                row = db.session.execute(
+                    text("""
+                        SELECT type_of_action, action_datetime
+                        FROM complaint_history
+                        WHERE complaint_id = :cid
+                        ORDER BY action_datetime DESC
+                        LIMIT 1
+                    """),
+                    {"cid": c.complaint_id}
+                ).fetchone()
+                if row:
+                    latest_action = row.type_of_action
+                    latest_action_time = row.action_datetime.isoformat() if row.action_datetime else None
+            except Exception:
+                pass
+
+            # Fetch complaint_stage from DB (model may not expose column)
+            complaint_stage = None
+            try:
+                stage_row = db.session.execute(
+                    text("SELECT complaint_stage FROM complaints WHERE complaint_id = :cid"),
+                    {"cid": c.complaint_id}
+                ).fetchone()
+                if stage_row:
+                    # tuple or Row object
+                    complaint_stage = getattr(stage_row, "complaint_stage", None) or (stage_row[0] if len(stage_row) else None)
+            except Exception:
+                complaint_stage = None
+
             result.append({
                 "complaint_id": c.complaint_id,
                 "type": c.type_of_complaint,
@@ -156,6 +191,9 @@ def get_submitted_complaints():
                 "created_at": c.date_received.strftime("%B %d, %Y") if c.date_received else "",
                 "created_at_ts": int(c.date_received.timestamp() * 1000) if c.date_received else 0,
                 "description": description,
+                "latest_action": latest_action,
+                "action_datetime": latest_action_time,
+                "complaint_stage": complaint_stage,
                 "person": {
                     "name": person_name,
                     "block": person_block,
@@ -227,6 +265,37 @@ def get_complaint_details(complaint_id):
             signature = (o.signature if o else None)
             person_role = "HOA Member"
 
+        # Fetch latest action and complaint_stage
+        latest_action = None
+        latest_action_time = None
+        try:
+            row = db.session.execute(
+                text("""
+                    SELECT type_of_action, action_datetime
+                    FROM complaint_history
+                    WHERE complaint_id = :cid
+                    ORDER BY action_datetime DESC
+                    LIMIT 1
+                """),
+                {"cid": complaint.complaint_id}
+            ).fetchone()
+            if row:
+                latest_action = row.type_of_action
+                latest_action_time = row.action_datetime.isoformat() if row.action_datetime else None
+        except Exception:
+            pass
+
+        complaint_stage = None
+        try:
+            stage_row = db.session.execute(
+                text("SELECT complaint_stage FROM complaints WHERE complaint_id = :cid"),
+                {"cid": complaint.complaint_id}
+            ).fetchone()
+            if stage_row:
+                complaint_stage = getattr(stage_row, "complaint_stage", None) or (stage_row[0] if len(stage_row) else None)
+        except Exception:
+            pass
+
         result = {
             "complaint_id": complaint.complaint_id,
             "type": complaint.type_of_complaint,
@@ -234,6 +303,9 @@ def get_complaint_details(complaint_id):
             "created_at": complaint.date_received.strftime("%B %d, %Y") if complaint.date_received else "",
             "created_at_ts": int(complaint.date_received.timestamp() * 1000) if complaint.date_received else 0,
             "description": description,
+            "latest_action": latest_action,
+            "action_datetime": latest_action_time,
+            "complaint_stage": complaint_stage,
             "signature": signature,
             "person": {
                 "name": person_name,
