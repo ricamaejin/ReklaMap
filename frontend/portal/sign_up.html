@@ -53,7 +53,7 @@
           <div id="messageBox" class="message"></div>
 
           <p class="agreement-text">
-            By signing up, you agree to <a href="#">Terms of Use</a> and <a href="#">Privacy Policy</a>.
+            By signing up, you agree to <a href="terms_policy.html" onclick="showTermsAndPrivacy()">Terms of Use and Privacy Policy</a>
           </p>
           
           <div class="btn-wrapper">
@@ -64,65 +64,388 @@
     </div>
   </div>
 
-  <!-- Di ko sure kung maapply pa rin to pero ginawa ko na lang din trigger to para lumabas yung mga invalid/success message-->
-  <!-- Also Naglagay pala ako ng confirm password for additional security meassures din for the users(pede nyo naman tanggalin if unnecessary)-->
-  <script>
-    const form = document.getElementById("signupForm");
-    const messageBox = document.getElementById("messageBox");
+  <div class="modal-overlay" id="agreementModal" style="display:none;">
+  <div class="agreement-modal" role="dialog" aria-modal="true" aria-labelledby="agreeTitle">
+    <h1 id="agreeTitle">Terms of Use & Privacy Policy</h1>
 
-    form.addEventListener("submit", async function(event) {
-      event.preventDefault();
+    <!-- TERMS -->
+    <h2>Terms of Use</h2>
+    <p><strong>Effective Date:</strong> October 2025</p>
 
-      const firstName = document.getElementById("firstName").value.trim();
-      const lastName = document.getElementById("lastName").value.trim();
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value.trim();
-      const confirmPassword = document.getElementById("confirmPassword").value.trim();
+    <p>This platform is a student-developed capstone project created solely for academic demonstration. By using this website, you agree to the following Terms of Use:</p>
 
-      messageBox.style.display = "none";
-      messageBox.textContent = "";
+    <h3>1. Educational Purpose</h3>
+    <p>This platform is not intended for commercial use. It was built as part of an academic requirement and should be used only for testing, demonstration, or evaluation purposes.</p>
 
-      if (!firstName || !lastName || !email || !password || !confirmPassword) {
-        messageBox.textContent = "Please fill in all fields!";
-        messageBox.className = "message error";
-        messageBox.style.display = "block";
-        return;
-      }
+    <h3>2. User Accounts</h3>
+    <p>Users may register and create accounts to access certain features. All information provided must be truthful. Accounts may be suspended if used inappropriately or in violation of these terms.</p>
 
-      if (password !== confirmPassword) {
-        messageBox.textContent = "Passwords do not match!";
-        messageBox.className = "message error";
-        messageBox.style.display = "block";
-        return;
-      }
+    <h3>3. Acceptable Use</h3>
+    <p>You agree not to upload, post, or share any content that is unlawful, offensive, or in violation of Philippine law. You may not use the platform for fraudulent or malicious purposes.</p>
 
+    <h3>4. Intellectual Property</h3>
+    <p>All materials on this site (including layout, content, and design) are part of a student project. Any uploaded content remains the property of the user but may be shown temporarily in the app for demonstration purposes.</p>
+
+    <h3>5. Termination</h3>
+    <p>We reserve the right to remove accounts or content at any time if the platform is misused. All data may be deleted after the capstone project ends.</p>
+
+    <h3>6. Disclaimer</h3>
+    <p>This project is provided “as is” with no guarantees of performance or security. The developers and associated academic institution are not liable for any issues resulting from its use.</p>
+
+    <p><strong>By using this platform, you acknowledge and accept these Terms of Use.</strong></p>
+
+    <hr style="border-bottom: 2px solid black; height: 1px; background: rgba(0, 0, 0, 0.08); margin: 14px 0;">
+
+    <!-- PRIVACY POLICY -->
+    <h2>Privacy Policy for ReklaMap</h2>
+    <p><strong>Effective Date:</strong> October 2025</p>
+
+    <p>This Privacy Policy describes how ReklaMap collects, uses, and discloses information about users of our website.</p>
+
+    <h3>Interpretation and Definitions</h3>
+    <h4>Interpretation</h4>
+    <p>The words of which the initial letter is capitalized have meanings defined under the following conditions. The following definitions shall have the same meaning regardless of whether they appear in singular or in plural.</p>
+
+    <h4>Definitions</h4>
+    <p>For the purposes of this Privacy Policy:</p>
+    <ul>
+      <li><strong>Account</strong> means a unique account created for You to access our Service or parts of our Service.</li>
+      <li><strong>Affiliate</strong> means an entity that controls, is controlled by, or is under common control with a party.</li>
+      <li><strong>Company</strong> (referred to as either "the Company", "We", "Us" or "Our") refers to ReklaMap.</li>
+      <li><strong>Cookies</strong> are small files placed on Your Device by a website, containing the details of Your browsing history among its many uses.</li>
+      <li><strong>Country</strong> refers to Philippines.</li>
+      <li><strong>Device</strong> means any device that can access the Service such as a computer, cellphone, or tablet.</li>
+      <li><strong>Personal Data</strong> is any information that relates to an identified or identifiable individual.</li>
+      <li><strong>Service</strong> refers to the Website.</li>
+      <li><strong>Service Provider</strong> means any natural or legal person who processes the data on behalf of the Company.</li>
+      <li><strong>Usage Data</strong> refers to data collected automatically, generated by the use of the Service or the Service infrastructure.</li>
+      <li><strong>Website</strong> refers to ReklaMap, accessible from https://reklamap.site/ (example).</li>
+      <li><strong>You</strong> means the individual accessing or using the Service.</li>
+    </ul>
+
+    <h3>Collecting and Using Your Personal Data</h3>
+    <h4>Types of Data Collected</h4>
+    <h5>Personal Data</h5>
+    <p>While using Our Service, We may ask You to provide Us with certain personally identifiable information that can be used to contact or identify You. This may include Name, Email, Phone number, Address, and uploaded files.</p>
+
+    <h5>Usage Data</h5>
+    <p>Usage Data is collected automatically when using the Service. It may include your IP address, browser type, pages visited, time and date of visit, and other diagnostic data.</p>
+
+    <h4>Tracking Technologies and Cookies</h4>
+    <p>We use Cookies and similar technologies (beacons, tags, scripts) to track activity and improve our Service. Cookies can be "Persistent" or "Session".</p>
+
+    <h4>How We Use Your Information</h4>
+    <p>We may use the information we collect for the following purposes:</p>
+    <ul>
+      <li>To provide and maintain our Service.</li>
+      <li>To manage Your Account.</li>
+      <li>For the performance of a contract.</li>
+      <li>To contact You.</li>
+      <li>To provide news and offers (if applicable).</li>
+      <li>To manage Your requests.</li>
+      <li>For business transfers or other legal obligations.</li>
+      <li>For other purposes such as analytics and improvement.</li>
+    </ul>
+
+    <h4>Disclosure of Your Personal Data</h4>
+    <p>We may share your information with Service Providers, Affiliates, business partners, other users (where you post publicly), or with your consent. We may also disclose data for legal reasons when required by law or to protect rights and safety.</p>
+
+    <h4>Retention of Your Personal Data</h4>
+    <p>We will retain Your Personal Data only for as long as necessary to fulfill the purposes it was collected for, comply with legal obligations, resolve disputes, and enforce agreements.</p>
+
+    <h4>Transfer of Your Personal Data</h4>
+    <p>Your information may be processed in locations outside your jurisdiction. By using the Service you consent to such transfers and we will take reasonable steps to secure your data.</p>
+
+    <h4>Delete Your Personal Data</h4>
+    <p>You have the right to request deletion of Personal Data; we will comply subject to legal obligations and reasonable processing constraints.</p>
+
+    <h4>Security of Your Personal Data</h4>
+    <p>We attempt to protect your data with reasonable safeguards but cannot guarantee absolute security as this is a demo project.</p>
+
+    <h3>Users' Rights</h3>
+    <p>If you are a resident of the EU/UK (GDPR) or other jurisdictions, you have certain rights including the right to access, correct, delete, restrict processing, data portability, object to processing, and withdraw consent. Contact reklamap@gmail.com for rights requests.</p>
+
+    <h3>Links to Other Websites</h3>
+    <p>Our Service may contain links to third-party sites. We are not responsible for their privacy policies or content.</p>
+
+    <h3>Changes to this Privacy Policy</h3>
+    <p>We may update Our Privacy Policy from time to time and will notify users by posting the new policy on this page.</p>
+
+    <h3>Contact Us</h3>
+    <p>If you have questions, contact reklamap@gmail.com or phone 09924621061.</p>
+
+    <hr style="border-bottom: 2px solid black; height: 1px; background: rgba(0, 0, 0, 0.08); margin: 14px 0;">
+    <!-- Checkbox / acceptance -->
+    <div class="checkbox-wrapper">
+      <label class="checkbox-label">
+        <input type="checkbox" id="agreeCheckbox" />
+        <span>I understand and  that I have read and accepted the Terms of Use and Privacy Policy.</span>
+      </label>
+    </div>
+    
+    <div id="agreementError" style="color:#ffb3b3; display:none; margin:6px 0; font-weight:700;"></div>
+
+    <!-- Footer -->
+    <div class="modal-footer" role="toolbar" aria-label="Agreement actions">
+      <button type="button" class="cancel-btn" onclick="closeAgreement()">Cancel</button>
+      <button type="button" class="accept-btn" id="agreementProceedBtn">Accept</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function closeAgreement() {
+  const modal = document.getElementById("agreementModal");
+  modal.style.display = "none";
+}
+
+(function () {
+  const form = document.getElementById("signupForm");
+  const messageBox = document.getElementById("messageBox");
+  const modal = document.getElementById("agreementModal");
+  const agreeCheckbox = document.getElementById("agreeCheckbox");
+  const agreementError = document.getElementById("agreementError");
+  const proceedBtn = document.getElementById("agreementProceedBtn");
+
+  function openAgreement() {
+    agreementError.style.display = "none";
+    agreeCheckbox.checked = false;
+    modal.style.display = "flex";
+  }
+
+  function isStrongPassword(password) {
+    const minLength = password.length >= 6;
+    const hasUpper = /[A-Z]/.test(password);
+    const hasLower = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    return minLength && hasUpper && hasLower && hasNumber && hasSpecial;
+  }
+
+  async function performSignup() {
+    proceedBtn.disabled = true;
+    const originalText = proceedBtn.textContent;
+    proceedBtn.textContent = "Please wait...";
+
+    const firstName = document.getElementById("firstName").value.trim();
+    const lastName = document.getElementById("lastName").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
+
+    try {
+      const response = await fetch("/complainant/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `firstName=${encodeURIComponent(firstName)}&lastName=${encodeURIComponent(lastName)}&email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
+      });
+
+      let result = {};
       try {
-        const response = await fetch("http://127.0.0.1:5000/complainant/signup", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: `firstName=${encodeURIComponent(firstName)}&lastName=${encodeURIComponent(lastName)}&email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
-        });
+        result = await response.json();
+      } catch {
+        result = { success: false, message: `Server returned status ${response.status}` };
+      }
 
-        const result = await response.json();
+      if (response.ok && result.success) {
+        messageBox.textContent = "Sign-up successful! Redirecting...";
+        messageBox.className = "message success";
+        messageBox.style.display = "block";
+        closeAgreement();
+        setTimeout(() => window.location.href = "/portal/complainant_login.html", 1200);
+      } else {
+        const rawMsg = result.message || `Sign-up failed (status ${response.status})`;
+        const msg = rawMsg.includes("Duplicate entry")
+          ? "An account with this full name already exists."
+          : rawMsg;
 
-        if (response.ok && result.success) {
-          messageBox.textContent = "Sign-up successful! Redirecting...";
-          messageBox.className = "message success";
-          messageBox.style.display = "block";
-          setTimeout(() => {
-            window.location.href = "/portal/complainant_login.html";
-          }, 2000);
-        } else {
-          messageBox.textContent = result.message || "Sign-up failed!";
-          messageBox.className = "message error";
-          messageBox.style.display = "block";
-        }
-      } catch (error) {
-        messageBox.textContent = "Server error. Please try again.";
+        messageBox.textContent = msg;
         messageBox.className = "message error";
         messageBox.style.display = "block";
+
+        agreementError.textContent = msg;
+        agreementError.style.display = "block";
       }
-    });
-  </script>
+    } catch (err) {
+      console.error("Network/server error:", err);
+      const msg = "Network or server error. Please try again.";
+      messageBox.textContent = msg;
+      messageBox.className = "message error";
+      messageBox.style.display = "block";
+
+      agreementError.textContent = msg;
+      agreementError.style.display = "block";
+    } finally {
+      proceedBtn.disabled = false;
+      proceedBtn.textContent = originalText;
+    }
+  }
+
+  // 🧠 Form validation
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+
+    const firstName = document.getElementById("firstName").value.trim();
+    const lastName = document.getElementById("lastName").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const confirmPassword = document.getElementById("confirmPassword").value.trim();
+
+    if (!firstName || !lastName || !email || !password || !confirmPassword) {
+      messageBox.textContent = "Please fill in all fields.";
+      messageBox.className = "message error";
+      messageBox.style.display = "block";
+      return;
+    }
+
+    // ✅ New: check password strength
+    if (password.length < 6) {
+      messageBox.textContent = "Password must be at least 6 characters long.";
+      messageBox.className = "message error";
+      messageBox.style.display = "block";
+      return;
+    }
+
+    if (!isStrongPassword(password)) {
+      messageBox.textContent =
+        "Password must include uppercase, lowercase, number, and special character.";
+      messageBox.className = "message error";
+      messageBox.style.display = "block";
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      messageBox.textContent = "Passwords do not match.";
+      messageBox.className = "message error";
+      messageBox.style.display = "block";
+      return;
+    }
+
+    openAgreement();
+  });
+
+  proceedBtn.addEventListener("click", function () {
+    if (!agreeCheckbox.checked) {
+      agreementError.textContent =
+        "You must agree to the Terms and Privacy Policy before proceeding.";
+      agreementError.style.display = "block";
+      return;
+    }
+    performSignup();
+  });
+
+  modal.addEventListener("click", function (e) {
+    if (e.target === modal) closeAgreement();
+  });
+})();
+</script>
+
+<style>
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.agreement-modal {
+  background: #fff;
+  color: black;
+  border-radius: 18px;
+  padding: 25px 30px;
+  width: 780px;
+  max-width: 96%;
+  max-height: 80vh; 
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  font-family: Arial, sans-serif;
+}
+
+.agreement-modal h1 {
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  margin: 0 0 8px 0;
+}
+.agreement-modal h1::after {
+  content: "";
+  display: block;
+  height: 3px;
+  width: 100%;
+  margin: 10px auto 14px;
+  background: rgba(0, 0, 0, 0.825);
+  border-radius: 4px;
+}
+
+.agreement-modal h2, .agreement-modal h3, .agreement-modal h4 {
+  color: black;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.agreement-modal p, .agreement-modal li, .agreement-modal span {
+  font-size: 14px;
+  line-height: 1.6;
+  color: black;
+  text-align: justify;
+}
+.agreement-modal ul, .agreement-modal ol {
+  margin-left: 20px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: black;
+  margin-top: 4px;
+}
+
+.checkbox-label input[type="checkbox"] {
+  accent-color: #1abc9c;
+  margin: 0;
+}
+
+.checkbox-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: flex-start; 
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: right;
+  gap: 15px;
+  margin-top: 18px;
+  padding-bottom: 6px;
+}
+.modal-footer button {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s ease;
+}
+.modal-footer button.cancel-btn {
+  background: #e74c3c; color: #fff;
+}
+.modal-footer button.cancel-btn:hover { background: #c0392b; }
+.modal-footer button.accept-btn {
+  background: #27ae60; color: #fff;
+}
+.modal-footer button.accept-btn:hover { background: #1e8449; }
+
+/* scrollbar */
+.agreement-modal::-webkit-scrollbar { width: 8px; }
+.agreement-modal::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.36); border-radius: 6px; }
+</style>
+
 </body>
 </html>
