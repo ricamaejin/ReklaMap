@@ -70,7 +70,16 @@
 
       <!-- Right Panel -->
       <div class="right-panel">
-        <div class="map-card">Map / Asset details here...</div>
+        <div class="map-card" id="mapCard">
+          <div id="mapLoading" style="text-align: center; padding: 20px; color: #666;">Loading map...</div>
+          <div id="mapContent" style="display: none;">
+            <h4 id="areaTitle">Area Map</h4>
+            <div id="svgContainer" style="width: 100%; height: 300px; overflow: hidden; border: 1px solid #ddd; border-radius: 5px;"></div>
+          </div>
+          <div id="mapError" style="display: none; text-align: center; padding: 20px; color: #999;">
+            <p>Map not available</p>
+          </div>
+        </div>
         <button class="action-btn" onclick="openComplaint()">Action</button>
 
         <!-- TODO BACKEND: Replace static timeline entries with timeline data from DB -->
@@ -1067,7 +1076,98 @@
   // Initialize timeline on page load
   document.addEventListener('DOMContentLoaded', function() {
     refreshTimeline();
+    loadComplaintMap();
   });
+
+  // Load complaint details and display area map
+  async function loadComplaintMap() {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const complaintId = urlParams.get('id');
+      
+      if (!complaintId) {
+        showMapError();
+        return;
+      }
+
+      const response = await fetch(`/admin/complaints/api/complaint_details/${complaintId}`);
+      const data = await response.json();
+      
+      if (data.success && data.complaint) {
+        displayAreaMap(data.complaint);
+      } else {
+        console.error('Failed to load complaint details:', data.message);
+        showMapError();
+      }
+    } catch (error) {
+      console.error('Error loading complaint map:', error);
+      showMapError();
+    }
+  }
+
+  // Display the area SVG map
+  async function displayAreaMap(complaint) {
+    const mapLoading = document.getElementById('mapLoading');
+    const mapContent = document.getElementById('mapContent');
+    const mapError = document.getElementById('mapError');
+    const areaTitle = document.getElementById('areaTitle');
+    const svgContainer = document.getElementById('svgContainer');
+
+    if (mapLoading) mapLoading.style.display = 'none';
+
+    if (!complaint.area_code) {
+      showMapError();
+      return;
+    }
+
+    try {
+      // Load SVG file based on area_code
+      const svgPath = `/admin/map/svg/${complaint.area_code.toLowerCase()}.svg`;
+      const svgResponse = await fetch(svgPath);
+      
+      if (svgResponse.ok) {
+        const svgContent = await svgResponse.text();
+        
+        // Update area title
+        if (areaTitle) {
+          areaTitle.textContent = `${complaint.area_name || complaint.area_code} Map`;
+        }
+        
+        // Display SVG
+        if (svgContainer) {
+          svgContainer.innerHTML = svgContent;
+          
+          // Style the SVG to fit container
+          const svgElement = svgContainer.querySelector('svg');
+          if (svgElement) {
+            svgElement.style.width = '100%';
+            svgElement.style.height = '100%';
+            svgElement.style.maxHeight = '300px';
+            svgElement.style.objectFit = 'contain';
+          }
+        }
+        
+        if (mapContent) mapContent.style.display = 'block';
+      } else {
+        console.error(`SVG file not found: ${svgPath}`);
+        showMapError();
+      }
+    } catch (error) {
+      console.error('Error loading SVG:', error);
+      showMapError();
+    }
+  }
+
+  // Show map error state
+  function showMapError() {
+    const mapLoading = document.getElementById('mapLoading');
+    const mapContent = document.getElementById('mapContent');
+    const mapError = document.getElementById('mapError');
+    
+    if (mapLoading) mapLoading.style.display = 'none';
+    if (mapContent) mapContent.style.display = 'none';
+    if (mapError) mapError.style.display = 'block';
+  }
   
   // Accepted Invitation Modal Functions
   let currentInvitationHistoryId = null;

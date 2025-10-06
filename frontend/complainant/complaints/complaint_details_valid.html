@@ -409,18 +409,9 @@
 
                         <!-- Right Panel -->
                         <div class="right-panel">
-                          <div class="timeline">
-                            <div class="timeline-entry">
-                              <h4>6/19/2025 - Send Invitation
-                                <button class="file-btn" data-pdf="sample.pdf" title="Open attached PDF">Open</button>
-                                <span>Josie Rosal</span>
-                              </h4>
-                              <p>An invitation has been sent...</p>
-                            </div>
-                            <div class="timeline-entry">
-                              <h4>6/13/2025 - Assessment <span>Josie Rosal</span></h4>
-                              <p>Upon inspection, the staff verified the complaint’s validity...</p>
-                            </div>
+                          <div class="timeline" id="complainantTimeline">
+                            <!-- Dynamic timeline will be loaded here -->
+                            <div id="timelineLoading">Loading timeline...</div>
                           </div>
                           <a href="/complainant/complaints/submitted_complaints.html">
                             <button class="resolved-btn">Close</button>
@@ -430,13 +421,142 @@
                     </main>
 
                     <script>
-                    // Open PDF from timeline
-                    document.querySelectorAll('.file-btn').forEach(btn => {
-                      btn.addEventListener('click', () => {
-                        const pdfUrl = btn.getAttribute('data-pdf');
-                        if (pdfUrl) window.open(pdfUrl, '_blank');
-                        else alert('No PDF linked yet.');
+                    // =====================================
+                    // DYNAMIC TIMELINE SYSTEM FOR COMPLAINANT
+                    // =====================================
+
+                    // Get complaint ID from URL parameters
+                    function getComplaintIdFromURL() {
+                      const urlParams = new URLSearchParams(window.location.search);
+                      const id = urlParams.get('id');
+                      console.log('URL parameters:', window.location.search);
+                      console.log('Extracted complaint ID:', id);
+                      return id || '1';
+                    }
+
+                    // Load timeline data from API for complainant view
+                    async function loadComplainantTimeline() {
+                      try {
+                        const complaintId = getComplaintIdFromURL();
+                        console.log('[COMPLAINANT TIMELINE] Loading timeline for complaint:', complaintId);
+                        
+                        const response = await fetch(`/admin/complaints/api/complainant_timeline/${complaintId}?_=${Date.now()}`);
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                          renderComplainantTimeline(data.timeline || []);
+                        } else {
+                          console.error('Failed to load complainant timeline:', data.message);
+                          showTimelineError();
+                        }
+                      } catch (error) {
+                        console.error('Error loading complainant timeline:', error);
+                        showTimelineError();
+                      }
+                    }
+
+                    // Format date for timeline display
+                    function formatTimelineDate(dateString) {
+                      try {
+                        const date = new Date(dateString);
+                        return date.toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'numeric',
+                          day: 'numeric'
+                        });
+                      } catch (error) {
+                        console.error('Error formatting date:', dateString, error);
+                        return dateString;
+                      }
+                    }
+
+                    // Render timeline entries for complainant view
+                    function renderComplainantTimeline(entries) {
+                      console.log('[COMPLAINANT TIMELINE] renderComplainantTimeline called with entries:', entries);
+                      
+                      const timelineContainer = document.getElementById('complainantTimeline');
+                      const loadingElement = document.getElementById('timelineLoading');
+                      
+                      if (!timelineContainer) {
+                        console.error('[COMPLAINANT TIMELINE] Timeline container not found');
+                        return;
+                      }
+                      
+                      if (loadingElement) {
+                        loadingElement.style.display = 'none';
+                      }
+                      
+                      if (!entries || entries.length === 0) {
+                        timelineContainer.innerHTML = `
+                          <div class="timeline-entry">
+                            <h4>No timeline data available</h4>
+                            <p>Your complaint is being processed.</p>
+                          </div>
+                        `;
+                        return;
+                      }
+                      
+                      console.log(`[COMPLAINANT TIMELINE] Rendering ${entries.length} timeline entries`);
+                      
+                      // Sort entries by date (most recent first for display)
+                      entries.sort((a, b) => new Date(b.action_datetime) - new Date(a.action_datetime));
+                      
+                      let timelineHTML = '';
+                      entries.forEach(entry => {
+                        const formattedDate = formatTimelineDate(entry.action_datetime);
+                        const staffName = entry.assigned_to || 'Staff';
+                        const description = entry.description || 'Processing your complaint.';
+                        
+                        timelineHTML += `
+                          <div class="timeline-entry">
+                            <h4>${formattedDate} - ${entry.status}
+                              <span>${staffName}</span>
+                            </h4>
+                            <p>${description}</p>
+                          </div>
+                        `;
                       });
+                      
+                      timelineContainer.innerHTML = timelineHTML;
+                      
+                      // Re-attach file button event listeners (if any PDFs are added later)
+                      attachFileButtonListeners();
+                    }
+
+                    // Show error message in timeline
+                    function showTimelineError() {
+                      const timelineContainer = document.getElementById('complainantTimeline');
+                      const loadingElement = document.getElementById('timelineLoading');
+                      
+                      if (loadingElement) {
+                        loadingElement.style.display = 'none';
+                      }
+                      
+                      if (timelineContainer) {
+                        timelineContainer.innerHTML = `
+                          <div class="timeline-entry">
+                            <h4>Unable to load timeline</h4>
+                            <p>Please refresh the page to try again.</p>
+                          </div>
+                        `;
+                      }
+                    }
+
+                    // Re-attach event listeners to file buttons (for future PDF functionality)
+                    function attachFileButtonListeners() {
+                      document.querySelectorAll('.file-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                          const pdfUrl = btn.getAttribute('data-pdf');
+                          if (pdfUrl) window.open(pdfUrl, '_blank');
+                          else alert('No PDF linked yet.');
+                        });
+                      });
+                    }
+
+                    // Initialize timeline on page load
+                    document.addEventListener('DOMContentLoaded', function() {
+                      console.log('[COMPLAINANT TIMELINE] Page loaded, loading complainant timeline data');
+                      loadComplainantTimeline();
                     });
                     </script>
                   </body>

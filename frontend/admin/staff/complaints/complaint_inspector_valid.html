@@ -38,7 +38,18 @@
 
       <!-- Right Panel -->
       <div class="right-panel">
-        <div class="map-card">Map / Asset details here...</div>
+        <!-- Dynamic Area Map for Complaint Details -->
+        <div class="map-card" id="mapCard">
+          <div class="map-loading" id="mapLoading" style="text-align: center; padding: 40px; color: #666;">
+            <i class="bi bi-geo-alt-fill" style="font-size: 2em; margin-bottom: 10px;"></i><br>
+            Loading area map...
+          </div>
+          <div class="map-content" id="mapContent" style="display: none;"></div>
+          <div class="map-error" id="mapError" style="display: none; text-align: center; padding: 40px; color: #999;">
+            <i class="bi bi-exclamation-triangle" style="font-size: 2em; margin-bottom: 10px;"></i><br>
+            <span>Area map not available</span>
+          </div>
+        </div>
 
         <!-- Dynamic Timeline Component for Staff (copied from admin layout) -->
         <!-- TODO BACKEND: Replace static timeline entries with timeline data from DB -->
@@ -567,7 +578,7 @@ function getDefaultMessage(actionType, assignedTo) {
     'Task Completed': `Task completed and passed back to admin`,
     'Resolved': 'Complaint has been resolved'
   };
-  return messages[timelineStatus] || `${timelineStatus} completed`;
+  return messages[timelineStatus] || `${timelineStatus} - status unknown`;
 }
 
 // Filter timeline entries based on user role
@@ -742,6 +753,118 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Make timeline functions globally available
 window.refreshTimeline = refreshTimeline;
+
+// =====================================
+// DYNAMIC AREA MAP SYSTEM FOR STAFF
+// =====================================
+
+// Load complaint details including area information
+async function loadComplaintMap() {
+  try {
+    const complaintId = getComplaintIdFromURL();
+    if (!complaintId) {
+      console.error('No complaint ID found for loading map');
+      showMapError();
+      return;
+    }
+
+    console.log(`[STAFF MAP] Loading area map for complaint ${complaintId}`);
+    
+    const response = await fetch(`/admin/complaints/api/complaint_details/${complaintId}`, {
+      credentials: 'same-origin'
+    });
+
+    if (!response.ok) {
+      console.error(`Failed to load complaint details: ${response.status}`);
+      showMapError();
+      return;
+    }
+
+    const result = await response.json();
+    console.log('[STAFF MAP] Complaint details received:', result);
+    
+    if (result.success && result.area_code) {
+      displayAreaMap(result.area_code);
+    } else {
+      console.log('[STAFF MAP] No area code found in complaint details');
+      showMapError();
+    }
+    
+  } catch (error) {
+    console.error('[STAFF MAP] Error loading complaint map:', error);
+    showMapError();
+  }
+}
+
+// Display the appropriate area SVG map
+async function displayAreaMap(areaCode) {
+  try {
+    console.log(`[STAFF MAP] Loading SVG for area: ${areaCode}`);
+    
+    const svgPath = `/admin/map/svg/${areaCode.toLowerCase()}.svg`;
+    const response = await fetch(svgPath);
+    
+    if (!response.ok) {
+      console.error(`SVG file not found: ${svgPath}`);
+      showMapError();
+      return;
+    }
+    
+    const svgContent = await response.text();
+    
+    // Hide loading state
+    const loadingElement = document.getElementById('mapLoading');
+    if (loadingElement) {
+      loadingElement.style.display = 'none';
+    }
+    
+    // Show map content
+    const mapContent = document.getElementById('mapContent');
+    if (mapContent) {
+      mapContent.innerHTML = svgContent;
+      mapContent.style.display = 'block';
+      
+      // Apply responsive styling to SVG
+      const svgElement = mapContent.querySelector('svg');
+      if (svgElement) {
+        svgElement.style.width = '100%';
+        svgElement.style.height = 'auto';
+        svgElement.style.maxHeight = '300px';
+      }
+    }
+    
+    console.log(`[STAFF MAP] Successfully loaded area map for ${areaCode}`);
+    
+  } catch (error) {
+    console.error('[STAFF MAP] Error displaying area map:', error);
+    showMapError();
+  }
+}
+
+// Show error state when map cannot be loaded
+function showMapError() {
+  const loadingElement = document.getElementById('mapLoading');
+  const errorElement = document.getElementById('mapError');
+  
+  if (loadingElement) {
+    loadingElement.style.display = 'none';
+  }
+  
+  if (errorElement) {
+    errorElement.style.display = 'block';
+  }
+}
+
+// Initialize map loading on page load
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('[STAFF MAP] Page loaded, loading complaint area map');
+  loadComplaintMap();
+});
+
+// Make map functions globally available
+window.loadComplaintMap = loadComplaintMap;
+window.displayAreaMap = displayAreaMap;
+window.showMapError = showMapError;
 </script>
 
 </body>

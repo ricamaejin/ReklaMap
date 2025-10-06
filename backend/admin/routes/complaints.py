@@ -205,6 +205,9 @@ def staff_complete_task():
         if task_type == 'invitation':
             completion_status = 'Sent Invitation'
             task_description = 'invitation'
+        elif task_type == 'assessment':
+            completion_status = 'Assessment'
+            task_description = 'assessment'
         else:
             completion_status = 'Inspection done'
             task_description = 'inspection'
@@ -267,17 +270,24 @@ def staff_complete_task():
             'action_datetime': action_datetime
         })
         
-        # Keep complaint status as 'Ongoing' - staff completion only affects timeline
-        # The complaint_stage should remain 'Ongoing' until admin resolves it
-        # Staff completion is only reflected in the timeline, not complaint stage
+        # Update complaint stage based on completion type
+        # Assessment completion by staff should mark complaint as Resolved
+        if task_type == 'assessment':
+            new_stage = 'Resolved'
+        else:
+            # Keep complaint status as 'Ongoing' for other task types - staff completion only affects timeline
+            # The complaint_stage should remain 'Ongoing' until admin resolves it
+            new_stage = 'Ongoing'
+        
         update_complaint_query = text("""
             UPDATE complaints 
-            SET complaint_stage = 'Ongoing'
+            SET complaint_stage = :stage
             WHERE complaint_id = :complaint_id
         """)
         
         db.session.execute(update_complaint_query, {
-            'complaint_id': complaint_id
+            'complaint_id': complaint_id,
+            'stage': new_stage
         })
         
         db.session.commit()
@@ -621,6 +631,9 @@ def get_all_complaints():
         # if session.get('account') != 1:
         #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
+        # First, update any complaints that have Assessment as latest action but are still marked as Ongoing
+        update_assessment_complaints_to_resolved()
+        
         print("[DEBUG] Getting all complaints...")
         complaints = get_complaint_data_with_proper_areas()  # USING NEW DEBUG FUNCTION
         print(f"[DEBUG] Found {len(complaints)} complaints")
@@ -661,6 +674,9 @@ def get_ongoing_complaints():
         # if session.get('account') != 1:
         #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
+        # First, update any complaints that have Assessment as latest action but are still marked as Ongoing
+        update_assessment_complaints_to_resolved()
+        
         complaints = get_complaint_data_with_proper_areas(stage_filter='Ongoing')
         
         response = jsonify(complaints)
@@ -679,6 +695,9 @@ def get_resolved_complaints():
         # Check if user is admin - TEMPORARILY DISABLED FOR TESTING
         # if session.get('account') != 1:
         #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+        # First, update any complaints that have Assessment as latest action but are still marked as Ongoing
+        update_assessment_complaints_to_resolved()
         
         complaints = get_complaint_data_with_proper_areas(stage_filter='Resolved')
         
@@ -843,6 +862,9 @@ def handle_complaint_action(complaint_id):
         if 'assign' in action_type.lower() or assigned_to:
             new_stage = 'Ongoing'
         elif 'resolved' in action_type.lower():
+            new_stage = 'Resolved'
+        elif action_type == 'Assessment':
+            # Assessment completion automatically marks complaint as Resolved
             new_stage = 'Resolved'
         
         if new_stage:
@@ -1795,4 +1817,169 @@ def get_staff_resolved_complaints():
         return jsonify({'success': True, 'complaints': formatted_complaints})
         
     except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@complaints_bp.route('/api/complainant_timeline/<int:complaint_id>', methods=['GET'])
+def get_complainant_timeline(complaint_id):
+    """Get timeline data for complainant view - filtered to show only specific statuses"""
+    try:
+        # Query complaint_history for this specific complaint
+        timeline_query = text("""
+            SELECT 
+                ch.type_of_action,
+                ch.assigned_to,
+                ch.action_datetime,
+                ch.details
+            FROM complaint_history ch
+            WHERE ch.complaint_id = :complaint_id
+            ORDER BY ch.action_datetime ASC
+        """)
+        
+        timeline_result = db.session.execute(timeline_query, {'complaint_id': complaint_id})
+        timeline_entries = timeline_result.fetchall()
+        
+        # Filter timeline entries for complainant view - only show specific statuses
+        complainant_allowed_statuses = [
+            'Submitted a valid complaint',
+            'Inspection done', 
+            'Sent Invitation',
+            'Accepted Invitation',
+            'Assessment',
+            'Resolved'
+        ]
+        
+        filtered_timeline = []
+        for entry in timeline_entries:
+            action_type = entry.type_of_action
+            
+            # Map action types to complainant-friendly status names
+            mapped_status = None
+            if 'inspection' in action_type.lower() and 'done' in action_type.lower():
+                mapped_status = 'Inspection done'
+            elif 'sent invitation' in action_type.lower() or 'invitation' in action_type.lower():
+                mapped_status = 'Sent Invitation'
+            elif 'accept' in action_type.lower() and 'invitation' in action_type.lower():
+                mapped_status = 'Accepted Invitation'
+            elif action_type == 'Assessment':
+                mapped_status = 'Resolved'  # Assessment completion shows as "Resolved" to complainant
+            elif 'resolved' in action_type.lower():
+                mapped_status = 'Resolved'
+            
+            # Only include if it's an allowed status for complainant
+            if mapped_status and mapped_status in complainant_allowed_statuses:
+                # Parse details if it exists
+                details_data = {}
+                if entry.details:
+                    try:
+                        details_data = json.loads(entry.details)
+                    except:
+                        details_data = {}
+                
+                filtered_timeline.append({
+                    'status': mapped_status,
+                    'assigned_to': entry.assigned_to,
+                    'action_datetime': entry.action_datetime.strftime('%Y-%m-%d') if entry.action_datetime else '',
+                    'description': get_default_complainant_message(mapped_status, entry.assigned_to),
+                    'details': details_data
+                })
+        
+        return jsonify({'success': True, 'timeline': filtered_timeline})
+        
+    except Exception as e:
+        print(f"Error getting complainant timeline: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+def get_default_complainant_message(status, assigned_to):
+    """Generate default messages for complainant timeline"""
+    messages = {
+        'Submitted a valid complaint': 'Your complaint has been submitted and is under review.',
+        'Inspection done': f'Site inspection completed by {assigned_to or "staff"}.',
+        'Sent Invitation': f'Invitation sent to parties by {assigned_to or "staff"}.',
+        'Accepted Invitation': 'Invitation accepted by all parties.',
+        'Resolved': 'Your complaint has been resolved.'
+    }
+    return messages.get(status, f'{status} - Processing your complaint.')
+
+def update_assessment_complaints_to_resolved():
+    """Update complaints that have Assessment as latest action but are still marked as Ongoing"""
+    try:
+        # Find complaints with Assessment as latest action but still marked as Ongoing
+        update_query = text("""
+            UPDATE complaints c
+            SET complaint_stage = 'Resolved'
+            WHERE c.complaint_stage = 'Ongoing'
+            AND EXISTS (
+                SELECT 1 FROM complaint_history ch
+                WHERE ch.complaint_id = c.complaint_id
+                AND ch.type_of_action = 'Assessment'
+                AND ch.action_datetime = (
+                    SELECT MAX(ch2.action_datetime)
+                    FROM complaint_history ch2
+                    WHERE ch2.complaint_id = c.complaint_id
+                )
+            )
+        """)
+        
+        result = db.session.execute(update_query)
+        db.session.commit()
+        
+        if result.rowcount > 0:
+            print(f"Updated {result.rowcount} complaints from Ongoing to Resolved due to Assessment completion")
+            
+    except Exception as e:
+        print(f"Error updating Assessment complaints to Resolved: {e}")
+        db.session.rollback()
+
+@complaints_bp.route('/api/fix_assessment_status', methods=['POST'])
+def fix_assessment_status():
+    """Manual endpoint to fix Assessment complaint statuses"""
+    try:
+        update_assessment_complaints_to_resolved()
+        return jsonify({'success': True, 'message': 'Assessment complaint statuses updated'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@complaints_bp.route('/api/complaint_details/<int:complaint_id>', methods=['GET'])
+def get_complaint_details(complaint_id):
+    """Get complaint details including area information for map display"""
+    try:
+        # Query complaint with area details
+        query = text("""
+            SELECT 
+                c.complaint_id,
+                c.complainant_name,
+                c.type_of_complaint,
+                c.date_received,
+                c.status,
+                c.complaint_stage,
+                a.area_id,
+                a.area_code,
+                a.area_name
+            FROM complaints c
+            LEFT JOIN areas a ON c.area_id = a.area_id
+            WHERE c.complaint_id = :complaint_id
+        """)
+        
+        result = db.session.execute(query, {'complaint_id': complaint_id})
+        complaint = result.fetchone()
+        
+        if not complaint:
+            return jsonify({'success': False, 'message': 'Complaint not found'}), 404
+        
+        complaint_data = {
+            'complaint_id': complaint.complaint_id,
+            'complainant_name': complaint.complainant_name,
+            'type_of_complaint': complaint.type_of_complaint,
+            'date_received': complaint.date_received.strftime('%Y-%m-%d') if complaint.date_received else '',
+            'status': complaint.status,
+            'complaint_stage': complaint.complaint_stage,
+            'area_id': complaint.area_id,
+            'area_code': complaint.area_code,
+            'area_name': complaint.area_name
+        }
+        
+        return jsonify({'success': True, 'complaint': complaint_data})
+        
+    except Exception as e:
+        print(f"Error getting complaint details: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
