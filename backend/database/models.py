@@ -79,6 +79,10 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
+    __table_args__ = (
+        db.UniqueConstraint('first_name', 'last_name', name='uq_fullname'),
+    )
+
 # -----------------------
 # Registration table
 # -----------------------
