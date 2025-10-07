@@ -6,6 +6,10 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
+  <style>
+    .warn{display:none;color:#d32f2f;font-size:12px;margin-top:4px}
+    .invalid-input{border-color:#d32f2f !important; outline-color:#d32f2f !important}
+  </style>
 </head>
 <body>
     
@@ -31,8 +35,14 @@
   <form id="memRegForm" method="post" enctype="multipart/form-data" style="position:relative;">
   <!-- Error Popup (centered in viewport) -->
     <div class="form-grid" aria-hidden="false">
-          <label>Last Name<input type="text" name="reg_last"></label>
-          <label>First Name<input type="text" name="reg_first"></label>
+          <label class="required-asterisk">Last Name
+            <input type="text" name="reg_last" id="reg_last">
+            <small class="warn" id="warn-reg_last">This field is required.</small>
+          </label>
+          <label class="required-asterisk">First Name
+            <input type="text" name="reg_first" id="reg_first">
+            <small class="warn" id="warn-reg_first">This field is required.</small>
+          </label>
           <label>Middle Initial<input type="text" name="reg_mid"></label>
           <label>Suffix
             <select name="reg_suffix">
@@ -50,13 +60,22 @@
               <option>Male</option><option>Female</option>
             </select>
           </label>
-          <label>Citizenship<input type="text" name="reg_cit"></label>
+          <label class="required-asterisk">Citizenship
+            <input type="text" name="reg_cit" id="reg_cit">
+            <small class="warn" id="warn-reg_cit">This field is required.</small>
+          </label>
           <label>Age<input type="number" name="reg_age" min="0" step="1"></label>
         </div>
 
         <div class="form-grid" aria-hidden="false" style="margin-bottom: -15px;">
-          <label>Years of Residence<input type="text" name="reg_year"></label>
-          <label>Contact Number<input type="text" name="reg_phone"></label>
+          <label class="required-asterisk">Years of Residence
+            <input type="text" name="reg_year" id="reg_year">
+            <small class="warn" id="warn-reg_year">This field is required.</small>
+          </label>
+          <label class="required-asterisk">Contact Number
+            <input type="text" name="reg_phone" id="reg_phone">
+            <small class="warn" id="warn-reg_phone">This field is required.</small>
+          </label>
           <label>HOA
             <select name="reg_hoa" required>
               <option value="" disabled selected hidden></option>
@@ -65,8 +84,14 @@
               {% endfor %}
             </select>
           </label>
-          <label>Block Assignment<input type="text" name="reg_blk"></label>
-          <label>Lot Assignment<input type="text" name="reg_lot_asn"></label>
+          <label class="required-asterisk">Block Assignment
+            <input type="text" name="reg_blk" id="reg_blk">
+            <small class="warn" id="warn-reg_blk">This field is required.</small>
+          </label>
+          <label class="required-asterisk">Lot Assignment
+            <input type="text" name="reg_lot_asn" id="reg_lot_asn">
+            <small class="warn" id="warn-reg_lot_asn">This field is required.</small>
+          </label>
           <label>Lot Size<input type="text" name="reg_lot_size"></label>
 
           <!-- Civil status column (right) -->
@@ -84,29 +109,34 @@
         </div>
 
         <div class="form-grid" aria-hidden="false" style="grid-template-columns: repeat(2, 1fr) !important;">
-          <label>Current Address<input type="text" name="reg_cur_add"></label>
+          <label class="required-asterisk">Current Address
+            <input type="text" name="reg_cur_add" id="reg_cur_add">
+            <small class="warn" id="warn-reg_cur_add">This field is required.</small>
+          </label>
         </div>
 
         <!-- radio question (one option per row) -->
         <div class="radio-section" role="group">
-          <p id="recipient-label">Recipient of other housing programs besides NGCCHP ?</p>
+          <p id="recipient-label" class="required-asterisk">Recipient of other housing programs besides NGCCHP ?</p>
           <div class="radio-list">
             <label><input type="radio" name="recipient" value="yes"> Yes</label>
             <label><input type="radio" name="recipient" value="no"> No</label>
           </div>
+          <small class="warn" id="warn-recipient">Please select Yes or No.</small>
         </div>
 
         <!-- supporting documents (stacked) -->
         <div class="support-docs" role="group">
-          <p id="docs-label">What supporting documents do you have?</p>
+          <p id="docs-label" class="required-asterisk">What supporting documents do you have?</p>
           <div class="docs-list">
-            <label><input type="checkbox" name="doc_title"> Title</label>
-            <label><input type="checkbox" name="doc_contract"> Contract to Sell</label>
-            <label><input type="checkbox" name="doc_fullpay"> Certificate of Full Payment</label>
-            <label><input type="checkbox" name="doc_award"> Certificate of Award</label>
-            <label><input type="checkbox" name="doc_agreement"> Contract/Agreement</label>
-            <label><input type="checkbox" name="doc_deed"> Deed of Sale</label>
+            <label><input type="checkbox" name="doc_title" id="doc_title"> Title</label>
+            <label><input type="checkbox" name="doc_contract" id="doc_contract"> Contract to Sell</label>
+            <label><input type="checkbox" name="doc_fullpay" id="doc_fullpay"> Certificate of Full Payment</label>
+            <label><input type="checkbox" name="doc_award" id="doc_award"> Certificate of Award</label>
+            <label><input type="checkbox" name="doc_agreement" id="doc_agreement"> Contract/Agreement</label>
+            <label><input type="checkbox" name="doc_deed" id="doc_deed"> Deed of Sale</label>
           </div>
+          <small class="warn" id="warn-supporting_docs">Select at least one option.</small>
         </div>
         
           <!-- Hidden category input -->
@@ -130,7 +160,19 @@
 
 
   <!-- Form submission script -->
-  <script>
+    <script>
+    // Inline field warning helpers
+    function showFieldWarn(id, inputEl){
+      const w = document.getElementById(id);
+      if (w) w.style.display = 'block';
+      if (inputEl) inputEl.classList.add('invalid-input');
+    }
+    function hideFieldWarn(id, inputEl){
+      const w = document.getElementById(id);
+      if (w) w.style.display = 'none';
+      if (inputEl) inputEl.classList.remove('invalid-input');
+    }
+
     function showErrorPop(msg) {
       const pop = document.getElementById('errorPop');
       const popMsg = document.getElementById('errorPopMsg');
@@ -143,11 +185,20 @@
       }, 1000);
     }
 
-    // No longer set category from complaintType; category is always 'hoa_member' for this form
+    // Clear warn on input/change
+    ["reg_last","reg_first","reg_cit","reg_year","reg_phone","reg_blk","reg_lot_asn","reg_cur_add"].forEach(id=>{
+      const el = document.getElementById(id);
+      if (el){ el.addEventListener('input', ()=> hideFieldWarn('warn-'+id, el)); }
+    });
+    document.querySelectorAll('input[name="recipient"]').forEach(r=>{
+      r.addEventListener('change', ()=> hideFieldWarn('warn-recipient'));
+    });
+    document.querySelectorAll('input[name^="doc_"]').forEach(c=>{
+      c.addEventListener('change', ()=> hideFieldWarn('warn-supporting_docs'));
+    });
 
     document.getElementById("memRegForm").addEventListener("submit", async function(e) {
-      e.preventDefault(); // stop page reload
-
+      e.preventDefault();
       const submitBtn = this.querySelector('.btn.submit');
       if (submitBtn.disabled) {
         console.log('Submission blocked: already submitting');
@@ -155,7 +206,53 @@
       }
       submitBtn.disabled = true;
 
-  // Do not overwrite category; always send 'hoa_member'
+      // Client-side required validation
+      let firstInvalid = null;
+      function requireVal(selector, warnId){
+        const el = document.querySelector(selector);
+        const ok = el && String(el.value || '').trim() !== '';
+        if (!ok){
+          showFieldWarn(warnId, el);
+          if (!firstInvalid) firstInvalid = el;
+        } else {
+          hideFieldWarn(warnId, el);
+        }
+        return ok;
+      }
+
+      const v1 = requireVal('#reg_last','warn-reg_last');
+      const v2 = requireVal('#reg_first','warn-reg_first');
+      const v3 = requireVal('#reg_cit','warn-reg_cit');
+      const v4 = requireVal('#reg_year','warn-reg_year');
+      const v5 = requireVal('#reg_phone','warn-reg_phone');
+      const v6 = requireVal('#reg_blk','warn-reg_blk');
+      const v7 = requireVal('#reg_lot_asn','warn-reg_lot_asn');
+      const v8 = requireVal('#reg_cur_add','warn-reg_cur_add');
+
+      // Recipient required (radio)
+      const recipientChecked = document.querySelector('input[name="recipient"]:checked');
+      if (!recipientChecked){
+        showFieldWarn('warn-recipient');
+        if (!firstInvalid) firstInvalid = document.querySelector('input[name="recipient"]');
+      } else hideFieldWarn('warn-recipient');
+
+      // Supporting docs required (at least one checkbox)
+      const docFields = ["doc_title","doc_contract","doc_fullpay","doc_award","doc_agreement","doc_deed"];
+      const docsChecked = docFields.some(id => document.getElementById(id) && document.getElementById(id).checked);
+      if (!docsChecked){
+        showFieldWarn('warn-supporting_docs');
+        if (!firstInvalid) firstInvalid = document.getElementById('doc_title');
+      } else hideFieldWarn('warn-supporting_docs');
+
+      const allOk = v1 && v2 && v3 && v4 && v5 && v6 && v7 && v8 && !!recipientChecked && docsChecked;
+      if (!allOk){
+        showErrorPop('Please complete the required fields.');
+        if (firstInvalid){
+          try{ firstInvalid.focus(); firstInvalid.scrollIntoView({behavior:'smooth', block:'center'}); }catch(_){ }
+        }
+        submitBtn.disabled = false;
+        return;
+      }
 
       let formData = new FormData(this);
 
@@ -167,7 +264,6 @@
           headers: { "X-Requested-With": "XMLHttpRequest" }
         });
 
-        // Try to parse JSON, if fails, show error
         let result;
         try {
           result = await response.json();
@@ -178,13 +274,22 @@
         }
 
         if (result.success) {
-          // Always use backend-provided redirect URL
           if (result.redirect) {
             window.location.href = result.redirect;
             return;
           }
-          // If no redirect, fallback to dashboard
           window.location.href = "/complainant/home/dashboard.html";
+        } else if (result.field_errors) {
+          // Show inline errors for each field
+          Object.entries(result.field_errors).forEach(([field, msg]) => {
+            if (field === 'supporting_docs') {
+              showFieldWarn('warn-supporting_docs');
+            } else {
+              showFieldWarn('warn-' + field, document.getElementById(field));
+            }
+          });
+          showErrorPop('Please complete the required fields.');
+          submitBtn.disabled = false;
         } else {
           showErrorPop(result.error || "Unknown error occurred.");
           submitBtn.disabled = false;

@@ -25,9 +25,18 @@
 
   <!-- User Dropdown -->
   <div class="user-dropdown">
+    <!-- Clickable inbox bubble (left side) -->
+    <button id="inbox-bubble"
+            class="notif-bubble"
+            style="display:none;"
+            title="Open Inbox"
+            aria-label="Open inbox notifications"
+            type="button">0</button>
+
     Logged in as: <span class="username" id="admin-name"></span>
     <button class="dropdown-toggle">▼</button>
     <div class="dropdown-menu">
+      <a href="#" id="inboxLink">Inbox <span id="inboxMenuCount" class="notif-count">0</span></a>
       <a href="/portal/index.html">Logout</a>
     </div>
   </div>
@@ -58,6 +67,22 @@
     <!-- Tooltip for hover -->
     <div id="tooltip" class="tooltip"></div>
   </main>
+
+  <!-- Inbox Modal -->
+  <div class="modal-overlay" id="inboxModal" style="display:none;">
+    <div class="inbox-panel">
+      <div class="inbox-header">
+        <div style="font-weight:700;">Inbox — Tasks Due Soon</div>
+        <button class="btn" onclick="closeInbox()">Close</button>
+      </div>
+      <div id="inboxList" class="inbox-list">
+        <div class="inbox-empty">No tasks due soon.</div>
+      </div>
+      <div class="inbox-footer">
+        <button class="btn" onclick="closeInbox()">OK</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     // Load admin name dynamically
@@ -484,12 +509,270 @@
       window.location.href = url;
     }
 
+    // ============================
+    // Admin Inbox (due soon) logic
+    // ============================
+    let adminAssignedCache = [];
+    const ADMIN_INBOX_THRESHOLD_DAYS = 3; // inclusive: show <= 3 days, including past due and 1 day left
+
+    // Normalize complaint fields from various endpoints to a common shape
+    function normalizeComplaint(raw) {
+      return {
+        complaint_id: raw.complaint_id || raw.id || raw.complaintId,
+        complaint_stage: raw.complaint_stage || raw.stage || raw.status || '',
+        status: raw.status || '',
+        latest_action: raw.latest_action || raw.action_type || raw.action || raw.action_needed || '',
+        action_datetime: raw.action_datetime || raw.last_action_datetime || raw.updated_at || raw.actionDateTime || '',
+        date_received: raw.date_received || raw.submitted_at || raw.created_at || raw.createdAt || '',
+        complainant: raw.complainant_name || raw.complainant || raw.fullname || '',
+        area_name: raw.area_name || raw.area || raw.areaName || '',
+        // prefer explicit deadlines if backend provides them
+        deadline: raw.deadline || raw.action_deadline || raw.deadline_at || raw.due_date || raw.due_at || ''
+      };
+    }
+
+    // Prefer explicit deadline if present; otherwise derive based on stage/action
+    function adminGetDeadlineDate(complaint) {
+      if (!complaint) return null;
+
+      // 1) Explicit deadline from API (supports multiple common field names)
+      if (complaint.deadline) {
+        const d = new Date(complaint.deadline);
+        if (!isNaN(d.getTime())) return d;
+      }
+
+      // 2) Skip invalid/resolved from inbox
+      const statusText = (complaint.status || complaint.complaint_stage || '').toLowerCase();
+      if (statusText.includes('invalid')) return null;
+      if (statusText.includes('resolved')) return null;
+
+      // 3) Derive deadline
+      const isPending = (complaint.complaint_stage === 'Pending') || !complaint.latest_action;
+
+      if (isPending) {
+        const base = complaint.date_received ? new Date(complaint.date_received) : null;
+        if (!base || isNaN(base)) return null;
+        // Pending: 7 days from submission
+        return new Date(base.getTime() + 7 * 24 * 60 * 60 * 1000);
+      }
+
+      // Ongoing: last action + per-action rule
+      const base = complaint.action_datetime ? new Date(complaint.action_datetime) : null;
+      if (!base || isNaN(base)) return null;
+
+      const actionType = (complaint.latest_action || '').toLowerCase();
+      let daysToAdd = 1;
+      if (actionType.includes('inspection')) daysToAdd = 3;
+      else if (actionType.includes('invitation')) daysToAdd = 1;
+      else if (actionType.includes('mediation')) daysToAdd = 1;
+      else if (actionType.includes('assessment')) daysToAdd = 1;
+
+      return new Date(base.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+    }
+
+    // Compute days left until deadline
+function adminGetDaysLeft(deadline) {
+  if (!deadline) return null;
+  const now = new Date();
+  // Difference in full days (ceil to handle partial days)
+  return Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+// Build list of items that are due in <=3 days (inclusive) or overdue
+function adminBuildDueSoonItems(complaints) {
+  const items = [];
+  complaints.forEach(raw => {
+    const c = normalizeComplaint(raw);
+    const deadline = adminGetDeadlineDate(c);
+    if (!deadline) return;
+
+    const daysLeft = adminGetDaysLeft(deadline);
+    if (daysLeft === null) return;
+
+    // Include if overdue (daysLeft < 0) or due soon (<=3 days)
+    if (daysLeft <= ADMIN_INBOX_THRESHOLD_DAYS) {
+      const isPending = (c.complaint_stage === 'Pending') || !c.latest_action;
+      items.push({ complaint: c, deadline, daysLeft, isPending });
+    }
+  });
+
+  // Sort: overdue first, then soonest due
+  items.sort((a, b) => a.daysLeft - b.daysLeft);
+  return items;
+}
+
+    function adminResolveDetailsLink(complaintId) {
+      return `/admin/complaints/complaint_details_valid.html?id=${complaintId}`;
+    }
+
+    async function openInbox() {
+      const listEl = document.getElementById('inboxList');
+      const items = adminBuildDueSoonItems(adminAssignedCache);
+
+      if (!items.length) {
+        listEl.innerHTML = '<div class="inbox-empty">No tasks due soon.</div>';
+      } else {
+        const rows = items.map(({ complaint, deadline, daysLeft, isPending }) => {
+          const link = adminResolveDetailsLink(complaint.complaint_id);
+          const when = deadline.toLocaleString(undefined, {
+            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+          });
+
+          const pillClass = daysLeft < 0 ? 'pill-overdue' : (daysLeft <= ADMIN_INBOX_THRESHOLD_DAYS ? 'pill-soon' : 'pill-ok');
+          const pillText = daysLeft < 0 ? `Overdue by ${Math.abs(daysLeft)}d` : (daysLeft === 0 ? 'Due today' : `${daysLeft}d left`);
+
+          const stage = isPending
+            ? 'Pending'
+            : (complaint.complaint_stage || (complaint.latest_action || 'Ongoing'));
+
+          const who = complaint.complainant_name || complaint.complainant || 'Complainant';
+          const area = complaint.area_name ? ` • ${complaint.area_name}` : '';
+          const reason = isPending ? 'Submitted deadline' : (complaint.latest_action || complaint.action_needed || 'Ongoing');
+
+          return `
+            <div class="inbox-item" onclick="window.location.href='${link}'">
+              <span class="inbox-pill ${pillClass}">${pillText}</span>
+              <div>
+                <div class="inbox-title">${stage}</div>
+                <div class="inbox-meta">ID #${complaint.complaint_id} • ${who}${area}</div>
+                <div class="inbox-meta">Deadline: ${when} • ${reason}</div>
+              </div>
+            </div>
+          `;
+        });
+        listEl.innerHTML = rows.join('');
+      }
+
+      document.getElementById('inboxModal').style.display = 'flex';
+    }
+
+    function closeInbox() {
+      document.getElementById('inboxModal').style.display = 'none';
+    }
+
+    // Add the missing dropdown/bubble wiring for the inbox
+    function initInboxDropdown() {
+      const link = document.getElementById('inboxLink');
+      if (link) {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openInbox();
+        });
+      }
+
+      const bubbleBtn = document.getElementById('inbox-bubble');
+      if (bubbleBtn) {
+        bubbleBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openInbox();
+        });
+        bubbleBtn.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openInbox();
+          }
+        });
+      }
+
+      const inboxModal = document.getElementById('inboxModal');
+      if (inboxModal) {
+        inboxModal.addEventListener('click', (e) => {
+          if (e.target === inboxModal) closeInbox();
+        });
+      }
+
+      // Periodic badge refresh
+      setInterval(updateInboxBadge, 60_000);
+    }
+
+    function updateInboxBadge() {
+      const items = adminBuildDueSoonItems(adminAssignedCache);
+      const count = items.length;
+      const bubble = document.getElementById('inbox-bubble');
+      const menuCount = document.getElementById('inboxMenuCount');
+
+      if (count > 0) {
+        bubble.style.display = 'inline-flex';
+        bubble.textContent = String(count);
+        bubble.setAttribute('aria-hidden', 'false');
+        bubble.setAttribute('aria-label', `Open inbox, ${count} task${count>1?'s':''} due soon`);
+        if (menuCount) {
+          menuCount.textContent = String(count);
+          menuCount.style.display = 'inline-flex';
+        }
+      } else {
+        bubble.style.display = 'none';
+        bubble.setAttribute('aria-hidden', 'true');
+        if (menuCount) {
+          menuCount.textContent = '0';
+          menuCount.style.display = 'none';
+        }
+      }
+    }
+
+    // Try several endpoints; take the first that returns a non-empty list
+    async function loadAdminAssignedForInbox() {
+      const urls = [
+        `/admin/complaints/api/assigned?_=${Date.now()}`,
+        `/admin/complaints/api/ongoing?_=${Date.now()}`,
+        `/admin/complaints/api/all?_=${Date.now()}`
+      ];
+      let loaded = false;
+
+      for (const url of urls) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const data = await res.json();
+          const list = Array.isArray(data)
+            ? data
+            : (Array.isArray(data.complaints) ? data.complaints : (Array.isArray(data.items) ? data.items : []));
+
+          if (list.length) {
+            adminAssignedCache = list;
+            loaded = true;
+            break;
+          }
+        } catch (_) { /* try next */ }
+      }
+
+      // Fallback: also try staff view if admin endpoints empty
+      if (!loaded) {
+        try {
+          const res = await fetch(`/staff/api/complaints/assigned?_=${Date.now()}`);
+          if (res.ok) {
+            const data = await res.json();
+            adminAssignedCache = Array.isArray(data.complaints) ? data.complaints : [];
+          } else {
+            adminAssignedCache = [];
+          }
+        } catch (_) {
+          adminAssignedCache = [];
+        }
+      }
+
+      updateInboxBadge();
+    }
+
+    async function initAdminInbox() {
+      await loadAdminAssignedForInbox();
+      // Refresh list every 3 minutes; badge every minute
+      setInterval(loadAdminAssignedForInbox, 180_000);
+      setInterval(updateInboxBadge, 60_000);
+    }
+
     // Run everything on DOM load
     document.addEventListener("DOMContentLoaded", () => {
       loadAdminName();
       initMap();
       initDropdown();
       initSearch();
+
+      // Inbox init
+      initInboxDropdown();
+      initAdminInbox();
     });
   </script>
 
@@ -658,7 +941,132 @@
       background-color: transparent;
     }
 
+    /* Inbox bubble and counts */
+    .notif-bubble {
+      background: #e53935;
+      color: #fff;
+      border-radius: 12px;
+      padding: 0 8px;
+      font-size: 11px;
+      line-height: 20px;
+      height: 20px;
+      min-width: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      outline: none;
+      margin-right: 6px; /* bubble on the left side of label */
+    }
+    .notif-bubble:focus {
+      box-shadow: 0 0 0 2px rgba(229,57,53,0.25);
+    }
+    .dropdown-menu a#inboxLink {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .notif-count {
+      background: #e53935;
+      color: #fff;
+      border-radius: 12px;
+      padding: 0 6px;
+      font-size: 11px;
+      line-height: 18px;
+      height: 18px;
+      min-width: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
 
+    /* Inbox modal */
+    #inboxModal.modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .inbox-panel {
+      width: 520px;
+      max-width: 95vw;
+      max-height: 80vh;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .inbox-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid #eee;
+      background: #f8f9fa;
+    }
+    .inbox-list {
+      overflow: auto;
+      padding: 8px 0;
+    }
+    .inbox-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f1f1f1;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      cursor: pointer;
+    }
+    .inbox-item:hover { background: #fafafa; }
+    .inbox-pill {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+    }
+    .pill-overdue { background: #d32f2f; }
+    .pill-soon { background: #f57c00; }
+    .pill-ok { background: #43a047; }
+    .inbox-title {
+      font-weight: 700;
+      color: #001241;
+      margin-bottom: 2px;
+    }
+    .inbox-meta {
+      font-size: 12px;
+      color: #555;
+    }
+    .inbox-empty {
+      text-align: center;
+      color: #666;
+      padding: 24px;
+    }
+    .inbox-footer {
+      padding: 10px 16px;
+      border-top: 1px solid #eee;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      background: #f8f9fa;
+    }
+    .btn {
+      border: 1px solid #ccc;
+      background: #fff;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn:hover { background: #f5f5f5; }
   </style>
 </body>
 </html>

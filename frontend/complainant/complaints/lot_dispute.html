@@ -49,6 +49,17 @@
 
       <!-- Section 1 -->
       <div class="section-header">LOT DETAILS AND CLAIM:</div>
+      <!-- Non-member only: Block/Lot pairs involved in the dispute (excluding theirs) -->
+      <div id="nonMemberBlockLotSection" style="display:none;">
+        <p>What is the specific block and lot involved in the lot dispute?</p>
+        <div class="pairs" id="pairsContainer" aria-live="polite">
+          <!-- rows will be added here -->
+        </div>
+        <div class="pair-controls">
+          <button type="button" class="btn add small" id="addPairBtn" style="margin-bottom: 12px;">+ Add</button>
+          <span style="color:var(--muted);font-size:13px;margin-left:8px"><i style="font-size: 14px; font-weight: normal; color: grey;">(If more than one area is affected, list all applicable pairs.)</i></span>
+        </div>
+      </div>
       <p>1. How did you come into possession of the lot?</p>
       <label><input type="radio" name="possession" value="Official assignment by NGCHDP/NHA"> I was officially assigned the lot by NGCHDP/NHA</label>
       <label><input type="radio" name="possession" value="Passed on by a family member"> The lot was passed on to me by a family member</label>
@@ -164,7 +175,7 @@
       const container = document.getElementById('complainantDetails');
       if (!container || !d || d.error) return;
 
-      const pairs = document.createElement('div');
+  const pairs = document.createElement('div');
       pairs.className = 'pairs';
       // Optional secondary wrapper (outside the first pairs) like overlapping.html
       let memberWrapper = null;
@@ -221,7 +232,7 @@
 
       // For non_member, no Area selection dropdown; Area (HOA) is shown read-only above.
 
-      // HOA details for hoa_member and family_of_member
+  // HOA details for hoa_member and family_of_member
       if (d.category === 'hoa_member' || d.category === 'family_of_member') {
   if (d.category === 'family_of_member') {
           // For family_of_member, mirror overlapping.html style:
@@ -266,6 +277,17 @@
       if (memberWrapper) {
         container.appendChild(memberWrapper);
       }
+
+      // Show Block/Lot pairs question only for non_members
+      const nonMemberPairs = document.getElementById('nonMemberBlockLotSection');
+      if (nonMemberPairs) {
+        nonMemberPairs.style.display = d.category === 'non_member' ? '' : 'none';
+      }
+
+      // Initialize pairs UI only when visible
+      if (d.category === 'non_member') {
+        initBlockLotPairsUI();
+      }
     } catch (e) {
       console.warn('Failed to populate lot dispute header:', e);
     }
@@ -283,6 +305,81 @@
       pop.style.opacity = '0';
       setTimeout(() => { pop.style.display = 'none'; }, 400);
     }, 1000);
+  }
+
+  // Helper to manage dynamic Block/Lot pairs UI (mirrors overlapping)
+  function initBlockLotPairsUI(){
+    const pairsContainer = document.getElementById('pairsContainer');
+    const addPairBtn = document.getElementById('addPairBtn');
+    if (!pairsContainer || !addPairBtn) return;
+
+    function createPairRow(block = '', lot = '') {
+      const row = document.createElement('div');
+      row.className = 'pair-row';
+
+      const colBlock = document.createElement('div');
+      colBlock.className = 'col';
+      const lblBlock = document.createElement('label');
+      lblBlock.className = 'small';
+      lblBlock.textContent = 'Block No.';
+      const inputBlock = document.createElement('input');
+      inputBlock.type = 'text';
+      inputBlock.name = 'block_no[]';
+      inputBlock.value = block;
+      inputBlock.placeholder = 'Block No.';
+      colBlock.appendChild(lblBlock);
+      colBlock.appendChild(inputBlock);
+
+      const colLot = document.createElement('div');
+      colLot.className = 'col';
+      const lblLot = document.createElement('label');
+      lblLot.className = 'small';
+      lblLot.textContent = 'Lot No.';
+      const inputLot = document.createElement('input');
+      inputLot.type = 'text';
+      inputLot.name = 'lot_no[]';
+      inputLot.value = lot;
+      inputLot.placeholder = 'Lot No.';
+      colLot.appendChild(lblLot);
+      colLot.appendChild(inputLot);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'remove';
+      removeBtn.textContent = 'Remove';
+      removeBtn.onclick = () => {
+        pairsContainer.removeChild(row);
+        updateRemoveButtons();
+      };
+
+      row.appendChild(colBlock);
+      row.appendChild(colLot);
+      row.appendChild(removeBtn);
+
+      return row;
+    }
+
+    function updateRemoveButtons() {
+      const rows = pairsContainer.querySelectorAll('.pair-row');
+      rows.forEach((r) => {
+        const btn = r.querySelector('button.remove');
+        btn.disabled = rows.length === 1;
+        btn.style.opacity = btn.disabled ? 0.45 : 1;
+        btn.style.cursor = btn.disabled ? 'not-allowed' : 'pointer';
+      });
+    }
+
+    // initial
+    pairsContainer.appendChild(createPairRow());
+    updateRemoveButtons();
+
+    addPairBtn.addEventListener('click', () => {
+      pairsContainer.appendChild(createPairRow());
+      updateRemoveButtons();
+      const rows = pairsContainer.querySelectorAll('.pair-row');
+      const last = rows[rows.length-1];
+      last.querySelector('input[name="block_no[]"]').focus();
+    });
   }
 
   // Submit Lot Dispute (match overlapping flow: form submit, no alerts)
@@ -336,6 +433,41 @@
       const relationshipWithPerson = document.querySelector('input[name="relationship_with_person"]').value.trim();
       const legalDocs = getRadio('legal_docs');
 
+      // If non_member, collect Block/Lot pairs and validate before submit
+      const nonMemberSection = document.getElementById('nonMemberBlockLotSection');
+      let blockLot = [];
+      if (nonMemberSection && nonMemberSection.style.display !== 'none') {
+        const rows = Array.from(document.querySelectorAll('#pairsContainer .pair-row'));
+        blockLot = rows.map(row => {
+          const blockInput = row.querySelector('input[name="block_no[]"]');
+          const lotInput = row.querySelector('input[name="lot_no[]"]');
+          return { block: blockInput ? blockInput.value.trim() : '', lot: lotInput ? lotInput.value.trim() : '' };
+        }).filter(item => item.block || item.lot);
+        // Validate pairs with backend before actual submit
+        try {
+          const resp = await fetch('/complainant/lot_dispute/validate_pairs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ pairs: blockLot })
+          });
+          const data = await resp.json();
+          if (!resp.ok || !data.success) {
+            let msg = data.message || 'Invalid Block/Lot pairs.';
+            if (data.mismatches && Array.isArray(data.mismatches) && data.mismatches.length > 0) {
+              // Only show the first unique error message (deduplicate)
+              const unique = [...new Set(data.mismatches)];
+              msg = unique[0] || msg;
+            }
+            showErrorPop(msg);
+            return;
+          }
+        } catch (err) {
+          showErrorPop('Could not validate Block/Lot pairs. Please try again.');
+          return;
+        }
+      }
+
       const fd = new FormData();
       fd.append('possession', possession);
       fd.append('conflict', getRadio('conflict'));
@@ -349,6 +481,9 @@
       // Include free-text description so backend can persist it
       const descriptionText = (document.getElementById('description')?.value || '').trim();
       fd.append('description', descriptionText);
+      if (blockLot.length > 0) {
+        fd.append('block_lot', JSON.stringify(blockLot));
+      }
       if (sigInput && sigInput.files[0]) {
         fd.append('signature', sigInput.files[0]);
       }

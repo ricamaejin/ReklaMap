@@ -2,7 +2,7 @@ import os, json, time
 from datetime import datetime
 from flask import Blueprint, session, send_from_directory, jsonify, request
 from werkzeug.utils import secure_filename
-from backend.database.models import Registration, Complaint, LotDispute, Beneficiary, Block, Area, RegistrationFamOfMember
+from backend.database.models import Registration, Complaint, LotDispute, Beneficiary, Block, Area, RegistrationFamOfMember, GeneratedLots
 from backend.database.db import db
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -105,6 +105,87 @@ def get_lot_session_data():
 
     return jsonify(data)
 
+@lot_dispute_bp.route('/validate_pairs', methods=['POST'])
+def validate_pairs():
+    """Validate provided Block/Lot pairs against the user's HOA area.
+    Expects JSON body: { "pairs": [{"block": "..", "lot": ".."}, ...] }
+    """
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({"success": False, "message": "User not logged in"}), 401
+        registration_id = session.get('registration_id')
+        reg = Registration.query.get(registration_id) if registration_id else None
+        if not reg:
+            return jsonify({"success": False, "message": "Registration not found"}), 400
+
+        # Resolve area_id as in submit
+        area_id = None
+        if getattr(reg, 'hoa', None):
+            try:
+                area_id_candidate = int(reg.hoa)
+                if Area.query.get(area_id_candidate):
+                    area_id = area_id_candidate
+            except Exception:
+                area_id = None
+        if area_id is None and reg.block_no and reg.lot_no:
+            try:
+                bn = int(reg.block_no)
+            except Exception:
+                bn = reg.block_no
+            try:
+                ln = int(reg.lot_no)
+            except Exception:
+                ln = reg.lot_no
+            beneficiary = Beneficiary.query.filter_by(block_id=bn, lot_no=ln).first()
+            if not beneficiary:
+                blk = Block.query.filter_by(block_no=bn).first()
+                if blk:
+                    beneficiary = Beneficiary.query.filter_by(block_id=blk.block_id, lot_no=ln).first()
+            if beneficiary:
+                area_id = beneficiary.area_id
+
+        if area_id is None:
+            return jsonify({"success": False, "message": "Area assignment not found from your registration."}), 400
+
+        payload = request.get_json(silent=True) or {}
+        pairs = payload.get('pairs')
+        if not isinstance(pairs, list):
+            return jsonify({"success": False, "message": "Invalid payload."}), 400
+
+        found_invalid = False
+        for idx, item in enumerate(pairs, start=1):
+            b_str = str(item.get("block", "")).strip()
+            l_str = str(item.get("lot", "")).strip()
+            if not b_str or not l_str:
+                found_invalid = True
+                break
+            try:
+                b_no = int(b_str)
+            except Exception:
+                found_invalid = True
+                break
+            try:
+                l_no = int(l_str)
+            except Exception:
+                found_invalid = True
+                break
+            blk = Block.query.filter_by(area_id=area_id, block_no=b_no).first()
+            if not blk:
+                found_invalid = True
+                break
+            ben = Beneficiary.query.filter_by(block_id=blk.block_id, lot_no=l_no).first()
+            if not ben:
+                gen = GeneratedLots.query.filter_by(block_id=blk.block_id, lot_no=l_no).first()
+                if not gen:
+                    found_invalid = True
+                    break
+        if found_invalid:
+            return jsonify({"success": False, "message": "Block or lot could not be found for your HOA.", "mismatches": ["Block or lot could not be found for your HOA."]}), 400
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Server error: {e}"}), 500
+
 @lot_dispute_bp.route('/submit_lot_dispute', methods=['POST'])
 def submit_lot_dispute():
     try:
@@ -186,6 +267,63 @@ def submit_lot_dispute():
         db.session.add(new_complaint)
         db.session.flush()
         q1 = request.form.get("possession")
+        # Optional block/lot pairs (non-members). Expect JSON string from frontend.
+        block_lot_raw = request.form.get("block_lot")
+        block_lot = None
+        if block_lot_raw:
+            try:
+                parsed = json.loads(block_lot_raw)
+                # Basic shape validation: list of {block, lot}
+                if isinstance(parsed, list):
+                    block_lot = [
+                        {
+                            "block": str(item.get("block", "")).strip(),
+                            "lot": str(item.get("lot", "")).strip(),
+                        }
+                        for item in parsed if isinstance(item, dict)
+                    ]
+                else:
+                    block_lot = None
+            except Exception:
+                block_lot = None
+
+        # Server-side cross-check: ensure each provided Block/Lot exists within this HOA area
+        # Applies primarily to non-members, but safe to run for any provided pairs.
+        if block_lot:
+            found_invalid = False
+            for idx, item in enumerate(block_lot, start=1):
+                b_str = (item.get("block") or "").strip()
+                l_str = (item.get("lot") or "").strip()
+                if not b_str or not l_str:
+                    found_invalid = True
+                    break
+                try:
+                    b_no = int(b_str)
+                except Exception:
+                    found_invalid = True
+                    break
+                try:
+                    l_no = int(l_str)
+                except Exception:
+                    found_invalid = True
+                    break
+                blk = Block.query.filter_by(area_id=area_id, block_no=b_no).first()
+                if not blk:
+                    found_invalid = True
+                    break
+                ben = Beneficiary.query.filter_by(block_id=blk.block_id, lot_no=l_no).first()
+                if not ben:
+                    gen = GeneratedLots.query.filter_by(block_id=blk.block_id, lot_no=l_no).first()
+                    if not gen:
+                        found_invalid = True
+                        break
+            if found_invalid:
+                db.session.rollback()
+                return jsonify({
+                    "success": False,
+                    "message": "Block or lot could not be found for your HOA.",
+                    "mismatches": ["Block or lot could not be found for your HOA."]
+                }), 400
         q2 = request.form.get("conflict")
         # Parse date to Python date if provided
         q3_raw = request.form.get("dispute_start_date")
@@ -204,6 +342,7 @@ def submit_lot_dispute():
         lot_dispute_entry = LotDispute(
             complaint_id=new_complaint.complaint_id,
             q1=q1,
+            block_lot=block_lot,
             q2=q2,
             q3=q3,
             q4=q4,

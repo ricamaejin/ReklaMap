@@ -129,10 +129,25 @@
       <button class="btn-cancel" onclick="closeComplaint()">Cancel</button>
       <button class="btn-save" onclick="resolveTask()">Update</button>
     </div>
-  </div>
-</div>
-  </main>
 
+    <!-- Custom Alert Modal -->
+    <div class="modal-overlay" id="alertModal" style="display: none;">
+      <div class="warning-modal">
+        <div class="warning-header">
+          ⚠️ WARNING MESSAGE
+        </div>
+        <div class="warning-body">
+          <div class="warning-text">
+            <p id="alertMessage" style="align-items:  center !important;"></p>
+          </div>
+        </div>
+        <div class="warning-footer">
+          <button onclick="closeCustomAlert()">OK</button>
+        </div>
+      </div>
+    </div>
+  </main>
+  
   <script>
 (function () {
   const modal = document.getElementById('modal');
@@ -319,24 +334,37 @@ function applyReadonlyState() {
   window.updateComplaintDateTime = updateComplaintDateTime;
 
   // File upload preview
-if (fileInput) {
-  fileInput.addEventListener("change", function () {
-    filesList.innerHTML = "";
-    const files = Array.from(this.files);
+  if (fileInput) {
+    fileInput.addEventListener("change", function () {
+      filesList.innerHTML = "";
+      const files = Array.from(this.files);
 
-    if (files.length > 0) {
-      filesList.style.display = "block"; // show list only if files uploaded
-      files.forEach(file => {
-        const fileRow = document.createElement("div");
-        fileRow.className = "file-item";
-        fileRow.textContent = file.name;
-        filesList.appendChild(fileRow);
-      });
-    } else {
-      filesList.style.display = "none"; // hide if no files
+      if (files.length > 0) {
+        filesList.style.display = "block"; // show list only if files uploaded
+        files.forEach(file => {
+          const fileRow = document.createElement("div");
+          fileRow.className = "file-item";
+          fileRow.textContent = file.name;
+          filesList.appendChild(fileRow);
+        });
+      } else {
+        filesList.style.display = "none"; // hide if no files
+      }
+    });
+  }
+
+  function showCustomAlert(message) {
+    document.getElementById("alertMessage").textContent = message;
+    document.getElementById("alertModal").style.display = "flex";
+  }
+
+    function closeCustomAlert() {
+      document.getElementById("alertModal").style.display = "none";
     }
-  });
-}
+
+    // Expose alert helpers globally so inline onclick/other scripts can access them
+    window.showCustomAlert = showCustomAlert;
+    window.closeCustomAlert = closeCustomAlert;
 })();
 
 /* Files Modal - Removed because filesModal element doesn't exist in HTML */
@@ -438,7 +466,7 @@ async function resolveTask() {
 
   // Validation check - must attach Notice of Meeting
   if (files.length === 0) {
-    alert("Please attach the supporting documents or evidence of the inspection first.");
+    showCustomAlert("Please attach the notice of the mediation first.");
     return;
   }
 

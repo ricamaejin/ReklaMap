@@ -259,6 +259,7 @@ def view_complaint(complaint_id):
     else:
         form_structure = []
 
+    lot = None
     if complaint.type_of_complaint == "Overlapping":
         overlap = Overlapping.query.filter_by(complaint_id=complaint_id).first()
         if overlap:
@@ -415,7 +416,8 @@ def view_complaint(complaint_id):
         answers=answers,
         parent_info=parent_info,
         relationship=relationship,
-        get_area_name=get_area_name
+        get_area_name=get_area_name,
+        lot_dispute=lot
     )
 
 # -----------------------------
