@@ -29,6 +29,9 @@ def famreg():
             parent_first = (request.form.get("parent_first") or "").strip()
             parent_mid = (request.form.get("parent_mid") or "").strip()
             parent_suffix = (request.form.get("parent_suffix") or "").strip()
+            # Store as None if empty, 'NA', or 'N/A'
+            if parent_suffix.upper() in ("NA", "N/A", ""):
+                parent_suffix = None
             parent_dob = request.form.get("parent_dob")
             parent_sex = (request.form.get("parent_sex") or "").strip()
             parent_cit = (request.form.get("parent_cit") or "").strip()

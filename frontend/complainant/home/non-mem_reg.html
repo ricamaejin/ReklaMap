@@ -6,6 +6,10 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
+  <style>
+    .warn{display:none;color:#d32f2f;font-size:12px;margin-top:4px}
+    .invalid-input{border-color:#d32f2f !important; outline-color:#d32f2f !important}
+  </style>
 </head>
 <body>
 
@@ -29,8 +33,14 @@
       <!-- TOP: registrant basic fields -->
       <form id="memRegForm" enctype="multipart/form-data" autocomplete="off" novalidate>
         <div class="form-grid" aria-hidden="false">
-          <label>Last Name<input type="text" name="reg_last"></label>
-          <label>First Name<input type="text" name="reg_first"></label>
+          <label class="required-asterisk">Last Name
+            <input type="text" name="reg_last" id="reg_last">
+            <small class="warn" id="warn-reg_last">This field is required.</small>
+          </label>
+          <label class="required-asterisk">First Name
+            <input type="text" name="reg_first" id="reg_first">
+            <small class="warn" id="warn-reg_first">This field is required.</small>
+          </label>
           <label>Middle Initial<input type="text" name="reg_mid"></label>
           <label>Suffix
             <select name="reg_suffix">
@@ -48,14 +58,29 @@
               <option>Male</option><option>Female</option>
             </select>
           </label>
-          <label>Citizenship<input type="text" name="reg_cit"></label>
-          <label>Age<input type="number" name="reg_age" min="0" step="1"></label>
+          <label class="required-asterisk">Citizenship
+            <input type="text" name="reg_cit" id="reg_cit">
+            <small class="warn" id="warn-reg_cit">This field is required.</small>
+          </label>
+          <label class="required-asterisk">Age
+            <input type="number" name="reg_age" id="reg_age" min="0" step="1">
+            <small class="warn" id="warn-reg_age">This field is required.</small>
+          </label>
         </div>
 
         <div class="form-grid" aria-hidden="false">
-            <label>Phone Number<input type="text" name="reg_num"></label>
-            <label>Year of Residence<input type="text" name="reg_year"></label>
-            <label>Current Address<input type="text" name="reg_cur_add"></label>
+            <label class="required-asterisk">Phone Number
+              <input type="text" name="reg_num" id="reg_num">
+              <small class="warn" id="warn-reg_num">This field is required.</small>
+            </label>
+            <label class="required-asterisk">Year of Residence
+              <input type="text" name="reg_year" id="reg_year">
+              <small class="warn" id="warn-reg_year">This field is required.</small>
+            </label>
+            <label class="required-asterisk">Current Address
+              <input type="text" name="reg_cur_add" id="reg_cur_add">
+              <small class="warn" id="warn-reg_cur_add">This field is required.</small>
+            </label>
             <label>Area (HOA)
               <select name="hoa_area_id" id="hoa_area_id">
                 <option value="" disabled selected hidden></option>
@@ -63,6 +88,7 @@
                   <option value="{{ a.area_id }}">{{ a.area_name }}</option>
                 {% endfor %}
               </select>
+              <small class="warn" id="warn-hoa_area_id">Please select an Area (if applicable).</small>
             </label>
             
             <!-- Civil status column (right) -->
@@ -86,16 +112,17 @@
 
         <!-- radio question (one option per row) -->
         <div class="radio-section" role="group">
-          <p id="recipient-label">Recipient of other housing programs besides NGCCHP ?</p>
+          <p id="recipient-label" class="required-asterisk">Recipient of other housing programs besides NGCCHP ?</p>
           <div class="radio-list">
             <label><input type="radio" name="recipient" value="yes"> Yes</label>
             <label><input type="radio" name="recipient" value="no"> No</label>
           </div>
+          <small class="warn" id="warn-recipient">Please select Yes or No.</small>
         </div>
 
         <!-- checkbox question (multiple options per row) -->
         <div class="support-docs" role="group">
-          <p id="docs-label">How are you connected to the lot you are complaining about?</p>
+          <p id="docs-label" class="required-asterisk">How are you connected to the lot you are complaining about?</p>
           <div class="docs-list">
             <label><input type="checkbox" name="connection_1"> I live on the lot but I am not the official beneficiary</label>
             <label><input type="checkbox" name="connection_2"> I live near the lot and I am affected by the issue</label>
@@ -107,6 +134,7 @@
               <input type="text" id="otherText" name="connection_other" style="display:none; border:none; border-bottom:1px solid #000; outline:none; width:400px;">
             </label>
           </div>
+          <small class="warn" id="warn-connections">Select at least one option.</small>
         </div>
 
           <!-- Hidden category input -->
@@ -127,6 +155,18 @@
   </main>
 
   <script>
+    // Inline field warning helpers
+    function showFieldWarn(id, inputEl){
+      const w = document.getElementById(id);
+      if (w) w.style.display = 'block';
+      if (inputEl) inputEl.classList.add('invalid-input');
+    }
+    function hideFieldWarn(id, inputEl){
+      const w = document.getElementById(id);
+      if (w) w.style.display = 'none';
+      if (inputEl) inputEl.classList.remove('invalid-input');
+    }
+
     function showErrorPop(msg) {
       const pop = document.getElementById('errorPop');
       const popMsg = document.getElementById('errorPopMsg');
@@ -139,6 +179,20 @@
       }, 1000);
     }
 
+    // Clear warn on input/change
+    ["reg_last","reg_first","reg_cit","reg_age","reg_num","reg_year","reg_cur_add"].forEach(id=>{
+      const el = document.getElementById(id);
+      if (el){ el.addEventListener('input', ()=> hideFieldWarn('warn-'+id, el)); }
+    });
+    document.querySelectorAll('input[name="recipient"]').forEach(r=>{
+      r.addEventListener('change', ()=> hideFieldWarn('warn-recipient'));
+    });
+    document.querySelectorAll('input[name^="connection_"]').forEach(c=>{
+      c.addEventListener('change', ()=> hideFieldWarn('warn-connections'));
+    });
+  const otherTextEl = document.getElementById('otherText');
+  if (otherTextEl){ otherTextEl.addEventListener('input', ()=> hideFieldWarn('warn-connections')); }
+
     document.getElementById("memRegForm").addEventListener("submit", async function(e) {
       e.preventDefault();
       
@@ -148,6 +202,53 @@
         return;
       }
       submitBtn.disabled = true;
+
+      // Client-side required validation
+      let firstInvalid = null;
+      function requireVal(selector, warnId){
+        const el = document.querySelector(selector);
+        const ok = el && String(el.value || '').trim() !== '';
+        if (!ok){
+          showFieldWarn(warnId, el);
+          if (!firstInvalid) firstInvalid = el;
+        } else {
+          hideFieldWarn(warnId, el);
+        }
+        return ok;
+      }
+
+      const v1 = requireVal('#reg_last','warn-reg_last');
+      const v2 = requireVal('#reg_first','warn-reg_first');
+      const v3 = requireVal('#reg_cit','warn-reg_cit');
+      const v4 = requireVal('#reg_age','warn-reg_age');
+      const v5 = requireVal('#reg_num','warn-reg_num');
+      const v6 = requireVal('#reg_year','warn-reg_year');
+      const v7 = requireVal('#reg_cur_add','warn-reg_cur_add');
+
+      // Recipient required (radio)
+      const recipientChecked = document.querySelector('input[name="recipient"]:checked');
+      if (!recipientChecked){
+        showFieldWarn('warn-recipient');
+        if (!firstInvalid) firstInvalid = document.querySelector('input[name="recipient"]');
+      } else hideFieldWarn('warn-recipient');
+
+      // Connections required (at least one checkbox OR other)
+      const connections = Array.from(document.querySelectorAll('input[name^="connection_"]'))
+        .filter(x => x.type === 'checkbox' && x.checked);
+      if (connections.length === 0){
+        showFieldWarn('warn-connections');
+        if (!firstInvalid) firstInvalid = document.querySelector('input[name="connection_1"]');
+      } else hideFieldWarn('warn-connections');
+
+      const allOk = v1 && v2 && v3 && v4 && v5 && v6 && v7 && !!recipientChecked && connections.length > 0;
+      if (!allOk){
+        showErrorPop('Please complete the required fields.');
+        if (firstInvalid){
+          try{ firstInvalid.focus(); firstInvalid.scrollIntoView({behavior:'smooth', block:'center'}); }catch(_){ }
+        }
+        submitBtn.disabled = false;
+        return;
+      }
 
       const formData = new FormData(this);
 

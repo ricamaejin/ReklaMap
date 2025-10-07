@@ -297,6 +297,8 @@ class LotDispute(db.Model):
     lot_dispute_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     complaint_id = db.Column(db.Integer, db.ForeignKey('complaints.complaint_id', ondelete="CASCADE"), nullable=False)
     q1 = db.Column(db.String(200))
+    # JSON array of objects: [{"block": <str>, "lot": <str>}, ...]
+    block_lot = db.Column(db.JSON)
     q2 = db.Column(db.String(200))
     q3 = db.Column(db.Date)
     q4 = db.Column(db.String(200))

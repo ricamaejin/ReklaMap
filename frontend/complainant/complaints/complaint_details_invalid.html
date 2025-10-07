@@ -6,6 +6,27 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
+  <style>
+    .readonly-preview input[readonly],
+    .readonly-preview input[disabled],
+    .readonly-preview textarea[readonly],
+    .readonly-preview textarea[disabled],
+    .readonly-preview select[disabled],
+    .readonly-preview select[readonly] {
+      background: #f3f3f3 !important;
+      color: #888 !important;
+      border-color: #d3d3d3 !important;
+      cursor: not-allowed;
+      opacity: 1 !important;
+    }
+    .readonly-preview .readonly-value {
+      background: #f3f3f3;
+      color: #888;
+      border-radius: 4px;
+      padding: 4px 8px;
+      display: inline-block;
+    }
+  </style>
 </head>
 <body>
   <!-- Sidebar -->
@@ -37,7 +58,7 @@
         </ul>
       </div>
 
-      <form>
+  <form class="readonly-preview">
         <input type="hidden" name="complaint_id" value="{{ complaint.complaint_id }}">
         <input type="hidden" name="registration_id" value="{{ registration.registration_id }}">
 
@@ -49,7 +70,7 @@
             <div class="pair-row">
               <div class="col">
                 <label class="small">Full Name:</label>
-                <input type="text" name="full_name" value="{% for part in [registration.first_name, registration.middle_name, registration.last_name, registration.suffix] if part %}{{ part }} {% endfor %}" readonly title="Full Name" aria-label="Full Name">
+                <input type="text" name="full_name" value="{{ registration.first_name }}{% if registration.middle_name %} {{ registration.middle_name }}{% if not registration.middle_name.endswith('.') %}.{% endif %}{% endif %} {{ registration.last_name }}{% if registration.suffix %} {{ registration.suffix }}{% endif %}" readonly title="Full Name" aria-label="Full Name">
               </div>
             </div>
             
@@ -186,7 +207,7 @@
               <div class="pair-row">
                 <div class="col">
                   <label class="small">Full Name:</label>
-                  <input type="text" name="full_name" value="{% for part in [registration.first_name, registration.middle_name, registration.last_name, registration.suffix] if part %}{{ part }} {% endfor %}" readonly title="Full Name" aria-label="Full Name">
+                  <input type="text" name="full_name" value="{{ registration.first_name }}{% if registration.middle_name %} {{ registration.middle_name }}{% if not registration.middle_name.endswith('.') %}.{% endif %}{% endif %} {{ registration.last_name }}{% if registration.suffix %} {{ registration.suffix }}{% endif %}" readonly title="Full Name" aria-label="Full Name">
                 </div>
               </div>
               <div class="pair-row">
@@ -251,7 +272,7 @@
               <div class="pair-row">
                 <div class="col">
                   <label class="small">Full Name:</label>
-                  <input type="text" name="full_name" value="{% for part in [registration.first_name, registration.middle_name, registration.last_name, registration.suffix] if part %}{{ part }} {% endfor %}" readonly title="Full Name" aria-label="Full Name">
+                  <input type="text" name="full_name" value="{{ registration.first_name }}{% if registration.middle_name %} {{ registration.middle_name }}{% if not registration.middle_name.endswith('.') %}.{% endif %}{% endif %} {{ registration.last_name }}{% if registration.suffix %} {{ registration.suffix }}{% endif %}" readonly title="Full Name" aria-label="Full Name">
                 </div>
               </div>
               <div class="pair-row">
@@ -309,6 +330,27 @@
               </div>
             </div>
           {% endif %}
+        {% endif %}
+
+        {# Render block/lot pairs for non_member Lot Dispute #}
+        {% if registration.category == 'non_member' and complaint.type_of_complaint == 'Lot Dispute' and lot_dispute and lot_dispute.block_lot %}
+          <div id="nonMemberBlockLotSection">
+            <p>What is the specific block and lot involved in the lot dispute?</p>
+            <div class="pairs" id="pairsContainer" aria-live="polite">
+              {% for pair in lot_dispute.block_lot %}
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Block No.</label>
+                    <input type="text" value="{{ pair.block }}" readonly>
+                  </div>
+                  <div class="col">
+                    <label class="small">Lot No.</label>
+                    <input type="text" value="{{ pair.lot }}" readonly>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
         {% endif %}
 
         <div class="section-header">LOT DETAILS AND CLAIM:</div>

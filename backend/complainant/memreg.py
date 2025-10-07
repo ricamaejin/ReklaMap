@@ -35,16 +35,10 @@ def mem_reg():
 
             # --- Get form fields ---
             category = request.form.get("category")
-            print(f"[DEBUG] Received category: {category}")
-            if not category:
-                print("[ERROR] Category missing from form data")
-                return jsonify({"success": False, "error": "Category is required"}), 400
-
             last = request.form.get("reg_last", "").strip()
             first = request.form.get("reg_first", "").strip()
             mid = request.form.get("reg_mid", "").strip()
             suffix = request.form.get("reg_suffix", "").strip()
-            print(f"[DEBUG] Name: {last}, {first}, {mid}, {suffix}")
             # Ensure NA/N/A/empty are saved as None
             mid = mid if mid not in ("", "NA", "N/A") else None
             suffix = suffix if suffix not in ("", "NA", "N/A") else None
@@ -61,8 +55,41 @@ def mem_reg():
             civil = request.form.get("fam_civil")
             cur_add = request.form.get("reg_cur_add")
             recipient = request.form.get("recipient")
-            print(f"[DEBUG] HOA: {hoa}, Block: {blk}, Lot: {lot_asn}, Lot Size: {lot_size}")
-            print(f"[DEBUG] DOB: {dob}, Sex: {sex}, Citizenship: {cit}, Age: {age}, Year: {year}, Phone: {phone}, Civil: {civil}, Address: {cur_add}, Recipient: {recipient}")
+            # Supporting documents (at least one required)
+            doc_fields = [
+                "doc_title", "doc_contract", "doc_fullpay", "doc_award", "doc_agreement", "doc_deed"
+            ]
+            docs_selected = [f for f in doc_fields if request.form.get(f) == "on"]
+
+            # --- Validate required fields ---
+            field_errors = {}
+            if not last:
+                field_errors["reg_last"] = "Last Name is required."
+            if not first:
+                field_errors["reg_first"] = "First Name is required."
+            if not cit:
+                field_errors["reg_cit"] = "Citizenship is required."
+            if not year:
+                field_errors["reg_year"] = "Years of Residence is required."
+            if not phone:
+                field_errors["reg_phone"] = "Contact Number is required."
+            if not blk:
+                field_errors["reg_blk"] = "Block Assignment is required."
+            if not lot_asn:
+                field_errors["reg_lot_asn"] = "Lot Assignment is required."
+            if not cur_add:
+                field_errors["reg_cur_add"] = "Current Address is required."
+            if not recipient:
+                field_errors["recipient"] = "Please select Yes or No."
+            if not docs_selected:
+                field_errors["supporting_docs"] = "Select at least one supporting document."
+
+            if field_errors:
+                # AJAX: return field errors for inline display
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
+                    return jsonify({"success": False, "field_errors": field_errors}), 400
+                # Fallback: show error popup
+                return jsonify({"success": False, "error": "Please complete the required fields."}), 400
 
             # --- Convert numeric fields ---
             try:
@@ -98,7 +125,19 @@ def mem_reg():
 
             mismatches = []
 
-            if (existing_beneficiary.middle_initial or None) != input_middle:
+            # Compare middle initials - normalize by removing periods for comparison
+            db_middle = existing_beneficiary.middle_initial or None
+            if db_middle:
+                db_middle_normalized = db_middle.replace(".", "").strip().upper()
+            else:
+                db_middle_normalized = None
+                
+            if input_middle:
+                input_middle_normalized = input_middle.replace(".", "").strip().upper()
+            else:
+                input_middle_normalized = None
+
+            if db_middle_normalized != input_middle_normalized:
                 mismatches.append("Middle Name")
             if (existing_beneficiary.suffix or None) != input_suffix:
                 mismatches.append("Suffix")
@@ -120,7 +159,6 @@ def mem_reg():
                     mismatches.append("Lot Size")
             except Exception:
                 mismatches.append("Lot Size")
-            
 
             if mismatches:
                 return jsonify({
