@@ -153,6 +153,17 @@ def get_complaint_timeline(complaint_id):
             result = db.session.execute(query, {'complaint_id': complaint_id})
             entries = result.fetchall()
             print(f"Timeline query for complaint {complaint_id} returned {len(entries)} entries")
+            # Debug: print entries with timestamps to verify ordering (should be DESC - most recent first)
+            for i, entry in enumerate(entries):
+                print(f"  [{i}] {entry.type_of_action} at {entry.action_datetime} (assigned to: {entry.assigned_to})")
+            
+            # Additional debug: check for inspection-related entries specifically
+            inspection_entries = [e for e in entries if 'inspection' in e.type_of_action.lower()]
+            if len(inspection_entries) > 1:
+                print(f"  INSPECTION DEBUG: Found {len(inspection_entries)} inspection-related entries:")
+                for entry in inspection_entries:
+                    print(f"    - {entry.type_of_action} at {entry.action_datetime}")
+                    
         except Exception as query_error:
             print(f"Timeline query failed: {query_error}")
             entries = []

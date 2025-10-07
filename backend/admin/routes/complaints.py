@@ -237,47 +237,38 @@ def staff_complete_task():
             staff_row = staff_result.fetchone()
             staff_name = staff_row.assigned_to if staff_row else 'Staff Member'
         
-        # Get action_datetime from request or use current time as fallback
-        action_datetime = data.get('action_datetime')
-        if action_datetime:
-            # Convert ISO 8601 format to MySQL-compatible datetime format
-            try:
-                # Parse ISO string (handles both 'Z' suffix and microseconds)
-                if action_datetime.endswith('Z'):
-                    action_datetime = action_datetime[:-1] + '+00:00'
-                dt = datetime.fromisoformat(action_datetime.replace('Z', '+00:00'))
-                # Format for MySQL (YYYY-MM-DD HH:MM:SS)
-                action_datetime = dt.strftime('%Y-%m-%d %H:%M:%S')
-            except (ValueError, AttributeError) as e:
-                print(f"Error parsing action_datetime '{action_datetime}': {e}")
-                # Fallback to current time
-                action_datetime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        else:
-            action_datetime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        # Use database NOW() function to get current local time (same as other endpoints)
+        # This avoids timezone conversion issues that were causing 8-hour offset
+        # The database will handle the timestamp in the correct local timezone
+        
+        # Debug logging before insertion
+        print(f"STAFF COMPLETION DEBUG:")
+        print(f"  Complaint ID: {complaint_id}")
+        print(f"  Completion Status: {completion_status}")
+        print(f"  Staff Name: {staff_name}")
+        print(f"  Using NOW() for timestamp to match other endpoints")
         
         # Use raw SQL to insert into complaint_history with proper field names
         # Store all data including task findings in details column as JSON
+        # Use NOW() function like other endpoints to get correct local database time
         insert_query = text("""
             INSERT INTO complaint_history (complaint_id, type_of_action, assigned_to, details, action_datetime)
-            VALUES (:complaint_id, :completion_status, :staff_name, :details, :action_datetime)
+            VALUES (:complaint_id, :completion_status, :staff_name, :details, NOW())
         """)
         
         db.session.execute(insert_query, {
             'complaint_id': complaint_id,
             'completion_status': completion_status,
             'staff_name': staff_name,
-            'details': json.dumps(completion_details),
-            'action_datetime': action_datetime
+            'details': json.dumps(completion_details)
         })
         
+        print(f"  Successfully inserted completion record using NOW() timestamp")
+        
         # Update complaint stage based on completion type
-        # Assessment completion by staff should mark complaint as Resolved
-        if task_type == 'assessment':
-            new_stage = 'Resolved'
-        else:
-            # Keep complaint status as 'Ongoing' for other task types - staff completion only affects timeline
-            # The complaint_stage should remain 'Ongoing' until admin resolves it
-            new_stage = 'Ongoing'
+        # Keep complaint status as 'Ongoing' for all task types - staff completion only affects timeline
+        # The complaint_stage should remain 'Ongoing' until admin explicitly resolves it
+        new_stage = 'Ongoing'
         
         update_complaint_query = text("""
             UPDATE complaints 
@@ -631,9 +622,6 @@ def get_all_complaints():
         # if session.get('account') != 1:
         #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
-        # First, update any complaints that have Assessment as latest action but are still marked as Ongoing
-        update_assessment_complaints_to_resolved()
-        
         print("[DEBUG] Getting all complaints...")
         complaints = get_complaint_data_with_proper_areas()  # USING NEW DEBUG FUNCTION
         print(f"[DEBUG] Found {len(complaints)} complaints")
@@ -674,9 +662,6 @@ def get_ongoing_complaints():
         # if session.get('account') != 1:
         #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
-        # First, update any complaints that have Assessment as latest action but are still marked as Ongoing
-        update_assessment_complaints_to_resolved()
-        
         complaints = get_complaint_data_with_proper_areas(stage_filter='Ongoing')
         
         response = jsonify(complaints)
@@ -695,9 +680,6 @@ def get_resolved_complaints():
         # Check if user is admin - TEMPORARILY DISABLED FOR TESTING
         # if session.get('account') != 1:
         #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-        
-        # First, update any complaints that have Assessment as latest action but are still marked as Ongoing
-        update_assessment_complaints_to_resolved()
         
         complaints = get_complaint_data_with_proper_areas(stage_filter='Resolved')
         
@@ -827,7 +809,7 @@ def handle_complaint_action(complaint_id):
     """Handle admin actions on complaints"""
     try:
         # Check if user is admin
-        if session.get('account') != 1:
+        if session.get('account_type') != 1:
             return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
         data = request.get_json()
@@ -863,9 +845,8 @@ def handle_complaint_action(complaint_id):
             new_stage = 'Ongoing'
         elif 'resolved' in action_type.lower():
             new_stage = 'Resolved'
-        elif action_type == 'Assessment':
-            # Assessment completion automatically marks complaint as Resolved
-            new_stage = 'Resolved'
+        # Note: Assessment actions no longer automatically mark complaint as Resolved
+        # Only the admin "Resolved" button should move complaints to resolved status
         
         if new_stage:
             update_query = "UPDATE complaints SET complaint_stage = :stage WHERE complaint_id = :complaint_id"
@@ -888,10 +869,10 @@ def resolve_complaint(complaint_id):
     """Mark a complaint as resolved"""
     try:
         # Check if user is admin
-        if session.get('account') != 1:
+        if session.get('account_type') != 1:
             return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
-        admin_name = session.get('name')
+        admin_name = session.get('admin_name')
         
         # Update complaint stage to resolved
         update_query = "UPDATE complaints SET complaint_stage = 'Resolved' WHERE complaint_id = :complaint_id"
@@ -905,12 +886,13 @@ def resolve_complaint(complaint_id):
         }
         
         insert_query = """
-        INSERT INTO complaint_history (complaint_id, type_of_action, details, action_datetime)
-        VALUES (:complaint_id, 'Resolved', :details, NOW())
+        INSERT INTO complaint_history (complaint_id, type_of_action, assigned_to, details, action_datetime)
+        VALUES (:complaint_id, 'Resolved', :assigned_to, :details, NOW())
         """
         
         db.session.execute(text(insert_query), {
             'complaint_id': complaint_id,
+            'assigned_to': admin_name,
             'details': json.dumps(resolution_details)
         })
         
@@ -972,7 +954,7 @@ def api_complaint_details(complaint_id):
     """Get detailed complaint information"""
     try:
         # Check if user is admin or staff
-        if session.get('account') not in [1, 2]:
+        if session.get('account_type') not in [1, 2]:
             return jsonify({'error': 'Unauthorized'}), 403
             
         query = """
@@ -986,17 +968,17 @@ def api_complaint_details(complaint_id):
             b.block_no,
             a.area_name,
             ch.assigned_to,
-            ch.action_type,
-            ch.description as action_description,
-            ch.date_created as action_date,
-            ch.created_by
+            ch.type_of_action,
+            ch.details as action_description,
+            ch.action_datetime as action_date,
+            ch.assigned_to as created_by
         FROM complaints c
         LEFT JOIN registration r ON c.complainant_name = CONCAT(r.first_name, ' ', IFNULL(CONCAT(LEFT(r.middle_name, 1), '. '), ''), r.last_name, IFNULL(CONCAT(', ', r.suffix), ''))
         LEFT JOIN areas a ON r.area_id = a.area_id  
         LEFT JOIN blocks b ON r.block_id = b.block_id
         LEFT JOIN complaint_history ch ON c.complaint_id = ch.complaint_id
         WHERE c.complaint_id = :complaint_id
-        ORDER BY ch.date_created DESC
+        ORDER BY ch.action_datetime DESC
         """
         
         result = db.session.execute(text(query), {'complaint_id': complaint_id})
@@ -1122,15 +1104,15 @@ def api_get_staff():
         # Debug: print session contents and cookies to help trace 403 issues
         try:
             print('[DEBUG] session keys:', dict(session))
-            acct = session.get('account')
-            print('[DEBUG] session.account =', acct, 'type=', type(acct))
+            acct = session.get('account_type')
+            print('[DEBUG] session.account_type =', acct, 'type=', type(acct))
             print('[DEBUG] request.cookies =', dict(request.cookies))
         except Exception as _:
             print('[DEBUG] could not stringify session or cookies')
 
         # Allow admin (1) and staff (2) to access this endpoint.
         # Normalize session account to int when possible to avoid '"1"' vs 1 mismatches.
-        acct = session.get('account')
+        acct = session.get('account_type')
         try:
             acct_int = int(acct) if acct is not None else None
         except Exception:
@@ -1190,7 +1172,7 @@ def api_add_action():
         from datetime import datetime, timedelta
         
         # Get account type for restrictions (temporarily use 1 for admin, 2 for staff)
-        account_type = session.get('account', 1)  # Default to admin if not set
+        account_type = session.get('account_type', 1)  # Default to admin if not set
         
         # #restrict actions
         # if account_type == 1 and action_type not in ["Assessment", "Mediation"]:
@@ -1231,7 +1213,7 @@ def api_add_action():
                 "agenda": data.get("agenda")
             }
         
-        # Calculate auto-deadline based on action type if not provided in details
+        # Use admin-defined deadline from frontend, with fallback defaults only when not provided
         deadline = details.get('deadline') or data.get('deadline')
         if not deadline:
             action_date = datetime.now()
@@ -1243,6 +1225,8 @@ def api_add_action():
                 deadline = (action_date + timedelta(days=1)).strftime('%Y-%m-%d')
             elif action_type.lower() == 'assessment':
                 deadline = (action_date + timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        print(f"Admin-defined deadline for {action_type}: {deadline}")
         
         # Add deadline to details while preserving all action-specific details
         details['deadline'] = deadline
@@ -1268,6 +1252,10 @@ def api_add_action():
             'action_datetime': datetime.now(),
             'details': details_json
         })
+        
+        # Ensure proper ordering by adding a small delay for timeline consistency
+        import time
+        time.sleep(0.001)  # 1ms delay to ensure distinct timestamps
 
         # Update complaint stage
         update_query = """
@@ -1298,7 +1286,7 @@ def api_resolve_complaint():
     """Resolve a complaint"""
     try:
         # Check if user is admin
-        if session.get('account') != 1:
+        if session.get('account_type') != 1:
             return jsonify({'error': 'Unauthorized'}), 403
             
         data = request.get_json()
@@ -1313,13 +1301,19 @@ def api_resolve_complaint():
         
         # Add resolution action to history
         insert_query = """
-        INSERT INTO complaint_history (complaint_id, action_type, description, created_by, date_created)
-        VALUES (:complaint_id, 'Resolved', 'Complaint has been resolved', :created_by, NOW())
+        INSERT INTO complaint_history (complaint_id, type_of_action, assigned_to, details, action_datetime)
+        VALUES (:complaint_id, 'Resolved', :assigned_to, :details, NOW())
         """
+        
+        resolution_details = {
+            'description': 'Complaint has been resolved',
+            'created_by': session.get('admin_name', 'Admin')
+        }
         
         db.session.execute(text(insert_query), {
             'complaint_id': complaint_id,
-            'created_by': session.get('name', 'Admin')
+            'assigned_to': session.get('admin_name', 'Admin'),
+            'details': json.dumps(resolution_details)
         })
         
         db.session.commit()
@@ -1832,7 +1826,7 @@ def get_complainant_timeline(complaint_id):
                 ch.details
             FROM complaint_history ch
             WHERE ch.complaint_id = :complaint_id
-            ORDER BY ch.action_datetime ASC
+            ORDER BY ch.action_datetime DESC
         """)
         
         timeline_result = db.session.execute(timeline_query, {'complaint_id': complaint_id})

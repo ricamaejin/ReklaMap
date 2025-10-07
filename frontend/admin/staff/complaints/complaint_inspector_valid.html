@@ -400,8 +400,8 @@ async function resolveTask() {
         files: files.map(f => f.name),
         staff_account_type: currentStaffAccount, // admin.account == 2
         completed_by_staff: true, // Flag to mark this as staff completion
-        task_type: 'inspection', // Specify this is inspection completion
-        action_datetime: new Date().toISOString() // Set action_datetime to when Update button was clicked
+        task_type: 'inspection' // Specify this is inspection completion
+        // Note: Removed action_datetime - server will use NOW() for correct local time
       })
     });
     
@@ -747,8 +747,14 @@ document.addEventListener('DOMContentLoaded', function() {
   // Load real timeline data immediately (no sample data)
   refreshTimeline();
   
-  // Apply readonly state if needed
-  applyReadonlyState();
+  // Apply readonly state if needed (check if function exists)
+  if (typeof applyReadonlyState === 'function') {
+    applyReadonlyState();
+  }
+  
+  // Also initialize map loading
+  console.log('[STAFF MAP] Loading complaint area map');
+  loadComplaintMap();
 });
 
 // Make timeline functions globally available
@@ -783,10 +789,10 @@ async function loadComplaintMap() {
     const result = await response.json();
     console.log('[STAFF MAP] Complaint details received:', result);
     
-    if (result.success && result.area_code) {
-      displayAreaMap(result.area_code);
+    if (result.success && result.complaint) {
+      displayAreaMap(result.complaint);
     } else {
-      console.log('[STAFF MAP] No area code found in complaint details');
+      console.log('[STAFF MAP] No complaint data found in response');
       showMapError();
     }
     
@@ -797,11 +803,17 @@ async function loadComplaintMap() {
 }
 
 // Display the appropriate area SVG map
-async function displayAreaMap(areaCode) {
+async function displayAreaMap(complaint) {
   try {
-    console.log(`[STAFF MAP] Loading SVG for area: ${areaCode}`);
+    if (!complaint.area_code) {
+      console.log('[STAFF MAP] No area_code found in complaint data');
+      showMapError();
+      return;
+    }
     
-    const svgPath = `/admin/map/svg/${areaCode.toLowerCase()}.svg`;
+    console.log(`[STAFF MAP] Loading SVG for area: ${complaint.area_code}`);
+    
+    const svgPath = `/admin/map/svg/${complaint.area_code.toLowerCase()}.svg`;
     const response = await fetch(svgPath);
     
     if (!response.ok) {
@@ -833,7 +845,7 @@ async function displayAreaMap(areaCode) {
       }
     }
     
-    console.log(`[STAFF MAP] Successfully loaded area map for ${areaCode}`);
+    console.log(`[STAFF MAP] Successfully loaded area map for ${complaint.area_code}`);
     
   } catch (error) {
     console.error('[STAFF MAP] Error displaying area map:', error);
@@ -855,11 +867,7 @@ function showMapError() {
   }
 }
 
-// Initialize map loading on page load
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('[STAFF MAP] Page loaded, loading complaint area map');
-  loadComplaintMap();
-});
+// Map loading is now handled in the main DOMContentLoaded event listener above
 
 // Make map functions globally available
 window.loadComplaintMap = loadComplaintMap;

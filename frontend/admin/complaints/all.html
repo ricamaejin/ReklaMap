@@ -362,11 +362,17 @@
 
     function calculatePendingDeadline(complaint) {
       const submittedDate = new Date(complaint.date_received);
-      const deadline = new Date(submittedDate.getTime() + (7 * 24 * 60 * 60 * 1000));
-      const now = new Date();
-      const timeDiff = deadline.getTime() - now.getTime();
-      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-      const dateStr = deadline.toLocaleDateString();
+      
+      // Calculate days remaining more accurately (submission day counts as day 1)
+      const submittedDateOnly = new Date(submittedDate.getFullYear(), submittedDate.getMonth(), submittedDate.getDate());
+      const nowDateOnly = new Date();
+      nowDateOnly.setHours(0, 0, 0, 0);
+      const daysElapsed = Math.floor((nowDateOnly - submittedDateOnly) / (1000 * 3600 * 24));
+      const daysDiff = 7 - daysElapsed;
+      
+      // Calculate the actual deadline date (7 days from submission)
+      const deadlineDate = new Date(submittedDateOnly.getTime() + (6 * 24 * 60 * 60 * 1000));
+      const dateStr = deadlineDate.toLocaleDateString();
 
       if (daysDiff < 0) {
         return `${dateStr} (Overdue by ${Math.abs(daysDiff)}d)`;
