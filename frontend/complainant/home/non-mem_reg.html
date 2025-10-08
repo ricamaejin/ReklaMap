@@ -62,9 +62,8 @@
             <input type="text" name="reg_cit" id="reg_cit">
             <small class="warn" id="warn-reg_cit">This field is required.</small>
           </label>
-          <label class="required-asterisk">Age
+          <label>Age
             <input type="number" name="reg_age" id="reg_age" min="0" step="1">
-            <small class="warn" id="warn-reg_age">This field is required.</small>
           </label>
         </div>
 
@@ -180,7 +179,7 @@
     }
 
     // Clear warn on input/change
-    ["reg_last","reg_first","reg_cit","reg_age","reg_num","reg_year","reg_cur_add"].forEach(id=>{
+    ["reg_last","reg_first","reg_cit","reg_num","reg_year","reg_cur_add"].forEach(id=>{
       const el = document.getElementById(id);
       if (el){ el.addEventListener('input', ()=> hideFieldWarn('warn-'+id, el)); }
     });
@@ -217,13 +216,12 @@
         return ok;
       }
 
-      const v1 = requireVal('#reg_last','warn-reg_last');
-      const v2 = requireVal('#reg_first','warn-reg_first');
-      const v3 = requireVal('#reg_cit','warn-reg_cit');
-      const v4 = requireVal('#reg_age','warn-reg_age');
-      const v5 = requireVal('#reg_num','warn-reg_num');
-      const v6 = requireVal('#reg_year','warn-reg_year');
-      const v7 = requireVal('#reg_cur_add','warn-reg_cur_add');
+  const v1 = requireVal('#reg_last','warn-reg_last');
+  const v2 = requireVal('#reg_first','warn-reg_first');
+  const v3 = requireVal('#reg_cit','warn-reg_cit');
+  const v4 = requireVal('#reg_num','warn-reg_num');
+  const v5 = requireVal('#reg_year','warn-reg_year');
+  const v6 = requireVal('#reg_cur_add','warn-reg_cur_add');
 
       // Recipient required (radio)
       const recipientChecked = document.querySelector('input[name="recipient"]:checked');
@@ -240,7 +238,7 @@
         if (!firstInvalid) firstInvalid = document.querySelector('input[name="connection_1"]');
       } else hideFieldWarn('warn-connections');
 
-      const allOk = v1 && v2 && v3 && v4 && v5 && v6 && v7 && !!recipientChecked && connections.length > 0;
+  const allOk = v1 && v2 && v3 && v4 && v5 && v6 && !!recipientChecked && connections.length > 0;
       if (!allOk){
         showErrorPop('Please complete the required fields.');
         if (firstInvalid){

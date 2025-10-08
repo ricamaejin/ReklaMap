@@ -1286,6 +1286,7 @@ textarea {
 
 input[type="radio"], input[type="checkbox"] {
   margin-right: 6px;
+  margin-left: 15px;
 }
 
 .consent {

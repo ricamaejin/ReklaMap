@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <style>
+    .warn{display:none;color:#d32f2f;font-size:12px;margin-top:4px}
+    .invalid-input{border-color:#d32f2f !important; outline-color:#d32f2f !important}
+  </style>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" href="/images/logo.png">
@@ -29,8 +33,14 @@
       <!-- TOP: registrant basic fields -->
      <form id="famRegForm" method="post" enctype="multipart/form-data">
         <div class="form-grid" aria-hidden="false">
-          <label>Last Name<input type="text" name="reg_last"></label>
-          <label>First Name<input type="text" name="reg_first"></label>
+          <label>Last Name
+            <input type="text" name="reg_last" id="reg_last">
+            <small class="warn" id="warn-reg_last">This field is required.</small>
+          </label>
+          <label>First Name
+            <input type="text" name="reg_first" id="reg_first">
+            <small class="warn" id="warn-reg_first">This field is required.</small>
+          </label>
           <label>Middle Name<input type="text" name="reg_mid"></label>
           <label>Suffix
             <select name="reg_suffix">
@@ -46,11 +56,20 @@
               <option>Male</option><option>Female</option>
             </select>
           </label>
-          <label>Citizenship<input type="text" name="reg_cit"></label>
+          <label>Citizenship
+            <input type="text" name="reg_cit" id="reg_cit">
+            <small class="warn" id="warn-reg_cit">This field is required.</small>
+          </label>
           <label>Age<input type="number" name="reg_age" min="0" step="1"></label>
 
-          <label>Phone Number<input type="text" name="reg_phone"></label>
-          <label>Year of Residence<input type="text" name="reg_year"></label>
+          <label>Phone Number
+            <input type="text" name="reg_phone" id="reg_phone">
+            <small class="warn" id="warn-reg_phone">This field is required.</small>
+          </label>
+          <label>Year of Residence
+            <input type="text" name="reg_year" id="reg_year">
+            <small class="warn" id="warn-reg_year">This field is required.</small>
+          </label>
           <label><!-- empty placeholder to keep 4 cols --></label>
         </div>
         
@@ -60,8 +79,14 @@
         <h3>Information of Family Member:</h3><br>
 
         <div class="form-grid" aria-hidden="false">
-          <label>Last Name<input type="text" name="parent_last"></label>
-          <label>First Name<input type="text" name="parent_first"></label>
+          <label>Last Name
+            <input type="text" name="parent_last" id="parent_last">
+            <small class="warn" id="warn-parent_last">This field is required.</small>
+          </label>
+          <label>First Name
+            <input type="text" name="parent_first" id="parent_first">
+            <small class="warn" id="warn-parent_first">This field is required.</small>
+          </label>
           <label>Middle Name<input type="text" name="parent_mid"></label>
           <label>Suffix
             <select name="parent_suffix">
@@ -79,24 +104,43 @@
               <option>Male</option><option>Female</option>
             </select>
           </label>
-          <label>Citizenship<input type="text" name="parent_cit"></label>
+          <label>Citizenship
+            <input type="text" name="parent_cit" id="parent_cit">
+            <small class="warn" id="warn-parent_cit">This field is required.</small>
+          </label>
           <label>Age<input type="number" name="parent_age" min="0" step="1"></label>
         </div>
 
         <div class="form-grid" aria-hidden="false" style="margin-bottom: -15px;">
-          <label>Years of Residence<input type="text" name="parent_year"></label>
-          <label>Relationship<input type="text" name="reg_relationship"></label>
+          <label>Years of Residence
+            <input type="text" name="parent_year" id="parent_year">
+            <small class="warn" id="warn-parent_year">This field is required.</small>
+          </label>
+          <label>Relationship
+            <input type="text" name="reg_relationship" id="reg_relationship">
+            <small class="warn" id="warn-reg_relationship">This field is required.</small>
+          </label>
           <label>HOA
-              <select name="parent_hoa" required>
+              <select name="parent_hoa" id="parent_hoa">
               <option value="" disabled selected hidden></option>
               {% for area in areas %}
                 <option value="{{ area.area_id }}">{{ area.area_name }}</option>
               {% endfor %}
             </select>
+            <small class="warn" id="warn-parent_hoa">This field is required.</small>
           </label>
-          <label>Block Assignment<input type="text" name="parent_blk"></label>
-          <label>Lot Assignment<input type="text" name="parent_lot_asn"></label>
-          <label>Lot Size<input type="text" name="parent_lot_size"></label>
+          <label>Block Assignment
+            <input type="text" name="parent_blk" id="parent_blk">
+            <small class="warn" id="warn-parent_blk">This field is required.</small>
+          </label>
+          <label>Lot Assignment
+            <input type="text" name="parent_lot_asn" id="parent_lot_asn">
+            <small class="warn" id="warn-parent_lot_asn">This field is required.</small>
+          </label>
+          <label>Lot Size
+            <input type="text" name="parent_lot_size" id="parent_lot_size">
+            <small class="warn" id="warn-parent_lot_size">This field is required.</small>
+          </label>
 
           <!-- Civil status column (right) -->
           <aside class="civil-status">
@@ -113,7 +157,10 @@
         </div>
 
         <div class="form-grid" aria-hidden="false" style="grid-template-columns: repeat(2, 1fr) !important;">
-          <label>Current Address<input type="text" name="reg_cur_add"></label>
+          <label>Current Address
+            <input type="text" name="reg_cur_add" id="reg_cur_add">
+            <small class="warn" id="warn-reg_cur_add">This field is required.</small>
+          </label>
         </div>
 
         <!-- radio question (one option per row) -->
@@ -123,6 +170,7 @@
             <label><input type="radio" name="recipient" value="yes"> Yes</label>
             <label><input type="radio" name="recipient" value="no"> No</label>
           </div>
+          <small class="warn" id="warn-recipient">Please select Yes or No.</small>
         </div>
 
         <!-- supporting documents (stacked) -->
@@ -136,6 +184,7 @@
             <label><input type="checkbox" name="doc_agreement"> Contract/Agreement</label>
             <label><input type="checkbox" name="doc_deed"> Deed of Sale</label>
           </div>
+          <small class="warn" id="warn-docs">Select at least one option.</small>
         </div>
           
           <!-- Hidden category input -->
@@ -160,6 +209,29 @@
 
   <!-- Form submission script -->
   <script>
+    // Inline field warning helpers
+    function showFieldWarn(id, inputEl){
+      const w = document.getElementById(id);
+      if (w) w.style.display = 'block';
+      if (inputEl) inputEl.classList.add('invalid-input');
+    }
+    function hideFieldWarn(id, inputEl){
+      const w = document.getElementById(id);
+      if (w) w.style.display = 'none';
+      if (inputEl) inputEl.classList.remove('invalid-input');
+    }
+
+    // Clear warn on input/change
+    ["reg_last","reg_first","reg_cit","reg_phone","reg_year","parent_last","parent_first","parent_cit","parent_year","reg_relationship","parent_hoa","parent_blk","parent_lot_asn","parent_lot_size","reg_cur_add"].forEach(id=>{
+      const el = document.getElementById(id);
+      if (el){ el.addEventListener('input', ()=> hideFieldWarn('warn-'+id, el)); }
+    });
+    document.querySelectorAll('input[name="recipient"]').forEach(r=>{
+      r.addEventListener('change', ()=> hideFieldWarn('warn-recipient'));
+    });
+    document.querySelectorAll('input[name^="doc_"]').forEach(c=>{
+      c.addEventListener('change', ()=> hideFieldWarn('warn-docs'));
+    });
     function showErrorPop(msg) {
       const pop = document.getElementById('errorPop');
       const popMsg = document.getElementById('errorPopMsg');
@@ -181,6 +253,62 @@
         return;
       }
       submitBtn.disabled = true;
+
+      // Client-side required validation
+      let firstInvalid = null;
+      function requireVal(selector, warnId){
+        const el = document.querySelector(selector);
+        const ok = el && String(el.value || '').trim() !== '';
+        if (!ok){
+          showFieldWarn(warnId, el);
+          if (!firstInvalid) firstInvalid = el;
+        } else {
+          hideFieldWarn(warnId, el);
+        }
+        return ok;
+      }
+
+      // Registrant required fields
+      const v1 = requireVal('#reg_last','warn-reg_last');
+      const v2 = requireVal('#reg_first','warn-reg_first');
+      const v3 = requireVal('#reg_cit','warn-reg_cit');
+      const v4 = requireVal('#reg_phone','warn-reg_phone');
+      const v5 = requireVal('#reg_year','warn-reg_year');
+      // Family member required fields
+      const v6 = requireVal('#parent_last','warn-parent_last');
+      const v7 = requireVal('#parent_first','warn-parent_first');
+      const v8 = requireVal('#parent_cit','warn-parent_cit');
+      const v9 = requireVal('#parent_year','warn-parent_year');
+      const v10 = requireVal('#reg_relationship','warn-reg_relationship');
+      const v11 = requireVal('#parent_hoa','warn-parent_hoa');
+      const v12 = requireVal('#parent_blk','warn-parent_blk');
+      const v13 = requireVal('#parent_lot_asn','warn-parent_lot_asn');
+      const v14 = requireVal('#parent_lot_size','warn-parent_lot_size');
+      const v15 = requireVal('#reg_cur_add','warn-reg_cur_add');
+
+      // Recipient required (radio)
+      const recipientChecked = document.querySelector('input[name="recipient"]:checked');
+      if (!recipientChecked){
+        showFieldWarn('warn-recipient');
+        if (!firstInvalid) firstInvalid = document.querySelector('input[name="recipient"]');
+      } else hideFieldWarn('warn-recipient');
+
+      // Supporting docs required (at least one checkbox)
+      const docsChecked = Array.from(document.querySelectorAll('input[name^="doc_"]')).filter(x => x.type === 'checkbox' && x.checked);
+      if (docsChecked.length === 0){
+        showFieldWarn('warn-docs');
+        if (!firstInvalid) firstInvalid = document.querySelector('input[name="doc_title"]');
+      } else hideFieldWarn('warn-docs');
+
+      const allOk = v1 && v2 && v3 && v4 && v5 && v6 && v7 && v8 && v9 && v10 && v11 && v12 && v13 && v14 && v15 && !!recipientChecked && docsChecked.length > 0;
+      if (!allOk){
+        showErrorPop('Please complete the required fields.');
+        if (firstInvalid){
+          try{ firstInvalid.focus(); firstInvalid.scrollIntoView({behavior:'smooth', block:'center'}); }catch(_){}
+        }
+        submitBtn.disabled = false;
+        return;
+      }
 
       let formData = new FormData(this);
 

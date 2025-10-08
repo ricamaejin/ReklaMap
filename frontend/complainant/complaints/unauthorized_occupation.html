@@ -111,84 +111,98 @@
 
       <!-- Section 1 -->
       <div class="section-header">LOT DETAILS AND CLAIM:</div>
-      <p>1. When did the unauthorized occupation begin?</p>
-      <input style="width: 20%; padding: 8px; margin-top: 6px;  margin-left: 15px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;" type="date">
 
-      <p>2. Who is currently occupying the lot? (If known)</p>
-      <input type="text" style="margin-bottom: 12px;">
+      <p style="font-weight: bold;">1. What is your legal connection to this property?</p>
+      <label><input type="radio" name="legal_connection" value="owner"> I am the registered owner.</label>
+      <label><input type="radio" name="legal_connection" value="beneficiary"> I am an awarded beneficiary.</label>
+      <label><input type="radio" name="legal_connection" value="representative"> I am an authorized representative of the owner/beneficiary.</label>
+      <label>
+        <input type="radio" name="legal_connection" value="other" id="legal_connection_other">
+        Other (Please specify):
+        <input
+          type="text"
+          name="legal_connection_other_text"
+          id="legal_connection_other_text"
+          style="margin-left: 5px; display: none;"
+          disabled
+        >
+      </label>
 
-      <p>3. Have they claimed legal rights over the lot?</p>
-      <label><input type="radio" name="reason" value="yes" id="reasonYes"> Yes</label>
-      <div id="reasonDetails" style="display: none; margin-left: 22px;">
-        <p>Which documents do they have? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
-        <label><input type="checkbox" id="reasonDateInput" style=" padding: 8px; margin-top: 6px; margin-left: 18px;"> Title</label>
-        <label><input type="checkbox" id="reasonDateInput" style=" padding: 8px; margin-top: 6px; margin-left: 18px;"> Contract to Sell</label>
-        <label><input type="checkbox" id="reasonDateInput" style=" padding: 8px; margin-top: 6px; margin-left: 18px;"> Certificate of Full Payment</label>
-        <label><input type="checkbox" id="reasonDateInput" style=" padding: 8px; margin-top: 6px; margin-left: 18px;"> Certificate of Award</label>
-        <label><input type="checkbox" id="reasonDateInput" style=" padding: 8px; margin-top: 6px; margin-left: 18px;"> Contract/Agreement</label>
-        <label><input type="checkbox" id="reasonDateInput" style=" padding: 8px; margin-top: 6px; margin-left: 18px;"> Deed of Sale</label>
+      <p style="font-weight: bold;">2. Who is currently occupying the lot?</p>
+      <div id="involvedPersonsContainer">
+        <div class="person-input">
+          <input type="text" class="involved_person_name" name="involved_person_name[]" placeholder="Enter name">
+        </div>
       </div>
-      <label><input type="radio" name="reason" value="yes" id="reasonYes"> No documents</label>
-      <label><input type="radio" name="reason" value="yes" id="reasonYes"> Verbal claim only</label>
-      <label><input type="radio" name="reason" value="no" style="margin-bottom: 12px;"> Unknown</label>
+      <button type="button" class="btn add small" id="addPersonBtn" style="margin-left: 15px; margin-bottom: 12px;">+ Add another person</button>
 
-      <p>4. What activities have they done on the lot? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
-      <label><input type="checkbox"> Living or staying in the area</label>
-      <label><input type="checkbox"> Fenced or enclosed the space</label>
-      <label><input type="checkbox"> Installed water or electricity</label>
-      <label><input type="checkbox" style="margin-bottom: 12px;"> Renting out the lot to others</label>
+      <p style="font-weight: bold;">3.  When did you first notice the unauthorized occupation?</p>
+      <input style="width: 20%; padding: 8px;  margin-left: 15px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;" type="date">
 
-      <p>5. Have you personally approached the occupant?</p>
-      <label><input type="radio" name="approach" value="yes" id="approachYes"> Yes</label>
+      <p style="font-weight: bold;">4. What activities are being done on the property? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+      <label><input type="checkbox" name="activities" value="living"> Living/residing on the lot</label>
+      <label><input type="checkbox" name="activities" value="built_structure"> Built a structure (house, shack, etc.)</label>
+      <label><input type="checkbox" name="activities" value="fenced"> Fenced or enclosed the area</label>
+      <label><input type="checkbox" name="activities" value="storing"> Storing personal belongings</label>
+      <label><input type="checkbox" name="activities" value="utilities"> Connected utilities (water, electricity)</label>          
+      <label><input type="checkbox" style="margin-bottom: 12px;"> Renting it out to someone else</label>
+
+      <p style="font-weight: bold;">5. Have they claimed legal rights over the lot?</p>
+      <label><input type="radio" name="occupant_claim" value="docs" id="occupant_claim_docs"> Yes, they presented documents</label>
+      <div id="reasonDetails" style="display: none; margin-left: 22px;">
+        <p style="font-weight: bold; margin-left: 15px;">Which documents do they have? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+        <label><input type="checkbox" name="occupant_documents[]" value="title" style="margin-left: 33px;"> Title</label>
+        <label><input type="checkbox" name="occupant_documents[]" value="contract_to_sell" style="margin-left: 33px;"> Contract to Sell</label>
+        <label><input type="checkbox" name="occupant_documents[]" value="certificate_full_payment" style="margin-left: 33px;"> Certificate of Full Payment</label>
+        <label><input type="checkbox" name="occupant_documents[]" value="certificate_of_award" style="margin-left: 33px;"> Certificate of Award</label>
+        <label><input type="checkbox" name="occupant_documents[]" value="contract_agreement" style="margin-left: 33px;"> Contract/Agreement</label>
+        <label><input type="checkbox" name="occupant_documents[]" value="deed_of_sale" style="margin-left: 33px;"> Deed of Sale</label>
+      </div>
+      <label><input type="radio" name="occupant_claim" value="verbal"> Yes, a verbal claim only (no documents).</label>
+      <label><input type="radio" name="occupant_claim" value="none"> No, they haven't made any claim.</label>
+      <label><input type="radio" name="occupant_claim" value="unknown"> I don't know / I haven't asked.</label>
+
+      <p style="font-weight: bold;">6. Have you tried to resolve this directly with the occupant?</p>
+      <label><input type="radio" name="approach" value="yes" id="approachYes"> Yes, I have spoken with them</label>
       <div id="approachYesDetails" style="display: none; margin-left: 22px;">
-        <p>What was their response?</p>
-        <label><input type="radio" name="approachDetails"> They admitted they have no documents</label>
-        <label><input type="radio" name="approachDetails"> They refused to leave the lot</label>
-        <label><input type="radio" name="approachDetails"> They claim they are the real owner</label>
-        <label><input type="radio" name="approachDetails"> They ignored me</label>
-        <label><input type="radio" name="approachDetails"> They became hostile or aggressive</label>
-        <label style="display: inline-flex; align-items: center; margin-top: -8px;"> <input type="radio" name="approachDetails" value="other" id="approachOther">Other:
-        <input type="text" id="approachOtherInput" style="visibility:hidden; border:none; border-bottom:1px solid #000; outline:none; width:200px; font:inherit; margin-left:5px; background-color: #fff;">
-        </label>
+        <p style="font-weight: bold; margin-left: 15px;">What was their response?</p>
+        <label><input type="radio" name="approachDetails" style="margin-left: 33px;"> They admitted they have no documents</label>
+        <label><input type="radio" name="approachDetails" style="margin-left: 33px;"> They refused to leave the lot</label>
+        <label><input type="radio" name="approachDetails" style="margin-left: 33px;"> They claim they are the real owner</label>
+        <label><input type="radio" name="approachDetails" style="margin-left: 33px;"> They ignored me</label>
+        <label><input type="radio" name="approachDetails" style="margin-left: 33px;"> They became hostile or aggressive</label>
       </div>
 
       <label><input type="radio" name="approach" value="no" id="approachNo"> No</label>
       <div id="approachNoDetails" style="display: none; margin-left: 22px;">
-        <p>Why not?</p>
-        <label><input type="radio" name="approachNoDetails"> I was advised not to confront them</label>
-        <label><input type="radio" name="approachNoDetails"> I do not know them personally</label>
-        <label><input type="radio" name="approachNoDetails"> I am not currently living in the area</label>
-      <label>
-        <input type="radio" name="approachNoDetails" value="other" id="approachNoOther">Other:
-        <span id="approachNoOtherLine" style="display:none; border-bottom:1px solid #000; padding-left:150px;"></span>
-        <input type="text" id="approachNoOtherInput" style="display:none; border:none; border-bottom:1px solid #000; outline:none; width:220px; background-color: #fff;">
-      </label>
+        <p style="font-weight: bold; margin-left: 15px;">Why not?</p>
+        <label><input type="radio" name="approachNoDetails" style="margin-left: 33px;"> I was advised not to confront them</label>
+        <label><input type="radio" name="approachNoDetails" style="margin-left: 33px;"> I do not know them personally</label>
+        <label><input type="radio" name="approachNoDetails" style="margin-left: 33px;"> I am not currently living in the area</label>
       </div>
 
-      <p>6. Have you reported this to any authority? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
-      <label><input type="checkbox"> Barangay</label>
-      <label><input type="checkbox"> HOA</label>
-      <label><input type="checkbox"> NGC</label>
-      <label><input type="checkbox" style="margin-bottom: 12px;"> None</label>
+      <p style="font-weight: bold;">7. Have you reported this to any authority? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+      <label><input type="checkbox"> Yes, I reported it to the Barangay</label>
+      <label><input type="checkbox"> Yes, I reported it to the HOA</label>
+      <label><input type="checkbox"> Yes, I reported it to the NGC</label>
+      <label><input type="checkbox" style="margin-bottom: 12px;"> Not yet</label>
 
-      <p>7. What was the result of that report?</p>
-      <label><input type="radio" name="result"> The other party was asked to vacate</label>
-      <label><input type="radio" name="result"> The agency asked for more documentation</label>
-      <label><input type="radio" name="result"> No action was taken</label>
+      <p style="font-weight: bold;">8. What was the result of that report?</p>
+      <label><input type="radio" name="result"> The occupant was formally asked to leave</label>
+      <label><input type="radio" name="result"> I was asked to provide more documents</label>
       <label><input type="radio" name="result"> Still under investigation</label>
-      <label><input type="radio" name="result"> I was told I have no valid claim</label>
-      <label><input type="radio" name="result" value="other" id="resultOther"> Other:
-      <input type="text" id="resultOtherText"style="margin-top: -8px; visibility:hidden; border:none; border-bottom:1px solid #000; outline:none; width:200px; font:inherit; margin-left:5px; background-color: #fff;">
-      </label>
+      <label><input type="radio" name="report_outcome" value="pending"> The issue is still pending or unresolved.</label>
+      <label><input type="radio" name="result"> No action was taken by the authority.</label>
+      <label><input type="radio" name="result" style="margin-bottom: 12px;"> I was told I have no valid claim</label>
 
-      <p style="margin-top: -6px;">8. Have you reported this encroachment to the department before?</p>
-      <label><input type="radio" name="reportedBefore" value="yes" id="reportedYes"> Yes</label>
-      <div id="reportedDetails" style="display: none; margin-left: 22px;">
-        <p>Date Reported</p>
-        <input id="reportedDate" type="date" style="width: 20%; padding: 8px; margin-top: 6px;">
+      <p style="font-weight: bold;">9. Have you filed a complaint about this specific issue with our department before?</p>
+      <label><input type="radio" name="previous_complaint" value="yes" id="prevComplaintYes"> Yes</label>
+      <div id="prevComplaintDetails" style="display:none;" class="indented">
+        <label style="font-weight: bold; margin-left: 35px;">Please provide the previous complaint reference number, if known:
+            <input type="text" name="prev_complaint_ref" placeholder="If not known please input NA" style="margin-left: 33px; width: 92%;">
+        </label>
       </div>
-      <label><input type="radio" name="reportedBefore" value="no"> No</label>
-
+      <label><input type="radio" name="previous_complaint" value="no"> No, this is the first time I am reporting it to this department.</label>
 
       <!-- Section 2 -->
       <p style="font-weight: bold;">Please describe what happened briefly, including how you found out about the issue.</p>
@@ -232,41 +246,139 @@ function toggleSection(radioId, detailsId) {
         textInputs.forEach(input => input.value = "");
         const radios = details.querySelectorAll("input[type=radio]");
         radios.forEach(radio => radio.checked = false);
+        const checkboxes = details.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = false);
       }
     });
   });
 }
 
+// For Q6 yes/no sections
 toggleSection("approachYes", "approachYesDetails");
 toggleSection("approachNo", "approachNoDetails");
-toggleSection("reportedYes", "reportedDetails");
 
-function setupOtherInline(radioId, inputId) {
-  const radio = document.getElementById(radioId);
-  const input = document.getElementById(inputId);
-
+// Q1: Show "Other (Please specify)" input only when "Other" is selected
+function setupOtherInlineRadio(radioSelector, inputSelector) {
+  const radio = document.querySelector(radioSelector);
+  const input = document.querySelector(inputSelector);
   if (!radio || !input) return;
 
-  radio.addEventListener("change", function () {
+  const group = document.querySelectorAll(`input[name="${radio.name}"]`);
+
+  function update() {
     if (radio.checked) {
-      input.style.visibility = "visible";
+      input.style.display = "inline-block";
+      input.disabled = false;
       input.focus();
+    } else {
+      input.style.display = "none";
+      input.disabled = true;
+      input.value = "";
+    }
+  }
+
+  group.forEach(r => r.addEventListener("change", update));
+  update();
+}
+setupOtherInlineRadio("#legal_connection_other", "#legal_connection_other_text");
+
+// Q2: Add/remove involved persons
+(function setupInvolvedPersons() {
+  const container = document.getElementById("involvedPersonsContainer");
+  const addBtn = document.getElementById("addPersonBtn");
+  if (!container || !addBtn) return;
+
+  function createPersonRow(withRemove = true) {
+    const row = document.createElement("div");
+    row.className = "person-input";
+    row.style.display = "flex";
+    row.style.gap = "8px";
+    row.style.alignItems = "center";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "involved_person_name";
+    input.name = "involved_person_name[]";
+    input.placeholder = "Enter name";
+    input.style.width = "84%";
+
+    row.appendChild(input);
+
+    if (withRemove) {
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      // make remove look same as add
+      removeBtn.className = "btn add small remove-person";
+      removeBtn.textContent = "Remove";
+      row.appendChild(removeBtn);
+    }
+
+    return row;
+  }
+
+  // Ensure only rows after the first have remove buttons
+  function normalizeRows() {
+    const rows = container.querySelectorAll(".person-input");
+    rows.forEach((row, idx) => {
+      const removeBtn = row.querySelector(".remove-person");
+      if (idx === 0 && removeBtn) {
+        removeBtn.remove();
+      } else if (idx > 0 && !removeBtn) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        // make remove look same as add
+        btn.className = "btn add small remove-person";
+        btn.textContent = "Remove";
+        row.appendChild(btn);
+      }
+    });
+  }
+
+  addBtn.addEventListener("click", () => {
+    container.appendChild(createPersonRow(true));
+    normalizeRows();
+  });
+
+  container.addEventListener("click", (e) => {
+    if (e.target && e.target.classList.contains("remove-person")) {
+      const row = e.target.closest(".person-input");
+      if (row) row.remove();
+      normalizeRows();
     }
   });
 
-  const siblings = document.querySelectorAll(`input[name="${radio.name}"]`);
-  siblings.forEach(r => {
-    if (r !== radio) {
-      r.addEventListener("change", function () {
-        input.style.visibility = "hidden";
-        input.value = "";
-      });
+  // Normalize initial state
+  normalizeRows();
+})();
+
+// Q5: Show document checklist only when "Yes, they presented documents" is selected
+function toggleDetailsByRadioValue(groupName, targetValue, detailsId) {
+  const radios = document.querySelectorAll(`input[name="${groupName}"]`);
+  const details = document.getElementById(detailsId);
+  if (!radios.length || !details) return;
+
+  function clearFields() {
+    details.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    details.querySelectorAll('input[type="text"], input[type="date"], input[type="number"], textarea').forEach(el => el.value = "");
+    details.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+  }
+
+  function update() {
+    const selected = Array.from(radios).find(r => r.checked)?.value;
+    if (selected === targetValue) {
+      details.style.display = "block";
+    } else {
+      details.style.display = "none";
+      clearFields();
     }
-  });
+  }
+
+  radios.forEach(r => r.addEventListener("change", update));
+  update();
 }
-setupOtherInline("approachOther", "approachOtherInput");
-setupOtherInline("approachNoOther", "approachNoOtherInput");
-setupOtherInline("resultOther", "resultOtherText");
+toggleDetailsByRadioValue("occupant_claim", "docs", "reasonDetails");
+// fix No. 9: show previous complaint reference only when "Yes" is selected
+toggleDetailsByRadioValue("previous_complaint", "yes", "prevComplaintDetails");
 </script>
 
 </body>
