@@ -40,6 +40,9 @@ def nonmemreg():
             first = request.form.get("reg_first")
             mid = request.form.get("reg_mid")
             suffix = request.form.get("reg_suffix")
+            # Store as None if empty, 'NA', or 'N/A'
+            if suffix is not None and str(suffix).strip().upper() in ("NA", "N/A", ""):
+                suffix = None
             dob = request.form.get("reg_dob")
             sex = request.form.get("reg_sex")
             cit = request.form.get("reg_cit")

@@ -1,4 +1,4 @@
-                  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -6,6 +6,27 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
+  <style>
+    .readonly-preview input[readonly],
+    .readonly-preview input[disabled],
+    .readonly-preview textarea[readonly],
+    .readonly-preview textarea[disabled],
+    .readonly-preview select[disabled],
+    .readonly-preview select[readonly] {
+      background: #f3f3f3 !important;
+      color: #888 !important;
+      border-color: #d3d3d3 !important;
+      cursor: not-allowed;
+      opacity: 1 !important;
+    }
+    .readonly-preview .readonly-value {
+      background: #f3f3f3;
+      color: #888;
+      border-radius: 4px;
+      padding: 4px 8px;
+      display: inline-block;
+    }
+  </style>
 </head>
 <body>
   <!-- Sidebar -->
@@ -27,7 +48,7 @@
     <div class="complaint-layout">
       <!-- Left Panel: Complaint Preview -->
   <div class="complaint-form">
-          <h1>COMPLAINT FORM <br> OVERLAPPING</h1>
+          <h1>COMPLAINT FORM <br> {{ complaint.type_of_complaint|upper }}</h1>
           <div class="instructions">
             <p><strong>INSTRUCTION</strong></p>
             <ul>
@@ -39,7 +60,7 @@
             </ul>
           </div>
 
-                          <form>
+                          <form class="readonly-preview">
                             <input type="hidden" name="complaint_id" value="{{ complaint.complaint_id }}">
                             <input type="hidden" name="registration_id" value="{{ registration.registration_id }}">
 
@@ -314,6 +335,27 @@
                             {% endif %}
 
                             <div class="section-header">LOT DETAILS AND CLAIM:</div>
+
+                            {# Render block/lot pairs for non_member Lot Dispute #}
+                            {% if registration.category == 'non_member' and complaint.type_of_complaint == 'Lot Dispute' and lot_dispute and lot_dispute.block_lot %}
+                              <div id="nonMemberBlockLotSection">
+                                <p>What is the specific block and lot involved in the lot dispute?</p>
+                                <div class="pairs" id="pairsContainer" aria-live="polite">
+                                  {% for pair in lot_dispute.block_lot %}
+                                    <div class="pair-row">
+                                      <div class="col">
+                                        <label class="small">Block No.</label>
+                                        <input type="text" value="{{ pair.block }}" readonly title="Block No." placeholder="Block No.">
+                                      </div>
+                                      <div class="col">
+                                        <label class="small">Lot No.</label>
+                                        <input type="text" value="{{ pair.lot }}" readonly title="Lot No." placeholder="Lot No.">
+                                      </div>
+                                    </div>
+                                  {% endfor %}
+                                </div>
+                              </div>
+                            {% endif %}
 
                             {% for field in form_structure %}
                               {% if field.type == 'block_lot_pairs' %}
