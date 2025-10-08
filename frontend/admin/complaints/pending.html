@@ -87,7 +87,7 @@
     <!-- Tabs -->
     <div class="tabs">
       <a href="all.html"> All</a>
-      <a href="pending.html" class="active">Pending</a>
+      <a href="pending.html" class="active">Received</a>
       <a href="ongoing.html">On Going</a>
       <a href="resolved.html">Resolved</a>
       <a href="invalid.html">Invalid</a>
@@ -105,7 +105,7 @@
           <th style="text-align: center;">HOA</th>
           <th style="text-align: center;">Assigned To</th>
           <th style="text-align: center;">Deadline</th>
-          <th style="text-align: center;">Action Needed</th>
+          <th style="text-align: center;">Stage of Action</th>
           <th style="text-align: center;">Priority Level</th>
         </tr>
       </thead>
@@ -119,6 +119,33 @@
 
 
   <script>
+    // Format date with timestamp for display
+    function formatDateWithTimestamp(dateString) {
+      try {
+        if (!dateString) return 'N/A';
+        
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'Invalid Date';
+        
+        const dateStr = date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+        
+        const timeStr = date.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+        
+        return `${dateStr}<br><small style="color: #666;">${timeStr}</small>`;
+      } catch (error) {
+        console.error('Date formatting error:', error);
+        return dateString || 'N/A';
+      }
+    }
+
     // Load pending complaints data
     async function loadPendingComplaints() {
       try {
@@ -197,7 +224,7 @@
       tbody.innerHTML = '';
       
       if (complaints.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No pending complaints</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No received complaints</td></tr>';
         return;
       }
       
@@ -211,12 +238,12 @@
         });
         
         // Handle pending cases with 7-day deadline warning
-        const assignedToDisplay = '<em>Pending</em>';
+        const assignedToDisplay = 'Pending';
         const deadlineDisplay = calculatePendingDeadline(complaint);
-        const actionNeededDisplay = complaint.latest_action || 'Pending';
+        const actionNeededDisplay = complaint.latest_action || 'Received';
         
         row.innerHTML = `
-          <td>${complaint.date_received}</td>
+          <td>${formatDateWithTimestamp(complaint.date_received)}</td>
           <td>${complaint.complainant_name || complaint.complainant || 'N/A'}</td>
           <td>${complaint.type_of_complaint}</td>
           <td>${complaint.area_name || 'N/A'}</td>

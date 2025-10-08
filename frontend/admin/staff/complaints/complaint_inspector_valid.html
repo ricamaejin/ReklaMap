@@ -58,7 +58,7 @@
             Loading timeline...
           </div>
         </div>
-        <button class="update-btn" onclick="openComplaint()">Update Status</button>
+        <button class="update-btn" onclick="openComplaint()" id="updateStatusBtn">Update Status</button>
       </div>
     </div>
 
@@ -767,9 +767,48 @@ async function refreshTimeline() {
 
 // Removed showFallbackTimeline - staff view uses real database data only
 
+// Check if coming from resolved view and apply readonly state
+function checkResolvedState() {
+  const referrer = document.referrer;
+  if (referrer && referrer.includes('/staff/complaints/resolved')) {
+    applyResolvedReadonlyState();
+  }
+}
+
+// Apply readonly state for resolved complaints from staff resolved view
+function applyResolvedReadonlyState() {
+  // Hide the Update Status button
+  const updateBtn = document.getElementById('updateStatusBtn');
+  if (updateBtn) {
+    updateBtn.style.display = 'none';
+  }
+  
+  // Gray out all interactive elements
+  const modal = document.getElementById('modal');
+  if (modal) {
+    modal.style.opacity = '0.6';
+    modal.style.pointerEvents = 'none';
+  }
+  
+  // Disable all buttons and inputs in the form, but keep back button functional
+  const inputs = document.querySelectorAll('input, button, select, textarea');
+  inputs.forEach(input => {
+    // Skip the back button - keep it functional
+    if (input.onclick && input.onclick.toString().includes('goBack')) {
+      return;
+    }
+    input.disabled = true;
+    input.style.backgroundColor = '#f5f5f5';
+    input.style.color = '#666';
+  });
+}
+
 // Initialize timeline on page load - load real data only
 document.addEventListener('DOMContentLoaded', function() {
   console.log('[STAFF TIMELINE] Page loaded, loading real timeline data from database');
+  
+  // Check if coming from resolved view first
+  checkResolvedState();
   
   // Load real timeline data immediately (no sample data)
   refreshTimeline();

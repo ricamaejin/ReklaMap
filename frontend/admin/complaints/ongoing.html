@@ -93,7 +93,7 @@
     <!-- Tabs -->
     <div class="tabs">
       <a href="all.html"> All</a>
-      <a href="pending.html">Pending</a>
+      <a href="pending.html">Received</a>
       <a href="ongoing.html" class="active">On Going</a>
       <a href="resolved.html">Resolved</a>
       <a href="invalid.html">Invalid</a>
@@ -111,7 +111,7 @@
           <th style="text-align: center;">HOA</th>
           <th style="text-align: center;">Assigned To</th>
           <th style="text-align: center;">Deadline</th>
-          <th style="text-align: center;">Action Needed</th>
+          <th style="text-align: center;">Stage of Action</th>
           <th style="text-align: center;">Priority Level</th>
         </tr>
       </thead>
@@ -125,18 +125,53 @@
 
 
   <script>
+    // Format date with timestamp for display
+    function formatDateWithTimestamp(dateString) {
+      try {
+        if (!dateString) return 'N/A';
+        
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'Invalid Date';
+        
+        const dateStr = date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+        
+        const timeStr = date.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+        
+        return `${dateStr}<br><small style="color: #666;">${timeStr}</small>`;
+      } catch (error) {
+        console.error('Date formatting error:', error);
+        return dateString || 'N/A';
+      }
+    }
+
     // Load ongoing complaints data
     async function loadOngoingComplaints() {
       try {
+        console.log('Loading ongoing complaints...');
         const response = await fetch(`/admin/complaints/api/ongoing?_=${Date.now()}`);
+        console.log('API response status:', response.status);
+        
         const data = await response.json();
+        console.log('API response data:', data);
+        console.log('Data type:', typeof data, 'Is array:', Array.isArray(data));
         
         if (Array.isArray(data)) {
+          console.log('Processing array of', data.length, 'complaints');
           populateTable(data);
         } else if (data.success && data.complaints) {
+          console.log('Processing success response with', data.complaints.length, 'complaints');
           populateTable(data.complaints);
         } else {
           console.error('Failed to load complaints:', data.message || 'Unknown error');
+          console.error('Full response data:', data);
         }
       } catch (error) {
         console.error('Error loading complaints:', error);
@@ -171,15 +206,20 @@
 
     // Populate the table with complaint data
     function populateTable(complaints) {
+      console.log('populateTable called with:', complaints);
       const tbody = document.getElementById('complaints-table-body');
       tbody.innerHTML = '';
       
-      if (complaints.length === 0) {
+      if (!complaints || complaints.length === 0) {
+        console.log('No complaints to display');
         tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No ongoing complaints</td></tr>';
         return;
       }
       
-      complaints.forEach(complaint => {
+      console.log('Processing', complaints.length, 'complaints');
+      complaints.forEach((complaint, index) => {
+        try {
+          console.log(`Processing complaint ${index + 1}:`, complaint);
         const row = document.createElement('tr');
         row.style.cursor = 'pointer';
         
@@ -188,21 +228,67 @@
           window.location.href = `/admin/complaints/${detailsPage}?id=${complaint.complaint_id}&referrer=ongoing.html`;
         });
         
-        // Calculate deadline based on action_datetime + standard days for action type
+        // Enhanced deadline calculation based on admin-set deadlines and meeting times
         const formatDeadline = (complaint) => {
           if (!complaint.action_datetime) return 'N/A';
           
-          const actionDate = new Date(complaint.action_datetime);
           const actionType = (complaint.latest_action || complaint.action_needed || '').toLowerCase();
+          const actionDate = new Date(complaint.action_datetime);
           
-          let daysToAdd = 1; // default
-          if (actionType.includes('inspection')) {
-            daysToAdd = 3;
-          } else if (actionType.includes('invitation')) {
-            daysToAdd = 1;
-          } else if (actionType.includes('mediation')) {
-            daysToAdd = 1;
-          } else if (actionType.includes('assessment')) {
+          // Get admin-set deadline for inspection from complaint history/actions
+          let adminDeadline = null;
+          if (complaint.deadline) {
+            adminDeadline = new Date(complaint.deadline);
+          }
+          
+          // Get meeting datetime from invitation action in complaint history
+          let meetingDateTime = null;
+          if (complaint.meeting_date && complaint.meeting_time) {
+            meetingDateTime = new Date(`${complaint.meeting_date}T${complaint.meeting_time}`);
+          }
+          
+          if (actionType.includes('inspection') && !actionType.includes('done')) {
+            // Inspection → Use admin-set deadline
+            if (adminDeadline) {
+              const dateStr = adminDeadline.toLocaleDateString();
+              const timeStr = actionDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+              return `${dateStr}<br/>${timeStr}`;
+            }
+            // Fallback to 3 days if no admin deadline set
+            const deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+            const dateStr = deadline.toLocaleDateString();
+            const timeStr = actionDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            return `${dateStr}<br/>${timeStr}`;
+          }
+          
+          else if (actionType.includes('accepted invitation')) {
+            // Accepted Invitation → Show meeting date/time with "(Mediation day)"
+            if (meetingDateTime) {
+              const dateStr = meetingDateTime.toLocaleDateString();
+              const timeStr = meetingDateTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+              return `${dateStr} | ${timeStr}<br/>(Mediation day)`;
+            }
+            // Fallback if no meeting datetime
+            const dateStr = actionDate.toLocaleDateString();
+            return `${dateStr}<br/>(Mediation day)`;
+          }
+          
+          else if (actionType.includes('mediation')) {
+            // Mediation → "Make assessment before:" + 3 days after Date/Time of Meeting
+            let baseDate = meetingDateTime || actionDate;
+            const deadline = new Date(baseDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+            const dateStr = deadline.toLocaleDateString();
+            return `Assess before:<br/>${dateStr}`;
+          }
+          
+          else if (actionType.includes('assessment')) {
+            // Assessment → "Mark as Resolved" in italic
+            return `<em>Mark as Resolved</em>`;
+          }
+          
+          // Default logic for other action types
+          let daysToAdd = 1;
+          if (actionType.includes('invitation')) {
             daysToAdd = 1;
           }
           
@@ -213,7 +299,7 @@
         };
         
         row.innerHTML = `
-          <td>${complaint.date_received}</td>
+          <td>${formatDateWithTimestamp(complaint.date_received)}</td>
           <td>${complaint.complainant_name || complaint.complainant || 'N/A'}</td>
           <td>${complaint.type_of_complaint}</td>
           <td>${complaint.area_name || 'N/A'}</td>
@@ -240,6 +326,10 @@
         }
         
         tbody.appendChild(row);
+        } catch (error) {
+          console.error(`Error processing complaint ${index + 1}:`, error);
+          console.error('Complaint data:', complaint);
+        }
       });
     }
 

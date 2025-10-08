@@ -323,6 +323,33 @@
   </div>
 
   <script>
+    // Format date with timestamp for display
+    function formatDateWithTimestamp(dateString) {
+      try {
+        if (!dateString) return 'N/A';
+        
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'Invalid Date';
+        
+        const dateStr = date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+        
+        const timeStr = date.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+        
+        return `${dateStr}<br><small style="color: #666;">${timeStr}</small>`;
+      } catch (error) {
+        console.error('Date formatting error:', error);
+        return dateString || 'N/A';
+      }
+    }
+
     // Load assigned complaints data
     async function loadAssignedComplaints() {
       try {
@@ -424,8 +451,8 @@
           }
         });
         
-        // Format date
-        const dateReceived = complaint.date_received ? new Date(complaint.date_received).toLocaleDateString() : 'N/A';
+        // Format date with timestamp
+        const dateReceived = formatDateWithTimestamp(complaint.date_received);
         
         // Format status - show complaint_stage from backend
         let statusDisplay = complaint.complaint_stage || 'Pending';
@@ -521,41 +548,104 @@
       }
     }
 
-    // Calculate deadline from action_datetime (same logic as ongoing.html)
+    // Enhanced deadline calculation based on specific action types
     function calculateDeadlineFromActionDateTime(complaint) {
       // Try to get action_datetime, fallback to date_received if not available
-      let baseDate = null;
+      let actionDate = null;
       
       if (complaint.action_datetime) {
-        baseDate = new Date(complaint.action_datetime);
+        actionDate = new Date(complaint.action_datetime);
       } else if (complaint.date_received) {
         // Fallback to date_received if no action_datetime
-        baseDate = new Date(complaint.date_received);
+        actionDate = new Date(complaint.date_received);
       } else {
         return 'N/A';
       }
       
       // If date is invalid, return N/A
-      if (isNaN(baseDate.getTime())) {
+      if (isNaN(actionDate.getTime())) {
         return 'N/A';
       }
       
       const actionType = (complaint.action_needed || complaint.latest_action || '').toLowerCase();
       
-      let daysToAdd = 3; // default to 3 days for inspection
-      if (actionType.includes('inspection')) {
-        daysToAdd = 3;
-      } else if (actionType.includes('invitation')) {
-        daysToAdd = 1;
-      } else if (actionType.includes('mediation')) {
-        daysToAdd = 1;
-      } else if (actionType.includes('assessment')) {
-        daysToAdd = 1;
+      // Get admin-set deadline for inspection from complaint history/actions
+      let adminDeadline = null;
+      if (complaint.deadline) {
+        adminDeadline = new Date(complaint.deadline);
       }
       
-      const deadline = new Date(baseDate.getTime() + (daysToAdd * 24 * 60 * 60 * 1000));
+      // Get meeting datetime from invitation action in complaint history
+      let meetingDateTime = null;
+      if (complaint.meeting_date && complaint.meeting_time) {
+        meetingDateTime = new Date(`${complaint.meeting_date}T${complaint.meeting_time}`);
+      }
+
+      if (actionType.includes('inspection') && !actionType.includes('done')) {
+        // Inspection → Deadline = 'Deadline' date set by admin + time when Inspection action was saved
+        if (adminDeadline) {
+          const dateStr = adminDeadline.toLocaleDateString();
+          const timeStr = actionDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          return `${dateStr}<br/>${timeStr}`;
+        }
+        // Fallback to 3 days if no admin deadline set
+        const deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+        const dateStr = deadline.toLocaleDateString();
+        const timeStr = actionDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        return `${dateStr}<br/>${timeStr}`;
+      }
       
+      else if (actionType.includes('inspection done')) {
+        // Inspection done → Show "Send invite before:" + 3 days after this action
+        const deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+        const dateStr = deadline.toLocaleDateString();
+        return `Send invite before:<br/>${dateStr}`;
+      }
+      
+      else if (actionType.includes('send invitation') || actionType.includes('invitation') && !actionType.includes('sent') && !actionType.includes('accepted')) {
+        // Send Invitation → 1 day after the previous action
+        const deadline = new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
+        const dateStr = deadline.toLocaleDateString();
+        const timeStr = deadline.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        return `${dateStr}<br/>${timeStr}`;
+      }
+      
+      else if (actionType.includes('sent invitation')) {
+        // Sent Invitation → 20 days after the previous action
+        const deadline = new Date(actionDate.getTime() + (20 * 24 * 60 * 60 * 1000));
+        const dateStr = deadline.toLocaleDateString();
+        const timeStr = deadline.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        return `${dateStr}<br/>${timeStr}`;
+      }
+      
+      else if (actionType.includes('accepted invitation')) {
+        // Accepted Invitation → Date/Time of Meeting from Invitation modal + "(Mediation day)"
+        if (meetingDateTime) {
+          const dateStr = meetingDateTime.toLocaleDateString();
+          const timeStr = meetingDateTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          return `${dateStr} | ${timeStr}<br/>(Mediation day)`;
+        }
+        // Fallback if no meeting datetime
+        const dateStr = actionDate.toLocaleDateString();
+        return `${dateStr}<br/>(Mediation day)`;
+      }
+      
+      else if (actionType.includes('mediation')) {
+        // Mediation → "Make assessment before:" + 3 days after Date/Time of Meeting
+        let baseDate = meetingDateTime || actionDate;
+        const deadline = new Date(baseDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+        const dateStr = deadline.toLocaleDateString();
+        return `Assess before:<br/>${dateStr}`;
+      }
+      
+      else if (actionType.includes('assessment')) {
+        // Assessment → "Mark as Resolved" in italic
+        return `<em>Mark as Resolved</em>`;
+      }
+      
+      // Default fallback
       try {
+        const deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
         const dateStr = deadline.toLocaleDateString();
         const timeStr = deadline.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         return `${dateStr}<br/>${timeStr}`;
@@ -565,43 +655,79 @@
       }
     }
     
-    // Calculate deadline display with countdown
+    // Calculate deadline display with countdown using enhanced deadline logic
     function calculateDeadlineDisplay(complaint) {
       // Try to get action_datetime, fallback to date_received if not available
-      let baseDate = null;
+      let actionDate = null;
       
       if (complaint.action_datetime) {
-        baseDate = new Date(complaint.action_datetime);
+        actionDate = new Date(complaint.action_datetime);
       } else if (complaint.date_received) {
         // Fallback to date_received if no action_datetime
-        baseDate = new Date(complaint.date_received);
+        actionDate = new Date(complaint.date_received);
       } else {
         return 'N/A';
       }
       
       // If date is invalid, return N/A
-      if (isNaN(baseDate.getTime())) {
+      if (isNaN(actionDate.getTime())) {
         return 'N/A';
       }
       
       const actionType = (complaint.action_needed || complaint.latest_action || '').toLowerCase();
       
-      let daysToAdd = 3; // default to 3 days for inspection
-      if (actionType.includes('inspection')) {
-        daysToAdd = 3;
-      } else if (actionType.includes('invitation')) {
-        daysToAdd = 1;
+      // Get admin-set deadline for inspection from complaint history/actions
+      let adminDeadline = null;
+      if (complaint.deadline) {
+        adminDeadline = new Date(complaint.deadline);
+      }
+      
+      // Get meeting datetime from invitation action in complaint history
+      let meetingDateTime = null;
+      if (complaint.meeting_date && complaint.meeting_time) {
+        meetingDateTime = new Date(`${complaint.meeting_date}T${complaint.meeting_time}`);
+      }
+      
+      let deadline;
+      
+      // Calculate deadline based on action type (matching the new deadline logic)
+      if (actionType.includes('inspection') && !actionType.includes('done')) {
+        deadline = adminDeadline || new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+      } else if (actionType.includes('inspection done')) {
+        deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+      } else if (actionType.includes('send invitation') || (actionType.includes('invitation') && !actionType.includes('sent') && !actionType.includes('accepted'))) {
+        deadline = new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
+      } else if (actionType.includes('sent invitation')) {
+        deadline = new Date(actionDate.getTime() + (20 * 24 * 60 * 60 * 1000));
+      } else if (actionType.includes('accepted invitation')) {
+        deadline = meetingDateTime || actionDate;
       } else if (actionType.includes('mediation')) {
-        daysToAdd = 1;
+        const baseDate = meetingDateTime || actionDate;
+        deadline = new Date(baseDate.getTime() + (3 * 24 * 60 * 60 * 1000));
       } else if (actionType.includes('assessment')) {
-        daysToAdd = 1;
+        return 'Mark as Resolved'; // No countdown for assessment
+      } else {
+        deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
       }
       
       try {
-        const deadline = new Date(baseDate.getTime() + (daysToAdd * 24 * 60 * 60 * 1000));
         const now = new Date();
-        const timeDiff = deadline.getTime() - now.getTime();
-        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        
+        // Normalize dates to compare only the date part (ignore time)
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
+        
+        const timeDiff = deadlineDate.getTime() - today.getTime();
+        const daysDiff = Math.round(timeDiff / (1000 * 3600 * 24));
+        
+        console.log('Overdue calculation debug:', {
+          now: now.toISOString(),
+          deadline: deadline.toISOString(), 
+          today: today.toISOString(),
+          deadlineDate: deadlineDate.toISOString(),
+          timeDiff,
+          daysDiff
+        });
         
         if (daysDiff > 1) {
           return `${daysDiff} days left`;
@@ -623,6 +749,14 @@
       const stage = complaint.complaint_stage || 'Pending';
       const deadlineInfo = calculateDeadlineDisplay(complaint);
       
+      console.log('Status formatting debug:', {
+        complaintId: complaint.complaint_id,
+        stage,
+        deadlineInfo,
+        includesOverdue: deadlineInfo.includes('OVERDUE'),
+        includesDueToday: deadlineInfo.includes('DUE TODAY')
+      });
+      
       // Extract just the countdown part for status display
       let countdown = '';
       if (deadlineInfo.includes('days left')) {
@@ -632,6 +766,8 @@
       } else if (deadlineInfo.includes('OVERDUE')) {
         countdown = deadlineInfo.match(/(OVERDUE by \d+ days)/)?.[1] || '';
       }
+      
+      console.log('Extracted countdown:', countdown);
       
       if (countdown) {
         const color = countdown.includes('OVERDUE') ? 'red' : 
@@ -663,11 +799,18 @@
 
     // Prefer explicit deadline from backend if available; otherwise derive from action type
     function getDeadlineDate(complaint) {
-      // Explicit deadline (ISO or parseable string)
-      const explicit = complaint.deadline || complaint.action_deadline || complaint.deadline_at;
-      if (explicit) {
-        const d = new Date(explicit);
-        if (!isNaN(d.getTime())) return d;
+      const actionType = (complaint.action_needed || complaint.latest_action || '').toLowerCase();
+      
+      // Use admin-set deadline for inspections
+      if (actionType.includes('inspection') && complaint.deadline) {
+        const adminDeadline = new Date(complaint.deadline);
+        if (!isNaN(adminDeadline.getTime())) return adminDeadline;
+      }
+      
+      // Use meeting date/time for accepted invitations
+      if (actionType.includes('accepted invitation') && complaint.meeting_date && complaint.meeting_time) {
+        const meetingDateTime = new Date(`${complaint.meeting_date}T${complaint.meeting_time}`);
+        if (!isNaN(meetingDateTime.getTime())) return meetingDateTime;
       }
 
       // Fallback to derive from action_datetime or date_received + mapped days
@@ -679,7 +822,6 @@
       }
       if (!baseDate || isNaN(baseDate.getTime())) return null;
 
-      const actionType = (complaint.action_needed || complaint.latest_action || '').toLowerCase();
       let daysToAdd = 3; // default
       if (actionType.includes('inspection')) daysToAdd = 3;
       else if (actionType.includes('invitation')) daysToAdd = 1;
@@ -699,6 +841,11 @@
     function buildDueSoonItems(complaints) {
       const items = [];
       complaints.forEach(c => {
+        // Skip resolved complaints - they shouldn't appear in inbox
+        if (c.complaint_stage === 'Resolved' || c.status === 'Resolved' || c.is_resolved) {
+          return;
+        }
+
         const deadline = getDeadlineDate(c);
         if (!deadline) return;
 

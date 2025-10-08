@@ -338,7 +338,7 @@ def format_address(area_name, lot_no, block_no):
 def get_complaint_data_with_proper_areas(status_filter=None, stage_filter=None, assigned_filter=None):
     """NEW: Get complaint data with proper area joins - DEBUGGING VERSION"""
     try:
-        # Simple query that DEFINITELY joins complaints.area_id = areas.area_id
+        # Enhanced query that gets both latest action details AND invitation details for meeting info
         query = """
         SELECT 
             c.complaint_id,
@@ -356,7 +356,9 @@ def get_complaint_data_with_proper_areas(status_filter=None, stage_filter=None, 
             COALESCE(a.area_name, 'N/A') as area_name,
             ch_latest.assigned_to,
             ch_latest.action_datetime,
-            ch_latest.type_of_action as latest_action
+            ch_latest.type_of_action as latest_action,
+            ch_latest.details,
+            ch_invitation.details as invitation_details
         FROM complaints c
         LEFT JOIN registration r ON c.registration_id = r.registration_id
         LEFT JOIN areas a ON c.area_id = a.area_id
@@ -366,9 +368,18 @@ def get_complaint_data_with_proper_areas(status_filter=None, stage_filter=None, 
                 ch1.assigned_to,
                 ch1.action_datetime,
                 ch1.type_of_action,
+                ch1.details,
                 ROW_NUMBER() OVER (PARTITION BY ch1.complaint_id ORDER BY ch1.action_datetime DESC) as rn
             FROM complaint_history ch1
         ) ch_latest ON c.complaint_id = ch_latest.complaint_id AND ch_latest.rn = 1
+        LEFT JOIN (
+            SELECT 
+                ch2.complaint_id,
+                ch2.details,
+                ROW_NUMBER() OVER (PARTITION BY ch2.complaint_id ORDER BY ch2.action_datetime DESC) as rn
+            FROM complaint_history ch2
+            WHERE ch2.type_of_action = 'Invitation'
+        ) ch_invitation ON c.complaint_id = ch_invitation.complaint_id AND ch_invitation.rn = 1
         """
         
         params = {}
@@ -430,6 +441,32 @@ def get_complaint_data_with_proper_areas(status_filter=None, stage_filter=None, 
                 action_datetime = complaint.action_datetime
                 latest_action = complaint.latest_action or 'Pending'
             
+            # Parse details JSON to extract admin-set deadlines and meeting info
+            details = {}
+            if complaint.details:
+                try:
+                    if isinstance(complaint.details, str):
+                        details = json.loads(complaint.details)
+                    else:
+                        details = complaint.details
+                except (json.JSONDecodeError, TypeError):
+                    details = {}
+            
+            # Parse invitation details to get meeting date/time for "Accepted Invitation" cases
+            invitation_details = {}
+            if hasattr(complaint, 'invitation_details') and complaint.invitation_details:
+                try:
+                    if isinstance(complaint.invitation_details, str):
+                        invitation_details = json.loads(complaint.invitation_details)
+                    else:
+                        invitation_details = complaint.invitation_details
+                except (json.JSONDecodeError, TypeError):
+                    invitation_details = {}
+            
+            # For "Accepted Invitation", prefer meeting details from invitation_details
+            meeting_date = invitation_details.get('meeting_date') or details.get('meeting_date')
+            meeting_time = invitation_details.get('meeting_time') or details.get('meeting_time')
+            
             formatted_complaints.append({
                 'complaint_id': complaint.complaint_id,
                 'type_of_complaint': complaint.type_of_complaint,
@@ -439,12 +476,16 @@ def get_complaint_data_with_proper_areas(status_filter=None, stage_filter=None, 
                 'priority_level': complaint.priority_level or 'Minor',
                 'status': complaint.status,
                 'complaint_stage': complaint.complaint_stage,
-                'date_received': complaint.date_received.strftime('%Y-%m-%d') if complaint.date_received else '',
+                'date_received': complaint.date_received.isoformat() if complaint.date_received else '',
                 'description': complaint.description or '',
                 'assigned_to': assigned_to,
                 'action_datetime': action_datetime.isoformat() if action_datetime else None,
                 'latest_action': latest_action,
-                'action_needed': latest_action  # For backward compatibility
+                'action_needed': latest_action,  # For backward compatibility
+                # Admin-set deadline information
+                'deadline': details.get('deadline'),
+                'meeting_date': meeting_date,
+                'meeting_time': meeting_time
             })
         
         return formatted_complaints
@@ -456,7 +497,7 @@ def get_complaint_data_with_proper_areas(status_filter=None, stage_filter=None, 
 def get_complaint_data(status_filter=None, stage_filter=None, assigned_filter=None):
     """Get complaint data with proper joins and formatting including complaint_history"""
     try:
-        # Use complainant_name directly from complaints table and get latest complaint_history data
+        # Enhanced query that gets both latest action details AND invitation details for meeting info
         query = """
         SELECT 
             c.complaint_id,
@@ -473,7 +514,9 @@ def get_complaint_data(status_filter=None, stage_filter=None, assigned_filter=No
             COALESCE(a.area_name, 'N/A') as area_name,
             ch_latest.assigned_to,
             ch_latest.action_datetime,
-            ch_latest.type_of_action as latest_action
+            ch_latest.type_of_action as latest_action,
+            ch_latest.details,
+            ch_invitation.details as invitation_details
         FROM complaints c
         LEFT JOIN registration r ON c.registration_id = r.registration_id
         LEFT JOIN areas a ON c.area_id = a.area_id
@@ -483,9 +526,18 @@ def get_complaint_data(status_filter=None, stage_filter=None, assigned_filter=No
                 ch1.assigned_to,
                 ch1.action_datetime,
                 ch1.type_of_action,
+                ch1.details,
                 ROW_NUMBER() OVER (PARTITION BY ch1.complaint_id ORDER BY ch1.action_datetime DESC) as rn
             FROM complaint_history ch1
         ) ch_latest ON c.complaint_id = ch_latest.complaint_id AND ch_latest.rn = 1
+        LEFT JOIN (
+            SELECT 
+                ch2.complaint_id,
+                ch2.details,
+                ROW_NUMBER() OVER (PARTITION BY ch2.complaint_id ORDER BY ch2.action_datetime DESC) as rn
+            FROM complaint_history ch2
+            WHERE ch2.type_of_action = 'Invitation'
+        ) ch_invitation ON c.complaint_id = ch_invitation.complaint_id AND ch_invitation.rn = 1
         """
         
         params = {}
@@ -540,6 +592,32 @@ def get_complaint_data(status_filter=None, stage_filter=None, assigned_filter=No
                 action_datetime = complaint.action_datetime
                 latest_action = complaint.latest_action or 'Pending'
             
+            # Parse details JSON to extract admin-set deadlines and meeting info
+            details = {}
+            if complaint.details:
+                try:
+                    if isinstance(complaint.details, str):
+                        details = json.loads(complaint.details)
+                    else:
+                        details = complaint.details
+                except (json.JSONDecodeError, TypeError):
+                    details = {}
+            
+            # Parse invitation details to get meeting date/time for "Accepted Invitation" cases
+            invitation_details = {}
+            if hasattr(complaint, 'invitation_details') and complaint.invitation_details:
+                try:
+                    if isinstance(complaint.invitation_details, str):
+                        invitation_details = json.loads(complaint.invitation_details)
+                    else:
+                        invitation_details = complaint.invitation_details
+                except (json.JSONDecodeError, TypeError):
+                    invitation_details = {}
+            
+            # For "Accepted Invitation", prefer meeting details from invitation_details
+            meeting_date = invitation_details.get('meeting_date') or details.get('meeting_date')
+            meeting_time = invitation_details.get('meeting_time') or details.get('meeting_time')
+            
         formatted_complaints.append({
             'complaint_id': complaint.complaint_id,
             'type_of_complaint': complaint.type_of_complaint,
@@ -549,12 +627,16 @@ def get_complaint_data(status_filter=None, stage_filter=None, assigned_filter=No
             'priority_level': complaint.priority_level or 'Minor',
             'status': complaint.status,
             'complaint_stage': complaint.complaint_stage,
-            'date_received': complaint.date_received.strftime('%Y-%m-%d') if complaint.date_received else '',
+            'date_received': complaint.date_received.isoformat() if complaint.date_received else '',
             'description': complaint.description or '',
             'assigned_to': assigned_to,
             'action_datetime': action_datetime.isoformat() if action_datetime else None,
             'latest_action': latest_action,
-            'action_needed': latest_action  # For backward compatibility
+            'action_needed': latest_action,  # For backward compatibility
+            # Admin-set deadline information
+            'deadline': details.get('deadline'),
+            'meeting_date': meeting_date,
+            'meeting_time': meeting_time
         })
         
         return formatted_complaints
@@ -787,7 +869,7 @@ def get_unresolved_complaints():
                 'priority_level': complaint.priority_level or 'Minor',
                 'status': complaint.status,
                 'complaint_stage': complaint.complaint_stage,
-                'date_received': complaint.date_received.strftime('%Y-%m-%d') if complaint.date_received else '',
+                'date_received': complaint.date_received.isoformat() if complaint.date_received else '',
                 'description': complaint.description or '',
                 'assigned_to': complaint.assigned_to,
                 'action_datetime': complaint.action_datetime.isoformat() if complaint.action_datetime else None,
@@ -1527,10 +1609,33 @@ def get_staff_assigned_complaints():
     try:
         # Get current staff name from session or use test name for debugging
         staff_name = session.get('name')
+        print(f"[STAFF ASSIGNED] Session staff name: '{staff_name}'")
+        
         if not staff_name:
             # TEMPORARY: Use test staff name for debugging area_name issue
             staff_name = "Test Staff"
             print(f"[DEBUG] Using test staff name for debugging: {staff_name}")
+        
+        # Check what names exist in complaint_history for debugging
+        debug_names_query = """
+        SELECT DISTINCT assigned_to, COUNT(*) as count
+        FROM complaint_history 
+        WHERE assigned_to IS NOT NULL AND assigned_to != ''
+        GROUP BY assigned_to
+        ORDER BY count DESC
+        """
+        debug_names_result = db.session.execute(text(debug_names_query))
+        debug_names = debug_names_result.fetchall()
+        print(f"[DEBUG] Available staff names in database: {[f'{row.assigned_to} ({row.count})' for row in debug_names]}")
+        
+        # Try to find exact or similar match for the staff name
+        if staff_name != "Test Staff":
+            similar_names = [name.assigned_to for name in debug_names if staff_name.lower() in name.assigned_to.lower() or name.assigned_to.lower() in staff_name.lower()]
+            if similar_names:
+                print(f"[DEBUG] Similar names found: {similar_names}")
+                if staff_name not in [name.assigned_to for name in debug_names]:
+                    staff_name = similar_names[0]  # Use the first similar match
+                    print(f"[DEBUG] Using similar name match: {staff_name}")
         
         # Simple test query first - get all complaints with areas for this staff member
         test_query = """
@@ -1634,7 +1739,7 @@ def get_staff_assigned_complaints():
                 'priority_level': complaint.priority_level or 'Minor',
                 'status': complaint.status,
                 'complaint_stage': complaint.complaint_stage,
-                'date_received': complaint.date_received.strftime('%Y-%m-%d') if complaint.date_received else '',
+                'date_received': complaint.date_received.isoformat() if complaint.date_received else '',
                 'assigned_to': complaint.assigned_to,
                 'action_datetime': complaint.action_datetime.isoformat() if complaint.action_datetime else None,
                 'action_needed': complaint.latest_action or 'Pending',
@@ -1768,16 +1873,21 @@ def get_staff_resolved_complaints():
             COALESCE(r.lot_no, 0) as lot_no,
             COALESCE(r.block_no, 0) as block_no,
             COALESCE(a.area_name, 'N/A') as area_name,
-            ch_completed.action_datetime as completion_date,
-            CONCAT(ch_completed.type_of_action, ' completed by ', ch_completed.assigned_to) as resolution_action
-        FROM complaints c
+            ch.action_datetime as completion_date,
+            CASE 
+                WHEN c.complaint_stage = 'Resolved' THEN 
+                    CONCAT(ch.type_of_action, ' completed by ', ch.assigned_to, ' - Now Resolved by Admin')
+                ELSE 
+                    CONCAT(ch.type_of_action, ' completed by ', ch.assigned_to) 
+            END as resolution_action
+        FROM complaint_history ch
+        JOIN complaints c ON ch.complaint_id = c.complaint_id
         LEFT JOIN registration r ON c.registration_id = r.registration_id
         LEFT JOIN areas a ON c.area_id = a.area_id
-        JOIN complaint_history ch_completed ON c.complaint_id = ch_completed.complaint_id
-        WHERE (ch_completed.assigned_to = :staff_name OR ch_completed.assigned_to = 'Staff Member')
-        AND ch_completed.type_of_action IN ('Inspection done', 'Sent Invitation')
+        WHERE ch.assigned_to = :staff_name
+        AND ch.type_of_action IN ('Inspection done', 'Sent Invitation')
         AND c.status = 'Valid'
-        ORDER BY ch_completed.action_datetime DESC
+        ORDER BY ch.action_datetime DESC
         """
         
         result = db.session.execute(text(query), {'staff_name': staff_name})
@@ -1795,6 +1905,9 @@ def get_staff_resolved_complaints():
                     complaint.block_no
                 )
             
+            # For resolved complaints, use the action_datetime for date_resolved
+            action_datetime = complaint.completion_date
+            
             formatted_complaints.append({
                 'complaint_id': complaint.complaint_id,
                 'type_of_complaint': complaint.type_of_complaint,
@@ -1803,9 +1916,11 @@ def get_staff_resolved_complaints():
                 'address': formatted_address,
                 'priority_level': complaint.priority_level or 'Minor',
                 'status': complaint.status,
-                'date_received': complaint.date_received.strftime('%Y-%m-%d') if complaint.date_received else '',
-                'date_resolved': complaint.completion_date.strftime('%Y-%m-%d') if complaint.completion_date else '',
-                'resolution_action': complaint.resolution_action or 'Task Completed'
+                'complaint_stage': complaint.complaint_stage,  # Include complaint_stage for frontend
+                'date_received': complaint.date_received.isoformat() if complaint.date_received else '',
+                'action_datetime': action_datetime.isoformat() if action_datetime else None,  # For date formatting
+                'resolution_action': complaint.resolution_action or 'Task Completed',
+                'action_needed': complaint.resolution_action or 'Task Completed'  # For backward compatibility
             })
         
         return jsonify({'success': True, 'complaints': formatted_complaints})
@@ -1964,7 +2079,7 @@ def get_complaint_details(complaint_id):
             'complaint_id': complaint.complaint_id,
             'complainant_name': complaint.complainant_name,
             'type_of_complaint': complaint.type_of_complaint,
-            'date_received': complaint.date_received.strftime('%Y-%m-%d') if complaint.date_received else '',
+            'date_received': complaint.date_received.isoformat() if complaint.date_received else '',
             'status': complaint.status,
             'complaint_stage': complaint.complaint_stage,
             'area_id': complaint.area_id,

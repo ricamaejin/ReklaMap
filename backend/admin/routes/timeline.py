@@ -10,9 +10,11 @@ def generate_action_description(action_type, assigned_to, role='admin'):
         'Submitted': 'Submitted a Valid Complaint (default status after complaint submitted)',
         'Inspection': f'Site inspection assigned to {assigned_to}' if assigned_to else 'Inspection task assigned to staff',
         'Inspection done': f'Site inspection completed by {assigned_to}' if assigned_to else 'Site inspection completed by staff',
-        'Send Invitation': f'Send Invitation task assigned to {assigned_to}' if assigned_to else 'Send Invitation task assigned to staff', 
+        'Invitation': f'Send Invitation task assigned to {assigned_to}' if assigned_to else 'Send Invitation task assigned to staff', 
         'Sent Invitation': f'Invitation sent by {assigned_to}' if assigned_to else 'Invitation sent to involved parties by staff',
-        'Task Completed': 'Task completed by staff and passed back to admin',
+        'Accepted Invitation': f'Invitation sent by both parties (ready for mediation)' if assigned_to else 'Invitation sent to involved parties by staff',
+        'Mediation': 'Mediation has been concluded (proceed to assessment)',
+        'Assessment': f'Assessment completed by {assigned_to} (ready to mark as resolved)',
         'Resolved': 'Complaint resolved and moved to resolved view'
     }
     
@@ -31,7 +33,7 @@ def generate_action_description(action_type, assigned_to, role='admin'):
     complainant_descriptions = {
         'Submitted': 'Submitted a valid complaint',
         'Inspection done': 'Site inspection completed',
-        'Sent Invitation': 'Invitation sent to involved parties',
+        'Invitation': 'Invitation sent to involved parties',
         'Assessment': 'Assessment completed',
         'Resolved': 'Complaint has been resolved'
     }
