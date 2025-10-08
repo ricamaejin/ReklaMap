@@ -25,173 +25,196 @@
   <!-- Main Form -->
   <div class="main">
     <div class="form-container">
-      <h1 style="text-decoration: underline;">COMPLAINT FORM <br> PATHWAY DISPUTE</h1>
-      <div class="instructions">
-        <p><strong>INSTRUCTION</strong></p>
-        <ul>
-          <li>Complete the application form properly and legibly.</li>
-          <li>For checkbox items (☑), you may select more than one option if applicable.</li>
-          <li>For radio button items (◉), please select only one option.</li>
-          <li>If a field or question does not apply to you or you do not know the answer, write “N/A” (Not Applicable).</li>
-          <li>Ensure all required fields are filled before submitting the form.</li>
-        </ul>
-      </div>
-
-      <div class="section-header">COMPLAINANT'S DETAILS:</div>
-        <div class="pairs">
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Full Name:</label>
-              <input type="text" name="full_name" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Date of Birth:</label>
-              <input type="date" name="date_of_birth" readonly 
-              style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
-            </div>
-
-            <div class="col">
-              <label class="small">Sex:</label>
-              <input type="text" name="sex" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Civil Status:</label>
-              <input type="text" name="civil_stat" readonly>
-            </div>
-            <div class="col">
-              <label class="small">Citizenship:</label>
-              <input type="text" name="citizenship" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Current Address:</label>
-              <input type="text" name="cur_add" readonly>
-            </div>
-
-            <div class="col">
-              <label class="small">HOA:</label>
-              <input type="text" name="hoa" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Block Assignment Number:</label>
-              <input type="text" name="blk_num" readonly>
-            </div>
-
-            <div class="col">
-              <label class="small">Lot Assignment Number:</label>
-              <input type="text" name="lot_num" readonly>
-            </div>
-
-            <div class="col">
-              <label class="small">Lot Area Size:</label>
-              <input type="text" name="lot_size" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Phone Number:</label>
-              <input type="text" name="phone_number" readonly>
-            </div>
-
-            <div class="col"></div>
-          </div>
+      <form id="BoundaryDisputeForm">
+        <h1 style="text-decoration: underline;">COMPLAINT FORM <br> PATHWAY DISPUTE</h1>
+        <div class="instructions">
+          <p><strong>INSTRUCTION</strong></p>
+          <ul>
+            <li>Complete the application form properly and legibly.</li>
+            <li>For checkbox items (☑), you may select more than one option if applicable.</li>
+            <li>For radio button items (◉), please select only one option.</li>
+            <li>If a field or question does not apply to you or you do not know the answer, write “N/A” (Not Applicable).</li>
+            <li>Ensure all required fields are filled before submitting the form.</li>
+          </ul>
         </div>
 
-      <!-- Section 1 -->
-      <div class="section-header">LOT DETAILS AND CLAIM:</div>
-      <p>1. What type of pathway is being encroached upon?</p>
-      <label><input type="radio" name="possession"> Public sidewalk (pedestrian path)</label>
-      <label><input type="radio" name="possession"> Common path/alley used by residents</label>
-      <label><input type="radio" name="possession"> Barangay access road or eskinita</label>
-      <label><input type="radio" name="possession"> Government-declared easement or right-of-way</label>
-      <label><input type="radio" name="possession" style="margin-bottom: 12px;"> Path used for access to utilities (water lines, drainage, etc.)</label>
+        <div class="section-header">COMPLAINANT'S DETAILS:</div>
+          <div class="pairs">
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Full Name:</label>
+                <input type="text" name="full_name" readonly>
+              </div>
+            </div>
+
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Date of Birth:</label>
+                <input type="date" name="date_of_birth" readonly 
+                style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
+              </div>
+
+              <div class="col">
+                <label class="small">Sex:</label>
+                <input type="text" name="sex" readonly>
+              </div>
+            </div>
+
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Civil Status:</label>
+                <input type="text" name="civil_stat" readonly>
+              </div>
+              <div class="col">
+                <label class="small">Citizenship:</label>
+                <input type="text" name="citizenship" readonly>
+              </div>
+            </div>
+
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Current Address:</label>
+                <input type="text" name="cur_add" readonly>
+              </div>
+
+              <div class="col">
+                <label class="small">HOA:</label>
+                <input type="text" name="hoa" readonly>
+              </div>
+            </div>
+
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Block Assignment Number:</label>
+                <input type="text" name="blk_num" readonly>
+              </div>
+
+              <div class="col">
+                <label class="small">Lot Assignment Number:</label>
+                <input type="text" name="lot_num" readonly>
+              </div>
+
+              <div class="col">
+                <label class="small">Lot Area Size:</label>
+                <input type="text" name="lot_size" readonly>
+              </div>
+            </div>
+
+            <div class="pair-row">
+              <div class="col">
+                <label class="small">Phone Number:</label>
+                <input type="text" name="phone_number" readonly>
+              </div>
+
+              <div class="col"></div>
+            </div>
+          </div>
+
+        <!-- Section 1 -->
+        <div class="section-header">LOT DETAILS AND CLAIM:</div>
+        <p style="font-weight: bold;">1. What type of pathway is being encroached upon?</p>
+        <label><input type="radio" name="possession"> Public sidewalk (pedestrian path)</label>
+        <label><input type="radio" name="possession"> Common path/alley used by residents</label>
+        <label><input type="radio" name="possession"> Barangay access road or eskinita</label>
+        <label><input type="radio" name="possession"> Government-declared easement or right-of-way</label>
+        <label><input type="radio" name="possession" style="margin-bottom: 12px;"> Path used for access to utilities (water lines, drainage, etc.)</label>
 
 
-      <p>2. What is the nature of the encroachment?</p>
-      <label><input type="radio" name="conflict"> A permanent structure (e.g., house extension, wall) was built on the path</label>
-      <label><input type="radio" name="conflict"> A fence or gate blocks pedestrian access</label>
-      <label><input type="radio" name="conflict"> A store or business has occupied the pathway</label>
-      <label><input type="radio" name="conflict"> Temporary materials (e.g., chairs, tables, stalls) regularly block the path</label>
-      <label><input type="radio" name="conflict"> Vehicle/s parked long-term on the path or right-of-way</label>
-      <label><input type="radio" name="conflict" style="margin-bottom: 12px;"> Construction debris or materials are placed on the path</label>
+        <p style="font-weight: bold;">2. What is the nature of the encroachment?</p>
+        <label><input type="radio" name="conflict"> A permanent structure (e.g., house extension, wall) was built on the path</label>
+        <label><input type="radio" name="conflict"> A fence or gate blocks pedestrian access</label>
+        <label><input type="radio" name="conflict"> A store or business has occupied the pathway</label>
+        <label><input type="radio" name="conflict"> Temporary materials (e.g., chairs, tables, stalls) regularly block the path</label>
+        <label><input type="radio" name="conflict"> Vehicle/s parked long-term on the path or right-of-way</label>
+        <label><input type="radio" name="conflict" style="margin-bottom: 12px;"> Construction debris or materials are placed on the path</label>
 
-      <p>3. How long has the pathway been obstructed or encroached?</p>
-      <label><input type="radio" name="conflict"> Less than 1 month</label>
-      <label><input type="radio" name="conflict"> 1-6 months</label>
-      <label><input type="radio" name="conflict"> More than 6 months</label>
-      <label><input type="radio" name="conflict" style="margin-bottom: 12px;"> Unknown</label>
+        <p style="font-weight: bold;">3. How long has the pathway been obstructed or encroached?</p>
+        <label><input type="radio" name="conflict"> Less than 1 month</label>
+        <label><input type="radio" name="conflict"> 1-6 months</label>
+        <label><input type="radio" name="conflict"> More than 6 months</label>
+        <label><input type="radio" name="conflict" style="margin-bottom: 12px;"> Not sure</label>
 
-      <p>4. Is the obstruction still present at the time of filing this complaint?</p>
-      <label><input type="radio" name="reason"> Yes – fully blocked</label>
-      <label><input type="radio" name="reason"> Yes – partially blocked</label>
-      <label><input type="radio" name="reason" style="margin-bottom: 12px;"> No – it was removed but may return</label>
+        <p style="font-weight: bold;">4. Is the obstruction still present at the time of filing this complaint?</p>
+        <label><input type="radio" name="reason"> Yes – fully blocked</label>
+        <label><input type="radio" name="reason"> Yes – partially blocked</label>
+        <label><input type="radio" name="reason"> No – it was removed but may return</label>
+        <label><input type="radio" name="reason" style="margin-bottom: 12px;"> Not sure</label>
 
-      <p>5. How has this encroachment affected your access or mobility? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
-      <label><input type="checkbox"> I can no longer pass through the area</label>
-      <label><input type="checkbox"> The path has become unsafe or too narrow</label>
-      <label><input type="checkbox"> Children, elderly, or PWDs cannot safely use the path</label>
-      <label><input type="checkbox"> The obstruction forces people to walk on the road</label>
-      <label><input type="checkbox" style="margin-bottom: 12px;"> Emergency vehicles or services are affected</label>
+        <p style="font-weight: bold;">5. How has this encroachment affected your access or mobility? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+        <label><input type="checkbox"> I can no longer pass through the area</label>
+        <label><input type="checkbox"> The path has become unsafe or too narrow</label>
+        <label><input type="checkbox"> Children, elderly, or PWDs cannot safely use the path</label>
+        <label><input type="checkbox"> The obstruction forces people to walk on the road</label>
+        <label><input type="checkbox" style="margin-bottom: 12px;"> Emergency vehicles or services are affected</label>
 
-      <p>6. Have other residents or the barangay raised similar concerns?</p>
-      <label><input type="radio" name="reason"> Yes</label>
-      <label><input type="radio" name="reason"> No</label>
-      <label><input type="radio" name="reason" style="margin-bottom: 12px;"> No</label>
+        <p style="font-weight: bold;">6. Have other residents or the barangay raised similar concerns?</p>
+        <label><input type="radio" name="reason"> Yes</label>
+        <label><input type="radio" name="reason"> No</label>
+        <label><input type="radio" name="reason" style="margin-bottom: 12px;"> Not sure</label>
 
-      <p>7. Has the encroaching party been informed or warned by anyone?</p>
-      <label><input type="radio" name="conflict"> Yes – by me</label>
-      <label><input type="radio" name="conflict"> Yes – by barangay officials</label>
-      <label><input type="radio" name="conflict"> Not sure</label>
-      <label><input type="radio" name="conflict" style="margin-bottom: 12px;"> No</label>
+        <p style="font-weight: bold;">7. Has the encroaching party been informed or warned by anyone?</p>
+        <label><input type="radio" name="conflict"> Yes – by me</label>
+        <label><input type="radio" name="conflict"> Yes – by barangay officials</label>
+        <label><input type="radio" name="conflict"> No</label>
+        <label><input type="radio" name="conflict" style="margin-bottom: 12px;"> Not sure</label>
 
-      <p>8. Has the dispute led to any of the following? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
-      <label><input type="checkbox"> Threats or harassment</label>
-      <label><input type="checkbox"> Physical altercation</label>
-      <label><input type="checkbox"> Demolition or forced entry</label>
-      <label><input type="checkbox"> Property damage</label>
-      <label><input type="checkbox" style="margin-bottom: 12px;"> None</label>
+        <p style="font-weight: bold;">8. Has the dispute led to any of the following? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+        <label><input type="checkbox"> Threats or harassment</label>
+        <label><input type="checkbox"> Physical altercation</label>
+        <label><input type="checkbox"> Demolition or forced entry</label>
+        <label><input type="checkbox"> Property damage</label>
+        <label><input type="checkbox" style="margin-bottom: 12px;"> None</label>
 
-      <p>9.Have you reported this encroachment to the department before?</p>
-      <label><input type="radio" name="reason" value="yes" id="reasonYes"> Yes</label>
-      <div id="reasonDetails" style="display: none; margin-left: 22px;">
-        <p>Date Reported</p>
-        <input id="reasonDateInput" type="date" style="width: 20%; padding: 8px; margin-top: 6px; margin-left: 18px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;"/>
-      </div>
-      <label><input type="radio" name="reason" value="no"> No</label>
+        <p style="font-weight: bold;">9.Have you reported this encroachment to the department before?</p>
+        <label><input type="radio" name="reason" value="yes" id="reasonYes"> Yes</label>
+        <div id="reasonDetails" style="display: none; margin-left: 22px;">
+          <p>Date Reported</p>
+          <input id="reasonDateInput" type="date" style="width: 20%; padding: 8px; margin-top: 6px; margin-left: 18px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;"/>
+        </div>
+        <label><input type="radio" name="reason" value="no"> No</label>
 
-      <p>10. Is there an ongoing development or government housing project in the area?</p>
-      <label><input type="radio" name="reason"> Yes</label>
-      <label><input type="radio" name="reason"> No</label>
-      <label><input type="radio" name="reason" style="margin-bottom: 12px;"> Not sure</label>
+        <label><strong>10. Have you reported this boundary issue to any office or authority?</strong></label>
+        <label><input type="checkbox" name="boundary_reported_to[]" value="Barangay"> Barangay</label>
+        <label><input type="checkbox" name="boundary_reported_to[]" value="HOA"> HOA</label>
+        <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> NGC</label>
+        <label><input type="checkbox" name="boundary_reported_to[]" value="None"> None</label>
+
+        <label><strong>11. Was there any site inspection or verification conducted?</strong></label>
+        <label><input type="radio" name="site_inspection" value="Yes - Barangay" required> Yes – by Barangay</label>
+        <label><input type="radio" name="site_inspection" value="Yes - HOA"> Yes – by HOA</label>
+        <label><input type="radio" name="site_inspection" value="Yes - NGC"> Yes – by NGC</label>
+        <label><input type="radio" name="site_inspection" value="No"> No</label>
+        <label><input type="radio" name="site_inspection" value="Not sure"> Not sure</label>
+
+        <label><strong>12. What was the result of the report or inspection?</strong></label>
+        <label><input type="checkbox" name="site_result[]" value="Advised to adjust or vacate"> The other party was advised to adjust or vacate</label>
+        <label><input type="checkbox" name="site_result[]" value="Asked to provide more documents"> I was advised to provide more documents</label>
+        <label><input type="checkbox" name="site_result[]" value="Still under investigation"> The issue is still under investigation</label>
+        <label><input type="checkbox" name="site_result[]" value="No action taken"> No action was taken</label>
+        <label><input type="checkbox" name="site_result[]" value="Not applicable"> Not applicable / No inspection yet</label>
+
+        <p>13. Is there an ongoing development or government housing project in the area?</p>
+        <label><input type="radio" name="reason"> Yes</label>
+        <label><input type="radio" name="reason"> No</label>
+        <label><input type="radio" name="reason" style="margin-bottom: 12px;"> Not sure</label>
 
 
-      <!-- Section 2 -->
-      <p style="font-weight: bold;">Please describe what happened briefly, including how you found out about the issue.</p>
-      <textarea></textarea>
+        <!-- Section 2 -->
+        <p style="font-weight: bold;">Please describe what happened briefly, including how you found out about the issue.</p>
+        <textarea></textarea>
 
-      <!-- Section 3 -->
-      <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
-      <div class="consent">
-        By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
-      </div>
+        <!-- Section 3 -->
+        <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
+        <div class="consent">
+          By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
+        </div>
 
-      <div class="signature">
-        <input type="file" id="signatureInput" accept="image/*" style="display:none;" />
-        <button type="button" class="upload-btn" onclick="document.getElementById('signatureInput').click()">Upload Signature</button>
-        <span id="signatureFileName" style="margin-left:10px;  font-style:italic;"></span>
-      </div>
+        <div class="signature">
+          <input type="file" id="signatureInput" accept="image/*" style="display:none;" />
+          <button type="button" class="upload-btn" onclick="document.getElementById('signatureInput').click()">Upload Signature</button>
+          <span id="signatureFileName" style="margin-left:10px;  font-style:italic;"></span>
+        </div>
+      </form>
     </div>
   </div>
 

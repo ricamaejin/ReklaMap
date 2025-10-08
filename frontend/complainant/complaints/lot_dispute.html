@@ -9,7 +9,7 @@
 </head>
 <body>
 
-  <!-- Error Popup (same as overlapping) -->
+  <!-- Error Popup -->
   <div id="errorPop" 
     style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);z-index:999;background:#e3f2fd;color:#083048;width:max-content;padding:16px 28px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.12);font-weight:500;min-width:220px;max-width:340px;transition:opacity .2s;">
     <span id="errorPopMsg"></span>
@@ -39,7 +39,7 @@
           <li>Complete the application form properly and legibly.</li>
           <li>For checkbox items (☑), you may select more than one option if applicable.</li>
           <li>For radio button items (◉), please select only one option.</li>
-          <li>If a field or question does not apply to you or you do not know the answer, write “N/A” (Not Applicable).</li>
+          <li>If a field or question does not apply to you or you do not know the answer, write “N/A”.</li>
           <li>Ensure all required fields are filled before submitting the form.</li>
         </ul>
       </div>
@@ -49,72 +49,78 @@
 
       <!-- Section 1 -->
       <div class="section-header">LOT DETAILS AND CLAIM:</div>
-      <p>1. How did you come into possession of the lot?</p>
-      <label><input type="radio" name="possession" value="Official assignment by NGCHDP/NHA"> I was officially assigned the lot by NGCHDP/NHA</label>
-      <label><input type="radio" name="possession" value="Passed on by a family member"> The lot was passed on to me by a family member</label>
-      <label><input type="radio" name="possession" value="Purchased from another occupant"> I purchased the lot from another occupant</label>
-      <label><input type="radio" name="possession" value="Living since project started"> I have been living here since the NCC project started</label>
-      <label><input type="radio" name="possession" value="Relocated after demolition/displacement"> I relocated here after demolition/displacement elsewhere</label>
-      <label><input type="radio" name="possession" value="Verbal promise by former officer/neighbor"> I was verbally promised the lot by a former officer or neighbor</label>
-      <label><input type="radio" name="possession" value="Other" id="possessionOther"> Other</label>
-      <input type="text" id="possessionOtherText" placeholder="Please specify" class="hidden">
+      <p style="font-weight: bold;">1. How did you come into possession of the lot?</p>
+      <label><input type="checkbox" name="possession" value="Assigned by NGCHDP/NHA" required> I was officially assigned the lot by NGCHDP/NHA</label>
+      <label><input type="checkbox" name="possession" value="Passed by family member"> The lot was passed on to me by a family member</label>
+      <label><input type="checkbox" name="possession" value="Purchased from occupant"> I purchased the lot from another occupant</label>
+      <label><input type="checkbox" name="possession" value="Living since NCC project"> I have been living here since the NCC project started</label>
+      <label><input type="checkbox" name="possession" value="Relocated after demolition"> I relocated here after demolition/displacement elsewhere</label>
+      <label><input type="checkbox" name="possession" value="Verbal promise"> I was verbally promised the lot by a former officer or neighbor</label>
+      <label><input type="checkbox" name="possession" value="Not sure" style="margin-bottom: 12px;"> I am not sure / I do not have any official assignment</label>
 
-
-      <p>2. What is the nature of the ownership conflict?</p>
-      <label><input type="radio" name="conflict" value="Contract duplication for same lot"> Someone else has a contract for the same lot</label>
-      <label><input type="radio" name="conflict" value="Another is claiming my assigned lot"> Someone else is claiming my assigned lot</label>
-      <label><input type="radio" name="conflict" value="Assigned a different lot than told"> I was assigned a different lot than what I was told</label>
-      <label><input type="radio" name="conflict" value="Lot not reflected in masterlist"> My lot is not reflected in the masterlist</label>
-      <label><input type="radio" name="conflict" value="Name removed or replaced in beneficiary list"> My name was removed or replaced in the beneficiary list</label>
-      <label><input type="radio" name="conflict" value="Lot illegally sold or reassigned"> Lot was illegally sold or reassigned to someone else</label>
-      <label><input type="radio" name="conflict" value="Family member/relative claiming the lot I occupy"> A family member/relative is claiming the lot I currently occupy</label>
-      <label><input type="radio" name="conflict" value="Assigned lot details incorrect in records"> My assigned lot details (e.g., lot no., area) are incorrect in the records</label>
-
-      <p>3. When did the dispute start?</p>
+      <p style="font-weight: bold;">2. What is the nature of the ownership conflict?</p>
+      <label><input type="checkbox" name="nature" value="Someone else has a contract"> Someone else has a contract for the same lot</label>
+      <label><input type="checkbox" name="nature" value="Someone else claiming lot"> Someone else is claiming my assigned lot</label>
+      <label><input type="checkbox" name="nature" value="Assigned different lot"> I was assigned a different lot than what I was told</label>
+      <label><input type="checkbox" name="nature" value="Lot not reflected in masterlist"> My lot is not reflected in the masterlist</label>
+      <label><input type="checkbox" name="nature" value="Name removed from list"> My name was removed or replaced in the beneficiary list</label>
+      <label><input type="checkbox" name="nature" value="Lot illegally sold"> The lot was illegally sold or reassigned to someone else</label>
+      <label><input type="checkbox" name="nature" value="Family member claiming"> A family member/relative is claiming the lot I currently occupy</label>
+      <label><input type="checkbox" name="nature" value="Lot details incorrect"> My assigned lot details (e.g., lot no., area) are incorrect in the records</label>
+      <label><input type="checkbox" name="nature" value="Not sure" style="margin-bottom: 12px;"> I am not sure what caused the dispute</label>
+      
+      <p style="font-weight: bold;">3. When did the dispute start?</p>
       <input name="dispute_start_date" type="date" title="Dispute start date">
 
-      <p>4. What led you to raise this complaint?</p>
-      <label><input type="radio" name="reason" value="Asked to vacate the lot I occupy"> I was asked to vacate the lot I’ve been occupying</label>
-      <label><input type="radio" name="reason" value="Denied access to lot I believe was assigned"> I was denied access to a lot I believe was assigned to me</label>
-      <label><input type="radio" name="reason" value="Notice received that someone else is rightful owner"> I received notice that someone else is the rightful owner</label>
-      <label><input type="radio" name="reason" value="Attempted to build and was stopped"> I attempted to build on the lot and was stopped</label>
-      <label><input type="radio" name="reason" value="Another person listed in official records for my lot"> I discovered another person listed in official records for my lot</label>
-      <label><input type="radio" name="reason" value="Other" id="reasonOther"> Other</label>
-      <input type="text" id="reasonOtherText" placeholder="Please specify" class="hidden">
+      <p style="font-weight: bold;">4. What led you to raise this complaint?</p>
+      <label><input type="checkbox" name="reason" value="Asked to vacate"> I was asked to vacate the lot I’ve been occupying</label>
+      <label><input type="checkbox" name="reason" value="Denied access"> I was denied access to a lot I believe was assigned to me</label>
+      <label><input type="checkbox" name="reason" value="Received notice"> I received notice that someone else is the rightful owner</label>
+      <label><input type="checkbox" name="reason" value="Stopped from building"> I attempted to build on the lot and was stopped</label>
+      <label><input type="checkbox" name="reason" value="Discovered duplicate record"> I discovered another person listed in official records for my lot</label>
+      <label><input type="checkbox" name="reason" value="Clarification only" style="margin-bottom: 12px;"> I just want clarification about my assigned lot (no direct conflict yet)</label>
 
-      <p>5. Have you reported this to any authority? <i class="hint">(Check all that apply)</i></p>
+      <p style="font-weight: bold;">5. Have you reported this to any authority? <i class="hint">(Check all that apply)</i></p>
       <label><input type="checkbox" class="reported_to" value="Barangay"> Barangay</label>
       <label><input type="checkbox" class="reported_to" value="HOA"> HOA</label>
       <label><input type="checkbox" class="reported_to" value="NGC"> NGC</label>
-      <label><input type="checkbox" class="reported_to" value="None"> None</label>
+      <label><input type="checkbox" class="reported_to" value="None" style="margin-bottom: 12px;"> None</label>
 
-      <p>6. What was the result of that report?</p>
-      <label><input type="radio" name="result" value="Other party asked to vacate"> The other party was asked to vacate</label>
-      <label><input type="radio" name="result" value="Agency asked for more documentation"> The agency asked for more documentation</label>
-      <label><input type="radio" name="result" value="No action taken"> No action was taken</label>
-      <label><input type="radio" name="result" value="Still under investigation"> Still under investigation</label>
-      <label><input type="radio" name="result" value="Told I have no valid claim"> I was told I have no valid claim</label>
-      <label><input type="radio" name="result" value="Other" id="resultOther"> Other</label>
-      <input type="text" id="resultOtherText" placeholder="Please specify" class="hidden">
-
+      <p style="font-weight: bold;">6. What was the result of that report?</p>
+      <label><input type="checkbox" name="result" value="Other party vacate" required> The other party was asked to vacate</label>
+      <label><input type="checkbox" name="result" value="Asked for documentation"> The agency asked for more documentation</label>
+      <label><input type="checkbox" name="result" value="No action taken"> No action was taken</label>
+      <label><input type="checkbox" name="result" value="Under investigation"> The issue is still under investigation</label>
+      <label><input type="checkbox" name="result" value="No valid claim"> I was told I have no valid claim</label>
+      <label><input type="checkbox" name="result" value="No report made" style="margin-bottom: 12px;"> I did not make any report</label>
 
       <!-- Section 2 -->
-      <div class="section-header">PERSONS INVOLVED (IF ANY)</div>
-      <p>1. Name of opposing claimant?</p>
-      <input type="text" name="opposing_name" placeholder="Enter name (if known)">
-      <p>2. Relationship with person involved?</p>
+      <div class="section-header">PERSONS INVOLVED DETAILS</div>
+      <p style="font-weight: bold;">1. Name of opposing claimant?</p>
+      <input type="text" name="opposing_name" placeholder="Enter name">
+      <p style="font-weight: bold;">2. Relationship with person involved?</p>
       <input type="text" name="relationship_with_person" placeholder="Relationship to the individual (if applicable)">
-      <p>3. Do they reside on the disputed lot?</p>
+      <p style="font-weight: bold;">3. Do they reside on the disputed lot?</p>
       <label><input type="radio" name="reside" value="Yes"> Yes</label>
       <label><input type="radio" name="reside" value="No"> No</label>
       <label><input type="radio" name="reside" value="Not Sure"> Not sure</label>
-      <p>4. Do they claim to have legal documents?</p>
-      <label><input type="radio" name="legal_docs" value="Yes"> Yes</label>
-      <label><input type="radio" name="legal_docs" value="No"> No</label>
-      <label><input type="radio" name="legal_docs" value="Not Sure"> Not sure</label>
+      <p style="font-weight: bold;">4. Do they claim to have legal documents?</p>
+      <div class="options-group" id="claimDocs">
+      <label><input type="radio" name="claimDocs" value="Yes"> Yes</label>
+        <div id="docOptions" style="display:none; margin-left: 35px;">
+          <p style="margin-left: 5px; font-weight: bold;">What documents do they have?</p>
+          <label><input type="checkbox" name="docs" value="Certificate of Lot Award (CLA)"> Certificate of Lot Award (CLA)</label>
+          <label><input type="checkbox" name="docs" value="Notice of Award"> Notice of Award</label>
+          <label><input type="checkbox" name="docs" value="Deed of Assignment / Transfer"> Deed of Assignment / Transfer</label>
+          <label><input type="checkbox" name="docs" value="Certification from NGC/NHA/Barangay"> Certification from NGC/NHA/Barangay</label>
+          <label><input type="checkbox" name="docs" value="Other supporting paper"> Other supporting paper (e.g., tax receipt, ID copy, etc.)</label>
+        </div>
+      <label><input type="radio" name="claimDocs" value="No"> No</label>
+      <label><input type="radio" name="claimDocs" value="Not sure"> Not sure</label>
+    </div>
 
       <p class="section-label">Please describe what happened briefly, including how you found out about the issue.</p>
-  <textarea id="description" name="description" placeholder="" title="Please describe what happened briefly, including how you found out about the issue."></textarea>
+      <textarea id="description" name="description" title="Please describe what happened briefly, including how you found out about the issue."></textarea>
 
       <!-- Section 3 -->
       <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
@@ -134,29 +140,7 @@
 
 
 <script>
-  function setupOtherRadio(radioId, textId, groupName) {
-    const otherRadio = document.getElementById(radioId);
-    const otherText = document.getElementById(textId);
-    const radios = document.querySelectorAll(`input[name="${groupName}"]`);
-
-    radios.forEach(radio => {
-      radio.addEventListener('change', function () {
-        if (otherRadio.checked) {
-          otherText.style.display = 'inline-block';
-        } else {
-          otherText.style.display = 'none';
-          otherText.value = '';
-        }
-      });
-    });
-  }
-
-  // Apply to all "Other" groups
-  setupOtherRadio("possessionOther", "possessionOtherText", "possession");
-  setupOtherRadio("reasonOther", "reasonOtherText", "reason");
-  setupOtherRadio("resultOther", "resultOtherText", "result");
-
-  // Populate complainant details (category-specific) with full fields and HOA Member Information
+  // Populate complainant details (same logic)
   document.addEventListener('DOMContentLoaded', async () => {
     try {
       const res = await fetch('/complainant/lot_dispute/get_lot_session_data');
@@ -166,66 +150,49 @@
 
       const pairs = document.createElement('div');
       pairs.className = 'pairs';
-      // Optional secondary wrapper (outside the first pairs) like overlapping.html
       let memberWrapper = null;
 
       function row1(label, value, type = 'text') {
         const r = document.createElement('div');
         r.className = 'pair-row';
-        r.innerHTML = `
-          <div class="col"><label class="small">${label}</label><input type="${type}" value="${value || ''}" readonly title="${label}"></div>
-        `;
+        r.innerHTML = `<div class="col"><label class="small">${label}</label><input type="${type}" value="${value || ''}" readonly title="${label}"></div>`;
         return r;
       }
       function row2(l1, v1, l2, v2, t1='text', t2='text') {
         const r = document.createElement('div');
         r.className = 'pair-row';
         r.innerHTML = `
-          <div class="col"><label class="small">${l1}</label><input type="${t1}" value="${v1 || ''}" readonly title="${l1}"></div>
-          <div class="col"><label class="small">${l2}</label><input type="${t2}" value="${v2 || ''}" readonly title="${l2}"></div>
-        `;
+          <div class="col"><label class="small">${l1}</label><input type="${t1}" value="${v1 || ''}" readonly></div>
+          <div class="col"><label class="small">${l2}</label><input type="${t2}" value="${v2 || ''}" readonly></div>`;
         return r;
       }
       function row3(l1, v1, l2, v2, l3, v3) {
         const r = document.createElement('div');
         r.className = 'pair-row';
         r.innerHTML = `
-          <div class="col"><label class="small">${l1}</label><input type="text" value="${v1 || ''}" readonly title="${l1}"></div>
-          <div class="col"><label class="small">${l2}</label><input type="text" value="${v2 || ''}" readonly title="${l2}"></div>
-          <div class="col"><label class="small">${l3}</label><input type="text" value="${v3 || ''}" readonly title="${l3}"></div>
-        `;
+          <div class="col"><label class="small">${l1}</label><input type="text" value="${v1 || ''}" readonly></div>
+          <div class="col"><label class="small">${l2}</label><input type="text" value="${v2 || ''}" readonly></div>
+          <div class="col"><label class="small">${l3}</label><input type="text" value="${v3 || ''}" readonly></div>`;
         return r;
       }
 
-      // Common complainant info
       pairs.appendChild(row1('Full Name:', d.full_name));
       pairs.appendChild(row2('Date of Birth:', d.date_of_birth, 'Sex:', d.sex, 'date', 'text'));
       pairs.appendChild(row2('Citizenship:', d.citizenship, 'Age:', d.age));
       pairs.appendChild(row2('Phone Number:', d.phone_number, 'Year of Residence:', d.year_of_residence));
 
-      // Category-specific additions and address placement
       if (d.category === 'family_of_member') {
-        // Place Relationship and Current Address side-by-side in a single row
         pairs.appendChild(row2('Relationship:', d.relationship || '', 'Current Address:', d.cur_add));
       } else if (d.category === 'non_member') {
-        // For non_member, show Civil Status and Recipient here
         pairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
-        // Current Address as its own row
         pairs.appendChild(row1('Current Address:', d.cur_add));
-        // Show Area (HOA) from registration (read-only); selection comes next
-        pairs.appendChild(row1('Area (HOA):', d.hoa || ''));        
+        pairs.appendChild(row1('Area (HOA):', d.hoa || ''));
       } else {
-        // Default: Current Address as its own row
         pairs.appendChild(row1('Current Address:', d.cur_add));
       }
 
-      // For non_member, no Area selection dropdown; Area (HOA) is shown read-only above.
-
-      // HOA details for hoa_member and family_of_member
       if (d.category === 'hoa_member' || d.category === 'family_of_member') {
-  if (d.category === 'family_of_member') {
-          // For family_of_member, mirror overlapping.html style:
-          // Add a blue header outside and a separate light-blue box (pairs) for HOA member info
+        if (d.category === 'family_of_member') {
           if (d.parent_info) {
             const wrapper = document.createElement('div');
             wrapper.style.marginTop = '20px';
@@ -242,19 +209,14 @@
             memberPairs.appendChild(row2('Sex:', p.sex, 'Citizenship:', p.citizenship));
             memberPairs.appendChild(row2('Age:', p.age, 'Phone Number:', p.phone_number));
             memberPairs.appendChild(row1('Year of Residence:', p.year_of_residence));
-            // HOA assignment details under the member info box
-            // HOA as single row, then Block/Lot/Lot Size in one row
             memberPairs.appendChild(row1('HOA:', d.hoa || ''));
             memberPairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
-            // Civil Status and Recipient at the end
             memberPairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
 
             wrapper.appendChild(memberPairs);
-            memberWrapper = wrapper; // append later after we place the main pairs block
+            memberWrapper = wrapper;
           }
         } else {
-          // hoa_member: keep HOA assignment details within the main box, with end fields
-          // HOA as single row, then Block/Lot/Lot Size grouped
           pairs.appendChild(row1('HOA:', d.hoa || ''));
           pairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
           pairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
@@ -263,15 +225,13 @@
 
       container.innerHTML = '';
       container.appendChild(pairs);
-      if (memberWrapper) {
-        container.appendChild(memberWrapper);
-      }
+      if (memberWrapper) container.appendChild(memberWrapper);
     } catch (e) {
       console.warn('Failed to populate lot dispute header:', e);
     }
   });
 
-  // Error pop-up (same helper as overlapping)
+  // Error pop-up
   function showErrorPop(msg) {
     const pop = document.getElementById('errorPop');
     const popMsg = document.getElementById('errorPopMsg');
@@ -285,7 +245,7 @@
     }, 1000);
   }
 
-  // Submit Lot Dispute (match overlapping flow: form submit, no alerts)
+  // Submit handler (cleaned)
   (function(){
     const form = document.getElementById('lotDisputeForm');
     const sigInput = document.getElementById('signatureInput');
@@ -313,47 +273,18 @@
         return el ? el.value : '';
       };
 
-      // Handle "Other" augmentations
-      let possession = getRadio('possession');
-      if (possession === 'Other') {
-        const t = document.getElementById('possessionOtherText').value.trim();
-        possession = t ? `Other: ${t}` : 'Other';
-      }
-      let reason = getRadio('reason');
-      if (reason === 'Other') {
-        const t = document.getElementById('reasonOtherText').value.trim();
-        reason = t ? `Other: ${t}` : 'Other';
-      }
-      let resultVal = getRadio('result');
-      if (resultVal === 'Other') {
-        const t = document.getElementById('resultOtherText').value.trim();
-        resultVal = t ? `Other: ${t}` : 'Other';
-      }
-
-      const reportedTo = Array.from(document.querySelectorAll('.reported_to:checked')).map(x => x.value);
-      const disputeDate = document.querySelector('input[name="dispute_start_date"]').value;
-      const opposingName = document.querySelector('input[name="opposing_name"]').value.trim();
-      const relationshipWithPerson = document.querySelector('input[name="relationship_with_person"]').value.trim();
-      const legalDocs = getRadio('legal_docs');
-
       const fd = new FormData();
-      fd.append('possession', possession);
+      fd.append('possession', getRadio('possession'));
       fd.append('conflict', getRadio('conflict'));
-      fd.append('dispute_start_date', disputeDate);
-      fd.append('reason', reason);
-      fd.append('reported_to', JSON.stringify(reportedTo));
-      fd.append('result', resultVal);
-      fd.append('opposing_name', opposingName);
-      fd.append('relationship_with_person', relationshipWithPerson);
-      fd.append('legal_docs', legalDocs);
-      // Include free-text description so backend can persist it
-      const descriptionText = (document.getElementById('description')?.value || '').trim();
-      fd.append('description', descriptionText);
-      if (sigInput && sigInput.files[0]) {
-        fd.append('signature', sigInput.files[0]);
-      }
-
-      // No Area selection; backend derives Area from registration.
+      fd.append('dispute_start_date', document.querySelector('input[name="dispute_start_date"]').value);
+      fd.append('reason', getRadio('reason'));
+      fd.append('reported_to', JSON.stringify(Array.from(document.querySelectorAll('.reported_to:checked')).map(x => x.value)));
+      fd.append('result', getRadio('result'));
+      fd.append('opposing_name', document.querySelector('input[name="opposing_name"]').value.trim());
+      fd.append('relationship_with_person', document.querySelector('input[name="relationship_with_person"]').value.trim());
+      fd.append('legal_docs', getRadio('legal_docs'));
+      fd.append('description', (document.getElementById('description')?.value || '').trim());
+      if (sigInput && sigInput.files[0]) fd.append('signature', sigInput.files[0]);
 
       try {
         const res = await fetch('/complainant/lot_dispute/submit_lot_dispute', {
@@ -363,31 +294,69 @@
         });
 
         if (res.ok) {
-          // Try JSON, otherwise assume success and redirect like overlapping
-          try {
-            const data = await res.json();
-            if (data.success) {
-              window.location.href = '/complainant/home/dashboard.html';
-              return;
-            }
-            showErrorPop(data.message || 'Failed to submit.');
-          } catch (_) {
-            window.location.href = '/complainant/home/dashboard.html';
-          }
+          const data = await res.json().catch(() => ({}));
+          if (data.success) window.location.href = '/complainant/home/dashboard.html';
+          else showErrorPop(data.message || 'Failed to submit.');
         } else {
-          try {
-            const data = await res.json();
-            showErrorPop(data.message || 'Error occurred while submitting.');
-          } catch (_) {
-            const text = await res.text();
-            showErrorPop(text || 'Unknown error occurred.');
-          }
+          const data = await res.json().catch(() => ({}));
+          showErrorPop(data.message || 'Error occurred while submitting.');
         }
-      } catch (e) {
+      } catch {
         showErrorPop('An error occurred while submitting the complaint.');
       }
     });
   })();
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("lotDisputeForm");
+  const claimDocsRadios = form.querySelectorAll("input[name='claimDocs']");
+  const docOptions = document.getElementById("docOptions");
+
+  // Show/hide document options when "Yes" is selected
+  claimDocsRadios.forEach(radio => {
+    radio.addEventListener("change", () => {
+      docOptions.style.display = (radio.value === "Yes" && radio.checked) ? "block" : "none";
+    });
+  });
+
+  // Validate form before submit
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    // Basic required validation
+    const requiredGroups = [
+      "possession", "nature", "result"
+    ];
+    for (let name of requiredGroups) {
+      const inputs = form.querySelectorAll(`[name='${name}']`);
+      const isChecked = Array.from(inputs).some(input => input.checked);
+      if (!isChecked) {
+        alert("Please answer all required questions before submitting.");
+        return;
+      }
+    }
+
+    try {
+      const formData = new FormData(form);
+      const res = await fetch("/complainant/submit_lot_dispute", {
+        method: "POST",
+        body: formData,
+        credentials: "include"
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        window.location.href = "/complainant/home/dashboard.html";
+      } else {
+        alert(data.message || "Failed to submit the complaint.");
+      }
+    } catch (err) {
+      alert("An error occurred while submitting the complaint.");
+    }
+  });
+});
 </script>
 </body>
 </html>
