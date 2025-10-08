@@ -135,19 +135,19 @@
       <label><input type="radio" name="reason" style="margin-bottom: 12px;"> Structure was removed but boundary still contested</label>
       
       <p><strong>4. Were you given any prior notice before the structure crossed into your property?</strong></p>
-      <label><input type="radio" name="reason"> Yes</label>
-      <label><input type="radio" name="reason" style="margin-bottom: 12px;"> No</label>
+      <label><input type="radio" name="notice"> Yes</label>
+      <label><input type="radio" name="notice" style="margin-bottom: 12px;"> No</label>
       
       <p><strong>5. Have you discussed or confronted the other party about the boundary issue?</strong></p>
-      <label><input type="radio" name="reason"> Yes</label>
-      <label><input type="radio" name="reason" style="margin-bottom: 12px;"> No</label>
+      <label><input type="radio" name="confronted"> Yes</label>
+      <label><input type="radio" name="confronted" style="margin-bottom: 12px;"> No</label>
 
       <p><strong>6. Has the dispute led to any of the following? </strong><i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
       <label><input type="checkbox"> Threats or harassment</label>
       <label><input type="checkbox"> Physical altercation</label>
       <label><input type="checkbox"> Demolition or forced entry</label>
       <label><input type="checkbox"> Property damage</label>
-      <label><input type="checkbox" style="margin-bottom: 12px;"> None</label>
+      <label><input type="checkbox" style="margin-bottom: 12px;" value="None"> None</label>
 
       <p> <strong>7. Have you discussed or confronted the other party about the boundary issue?</strong></p>
       <label><input type="radio" name="reason" value="yes" id="reasonYes"> Yes</label>
@@ -229,7 +229,12 @@
       </div>
 
       <label><strong>2. Relationship with the person involved:</strong></label>
-      <input type="text" name="boundary_relationship" placeholder="Specify relationship (neighbor, relative, etc.)">
+      <div id="relationshipContainer">
+        <div class="relationship-input" style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+          <input type="text" name="boundary_relationship" placeholder="Specify relationship (neighbor, relative, etc.)" style="flex: 1; margin-left: 15px;">
+        </div>
+      </div>
+      <button type="button" class="btn add small" id="addRelationshipBtn" style="margin-left: 15px; margin-bottom: 12px;">+ Add another relationship</button>
 
       <label><strong>3. Do they reside on or near the disputed boundary?</strong></label>
       <div class="options-group">
@@ -404,6 +409,145 @@
         alert('An error occurred while submitting.');
       }
     });
+
+    // Q8: Make "None" exclusive - if checked, uncheck others and vice versa
+    (function setupExclusiveCheckboxForBoundary() {
+      const reportCheckboxes = form.querySelectorAll('input[name="boundary_reported_to[]"]');
+      
+      if (reportCheckboxes.length === 0) return;
+
+      const noneCheckbox = Array.from(reportCheckboxes).find(cb => cb.value === 'None');
+      const otherCheckboxes = Array.from(reportCheckboxes).filter(cb => cb !== noneCheckbox);
+
+      if (!noneCheckbox) return;
+
+      // When "None" is checked, uncheck all others
+      noneCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+          otherCheckboxes.forEach(cb => cb.checked = false);
+        }
+      });
+
+      // When any other checkbox is checked, uncheck "None"
+      otherCheckboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+          if (this.checked) {
+            noneCheckbox.checked = false;
+          }
+        });
+      });
+    })();
+
+    // Q6: Make "None" exclusive - if checked, uncheck others and vice versa
+    (function setupExclusiveCheckboxForQ6() {
+      const q6Checkboxes = form.querySelectorAll('input[type="checkbox"]');
+      const disputeCheckboxes = [];
+      
+      // Find Q6 checkboxes by looking for specific text content
+      q6Checkboxes.forEach(cb => {
+        const label = cb.closest('label');
+        if (label && (
+          label.textContent.includes('Threats or harassment') ||
+          label.textContent.includes('Physical altercation') ||
+          label.textContent.includes('Demolition or forced entry') ||
+          label.textContent.includes('Property damage') ||
+          (label.textContent.includes('None') && cb.value === 'None')
+        )) {
+          disputeCheckboxes.push(cb);
+        }
+      });
+
+      if (disputeCheckboxes.length === 0) return;
+
+      const noneCheckbox = disputeCheckboxes.find(cb => cb.value === 'None');
+      const otherCheckboxes = disputeCheckboxes.filter(cb => cb !== noneCheckbox);
+
+      if (!noneCheckbox) return;
+
+      // When "None" is checked, uncheck all others
+      noneCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+          otherCheckboxes.forEach(cb => cb.checked = false);
+        }
+      });
+
+      // When any other checkbox is checked, uncheck "None"
+      otherCheckboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+          if (this.checked) {
+            noneCheckbox.checked = false;
+          }
+        });
+      });
+    })();
+
+    // Setup add/remove for "Relationship with the person involved" section
+    (function setupRelationshipInputs() {
+      const container = document.getElementById('relationshipContainer');
+      const addBtn = document.getElementById('addRelationshipBtn');
+      if (!container || !addBtn) return;
+
+      function createRelationshipRow(withRemove = true) {
+        const row = document.createElement('div');
+        row.className = 'relationship-input';
+        row.style.display = 'flex';
+        row.style.gap = '8px';
+        row.style.alignItems = 'center';
+        row.style.marginBottom = '8px';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.name = 'boundary_relationship[]';
+        input.placeholder = 'Specify relationship (neighbor, relative, etc.)';
+        input.style.flex = '1';
+        input.style.marginLeft = '15px';
+
+        row.appendChild(input);
+
+        if (withRemove) {
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'btn add small remove-relationship';
+          removeBtn.textContent = 'Remove';
+          row.appendChild(removeBtn);
+        }
+
+        return row;
+      }
+
+      // Ensure only rows after the first have remove buttons
+      function normalizeRows() {
+        const rows = container.querySelectorAll('.relationship-input');
+        rows.forEach((row, idx) => {
+          const removeBtn = row.querySelector('.remove-relationship');
+          if (idx === 0 && removeBtn) {
+            removeBtn.remove();
+          } else if (idx > 0 && !removeBtn) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn add small remove-relationship';
+            btn.textContent = 'Remove';
+            row.appendChild(btn);
+          }
+        });
+      }
+
+      addBtn.addEventListener('click', () => {
+        container.appendChild(createRelationshipRow(true));
+        normalizeRows();
+      });
+
+      container.addEventListener('click', (e) => {
+        if (e.target && e.target.classList.contains('remove-relationship')) {
+          const row = e.target.closest('.relationship-input');
+          if (row) row.remove();
+          normalizeRows();
+        }
+      });
+
+      // Normalize initial state
+      normalizeRows();
+    })();
   });
 </script>
 </body>
