@@ -48,7 +48,7 @@
     <div class="complaint-layout">
       <!-- Left Panel: Complaint Preview -->
   <div class="complaint-form">
-          <h1>COMPLAINT FORM <br> OVERLAPPING</h1>
+          <h1>COMPLAINT FORM <br> {{ complaint.type_of_complaint|upper }}</h1>
           <div class="instructions">
             <p><strong>INSTRUCTION</strong></p>
             <ul>
@@ -72,7 +72,7 @@
                                 <div class="pair-row">
                                   <div class="col">
                                     <label class="small">Full Name:</label>
-                                    <input type="text" name="full_name" value="{{ registration.first_name }}{% if registration.middle_name %} {{ registration.middle_name }}{% if not registration.middle_name.endswith('.') %}.{% endif %}{% endif %} {{ registration.last_name }}{% if registration.suffix %} {{ registration.suffix }}{% endif %}" readonly title="Full Name" aria-label="Full Name">
+                                    <input type="text" name="full_name" value="{% for part in [registration.first_name, registration.middle_name, registration.last_name, registration.suffix] if part %}{{ part }} {% endfor %}" readonly title="Full Name" aria-label="Full Name">
                                   </div>
                                 </div>
 
@@ -209,7 +209,7 @@
                                   <div class="pair-row">
                                     <div class="col">
                                       <label class="small">Full Name:</label>
-                                      <input type="text" name="full_name" value="{{ registration.first_name }}{% if registration.middle_name %} {{ registration.middle_name }}{% if not registration.middle_name.endswith('.') %}.{% endif %}{% endif %} {{ registration.last_name }}{% if registration.suffix %} {{ registration.suffix }}{% endif %}" readonly title="Full Name" aria-label="Full Name">
+                                      <input type="text" name="full_name" value="{% for part in [registration.first_name, registration.middle_name, registration.last_name, registration.suffix] if part %}{{ part }} {% endfor %}" readonly title="Full Name" aria-label="Full Name">
                                     </div>
                                   </div>
                                   <div class="pair-row">
@@ -274,7 +274,7 @@
                                   <div class="pair-row">
                                     <div class="col">
                                       <label class="small">Full Name:</label>
-                                      <input type="text" name="full_name" value="{{ registration.first_name }}{% if registration.middle_name %} {{ registration.middle_name }}{% if not registration.middle_name.endswith('.') %}.{% endif %}{% endif %} {{ registration.last_name }}{% if registration.suffix %} {{ registration.suffix }}{% endif %}" readonly title="Full Name" aria-label="Full Name">
+                                      <input type="text" name="full_name" value="{% for part in [registration.first_name, registration.middle_name, registration.last_name, registration.suffix] if part %}{{ part }} {% endfor %}" readonly title="Full Name" aria-label="Full Name">
                                     </div>
                                   </div>
                                   <div class="pair-row">
