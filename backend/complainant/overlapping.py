@@ -47,6 +47,60 @@ def new_overlap_form():
     html_dir = TEMPLATE_DIR
     return send_from_directory(html_dir, 'overlapping.html')
 
+@overlapping_bp.route('/debug_complaints')
+def debug_complaints():
+    """Debug endpoint to check complaint statuses using raw SQL"""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "Not logged in"}), 401
+    
+    registration = Registration.query.filter_by(user_id=user_id).first()
+    if not registration:
+        return jsonify({"error": "No registration found"}), 404
+    
+    # Use raw SQL to get all available columns from the complaints table
+    from sqlalchemy import text
+    try:
+        sql_query = text("""
+            SELECT complaint_id, status, complaint_stage, date_received
+            FROM complaints 
+            WHERE registration_id = :registration_id AND type_of_complaint = 'Overlapping'
+            ORDER BY complaint_id DESC
+        """)
+        
+        result_proxy = db.session.execute(sql_query, {'registration_id': registration.registration_id})
+        rows = result_proxy.fetchall()
+        
+        result = []
+        for row in rows:
+            result.append({
+                "complaint_id": row[0],
+                "status": row[1], 
+                "complaint_stage": row[2],
+                "date_received": str(row[3]) if row[3] else None,
+            })
+            
+        return jsonify({"complaints": result, "registration_id": registration.registration_id})
+        
+    except Exception as e:
+        print(f"[DEBUG] Raw SQL error: {e}")
+        # Fallback to basic model query if columns don't exist
+        complaints = Complaint.query.filter_by(
+            registration_id=registration.registration_id,
+            type_of_complaint="Overlapping"
+        ).all()
+        
+        result = []
+        for complaint in complaints:
+            result.append({
+                "complaint_id": complaint.complaint_id,
+                "status": complaint.status,
+                "complaint_stage": "COLUMN_NOT_FOUND - using SQLAlchemy model",
+                "date_received": str(complaint.date_received) if complaint.date_received else None,
+            })
+        
+        return jsonify({"complaints": result, "registration_id": registration.registration_id, "error": str(e)})
+
 @overlapping_bp.route('/get_overlap_session_data')
 def get_overlap_session_data():
     registration_id = session.get("registration_id")
@@ -415,17 +469,46 @@ def submit_overlap():
         else:
             complaint_status = "Valid"
         # Prevent duplicate complaints for the same registration unless previous complaint is invalid or resolved
-        existing_complaint = Complaint.query.filter_by(
+        existing_complaints = Complaint.query.filter_by(
             registration_id=registration.registration_id,
             type_of_complaint="Overlapping"
-        ).order_by(Complaint.complaint_id.desc()).first()
-        if existing_complaint and existing_complaint.status not in ["Invalid", "Resolved"]:
-            return jsonify({
-                "success": False,
-                "message": "A complaint for this registration already exists.",
-                "status": existing_complaint.status,
-                "complaint_id": existing_complaint.complaint_id
-            }), 400
+        ).order_by(Complaint.complaint_id.desc()).all()
+        
+        # Debug: Print all existing complaints for this registration
+        print(f"[DEBUG] Found {len(existing_complaints)} existing Overlapping complaints for registration {registration.registration_id}")
+        for i, complaint in enumerate(existing_complaints):
+            print(f"[DEBUG] Complaint {i+1}: ID={complaint.complaint_id}, status='{complaint.status}', complaint_stage='{getattr(complaint, 'complaint_stage', 'N/A')}', is_resolved='{getattr(complaint, 'is_resolved', 'N/A')}'")
+        
+        existing_complaint = existing_complaints[0] if existing_complaints else None
+        
+        # Check if existing complaint is resolved using complaint_stage field
+        if existing_complaint:
+            # Get status fields that actually exist in database
+            status = existing_complaint.status
+            complaint_stage = existing_complaint.complaint_stage
+            
+            # Debug print
+            print(f"[DEBUG] Existing complaint found - ID: {existing_complaint.complaint_id}")
+            print(f"[DEBUG] Status: '{status}', Complaint Stage: '{complaint_stage}'")
+            
+            # Check if complaint is resolved - a complaint is considered resolved if:
+            # 1. Status is "Invalid" (invalid complaints can't block new ones)
+            # 2. complaint_stage is "Resolved" 
+            is_resolved = (
+                status == "Invalid" or 
+                complaint_stage == "Resolved"
+            )
+            
+            print(f"[DEBUG] Is resolved check result: {is_resolved}")
+            
+            if not is_resolved:
+                return jsonify({
+                    "success": False,
+                    "message": "A complaint for this registration already exists.",
+                    "status": status,
+                    "complaint_stage": complaint_stage,
+                    "complaint_id": existing_complaint.complaint_id
+                }), 400
 
         new_complaint = Complaint(
             registration_id=registration.registration_id,

@@ -127,7 +127,7 @@ def get_staff_complaint_data_with_proper_areas(staff_name=None, stage_filter=Non
             
             complaints_data.append({
                 'complaint_id': complaint.complaint_id,
-                'date_received': complaint.date_received.strftime('%m/%d/%Y') if complaint.date_received else 'N/A',
+                'date_received': complaint.date_received.isoformat() if complaint.date_received else 'N/A',
                 'complainant': complaint.complainant_name or 'N/A',
                 'type_of_complaint': complaint.type_of_complaint or 'N/A',
                 'hoa': complaint.area_name or 'N/A',
