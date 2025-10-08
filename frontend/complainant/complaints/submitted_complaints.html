@@ -181,22 +181,47 @@ document.addEventListener("DOMContentLoaded", async () => {
       // --- Sort newest → oldest ---
       const sortedComplaints = coalesced.sort((a, b) => parseDateValue(b) - parseDateValue(a));
 
-      // --- Show ONLY the most recent complaint in left panel ---
-      const mostRecent = sortedComplaints[0];
+      // --- Separate active and resolved complaints ---
+      const activeComplaints = sortedComplaints.filter(c => {
+        const isResolved = c.status === "Resolved" || 
+                          c.is_resolved === true || 
+                          c.complaint_stage === "Resolved" ||
+                          (c.latest_action && c.latest_action.toLowerCase().includes('resolved'));
+        return !isResolved;
+      });
+      const resolvedComplaints = sortedComplaints.filter(c => {
+        const isResolved = c.status === "Resolved" || 
+                          c.is_resolved === true || 
+                          c.complaint_stage === "Resolved" ||
+                          (c.latest_action && c.latest_action.toLowerCase().includes('resolved'));
+        return isResolved;
+      });
+
+      // --- Show ONLY the most recent active complaint in left panel ---
+      const mostRecent = activeComplaints[0];
       if (mostRecent) {
         const recentCard = buildComplaintCard(mostRecent);
         complaintList.appendChild(recentCard);
       }
 
-      // --- Show all past complaints (exclude the currently shown one by stable key) ---
+      // --- Show all past active complaints (exclude the currently shown one) and all resolved complaints in history ---
       const excludeKey = mostRecent ? keyOf(mostRecent) : null;
-      sortedComplaints
+      
+      // Add remaining active complaints to history
+      activeComplaints
         .filter(c => !excludeKey || keyOf(c) !== excludeKey)
         .forEach((c) => {
           const historyCard = buildComplaintCard(c);
           historyCard.classList.add("history-card"); // optional for styling
           dropdownContent.appendChild(historyCard);
         });
+      
+      // Add all resolved complaints to history
+      resolvedComplaints.forEach((c) => {
+        const historyCard = buildComplaintCard(c);
+        historyCard.classList.add("history-card", "resolved-complaint"); // optional for styling
+        dropdownContent.appendChild(historyCard);
+      });
 
     } else {
       if (emptyCard) emptyCard.style.display = "block";
