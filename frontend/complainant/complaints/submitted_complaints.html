@@ -251,8 +251,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   const type = c.type ?? c.type_of_complaint ?? "Complaint";
   const status = (c.status ?? c.state ?? "").toLowerCase(); // normalize for comparison
   const personName = (c.person && c.person.name) || c.q12 || c.person_name || "Unknown";
-  const personBlock = (c.person && c.person.block) || (c.property && c.property.block) || c.block || "N/A";
+  const personBlock = (c.person && c.person.block) || (c.property && c.property.block) || c.block || null;
+  const personLot = (c.person && c.person.lot) || (c.property && c.property.lot) || c.lot || null;
   const personRole = (c.person && c.person.role) || "";
+
+  // Format block and lot display
+  let blockLotDisplay = "";
+  if (personBlock && personLot) {
+    blockLotDisplay = `Block: ${personBlock}  Lot: ${personLot}`;
+  } else if (personBlock) {
+    blockLotDisplay = `Block: ${personBlock}`;
+  } else if (personLot) {
+    blockLotDisplay = `Lot: ${personLot}`;
+  } else {
+    blockLotDisplay = "Block: N/A  Lot: N/A";
+  }
 
   const card = document.createElement("div");
   card.classList.add("complaint-card", "clickable-card");
@@ -272,7 +285,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     <div class="person-box">
       <p><strong>Person Involved:</strong></p>
       <p>Name: ${escapeHtml(personName)}</p>
-      <p>Block: ${escapeHtml(personBlock)}</p>
+      <p>${escapeHtml(blockLotDisplay)}</p>
   ${personRole ? `<p>${escapeHtml(personRole)}</p>` : ''}
     </div>
   `;

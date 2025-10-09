@@ -273,7 +273,54 @@
                     res = await fetch(`/admin/complaints/api/timeline/${complaintId}?role=complainant&_=${Date.now()}`, { credentials: "include" });
                 }
                 const data = await res.json();
-                if (data && data.success) return data.timeline || [];
+                let timeline = (data && data.success) ? (data.timeline || []) : [];
+                
+                // Apply complainant-focused filtering (same as complaint details page)
+                if (timeline.length > 0) {
+                    console.log(`[DASHBOARD TIMELINE] Raw entries for complaint ${complaintId}:`, timeline.map(e => ({
+                        type: e.type_of_action || e.action_type,
+                        datetime: e.action_datetime,
+                        description: e.description
+                    })));
+                    
+                    // Filter to meaningful milestones only (no admin noise)
+                    const meaningfulActions = ['submitted', 'inspection done', 'sent invitation', 'accepted invitation', 'mediation', 'assessment', 'resolved'];
+                    
+                    const filteredEntries = timeline.filter(entry => {
+                        const type = (entry.type_of_action || entry.action_type || '').toLowerCase().trim();
+                        const isSubmitted = type.includes('submitted');
+                        const isMeaningfulAction = meaningfulActions.some(action => type.includes(action));
+                        return isSubmitted || isMeaningfulAction;
+                    });
+                    
+                    // Deduplicate by type
+                    const uniqueEntries = [];
+                    const seenTypes = new Set();
+                    
+                    filteredEntries.forEach(entry => {
+                        const type = (entry.type_of_action || entry.action_type || '').toLowerCase().trim();
+                        if (!seenTypes.has(type)) {
+                            seenTypes.add(type);
+                            uniqueEntries.push(entry);
+                        }
+                    });
+                    
+                    // If no completed milestones, only show submitted
+                    const completedMilestones = uniqueEntries.filter(e => {
+                        const type = (e.type_of_action || e.action_type || '').toLowerCase();
+                        return !type.includes('submitted') && meaningfulActions.some(action => type.includes(action));
+                    });
+                    
+                    if (completedMilestones.length === 0) {
+                        timeline = uniqueEntries.filter(e => (e.type_of_action || e.action_type || '').toLowerCase().includes('submitted'));
+                    } else {
+                        timeline = uniqueEntries;
+                    }
+                    
+                    console.log(`[DASHBOARD TIMELINE] Filtered to ${timeline.length} meaningful entries for complaint ${complaintId}`);
+                }
+                
+                return timeline;
             } catch (e) {
                 console.error("Failed to load timeline:", e);
             }

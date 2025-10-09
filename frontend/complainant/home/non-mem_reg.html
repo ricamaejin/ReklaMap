@@ -51,7 +51,7 @@
             </select>
           </label>
 
-          <label>Date of Birth<input type="date" name="reg_dob"></label>
+          <label>Date of Birth<input type="date" name="reg_dob" id="reg_dob"></label>
           <label>Sex
             <select name="reg_sex">
               <option value="" disabled selected hidden></option>
@@ -63,7 +63,8 @@
             <small class="warn" id="warn-reg_cit">This field is required.</small>
           </label>
           <label>Age
-            <input type="number" name="reg_age" id="reg_age" min="0" step="1">
+            <input type="number" name="reg_age" id="reg_age" min="0" step="1" readonly>
+            <small class="warn" id="warn-reg_age">You must be 18 or older to register.</small>
           </label>
         </div>
 
@@ -192,6 +193,43 @@
   const otherTextEl = document.getElementById('otherText');
   if (otherTextEl){ otherTextEl.addEventListener('input', ()=> hideFieldWarn('warn-connections')); }
 
+    // Age calculation and validation
+    const dobField = document.getElementById('reg_dob');
+    const ageField = document.getElementById('reg_age');
+    
+    function calculateAge(birthDate) {
+      const today = new Date();
+      const birth = new Date(birthDate);
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      
+      return age;
+    }
+    
+    if (dobField && ageField) {
+      dobField.addEventListener('change', function() {
+        if (this.value) {
+          const age = calculateAge(this.value);
+          ageField.value = age;
+          
+          // Validate age (must be 18 or older)
+          if (age < 18) {
+            showFieldWarn('warn-reg_age', ageField);
+            showErrorPop('You must be 18 years or older to register.');
+          } else {
+            hideFieldWarn('warn-reg_age', ageField);
+          }
+        } else {
+          ageField.value = '';
+          hideFieldWarn('warn-reg_age', ageField);
+        }
+      });
+    }
+
     document.getElementById("memRegForm").addEventListener("submit", async function(e) {
       e.preventDefault();
       
@@ -223,6 +261,17 @@
   const v5 = requireVal('#reg_year','warn-reg_year');
   const v6 = requireVal('#reg_cur_add','warn-reg_cur_add');
 
+      // Age validation (must be 18 or older)
+      const ageValue = parseInt(document.getElementById('reg_age').value);
+      let ageValid = true;
+      if (isNaN(ageValue) || ageValue < 18) {
+        showFieldWarn('warn-reg_age', document.getElementById('reg_age'));
+        if (!firstInvalid) firstInvalid = document.getElementById('reg_age');
+        ageValid = false;
+      } else {
+        hideFieldWarn('warn-reg_age', document.getElementById('reg_age'));
+      }
+
       // Recipient required (radio)
       const recipientChecked = document.querySelector('input[name="recipient"]:checked');
       if (!recipientChecked){
@@ -238,7 +287,7 @@
         if (!firstInvalid) firstInvalid = document.querySelector('input[name="connection_1"]');
       } else hideFieldWarn('warn-connections');
 
-  const allOk = v1 && v2 && v3 && v4 && v5 && v6 && !!recipientChecked && connections.length > 0;
+  const allOk = v1 && v2 && v3 && v4 && v5 && v6 && ageValid && !!recipientChecked && connections.length > 0;
       if (!allOk){
         showErrorPop('Please complete the required fields.');
         if (firstInvalid){

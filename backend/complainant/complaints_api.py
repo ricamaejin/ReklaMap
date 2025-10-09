@@ -129,13 +129,88 @@ def get_submitted_complaints():
                 except Exception:
                     lotd = None
                 if lotd:
-                    person_name = lotd.q7 or person_name
-                    # Relationship shown instead of HOA role; ensure safe fallback
-                    person_role = f"Relationship: {lotd.q8}" if (lotd.q8 and str(lotd.q8).strip()) else "Relationship: N/A"
+                    # Extract name from q7 (could be JSON array or string)
+                    if lotd.q7:
+                        try:
+                            if isinstance(lotd.q7, str):
+                                # Try to parse as JSON first
+                                try:
+                                    q7_data = json.loads(lotd.q7)
+                                    if isinstance(q7_data, list) and q7_data:
+                                        person_name = q7_data[0]
+                                    elif isinstance(q7_data, str):
+                                        person_name = q7_data
+                                except json.JSONDecodeError:
+                                    # If not JSON, use as string
+                                    person_name = lotd.q7
+                            elif isinstance(lotd.q7, list) and lotd.q7:
+                                person_name = lotd.q7[0]
+                            else:
+                                person_name = str(lotd.q7) if lotd.q7 else person_name
+                        except Exception:
+                            person_name = str(lotd.q7) if lotd.q7 else person_name
+                    
+                    # Extract relationship from q8 (could be JSON array or string)
+                    relationship_value = "N/A"
+                    if lotd.q8:
+                        try:
+                            if isinstance(lotd.q8, str):
+                                # Try to parse as JSON first
+                                try:
+                                    q8_data = json.loads(lotd.q8)
+                                    if isinstance(q8_data, list) and q8_data:
+                                        relationship_value = q8_data[0]
+                                    elif isinstance(q8_data, str):
+                                        relationship_value = q8_data
+                                except json.JSONDecodeError:
+                                    # If not JSON, use as string
+                                    relationship_value = lotd.q8
+                            elif isinstance(lotd.q8, list) and lotd.q8:
+                                relationship_value = lotd.q8[0]
+                            else:
+                                relationship_value = str(lotd.q8) if lotd.q8 else "N/A"
+                        except Exception:
+                            relationship_value = str(lotd.q8) if lotd.q8 else "N/A"
+                    
+                    # Format the role with proper relationship value
+                    person_role = f"Relationship: {relationship_value}" if relationship_value and relationship_value.strip() else "Relationship: N/A"
                     description = lotd.q4 or description
-                # Block should be same as complainant's block (lot dispute context)
-                if reg:
+                    
+                    # Extract block from block_lot JSON (first number is the block)
+                    if lotd.block_lot:
+                        try:
+                            if isinstance(lotd.block_lot, str):
+                                # Try to parse as JSON first
+                                try:
+                                    block_lot_data = json.loads(lotd.block_lot)
+                                except json.JSONDecodeError:
+                                    block_lot_data = None
+                            else:
+                                block_lot_data = lotd.block_lot
+                            
+                            # Extract block and lot from parsed data
+                            if isinstance(block_lot_data, list) and block_lot_data:
+                                # Handle array of objects: [{"block": "1", "lot": "2"}] or array of arrays: [["1", "2"]]
+                                first_entry = block_lot_data[0]
+                                if isinstance(first_entry, dict):
+                                    person_block = first_entry.get("block") or first_entry.get("blk") or first_entry.get("blk_num")
+                                    person_lot = first_entry.get("lot") or first_entry.get("lt") or first_entry.get("lot_num")
+                                elif isinstance(first_entry, list) and len(first_entry) >= 2:
+                                    person_block = first_entry[0]  # First element is block
+                                    person_lot = first_entry[1]    # Second element is lot
+                                elif isinstance(first_entry, str):
+                                    person_block = first_entry
+                            elif isinstance(block_lot_data, dict):
+                                # Handle single object: {"block": "1", "lot": "2"}
+                                person_block = block_lot_data.get("block") or block_lot_data.get("blk") or block_lot_data.get("blk_num")
+                                person_lot = block_lot_data.get("lot") or block_lot_data.get("lt") or block_lot_data.get("lot_num")
+                        except Exception as e:
+                            print(f"Error parsing block_lot for complaint {c.complaint_id}: {e}")
+                            
+                # Fallback: Use registration block if block_lot parsing failed
+                if not person_block and reg:
                     person_block = reg.block_no
+                if not person_lot and reg:
                     person_lot = reg.lot_no
             else:
                 # Overlapping and other types: fallback to overlapping logic
@@ -244,11 +319,88 @@ def get_complaint_details(complaint_id):
             except Exception:
                 lotd = None
             if lotd:
-                person_name = lotd.q7 or person_name
-                person_role = f"Relationship: {lotd.q8}" if (lotd.q8 and str(lotd.q8).strip()) else "Relationship: N/A"
+                # Extract name from q7 (could be JSON array or string)
+                if lotd.q7:
+                    try:
+                        if isinstance(lotd.q7, str):
+                            # Try to parse as JSON first
+                            try:
+                                q7_data = json.loads(lotd.q7)
+                                if isinstance(q7_data, list) and q7_data:
+                                    person_name = q7_data[0]
+                                elif isinstance(q7_data, str):
+                                    person_name = q7_data
+                            except json.JSONDecodeError:
+                                # If not JSON, use as string
+                                person_name = lotd.q7
+                        elif isinstance(lotd.q7, list) and lotd.q7:
+                            person_name = lotd.q7[0]
+                        else:
+                            person_name = str(lotd.q7) if lotd.q7 else person_name
+                    except Exception:
+                        person_name = str(lotd.q7) if lotd.q7 else person_name
+                
+                # Extract relationship from q8 (could be JSON array or string)
+                relationship_value = "N/A"
+                if lotd.q8:
+                    try:
+                        if isinstance(lotd.q8, str):
+                            # Try to parse as JSON first
+                            try:
+                                q8_data = json.loads(lotd.q8)
+                                if isinstance(q8_data, list) and q8_data:
+                                    relationship_value = q8_data[0]
+                                elif isinstance(q8_data, str):
+                                    relationship_value = q8_data
+                            except json.JSONDecodeError:
+                                # If not JSON, use as string
+                                relationship_value = lotd.q8
+                        elif isinstance(lotd.q8, list) and lotd.q8:
+                            relationship_value = lotd.q8[0]
+                        else:
+                            relationship_value = str(lotd.q8) if lotd.q8 else "N/A"
+                    except Exception:
+                        relationship_value = str(lotd.q8) if lotd.q8 else "N/A"
+                
+                # Format the role with proper relationship value
+                person_role = f"Relationship: {relationship_value}" if relationship_value and relationship_value.strip() else "Relationship: N/A"
                 description = lotd.q4 or description
-            if reg:
+                
+                # Extract block from block_lot JSON (first number is the block)
+                if lotd.block_lot:
+                    try:
+                        if isinstance(lotd.block_lot, str):
+                            # Try to parse as JSON first
+                            try:
+                                block_lot_data = json.loads(lotd.block_lot)
+                            except json.JSONDecodeError:
+                                block_lot_data = None
+                        else:
+                            block_lot_data = lotd.block_lot
+                        
+                        # Extract block and lot from parsed data
+                        if isinstance(block_lot_data, list) and block_lot_data:
+                            # Handle array of objects: [{"block": "1", "lot": "2"}] or array of arrays: [["1", "2"]]
+                            first_entry = block_lot_data[0]
+                            if isinstance(first_entry, dict):
+                                person_block = first_entry.get("block") or first_entry.get("blk") or first_entry.get("blk_num")
+                                person_lot = first_entry.get("lot") or first_entry.get("lt") or first_entry.get("lot_num")
+                            elif isinstance(first_entry, list) and len(first_entry) >= 2:
+                                person_block = first_entry[0]  # First element is block
+                                person_lot = first_entry[1]    # Second element is lot
+                            elif isinstance(first_entry, str):
+                                person_block = first_entry
+                        elif isinstance(block_lot_data, dict):
+                            # Handle single object: {"block": "1", "lot": "2"}
+                            person_block = block_lot_data.get("block") or block_lot_data.get("blk") or block_lot_data.get("blk_num")
+                            person_lot = block_lot_data.get("lot") or block_lot_data.get("lt") or block_lot_data.get("lot_num")
+                    except Exception as e:
+                        print(f"Error parsing block_lot for complaint {complaint.complaint_id}: {e}")
+                        
+            # Fallback: Use registration block if block_lot parsing failed
+            if not person_block and reg:
                 person_block = reg.block_no
+            if not person_lot and reg:
                 person_lot = reg.lot_no
         else:
             o = complaint.overlapping

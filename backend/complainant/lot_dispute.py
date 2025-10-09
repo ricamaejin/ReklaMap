@@ -336,9 +336,39 @@ def submit_lot_dispute():
         q4 = request.form.get("reason")
         q5 = json.loads(request.form.get("reported_to") or "[]")
         q6 = request.form.get("result")
-        q7 = request.form.get("opposing_name")
-        q8 = request.form.get("relationship_with_person")
-        q9 = request.form.get("legal_docs")
+        
+        # Handle multiple opposing names
+        opposing_names = []
+        for key in request.form:
+            if key == 'opposing_name[]':
+                opposing_names.extend(request.form.getlist(key))
+        q7 = json.dumps([name.strip() for name in opposing_names if name.strip()])
+        
+        # Handle multiple relationships
+        relationships = []
+        for key in request.form:
+            if key == 'relationship_with_person[]':
+                relationships.extend(request.form.getlist(key))
+        q8 = json.dumps([rel.strip() for rel in relationships if rel.strip()])
+        
+        # Handle q9 - Legal documents claim with conditional document types
+        legal_docs_claim = request.form.get("claimDocs")
+        q9_data = {"claim": legal_docs_claim}
+        
+        # If they claim to have documents, collect the document types
+        if legal_docs_claim == "Yes":
+            docs_checked = []
+            for key in request.form:
+                if key == "docs":  # Handle multiple values for checkboxes
+                    docs_checked.extend(request.form.getlist(key))
+            if docs_checked:
+                q9_data["documents"] = docs_checked
+        
+        q9 = json.dumps(q9_data)
+        
+        # Handle q10 - "Do they reside on the disputed lot?"
+        reside_answer = request.form.get("reside")
+        q10 = json.dumps({"reside": reside_answer}) if reside_answer else None
         lot_dispute_entry = LotDispute(
             complaint_id=new_complaint.complaint_id,
             q1=q1,
@@ -351,6 +381,7 @@ def submit_lot_dispute():
             q7=q7,
             q8=q8,
             q9=q9,
+            q10=q10,
             description=description
         )
         db.session.add(lot_dispute_entry)
@@ -472,19 +503,48 @@ def get_form_structure(type_of_complaint: str):
             ],
         },
         {
-            "type": "text",
+            "type": "multiple_text",
             "name": "q7",
             "label": "7. Name of opposing claimant?",
+            "description": "Multiple names can be added for each person involved"
         },
         {
-            "type": "text",
+            "type": "multiple_text", 
             "name": "q8",
             "label": "8. Relationship with person involved?",
+            "description": "Multiple relationships can be added corresponding to each person"
         },
         {
             "type": "radio",
             "name": "q9",
             "label": "9. Do they claim to have legal documents?",
+            "options": [
+                ("Yes", "Yes"),
+                ("No", "No"),
+                ("Not Sure", "Not sure"),
+            ],
+            "conditional": {
+                "show_when": "Yes",
+                "additional_fields": [
+                    {
+                        "type": "checkbox",
+                        "name": "docs",
+                        "label": "What documents do they have?",
+                        "options": [
+                            ("Certificate of Lot Award (CLA)", "Certificate of Lot Award (CLA)"),
+                            ("Notice of Award", "Notice of Award"),
+                            ("Deed of Assignment / Transfer", "Deed of Assignment / Transfer"),
+                            ("Certification from NGC/NHA/Barangay", "Certification from NGC/NHA/Barangay"),
+                            ("Other supporting paper", "Other supporting paper (e.g., tax receipt, ID copy, etc.)"),
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "type": "radio",
+            "name": "q10",
+            "label": "10. Do they reside on the disputed lot?",
             "options": [
                 ("Yes", "Yes"),
                 ("No", "No"),

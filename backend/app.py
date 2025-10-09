@@ -48,6 +48,25 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # ✅ Initialize db with app
 db.init_app(app)
 
+# Add custom Jinja2 filters
+@app.template_filter('split')
+def split_filter(value, delimiter=','):
+    """Split a string by delimiter and return a list"""
+    if not value:
+        return []
+    return str(value).split(delimiter)
+
+@app.template_filter('from_json')
+def from_json_filter(value):
+    """Parse JSON string and return Python object"""
+    if not value:
+        return []
+    try:
+        import json
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return []
+
 # Register blueprints
 app.register_blueprint(auth_bp)
 app.register_blueprint(map_bp)

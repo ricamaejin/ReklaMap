@@ -305,9 +305,10 @@ class LotDispute(db.Model):
     q4 = db.Column(db.String(200))
     q5 = db.Column(db.JSON)
     q6 = db.Column(db.String(200))
-    q7 = db.Column(db.String(100))
-    q8 = db.Column(db.String(100))
-    q9 = db.Column(db.Enum("Yes", "No", "Not Sure"))
+    q7 = db.Column(db.JSON)  # Multiple opposing names
+    q8 = db.Column(db.JSON)  # Multiple relationships
+    q9 = db.Column(db.JSON)  # Legal documents claim and document types
+    q10 = db.Column(db.JSON)  # Additional question data (e.g., residence status)
     description = db.Column(db.Text)
     signature = db.Column(db.String(255))
 
