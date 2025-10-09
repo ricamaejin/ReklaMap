@@ -321,6 +321,46 @@ def view_complaint(complaint_id):
                 q5_list = lot.q5 if isinstance(lot.q5, list) else json.loads(lot.q5 or "[]")
             except Exception:
                 q5_list = []
+            
+            # q7 (opposing names) - stored as JSON array
+            try:
+                q7_list = lot.q7 if isinstance(lot.q7, list) else json.loads(lot.q7 or "[]")
+            except Exception:
+                q7_list = []
+            
+            # q8 (relationships) - stored as JSON array  
+            try:
+                q8_list = lot.q8 if isinstance(lot.q8, list) else json.loads(lot.q8 or "[]")
+            except Exception:
+                q8_list = []
+            
+            # q9 (legal documents) - stored as JSON object
+            try:
+                q9_data = lot.q9 if isinstance(lot.q9, dict) else json.loads(lot.q9 or "{}")
+                
+                # Handle nested data structure - normalize to flat structure
+                if q9_data and 'claim' in q9_data:
+                    claim_value = q9_data['claim']
+                    # Handle nested structure like {"claim": {"claim": {"claim": "Yes"}}}
+                    while isinstance(claim_value, dict) and 'claim' in claim_value:
+                        claim_value = claim_value['claim']
+                    
+                    # Rebuild q9_data with normalized structure
+                    normalized_q9 = {
+                        'claim': claim_value if isinstance(claim_value, str) else '',
+                        'documents': q9_data.get('documents', [])
+                    }
+                    q9_data = normalized_q9
+                    
+            except Exception:
+                q9_data = {}
+            
+            # q10 (residence status) - stored as JSON object
+            try:
+                q10_data = lot.q10 if isinstance(lot.q10, dict) else json.loads(lot.q10 or "{}")
+            except Exception:
+                q10_data = {}
+                
             # q3 is a date
             q3_val = lot.q3.strftime("%Y-%m-%d") if lot.q3 else ""
             answers = {
@@ -330,9 +370,10 @@ def view_complaint(complaint_id):
                 "q4": lot.q4,
                 "q5": q5_list,
                 "q6": lot.q6,
-                "q7": lot.q7,
-                "q8": lot.q8,
-                "q9": lot.q9,
+                "q7": q7_list,
+                "q8": q8_list,
+                "q9": q9_data,
+                "q10": q10_data,
                 # Prefer lot-level description/signature, fallback to complaint/registration
                 "description": (getattr(lot, "description", None) or complaint.description or ""),
                 "signature": (getattr(lot, "signature", None) or registration.signature_path or ""),

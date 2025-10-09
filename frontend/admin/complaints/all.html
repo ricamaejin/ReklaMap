@@ -151,7 +151,7 @@
     <div class="tabs" style="display: flex; justify-content: space-between; align-items: center;">
   <div>
     <a href="all.html" class="active"> All</a>
-    <a href="pending.html">Pending</a>
+    <a href="pending.html">Received</a>
     <a href="ongoing.html">On Going</a>
     <a href="resolved.html">Resolved</a>
     <a href="invalid.html">Invalid</a>
@@ -183,12 +183,30 @@
         </th>
 
           <th style="text-align: center;">Complainant</th>
-          <th style="text-align: center;">Type of Complaint</th>
+          <th class="type-of-complaint" style="position: relative; text-align: center;">
+            Type of Complaint 
+            <i class="bi bi-caret-down-fill" id="typeDropdownToggle" 
+               style="cursor: pointer; font-size: 12px; margin-left: 5px; color: #666;"></i>
+            <div id="typeDropdownMenu" 
+                 style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ccc; z-index: 1000; min-width: 200px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);"></div>
+          </th>
           <th style="text-align: center;">HOA</th>
-          <th style="text-align: center;">Assigned To</th>
+          <th class="assigned-to" style="position: relative; text-align: center;">
+            Assigned To 
+            <i class="bi bi-caret-down-fill" id="assignedDropdownToggle" 
+               style="cursor: pointer; font-size: 12px; margin-left: 5px; color: #666;"></i>
+            <div id="assignedDropdownMenu" 
+                 style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ccc; z-index: 1000; min-width: 200px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);"></div>
+          </th>
           <th style="text-align: center;">Status</th>
-          <th style="text-align: center;">Action Needed</th>
-          <th style="text-align: center;">Priority Level</th>
+          <th style="text-align: center;">Stage of Action</th>
+          <th class="priority-level" style="position: relative; text-align: center;">
+            Priority Level 
+            <i class="bi bi-caret-down-fill" id="priorityDropdownToggle" 
+               style="cursor: pointer; font-size: 12px; margin-left: 5px; color: #666;"></i>
+            <div id="priorityDropdownMenu" 
+                 style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ccc; z-index: 1000; min-width: 150px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);"></div>
+          </th>
         </tr>
       </thead>
         
@@ -201,6 +219,9 @@
 
 
   <script>
+    // Global variable to store all complaints data for sorting
+    let allComplaintsData = [];
+
     // Load all complaints data
     async function loadAllComplaints() {
       try {
@@ -208,8 +229,10 @@
         const data = await response.json();
         
         if (Array.isArray(data)) {
+          allComplaintsData = data;
           populateTable(data);
         } else if (data.success && data.complaints) {
+          allComplaintsData = data.complaints;
           populateTable(data.complaints);
         } else {
           console.error('Failed to load complaints:', data.message || 'Unknown error');
@@ -264,30 +287,61 @@
           window.location.href = `/admin/complaints/${detailsPage}?id=${complaint.complaint_id}&referrer=all.html`;
         });
         
-        // Calculate status with deadline countdown
+        // Calculate status with deadline countdown using enhanced deadline logic
         const calculateStatusWithDeadline = (complaint) => {
           if (complaint.status === 'Invalid') return '<em>N/A</em>';
-          if (complaint.complaint_stage === 'Pending' || !complaint.latest_action) return '<em>Pending</em>';
+          if (complaint.complaint_stage === 'Pending' || !complaint.latest_action) return '<em>Received</em>';
           if (complaint.complaint_stage === 'Resolved') return 'Resolved';
           
-          // For ongoing complaints, calculate deadline
+          // For ongoing complaints, calculate deadline based on action type
           if (!complaint.action_datetime) return complaint.complaint_stage || 'Ongoing';
           
           const actionDate = new Date(complaint.action_datetime);
           const actionType = (complaint.latest_action || '').toLowerCase();
           
-          let daysToAdd = 1;
-          if (actionType.includes('inspection')) daysToAdd = 3;
-          else if (actionType.includes('invitation')) daysToAdd = 1;
-          else if (actionType.includes('mediation')) daysToAdd = 1;
-          else if (actionType.includes('assessment')) daysToAdd = 1;
+          // Get admin-set deadline for inspection from complaint history/actions
+          let adminDeadline = null;
+          if (complaint.admin_deadline) {
+            adminDeadline = new Date(complaint.admin_deadline);
+          } else if (complaint.inspection_deadline) {
+            adminDeadline = new Date(complaint.inspection_deadline);
+          }
           
-          const deadline = new Date(actionDate.getTime() + (daysToAdd * 24 * 60 * 60 * 1000));
+          // Get meeting datetime from invitation action in complaint history
+          let meetingDateTime = null;
+          if (complaint.meeting_datetime) {
+            meetingDateTime = new Date(complaint.meeting_datetime);
+          } else if (complaint.meeting_date && complaint.meeting_time) {
+            meetingDateTime = new Date(`${complaint.meeting_date}T${complaint.meeting_time}`);
+          }
+          
+          let deadline;
+          let status = complaint.complaint_stage || 'Ongoing';
+          
+          // Calculate deadline based on action type (matching the new deadline logic)
+          if (actionType.includes('inspection') && !actionType.includes('done')) {
+            deadline = adminDeadline || new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+          } else if (actionType.includes('inspection done')) {
+            deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+          } else if (actionType.includes('send invitation') || (actionType.includes('invitation') && !actionType.includes('sent') && !actionType.includes('accepted'))) {
+            deadline = new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
+          } else if (actionType.includes('sent invitation')) {
+            deadline = new Date(actionDate.getTime() + (20 * 24 * 60 * 60 * 1000));
+          } else if (actionType.includes('accepted invitation')) {
+            deadline = meetingDateTime || actionDate;
+          } else if (actionType.includes('mediation')) {
+            const baseDate = meetingDateTime || actionDate;
+            deadline = new Date(baseDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+          } else if (actionType.includes('assessment')) {
+            return status; // No countdown for assessment, just show "Mark as Resolved"
+          } else {
+            deadline = new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
+          }
+          
           const now = new Date();
           const timeDiff = deadline.getTime() - now.getTime();
           const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
           
-          let status = complaint.complaint_stage || 'Ongoing';
           let countdown = '';
           
           if (daysDiff < 0) {
@@ -310,17 +364,17 @@
           statusDisplay = '<em>N/A</em>';
           actionNeededDisplay = 'Invalid';
         } else if (complaint.complaint_stage === 'Pending' || !complaint.latest_action) {
-          assignedToDisplay = '<em>Pending</em>';
-          statusDisplay = '<em>Pending</em>';
-          actionNeededDisplay = complaint.latest_action || 'Pending';
+          assignedToDisplay = 'Pending';
+          statusDisplay = '<em>Received</em>';
+          actionNeededDisplay = complaint.latest_action || 'Received';
         } else {
           assignedToDisplay = complaint.assigned_to || 'N/A';
           statusDisplay = calculateStatusWithDeadline(complaint);
-          actionNeededDisplay = complaint.latest_action || 'Pending';
+          actionNeededDisplay = complaint.latest_action || 'Received';
         }
         
         row.innerHTML = `
-          <td>${complaint.date_received}</td>
+          <td>${formatDateWithTimestamp(complaint.date_received)}</td>
           <td>${complaint.complainant_name || complaint.complainant || 'N/A'}</td>
           <td>${complaint.type_of_complaint}</td>
           <td>${complaint.area_name}</td>
@@ -370,6 +424,8 @@
       });
     }
 
+
+
     // Initialize page
     document.addEventListener('DOMContentLoaded', function() {
       loadAllComplaints();
@@ -378,41 +434,108 @@
   </script>
 
   <script>
+    // Enhanced deadline calculation based on specific action types
     function formatDeadline(complaint) {
       if (!complaint.action_datetime) return 'N/A';
-      const actionDate = new Date(complaint.action_datetime);
+      
       const actionType = (complaint.latest_action || complaint.action_needed || '').toLowerCase();
-
-      let daysToAdd = 1;
-      if (actionType.includes('inspection')) daysToAdd = 3;
-      else if (actionType.includes('invitation')) daysToAdd = 1;
-      else if (actionType.includes('mediation')) daysToAdd = 1;
-      else if (actionType.includes('assessment')) daysToAdd = 1;
-
-      const deadline = new Date(actionDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
-      const now = new Date();
-      const daysDiff = Math.ceil((deadline - now) / (1000 * 3600 * 24));
-
-      const dateStr = deadline.toLocaleDateString();
-
-      if (daysDiff < 0) {
-        return `${dateStr} (Overdue by ${Math.abs(daysDiff)}d)`;
-      } else if (daysDiff === 0) {
-        return `${dateStr} (Due today)`;
-      } else if (daysDiff <= 2) {
-        return `${dateStr} (${daysDiff}d left)`;
-      } else {
-        return `${dateStr} (${daysDiff}d left)`;
+      const actionDate = new Date(complaint.action_datetime);
+      
+      // Get admin-set deadline for inspection from complaint history/actions
+      let adminDeadline = null;
+      if (complaint.admin_deadline) {
+        adminDeadline = new Date(complaint.admin_deadline);
       }
+      
+      // Get meeting datetime from invitation action in complaint history
+      let meetingDateTime = null;
+      if (complaint.meeting_date && complaint.meeting_time) {
+        // Construct meeting datetime from separate date and time fields
+        meetingDateTime = new Date(`${complaint.meeting_date}T${complaint.meeting_time}`);
+      }
+
+      if (actionType.includes('inspection') && !actionType.includes('done')) {
+        // Inspection → Deadline = 'Deadline' date set by admin + time when Inspection action was saved
+        if (adminDeadline) {
+          const dateStr = adminDeadline.toLocaleDateString();
+          const timeStr = actionDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          return `${dateStr}<br/>${timeStr}`;
+        }
+        // Fallback to 3 days if no admin deadline set
+        const deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+        const dateStr = deadline.toLocaleDateString();
+        const timeStr = actionDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        return `${dateStr}<br/>${timeStr}`;
+      }
+      
+      else if (actionType.includes('inspection done')) {
+        // Inspection done → Show "Send invite before:" + 3 days after this action
+        const deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+        const dateStr = deadline.toLocaleDateString();
+        return `Send invite before:<br/>${dateStr}`;
+      }
+      
+      else if (actionType.includes('send invitation') || actionType.includes('invitation') && !actionType.includes('sent') && !actionType.includes('accepted')) {
+        // Send Invitation → 1 day after the previous action
+        const deadline = new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
+        const dateStr = deadline.toLocaleDateString();
+        const timeStr = deadline.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        return `${dateStr}<br/>${timeStr}`;
+      }
+      
+      else if (actionType.includes('sent invitation')) {
+        // Sent Invitation → 20 days after the previous action
+        const deadline = new Date(actionDate.getTime() + (20 * 24 * 60 * 60 * 1000));
+        const dateStr = deadline.toLocaleDateString();
+        const timeStr = deadline.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        return `${dateStr}<br/>${timeStr}`;
+      }
+      
+      else if (actionType.includes('accepted invitation')) {
+        // Accepted Invitation → Date/Time of Meeting from Invitation modal + "(Mediation day)"
+        if (meetingDateTime) {
+          const dateStr = meetingDateTime.toLocaleDateString();
+          const timeStr = meetingDateTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          return `${dateStr} | ${timeStr}<br/>(Mediation day)`;
+        }
+        // Fallback if no meeting datetime
+        const dateStr = actionDate.toLocaleDateString();
+        return `${dateStr}<br/>(Mediation day)`;
+      }
+      
+      else if (actionType.includes('mediation')) {
+        // Mediation → "Make assessment before:" + 3 days after Date/Time of Meeting
+        let baseDate = meetingDateTime || actionDate;
+        const deadline = new Date(baseDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+        const dateStr = deadline.toLocaleDateString();
+        return `Assess before:<br/>${dateStr}`;
+      }
+      
+      else if (actionType.includes('assessment')) {
+        // Assessment → "Mark as Resolved" in italic
+        return `<em>Mark as Resolved</em>`;
+      }
+      
+      // Default fallback
+      const deadline = new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
+      const dateStr = deadline.toLocaleDateString();
+      const timeStr = deadline.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      return `${dateStr}<br/>${timeStr}`;
     }
 
     function calculatePendingDeadline(complaint) {
       const submittedDate = new Date(complaint.date_received);
-      const deadline = new Date(submittedDate.getTime() + (7 * 24 * 60 * 60 * 1000));
-      const now = new Date();
-      const timeDiff = deadline.getTime() - now.getTime();
-      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-      const dateStr = deadline.toLocaleDateString();
+      
+      // Calculate days remaining more accurately (submission day counts as day 1)
+      const submittedDateOnly = new Date(submittedDate.getFullYear(), submittedDate.getMonth(), submittedDate.getDate());
+      const nowDateOnly = new Date();
+      nowDateOnly.setHours(0, 0, 0, 0);
+      const daysElapsed = Math.floor((nowDateOnly - submittedDateOnly) / (1000 * 3600 * 24));
+      const daysDiff = 7 - daysElapsed;
+      
+      // Calculate the actual deadline date (7 days from submission)
+      const deadlineDate = new Date(submittedDateOnly.getTime() + (6 * 24 * 60 * 60 * 1000));
+      const dateStr = deadlineDate.toLocaleDateString();
 
       if (daysDiff < 0) {
         return `${dateStr} (Overdue by ${Math.abs(daysDiff)}d)`;
@@ -476,7 +599,7 @@
         // Prepare table data using your deadline functions
         const tableData = filteredComplaints.map(c => {
           let deadlineText = "N/A";
-          if (c.status === "Pending") {
+          if (c.status === "Pending" || c.status === "Received") {
             deadlineText = calculatePendingDeadline(c);
           } else if (c.status !== "Invalid" && c.action_datetime) {
             deadlineText = formatDeadline(c);
@@ -724,7 +847,8 @@
         const almostDue = [];
 
         complaints.forEach(c => {
-          if (!c.action_datetime || c.status === "Resolved" || c.status === "Invalid") return;
+          // Skip resolved complaints - they shouldn't appear in inbox
+          if (!c.action_datetime || c.status === "Resolved" || c.status === "Invalid" || c.complaint_stage === "Resolved" || c.is_resolved) return;
 
           const actionType = (c.latest_action || c.action_needed || "").toLowerCase();
           let daysToAdd = 1;
@@ -794,6 +918,175 @@
         inboxList.innerHTML = `<p style="color:red;">Failed to load inbox.</p>`;
       }
     });
+  </script>
+
+  <script>
+    // Sorting functionality for Type of Complaint, Assigned To, and Priority Level
+    document.addEventListener("DOMContentLoaded", () => {
+      // Type of Complaint sorting
+      const typeToggle = document.getElementById("typeDropdownToggle");
+      const typeMenu = document.getElementById("typeDropdownMenu");
+      let typeMenuVisible = false;
+
+      if (typeToggle && typeMenu) {
+        // Create dropdown content for Type of Complaint
+        typeMenu.innerHTML = `
+          <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="all">Show All</div>
+          <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="Overlapping">Overlapping</div>
+          <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="Pathway Dispute">Pathway Dispute</div>
+          <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="Lot Dispute">Lot Dispute</div>
+          <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="Boundary Dispute">Boundary Dispute</div>
+          <div style="padding: 8px 12px; cursor: pointer;" data-sort="Unauthorized Occupation">Unauthorized Occupation</div>
+        `;
+
+        typeToggle.addEventListener("click", (e) => {
+          e.stopPropagation();
+          typeMenuVisible = !typeMenuVisible;
+          typeMenu.style.display = typeMenuVisible ? "block" : "none";
+          // Close other dropdowns
+          if (typeMenuVisible) {
+            document.getElementById("assignedDropdownMenu").style.display = "none";
+            document.getElementById("priorityDropdownMenu").style.display = "none";
+          }
+        });
+
+        // Handle type filter selection
+        typeMenu.addEventListener("click", (e) => {
+          const sortValue = e.target.getAttribute("data-sort");
+          if (sortValue) {
+            filterByType(sortValue);
+            typeMenu.style.display = "none";
+            typeMenuVisible = false;
+          }
+        });
+      }
+
+      // Assigned To sorting
+      const assignedToggle = document.getElementById("assignedDropdownToggle");
+      const assignedMenu = document.getElementById("assignedDropdownMenu");
+      let assignedMenuVisible = false;
+
+      if (assignedToggle && assignedMenu) {
+        // Create dropdown content for Assigned To
+        assignedMenu.innerHTML = `
+          <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="all">Show All</div>
+          <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="Josie Rosal">Josie Rosal</div>
+          <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="Alberto Nonato Jr.">Alberto Nonato Jr.</div>
+          <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="Maybelen Jamorawon">Maybelen Jamorawon</div>
+          <div style="padding: 8px 12px; cursor: pointer;" data-sort="Agnes Bartolome">Agnes Bartolome</div>
+        `;
+
+        assignedToggle.addEventListener("click", (e) => {
+          e.stopPropagation();
+          assignedMenuVisible = !assignedMenuVisible;
+          assignedMenu.style.display = assignedMenuVisible ? "block" : "none";
+          // Close other dropdowns
+          if (assignedMenuVisible) {
+            document.getElementById("typeDropdownMenu").style.display = "none";
+            document.getElementById("priorityDropdownMenu").style.display = "none";
+          }
+        });
+
+        // Handle assigned filter selection
+        assignedMenu.addEventListener("click", (e) => {
+          const sortValue = e.target.getAttribute("data-sort");
+          if (sortValue) {
+            filterByAssigned(sortValue);
+            assignedMenu.style.display = "none";
+            assignedMenuVisible = false;
+          }
+        });
+      }
+
+      // Priority Level sorting
+      const priorityToggle = document.getElementById("priorityDropdownToggle");
+      const priorityMenu = document.getElementById("priorityDropdownMenu");
+      let priorityMenuVisible = false;
+
+      if (priorityToggle && priorityMenu) {
+        // Create dropdown content for Priority Level
+        priorityMenu.innerHTML = `
+          <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="all">Show All</div>
+          <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="Severe">1. Severe</div>
+          <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="Moderate">2. Moderate</div>
+          <div style="padding: 8px 12px; cursor: pointer;" data-sort="Minor">3. Minor</div>
+        `;
+
+        priorityToggle.addEventListener("click", (e) => {
+          e.stopPropagation();
+          priorityMenuVisible = !priorityMenuVisible;
+          priorityMenu.style.display = priorityMenuVisible ? "block" : "none";
+          // Close other dropdowns
+          if (priorityMenuVisible) {
+            document.getElementById("typeDropdownMenu").style.display = "none";
+            document.getElementById("assignedDropdownMenu").style.display = "none";
+          }
+        });
+
+        // Handle priority filter selection
+        priorityMenu.addEventListener("click", (e) => {
+          const sortValue = e.target.getAttribute("data-sort");
+          if (sortValue) {
+            filterByPriority(sortValue);
+            priorityMenu.style.display = "none";
+            priorityMenuVisible = false;
+          }
+        });
+      }
+
+      // Close dropdowns when clicking outside
+      document.addEventListener("click", (e) => {
+        if (typeMenu) typeMenu.style.display = "none";
+        if (assignedMenu) assignedMenu.style.display = "none";
+        if (priorityMenu) priorityMenu.style.display = "none";
+        typeMenuVisible = false;
+        assignedMenuVisible = false;
+        priorityMenuVisible = false;
+      });
+    });
+
+    // Format date with timestamp (date on top, time on bottom)
+    function formatDateWithTimestamp(dateString) {
+      if (!dateString) return 'N/A';
+      
+      try {
+        const date = new Date(dateString);
+        const dateStr = date.toLocaleDateString('en-US', {
+          month: 'short', day: 'numeric', year: 'numeric'
+        });
+        const timeStr = date.toLocaleTimeString('en-US', {
+          hour: '2-digit', minute: '2-digit', hour12: true
+        });
+        return `${dateStr}<br/>${timeStr}`;
+      } catch (error) {
+        console.error('Error formatting date:', error);
+        return dateString;
+      }
+    }
+
+    // Filter functions
+    function filterByType(type) {
+      let filteredData = type === 'all' ? allComplaintsData : 
+        allComplaintsData.filter(complaint => complaint.type_of_complaint === type);
+      populateTable(filteredData);
+    }
+
+    function filterByAssigned(assigned) {
+      let filteredData = assigned === 'all' ? allComplaintsData : 
+        allComplaintsData.filter(complaint => complaint.assigned_to === assigned);
+      populateTable(filteredData);
+    }
+
+    function filterByPriority(priority) {
+      if (priority === 'all') {
+        populateTable(allComplaintsData);
+      } else {
+        // Sort by priority order: Severe -> Moderate -> Minor
+        let filteredData = allComplaintsData.filter(complaint => 
+          (complaint.priority_level || 'Minor') === priority);
+        populateTable(filteredData);
+      }
+    }
   </script>
 
 <style>

@@ -89,7 +89,7 @@
             Loading timeline...
           </div>
         </div>
-        <button class="resolved-btn" onclick="resolveComplaint()">Resolved</button>
+        <button class="resolved-btn" onclick="showResolveModal()">Resolved</button>
       </div>
     </div>
 
@@ -379,6 +379,23 @@
         </div>
 
         <div class="files-footer"><button class="close-btn" onclick="closeFiles()">Close</button></div>
+      </div>
+    </div>
+
+    <!-- RESOLVE CONFIRMATION MODAL -->
+    <div class="modal-overlay" id="resolveModal" style="display:none;">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Confirm Resolution</h3>
+          <button onclick="closeResolveModal()" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure to mark this complaint as Resolved?</p>
+          <div class="modal-actions">
+            <button onclick="resolveComplaint()" style="background: #dc3545; color: white; padding: 10px 20px; border: none; border-radius: 5px; margin-right: 10px; cursor: pointer;">Yes, Mark as Resolved</button>
+            <button onclick="closeResolveModal()" style="background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">Cancel</button>
+          </div>
+        </div>
       </div>
     </div>
   </main>
@@ -946,6 +963,12 @@
     // Click outside closes modals
     modal.addEventListener('click', e => { if (e.target === modal) closeComplaint(); });
     recommendModal.addEventListener("click", e => { if (e.target === recommendModal) closeRecommend(); });
+    
+    // Add click outside handler for resolve modal
+    const resolveModal = document.getElementById('resolveModal');
+    if (resolveModal) {
+      resolveModal.addEventListener('click', e => { if (e.target === resolveModal) closeResolveModal(); });
+    }
 
     // Expose globally so your buttons can call them
     window.openComplaint = openComplaint;
@@ -1090,7 +1113,11 @@
     let filteredEntries = filterEntriesByRole(entries, currentRole);
     
     // Sort entries by date (most recent first)
+    console.log('Before sorting:', filteredEntries.map(e => `${e.type_of_action} at ${e.action_datetime}`));
+    console.log('Before sorting (as Date objects):', filteredEntries.map(e => `${e.type_of_action} at ${new Date(e.action_datetime)}`));
     filteredEntries.sort((a, b) => new Date(b.action_datetime) - new Date(a.action_datetime));
+    console.log('After sorting (most recent first):', filteredEntries.map(e => `${e.type_of_action} at ${e.action_datetime}`));
+    console.log('After sorting (as Date objects):', filteredEntries.map(e => `${e.type_of_action} at ${new Date(e.action_datetime)}`));
     
     // Generate HTML for timeline entries
     const timelineHTML = filteredEntries.map(entry => {
@@ -1108,8 +1135,19 @@
       const assignedTo = entry.assigned_to ? `<span>${entry.assigned_to}</span>` : '';
       
       // Add "Mark as Accepted" button for "Sent Invitation" entries (admin.account == 1 only)
-      const acceptInvitationButton = timelineStatus === 'Sent Invitation' ?
-        `<button class="accept-invitation-btn" onclick="showAcceptInvitationModal(${entry.history_id})" style="margin-left: 10px; background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Mark as Accepted</button>` : '';
+      // Check if invitation has already been accepted by looking for "Accepted Invitation" entries
+      const hasAcceptedInvitation = filteredEntries.some(e => e.type_of_action === 'Accepted Invitation');
+      let acceptInvitationButton = '';
+      
+      if (timelineStatus === 'Sent Invitation') {
+        if (hasAcceptedInvitation) {
+          // Already accepted - show disabled gray button
+          acceptInvitationButton = `<button class="accept-invitation-btn" disabled style="margin-left: 10px; background: #6c757d; color: #adb5bd; border: none; padding: 5px 10px; border-radius: 3px; cursor: not-allowed;">Already Accepted</button>`;
+        } else {
+          // Not accepted yet - show clickable green button
+          acceptInvitationButton = `<button class="accept-invitation-btn" onclick="showAcceptInvitationModal(${entry.history_id})" style="margin-left: 10px; background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Mark as Accepted</button>`;
+        }
+      }
       
       return `
         <div class="timeline-entry" data-status="${timelineStatus.toLowerCase().replace(/\s+/g, '-')}">
@@ -1210,8 +1248,50 @@
     }
   }
   
+  // Check if complaint is resolved and apply readonly state
+  function checkResolvedState() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const referrer = urlParams.get('referrer');
+    
+    // If coming from resolved.html, disable all interactive elements
+    if (referrer === 'resolved.html') {
+      applyResolvedReadonlyState();
+    }
+  }
+  
+  // Apply readonly state for resolved complaints
+  function applyResolvedReadonlyState() {
+    // Hide the "Resolved" button since complaint is already resolved
+    const resolveBtn = document.querySelector('button[onclick="showResolveModal()"]');
+    if (resolveBtn) {
+      resolveBtn.style.display = 'none';
+    }
+    
+    // Disable all action buttons (openComplaint, etc.)
+    const actionButtons = document.querySelectorAll('button[onclick*="openComplaint"], button[onclick*="proceedTo"]');
+    actionButtons.forEach(btn => {
+      btn.disabled = true;
+      btn.style.backgroundColor = '#6c757d';
+      btn.style.color = '#adb5bd';
+      btn.style.cursor = 'not-allowed';
+      btn.title = 'This complaint has been resolved and is read-only';
+    });
+    
+    // Add visual indicator to header
+    const header = document.querySelector('.header h1');
+    if (header) {
+      header.innerHTML += ' <span style="color: #6c757d; font-size: 0.8em;">(Resolved - Read Only)</span>';
+    }
+    
+    // Disable modal functionality
+    window.openComplaint = function() {
+      alert('This complaint has been resolved and cannot be modified.');
+    };
+  }
+
   // Initialize timeline on page load
   document.addEventListener('DOMContentLoaded', function() {
+    checkResolvedState();
     refreshTimeline();
     loadComplaintMap();
   });
@@ -1323,6 +1403,11 @@
     if (!currentInvitationHistoryId) return;
     
     try {
+      // Get current admin name from session
+      const adminResponse = await fetch('/admin/current-user');
+      const adminData = await adminResponse.json();
+      const adminName = adminData.name || 'Admin';
+      
       const complaintId = new URLSearchParams(window.location.search).get('id');
       const response = await fetch('/admin/complaints/api/action', {
         method: 'POST',
@@ -1330,7 +1415,7 @@
         body: JSON.stringify({
           complaint_id: complaintId,
           action_type: 'Accepted Invitation',
-          assigned_to: 'Admin',
+          assigned_to: adminName,
           description: 'Both parties have accepted the invitation',
           original_invitation_id: currentInvitationHistoryId
         })
@@ -1353,6 +1438,9 @@
   window.showAcceptInvitationModal = showAcceptInvitationModal;
   window.closeAcceptInvitationModal = closeAcceptInvitationModal;
   window.confirmAcceptedInvitation = confirmAcceptedInvitation;
+  window.showResolveModal = showResolveModal;
+  window.closeResolveModal = closeResolveModal;
+  window.resolveComplaint = resolveComplaint;
 
   /* Timeline: Open PDF */
   document.querySelectorAll('.file-btn').forEach(btn => {
@@ -1450,12 +1538,18 @@
   /* Sending actions is handled by saveAction() / saveMediationAction() above.
      Removed duplicate event listener that used incorrect selectors/endpoints. */
 
+  // Show resolve confirmation modal
+  function showResolveModal() {
+    document.getElementById('resolveModal').style.display = 'flex';
+  }
+  
+  // Close resolve confirmation modal
+  function closeResolveModal() {
+    document.getElementById('resolveModal').style.display = 'none';
+  }
+  
   // Resolve complaint function
   async function resolveComplaint() {
-    if (!confirm('Are you sure you want to mark this complaint as resolved?')) {
-      return;
-    }
-
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const complaintId = urlParams.get('id');
@@ -1469,15 +1563,27 @@
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        credentials: 'same-origin'
       });
 
       const data = await response.json();
       
       if (data.success) {
-        alert('Complaint resolved successfully!');
-        // Redirect to resolved complaints tab
-        window.location.href = '/admin/complaints/resolved.html';
+        // Close the modal
+        closeResolveModal();
+        
+        // Check referrer to determine redirect destination
+        const urlParams = new URLSearchParams(window.location.search);
+        const referrer = urlParams.get('referrer');
+        
+        // Redirect to resolved.html for complaints from pending.html and ongoing.html
+        if (referrer === 'pending.html' || referrer === 'ongoing.html') {
+          window.location.href = '/admin/complaints/resolved.html';
+        } else {
+          // For other cases (all.html, etc.), redirect back to the original page
+          window.location.href = referrer ? `/admin/complaints/${referrer}` : '/admin/complaints/all.html';
+        }
       } else {
         alert('Error: ' + (data.message || 'Failed to resolve complaint'));
       }

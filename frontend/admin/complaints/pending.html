@@ -87,7 +87,7 @@
     <!-- Tabs -->
     <div class="tabs">
       <a href="all.html"> All</a>
-      <a href="pending.html" class="active">Pending</a>
+      <a href="pending.html" class="active">Received</a>
       <a href="ongoing.html">On Going</a>
       <a href="resolved.html">Resolved</a>
       <a href="invalid.html">Invalid</a>
@@ -105,7 +105,7 @@
           <th style="text-align: center;">HOA</th>
           <th style="text-align: center;">Assigned To</th>
           <th style="text-align: center;">Deadline</th>
-          <th style="text-align: center;">Action Needed</th>
+          <th style="text-align: center;">Stage of Action</th>
           <th style="text-align: center;">Priority Level</th>
         </tr>
       </thead>
@@ -119,6 +119,33 @@
 
 
   <script>
+    // Format date with timestamp for display
+    function formatDateWithTimestamp(dateString) {
+      try {
+        if (!dateString) return 'N/A';
+        
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'Invalid Date';
+        
+        const dateStr = date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+        
+        const timeStr = date.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+        
+        return `${dateStr}<br><small style="color: #666;">${timeStr}</small>`;
+      } catch (error) {
+        console.error('Date formatting error:', error);
+        return dateString || 'N/A';
+      }
+    }
+
     // Load pending complaints data
     async function loadPendingComplaints() {
       try {
@@ -166,12 +193,19 @@
     // Calculate 7-day deadline for pending complaints
     function calculatePendingDeadline(complaint) {
       const submittedDate = new Date(complaint.date_received);
-      const deadline = new Date(submittedDate.getTime() + (7 * 24 * 60 * 60 * 1000)); // 7 days
+      // Add 6 days to the submission date (since submission day counts as day 1)
+      const deadline = new Date(submittedDate.getTime() + (6 * 24 * 60 * 60 * 1000));
       const now = new Date();
-      const timeDiff = deadline.getTime() - now.getTime();
-      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
       
-      const dateStr = deadline.toLocaleDateString();
+      // Calculate days remaining more accurately
+      const submittedDateOnly = new Date(submittedDate.getFullYear(), submittedDate.getMonth(), submittedDate.getDate());
+      const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const daysElapsed = Math.floor((nowDateOnly - submittedDateOnly) / (1000 * 3600 * 24));
+      const daysDiff = 7 - daysElapsed;
+      
+      // Calculate the actual deadline date (7 days from submission)
+      const deadlineDate = new Date(submittedDateOnly.getTime() + (6 * 24 * 60 * 60 * 1000));
+      const dateStr = deadlineDate.toLocaleDateString();
       
       if (daysDiff < 0) {
         return `<span style="color: red; font-weight: bold;">${dateStr}<br/>OVERDUE by ${Math.abs(daysDiff)} days</span>`;
@@ -190,7 +224,7 @@
       tbody.innerHTML = '';
       
       if (complaints.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No pending complaints</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No received complaints</td></tr>';
         return;
       }
       
@@ -204,12 +238,12 @@
         });
         
         // Handle pending cases with 7-day deadline warning
-        const assignedToDisplay = '<em>Pending</em>';
+        const assignedToDisplay = 'Pending';
         const deadlineDisplay = calculatePendingDeadline(complaint);
-        const actionNeededDisplay = complaint.latest_action || 'Pending';
+        const actionNeededDisplay = complaint.latest_action || 'Received';
         
         row.innerHTML = `
-          <td>${complaint.date_received}</td>
+          <td>${formatDateWithTimestamp(complaint.date_received)}</td>
           <td>${complaint.complainant_name || complaint.complainant || 'N/A'}</td>
           <td>${complaint.type_of_complaint}</td>
           <td>${complaint.area_name || 'N/A'}</td>

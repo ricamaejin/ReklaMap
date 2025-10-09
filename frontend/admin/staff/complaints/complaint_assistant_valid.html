@@ -59,24 +59,24 @@
             Loading timeline...
           </div>
         </div>
-        <button class="update-btn" onclick="openComplaint()">Update Status</button>
+        <button class="update-btn" onclick="openComplaint()" id="updateStatusBtn">Update Status</button>
       </div>
     </div>
 
     <!-- MODAL -->
-    <div class="modal-overlay" id="modal">
-      <div class="modal">
-        <!-- HEADER -->
-        <div class="modal-top">
-          <div class="left-content">
-            <strong>Assigned To: Maybelen Jamorawon</strong>
-            <h2 class="modal-title">Send Invitation</h2>
-          </div>
-          <div id="datetime">
-            <div id="date">21/10/2025</div>
-            <div id="time">9:00 AM</div>
-          </div>
-        </div>
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <!-- HEADER -->
+    <div class="modal-top">
+      <div class="left-content">
+        <strong id="assignedPersonnelLabel">Assigned To: Loading...</strong>
+        <h2 class="modal-title">Send Invitation</h2>
+      </div>
+      <div id="datetime">
+        <div id="date">21/10/2025</div>
+        <div id="time">9:00 AM</div>
+      </div>
+    </div>
 
     <div class="modal-body">
       <!-- Dynamic data loaded from admin's invitation assignment -->
@@ -188,12 +188,14 @@
       if (!response.ok) {
         console.error(`Failed to load invitation data: ${response.status}`);
         // Set fallback values if API fails
+        const assignedLabel = document.getElementById('assignedPersonnelLabel');
         const individualsContainer = document.getElementById('staffInvIndividuals');
         const dateEl = document.getElementById('staffInvDate');
         const timeEl = document.getElementById('staffInvTime');
         const venueEl = document.getElementById('staffInvVenue');
         const agendaEl = document.getElementById('staffInvAgenda');
         
+        if (assignedLabel) assignedLabel.textContent = 'Assigned To: Not specified';
         if (individualsContainer) individualsContainer.innerHTML = '<input type="text" value="Not assigned yet" readonly />';
         if (dateEl) dateEl.value = 'Not set';
         if (timeEl) timeEl.value = 'Not set';
@@ -211,6 +213,13 @@
       const meetingTime = result.meeting_time;
       const venue = result.venue;
       const agenda = result.agenda;
+      const assignedPersonnel = result.assistant; // Get the assigned personnel from admin's action
+      
+      // Update the assigned personnel header
+      const assignedLabel = document.getElementById('assignedPersonnelLabel');
+      if (assignedLabel) {
+        assignedLabel.textContent = `Assigned To: ${assignedPersonnel || 'Not specified'}`;
+      }
       
       // Fill readonly fields with data from admin's invitation action
       const individualsContainer = document.getElementById('staffInvIndividuals');
@@ -237,12 +246,14 @@
     } catch (error) {
       console.error('[STAFF DATA] Error loading admin invitation action details:', error);
       // Set error values
+      const assignedLabel = document.getElementById('assignedPersonnelLabel');
       const individualsContainer = document.getElementById('staffInvIndividuals');
       const dateEl = document.getElementById('staffInvDate');
       const timeEl = document.getElementById('staffInvTime');
       const venueEl = document.getElementById('staffInvVenue');
       const agendaEl = document.getElementById('staffInvAgenda');
       
+      if (assignedLabel) assignedLabel.textContent = 'Assigned To: Error loading data';
       if (individualsContainer) individualsContainer.innerHTML = '<input type="text" value="Error loading admin data" readonly />';
       if (dateEl) dateEl.value = 'Error loading data';
       if (timeEl) timeEl.value = 'Error loading data';
@@ -825,15 +836,60 @@ async function refreshTimeline() {
 
 // Removed showFallbackTimeline - staff view uses real database data only
 
+// Check if coming from resolved view and apply readonly state
+function checkResolvedState() {
+  const referrer = document.referrer;
+  if (referrer && referrer.includes('/staff/complaints/resolved')) {
+    applyResolvedReadonlyState();
+  }
+}
+
+// Apply readonly state for resolved complaints from staff resolved view
+function applyResolvedReadonlyState() {
+  // Hide the Update Status button
+  const updateBtn = document.getElementById('updateStatusBtn');
+  if (updateBtn) {
+    updateBtn.style.display = 'none';
+  }
+  
+  // Gray out all interactive elements
+  const modal = document.getElementById('modal');
+  if (modal) {
+    modal.style.opacity = '0.6';
+    modal.style.pointerEvents = 'none';
+  }
+  
+  // Disable all buttons and inputs in the form, but keep back button functional
+  const inputs = document.querySelectorAll('input, button, select, textarea');
+  inputs.forEach(input => {
+    // Skip the back button - keep it functional
+    if (input.onclick && input.onclick.toString().includes('goBack')) {
+      return;
+    }
+    input.disabled = true;
+    input.style.backgroundColor = '#f5f5f5';
+    input.style.color = '#666';
+  });
+}
+
 // Initialize timeline on page load - load real data only
 document.addEventListener('DOMContentLoaded', function() {
   console.log('[STAFF TIMELINE] Page loaded, loading real timeline data from database');
   
+  // Check if coming from resolved view first
+  checkResolvedState();
+  
   // Load real timeline data immediately (no sample data)
   refreshTimeline();
   
-  // Apply readonly state if needed
-  applyReadonlyState();
+  // Apply readonly state if needed (check if function exists)
+  if (typeof applyReadonlyState === 'function') {
+    applyReadonlyState();
+  }
+  
+  // Also initialize map loading
+  console.log('[STAFF MAP] Loading complaint area map');
+  loadComplaintMap();
 });
 
 // Make timeline functions globally available
@@ -868,10 +924,10 @@ async function loadComplaintMap() {
     const result = await response.json();
     console.log('[STAFF MAP] Complaint details received:', result);
     
-    if (result.success && result.area_code) {
-      displayAreaMap(result.area_code);
+    if (result.success && result.complaint) {
+      displayAreaMap(result.complaint);
     } else {
-      console.log('[STAFF MAP] No area code found in complaint details');
+      console.log('[STAFF MAP] No complaint data found in response');
       showMapError();
     }
     
@@ -882,11 +938,17 @@ async function loadComplaintMap() {
 }
 
 // Display the appropriate area SVG map
-async function displayAreaMap(areaCode) {
+async function displayAreaMap(complaint) {
   try {
-    console.log(`[STAFF MAP] Loading SVG for area: ${areaCode}`);
+    if (!complaint.area_code) {
+      console.log('[STAFF MAP] No area_code found in complaint data');
+      showMapError();
+      return;
+    }
     
-    const svgPath = `/admin/map/svg/${areaCode.toLowerCase()}.svg`;
+    console.log(`[STAFF MAP] Loading SVG for area: ${complaint.area_code}`);
+    
+    const svgPath = `/admin/map/svg/${complaint.area_code.toLowerCase()}.svg`;
     const response = await fetch(svgPath);
     
     if (!response.ok) {
@@ -918,7 +980,7 @@ async function displayAreaMap(areaCode) {
       }
     }
     
-    console.log(`[STAFF MAP] Successfully loaded area map for ${areaCode}`);
+    console.log(`[STAFF MAP] Successfully loaded area map for ${complaint.area_code}`);
     
   } catch (error) {
     console.error('[STAFF MAP] Error displaying area map:', error);
@@ -940,11 +1002,7 @@ function showMapError() {
   }
 }
 
-// Initialize map loading on page load
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('[STAFF MAP] Page loaded, loading complaint area map');
-  loadComplaintMap();
-});
+// Map loading is now handled in the main DOMContentLoaded event listener above
 
 // Make map functions globally available
 window.loadComplaintMap = loadComplaintMap;

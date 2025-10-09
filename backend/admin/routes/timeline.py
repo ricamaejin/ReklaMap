@@ -10,9 +10,11 @@ def generate_action_description(action_type, assigned_to, role='admin'):
         'Submitted': 'Submitted a Valid Complaint (default status after complaint submitted)',
         'Inspection': f'Site inspection assigned to {assigned_to}' if assigned_to else 'Inspection task assigned to staff',
         'Inspection done': f'Site inspection completed by {assigned_to}' if assigned_to else 'Site inspection completed by staff',
-        'Send Invitation': f'Send Invitation task assigned to {assigned_to}' if assigned_to else 'Send Invitation task assigned to staff', 
+        'Invitation': f'Send Invitation task assigned to {assigned_to}' if assigned_to else 'Send Invitation task assigned to staff', 
         'Sent Invitation': f'Invitation sent by {assigned_to}' if assigned_to else 'Invitation sent to involved parties by staff',
-        'Task Completed': 'Task completed by staff and passed back to admin',
+        'Accepted Invitation': f'Invitation sent by both parties (ready for mediation)' if assigned_to else 'Invitation sent to involved parties by staff',
+        'Mediation': 'Mediation has been concluded (proceed to assessment)',
+        'Assessment': f'Assessment completed by {assigned_to} (ready to mark as resolved)',
         'Resolved': 'Complaint resolved and moved to resolved view'
     }
     
@@ -31,7 +33,7 @@ def generate_action_description(action_type, assigned_to, role='admin'):
     complainant_descriptions = {
         'Submitted': 'Submitted a valid complaint',
         'Inspection done': 'Site inspection completed',
-        'Sent Invitation': 'Invitation sent to involved parties',
+        'Invitation': 'Invitation sent to involved parties',
         'Assessment': 'Assessment completed',
         'Resolved': 'Complaint has been resolved'
     }
@@ -153,6 +155,17 @@ def get_complaint_timeline(complaint_id):
             result = db.session.execute(query, {'complaint_id': complaint_id})
             entries = result.fetchall()
             print(f"Timeline query for complaint {complaint_id} returned {len(entries)} entries")
+            # Debug: print entries with timestamps to verify ordering (should be DESC - most recent first)
+            for i, entry in enumerate(entries):
+                print(f"  [{i}] {entry.type_of_action} at {entry.action_datetime} (assigned to: {entry.assigned_to})")
+            
+            # Additional debug: check for inspection-related entries specifically
+            inspection_entries = [e for e in entries if 'inspection' in e.type_of_action.lower()]
+            if len(inspection_entries) > 1:
+                print(f"  INSPECTION DEBUG: Found {len(inspection_entries)} inspection-related entries:")
+                for entry in inspection_entries:
+                    print(f"    - {entry.type_of_action} at {entry.action_datetime}")
+                    
         except Exception as query_error:
             print(f"Timeline query failed: {query_error}")
             entries = []

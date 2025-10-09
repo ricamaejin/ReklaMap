@@ -84,7 +84,7 @@
     <!-- Tabs -->
     <div class="tabs">
       <a href="all.html"> All</a>
-      <a href="pending.html">Pending</a>
+      <a href="pending.html">Received</a>
       <a href="ongoing.html">On Going</a>
       <a href="resolved.html" class="active">Resolved</a>
       <a href="invalid.html">Invalid</a>
@@ -101,7 +101,7 @@
           <th style="text-align: center;">Type of Complaint</th>
           <th style="text-align: center;">HOA</th>
           <th style="text-align: center;">Address</th>
-          <th style="text-align: center;">Action Needed</th>
+          <th style="text-align: center;">Stage of Action</th>
           <th style="text-align: center;">Priority Level</th>
         </tr>
       </thead>
@@ -115,6 +115,33 @@
 
 
   <script>
+    // Format date with timestamp for display
+    function formatDateWithTimestamp(dateString) {
+      try {
+        if (!dateString) return 'N/A';
+        
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'Invalid Date';
+        
+        const dateStr = date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+        
+        const timeStr = date.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+        
+        return `${dateStr}<br><small style="color: #666;">${timeStr}</small>`;
+      } catch (error) {
+        console.error('Date formatting error:', error);
+        return dateString || 'N/A';
+      }
+    }
+
     // Load resolved complaints data
     async function loadResolvedComplaints() {
       try {
@@ -178,12 +205,12 @@
         });
         
         row.innerHTML = `
-          <td>${complaint.date_received}</td>
+          <td>${formatDateWithTimestamp(complaint.date_received)}</td>
           <td>${complaint.complainant_name || complaint.complainant || 'N/A'}</td>
           <td>${complaint.type_of_complaint}</td>
           <td>${complaint.area_name || 'N/A'}</td>
           <td>${complaint.address || 'N/A'}</td>
-          <td>${complaint.action_needed || 'Pending'}</td>
+          <td>${complaint.action_needed || 'Received'}</td>
           <td><button class="priority-${(complaint.priority_level || 'minor').toLowerCase()}">${complaint.priority_level || 'Minor'}</button></td>
         `;
         

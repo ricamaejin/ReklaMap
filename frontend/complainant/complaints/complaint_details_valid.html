@@ -156,10 +156,6 @@
 
                                   <div class="pair-row">
                                     <div class="col">
-                                      <label class="small">Phone Number:</label>
-                                      <input type="text" name="parent_phone_number" value="{{ parent_info.phone_number or '' }}" readonly title="Phone Number" aria-label="Parent Phone Number">
-                                    </div>
-                                    <div class="col">
                                       <label class="small">Year of Residence:</label>
                                       <input type="text" name="parent_year_of_residence" value="{{ parent_info.year_of_residence or '' }}" readonly title="Year of Residence" aria-label="Parent Year of Residence">
                                     </div>
@@ -380,32 +376,85 @@
                                   {% endif %}
                                 </div>
 
-                              {% elif field.type == 'radio' %}
-                                <p>{{ field.label }}</p>
-                                {% set raw = answers[field.name] if field.name in answers else '' %}
-                                {% set raw_str = raw|string %}
-                                {% set is_multi = ',' in raw_str %}
-                                {% if is_multi %}
-                                  {% set selected_list = raw_str|replace(' ', '')|split(',') %}
-                                  <div class="checkbox-group">
-                                    {% for val, label in field.options %}
-                                      <label class="option">
-                                        <input type="checkbox" disabled {% if val in selected_list %}checked{% endif %}> {{ label }}
-                                      </label>
-                                    {% endfor %}
-                                  </div>
-                                {% else %}
-                                  <div class="radio-group">
-                                    {% for val, label in field.options %}
-                                      <label class="option">
-                                        <input type="radio" name="{{ field.name }}" value="{{ val }}" disabled {% if raw_str == val %}checked{% endif %}>
-                                        {{ label }}
-                                      </label>
-                                    {% endfor %}
-                                  </div>
-                                {% endif %}
-
-                              {% elif field.type == 'date' %}
+              {% elif field.type == 'radio' %}
+                <p>{{ field.label }}</p>
+                {% if field.name == 'q9' %}
+                  {# Special handling for lot dispute q9 - JSON structure with claim and documents #}
+                  {% set q9_data = answers[field.name] if field.name in answers else {} %}
+                  
+                  {# Handle nested data structure from database - extract the actual claim value #}
+                  {% set claim_value = '' %}
+                  {% if q9_data %}
+                    {% if q9_data.claim %}
+                      {% if q9_data.claim is string %}
+                        {% set claim_value = q9_data.claim %}
+                      {% elif q9_data.claim.claim %}
+                        {% if q9_data.claim.claim is string %}
+                          {% set claim_value = q9_data.claim.claim %}
+                        {% elif q9_data.claim.claim.claim %}
+                          {% set claim_value = q9_data.claim.claim.claim %}
+                        {% endif %}
+                      {% endif %}
+                    {% endif %}
+                  {% endif %}
+                  
+                  {# Always show the radio group for q9 #}
+                  <div class="radio-group">
+                    {% for val, label in field.options %}
+                      <label class="option">
+                        <input type="radio" name="{{ field.name }}" value="{{ val }}" disabled {% if claim_value == val %}checked{% endif %}>
+                        {{ label }}
+                      </label>
+                    {% endfor %}
+                  </div>
+                  
+                  {# Show conditional documents if claim is "Yes" #}
+                  {% if claim_value == 'Yes' %}
+                    <div style="margin-left: 20px; margin-top: 10px;">
+                      <p><strong>Documents they have:</strong></p>
+                      <div class="radio-group" style="margin-left: 15px;">
+                        {% if field.conditional and field.conditional.additional_fields %}
+                          {% for doc_field in field.conditional.additional_fields %}
+                            {% if doc_field.name == 'docs' %}
+                              {% for val, label in doc_field.options %}
+                                <label class="option" style="display: block; margin-bottom: 6px;">
+                                  <input type="checkbox" name="q9_documents" value="{{ val }}" disabled {% if q9_data.documents and val in q9_data.documents %}checked{% endif %}>
+                                  {{ label }}
+                                </label>
+                              {% endfor %}
+                            {% endif %}
+                          {% endfor %}
+                        {% endif %}
+                      </div>
+                    </div>
+                  {% endif %}
+                {% else %}
+                  {# Standard radio field handling #}
+                  {% set raw = answers[field.name] if field.name in answers else '' %}
+                  {% set raw_str = raw|string %}
+                  {% set is_multi = ',' in raw_str %}
+                  {% if is_multi %}
+                    {% set selected_list = raw_str|replace(' ', '')|split(',') %}
+                    <div class="checkbox-group">
+                      {% for val, label in field.options %}
+                        <label class="option">
+                          <input type="checkbox" disabled {% if val in selected_list %}checked{% endif %}> {{ label }}
+                        </label>
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <div class="radio-group">
+                      {% for val, label in field.options %}
+                        <label class="option">
+                          <input type="radio" name="{{ field.name }}" value="{{ val }}" disabled {% if raw_str == val %}checked{% endif %}>
+                          {{ label }}
+                        </label>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endif %}
+                
+              {% elif field.type == 'date' %}
                                 <p>{{ field.label }}</p>
                                 <input type="date" value="{{ answers[field.name] }}" disabled title="{{ field.label }}" aria-label="{{ field.label }}">
 
@@ -426,6 +475,28 @@
                               {% elif field.type == 'text' %}
                                 <p>{{ field.label }}</p>
                                 <input type="text" value="{{ answers[field.name] }}" disabled title="{{ field.label }}" aria-label="{{ field.label }}">
+
+                              {% elif field.type == 'multiple_text' %}
+                                <p>{{ field.label }}</p>
+                                {% set multiple_values = answers[field.name] if field.name in answers else [] %}
+                                {% if multiple_values %}
+                                  {% if multiple_values is string %}
+                                    {# Handle case where it's stored as JSON string #}
+                                    {% set multiple_list = multiple_values|from_json if multiple_values else [] %}
+                                  {% else %}
+                                    {# Handle case where it's already parsed as list #}
+                                    {% set multiple_list = multiple_values %}
+                                  {% endif %}
+                                  <div style="margin-left: 15px;">
+                                    {% for item in multiple_list %}
+                                      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                                        <input type="text" value="{{ item }}" readonly style="flex: 1; background: #f3f3f3; color: #888; border-color: #d3d3d3; cursor: not-allowed;" title="{{ field.label }}">
+                                      </div>
+                                    {% endfor %}
+                                  </div>
+                                {% else %}
+                                  <div class="readonly-value">N/A</div>
+                                {% endif %}
 
                               {% elif field.type == 'textarea' %}
                                 <p><strong>{{ field.label }}</strong></p>
@@ -515,8 +586,64 @@
                           fetchComplaintDetails(complaintId)
                         ]);
 
-                        // Ensure a Submitted entry exists
+                        // Ensure a Submitted entry exists and deduplicate entries
                         let entries = Array.isArray(timeline) ? timeline.slice() : [];
+                        
+                        // Debug: log raw entries from backend
+                        console.log('[COMPLAINANT TIMELINE] Raw entries from backend:', entries.map(e => ({
+                          type: e.type_of_action || e.action_type,
+                          datetime: e.action_datetime,
+                          description: e.description,
+                          assigned_to: e.assigned_to
+                        })));
+                        
+                        // For complainant view, we only want to show meaningful progress milestones
+                        // Filter out administrative noise like "Out of Jurisdiction" and incomplete tasks
+                        const meaningfulActions = ['submitted', 'inspection done', 'sent invitation', 'accepted invitation', 'mediation', 'assessment', 'resolved'];
+                        
+                        const filteredEntries = entries.filter(entry => {
+                          const type = (entry.type_of_action || entry.action_type || '').toLowerCase().trim();
+                          const isSubmitted = type.includes('submitted');
+                          const isMeaningfulAction = meaningfulActions.some(action => type.includes(action));
+                          
+                          console.log(`[COMPLAINANT TIMELINE] Evaluating entry "${type}": isSubmitted=${isSubmitted}, isMeaningfulAction=${isMeaningfulAction}`);
+                          
+                          return isSubmitted || isMeaningfulAction;
+                        });
+                        
+                        console.log(`[COMPLAINANT TIMELINE] Filtered ${entries.length} entries to ${filteredEntries.length} meaningful entries`);
+                        
+                        // Further deduplication on the filtered entries
+                        const uniqueEntries = [];
+                        const seenTypes = new Set();
+                        
+                        filteredEntries.forEach(entry => {
+                          const type = (entry.type_of_action || entry.action_type || '').toLowerCase().trim();
+                          
+                          if (!seenTypes.has(type)) {
+                            seenTypes.add(type);
+                            uniqueEntries.push(entry);
+                            console.log('[COMPLAINANT TIMELINE] Keeping unique meaningful entry:', type);
+                          } else {
+                            console.log('[COMPLAINANT TIMELINE] Filtering duplicate meaningful entry:', type);
+                          }
+                        });
+                        
+                        entries = uniqueEntries;
+                        
+                        // If there are no completed milestones, only show submitted
+                        const completedMilestones = entries.filter(e => {
+                          const type = (e.type_of_action || e.action_type || '').toLowerCase();
+                          return !type.includes('submitted') && meaningfulActions.some(action => type.includes(action));
+                        });
+                        
+                        console.log('[COMPLAINANT TIMELINE] Completed milestones found:', completedMilestones.length);
+                        
+                        if (completedMilestones.length === 0) {
+                          console.log('[COMPLAINANT TIMELINE] No completed milestones, showing only submitted entry');
+                          entries = entries.filter(e => (e.type_of_action || e.action_type || '').toLowerCase().includes('submitted'));
+                        }
+                        
                         const hasSubmitted = entries.some(e => ((e.type_of_action || e.action_type || '').toLowerCase() === 'submitted'));
                         if (!hasSubmitted) {
                           let submittedISO = null;
