@@ -128,18 +128,38 @@
               <option value="" disabled selected hidden>Select Action</option>
               <option value="Assessment">Assessment</option>
               <option value="Mediation">Mediation</option>
+              <option value="Out of Jurisdiction" style="color: red;">Out of Jurisdiction</option>
             </select>
           </div>
 
           <!-- FIELDS FOR ASSESSMENT -->
-          <div class="action-fields" id="actionAssessmentFields" style="display:none;">
-            <label>Assessment Notes:</label>
-            <textarea id="assessmentNotes" required></textarea>
+          <div class="action-fields" id="actionAssessmentFields" style="display:none; width:100%;">
+            <label style="display:block; margin-bottom:6px; font-weight:bold;">Assessment Notes:</label>
+            <textarea 
+              id="assessmentNotes" 
+              required 
+              style="width:95%; margin:0 auto; display:block; height:120px; box-sizing:border-box; resize:vertical; padding:8px; border:1px solid #ccc; border-radius:6px; font-size:14px;"
+            ></textarea>
           </div>
-
 
           <!-- FIELDS FOR MEDIATION -->
           <div class="action-fields" id="actionMediationFields" style="display:none;">
+            <!-- Assigned Personnel -->
+            <div class="form-group">
+            <label>Assigned Personnel:</label>
+            <input id="medAssignedPersonnel" type="text" name="medAssignedPersonnel" value="Josie Rosal" readonly>
+            </div>
+            <!-- Parties Involved  -->
+            <div class="form-group">
+              <label>Parties Involved:</label>
+              <div id="medPartiesInvolved"></div>
+            </div>
+            <hr>
+            <!-- Agenda -->
+            <div class="form-group">
+            <label>Agenda:</label>
+            <input type="text" name="agenda" placeholder="Agenda">
+            </div>
             <!-- Advisors/Witnesses -->
             <div class="form-group">
               <label>Advisors / Witnesses:</label>
@@ -152,31 +172,11 @@
             <div class="form-group">
               <button class="form-group-button" type="button" onclick="addWitness()">+ Add Witness</button>
             </div>
-
-            <!-- Assigned Personnel -->
-            <div class="form-group">
-            <label>Assigned Personnel:</label>
-            <input id="medAssignedPersonnel" type="text" name="medAssignedPersonnel" value="Josie Rosal" readonly>
-            </div>
-            <!-- Parties Involved  -->
-            <div class="form-group">
-              <label>Parties Involved:</label>
-              <div id="medPartiesInvolved"></div>
-            </div>
-
-            <!-- Agenda -->
-            <div class="form-group">
-            <label>Agenda:</label>
-            <input type="text" name="agenda" placeholder="Agenda">
-            </div>
-
-            
             <!-- Summary -->
             <div class="form-group">
             <label>Summary:</label>
             <textarea name="summary" placeholder="Enter mediation summary" required></textarea>
             </div>
-
             <!-- File uploads -->
             <div class="form-group">
               <label>Upload Files:</label>
@@ -190,6 +190,37 @@
             <div class="form-group">
               <button class="form-group-button" type="button" onclick="addFileUpload()">+ Add Another File</button>
             </div>
+          </div>
+
+          <!-- Out of Jurisdiction -->
+          <div class="action-fields" id="actionOutOfJurisdictionFields" style="display:none; width:100%;">
+            <label style="display:block; font-weight:bold; margin-bottom:6px;">Out of Jurisdiction:</label>
+            <div 
+              class="checkbox-group-compact" 
+              style="display:block; margin-left:15px; margin-top:10px;"
+            >
+              <label class="checkbox-item-compact" style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                <input type="radio" name="outOfJurisdiction" value="Barangay" style="width:18px; height:18px; cursor:pointer;"> Barangay
+              </label>
+              <label class="checkbox-item-compact" style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                <input type="radio" name="outOfJurisdiction" value="NGC" style="width:18px; height:18px; cursor:pointer;"> NGC
+              </label>
+              <label class="checkbox-item-compact" style="display:flex; align-items:center; gap:6px;">
+                <input type="radio" id="outOthersRadio" name="outOfJurisdiction" value="Others" style="width:18px; height:18px; cursor:pointer;"> Others
+              </label>
+              <input 
+                type="text" 
+                id="outOthersInput" 
+                placeholder="Please specify" 
+                style="display:none; margin-top:5px; margin-left:25px; width:93%; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-size:14px;"
+              />
+            </div>
+          <label style="display:block; margin-bottom:6px; font-weight:bold;">Out of Jurisdiction Notes:</label>
+              <textarea 
+                id="outOfJurisdictionNotes" 
+                required 
+                style="width:95%; margin:0 auto; display:block; height:120px; box-sizing:border-box; resize:vertical; padding:8px; border:1px solid #ccc; border-radius:6px; font-size:14px;"
+              ></textarea>
           </div>
         </div>
 
@@ -227,15 +258,16 @@
               <label>Assigned Personnel:</label>
               <input id="assignedPersonnel" type="text" readonly>
             </div>
-            <!-- Deadline -->
-            <div class="form-group">
-              <label>Deadline:</label>
-              <input id="inspectionDeadline" type="date" required style="margin-left: 30x;">
-            </div>
             <!-- Location of Inspection -->
             <div class="form-group">
               <label>Location of Inspection:</label>
               <input id="inspectionLocation" type="text" value="Alley 2 HOA" readonly>
+            </div>            
+            <hr>
+            <!-- Deadline -->
+            <div class="form-group">
+              <label>Deadline:</label>
+              <input id="inspectionDeadline" type="date" required style="margin-left: 30x;">
             </div>
             <!-- Scope of Inspection (compact) -->
             <div class="form-group">
@@ -245,28 +277,33 @@
                   <label class="checkbox-item-compact"><input type="checkbox" name="scope[]" value="affected_lots"> Affected lot/s</label>
                   <label class="checkbox-item-compact"><input type="checkbox" name="scope[]" value="measurement"> Measurement of lot/s</label>
                   <label class="checkbox-item-compact"><input type="checkbox" name="scope[]" value="relation_owner"> Relation to the lot owner (if non-HOA)</label>
+                  <label class="checkbox-item-compact"><input type="checkbox" id="othersCheckbox"> Others</label>
+                  <input type="text" id="othersInput" name="scope[]" placeholder="Please specify" style="display:none; margin-top:5px; margin-left: 25px;" />
                 </div>
             </div>
           </div>
 
          <!-- FIELDS FOR INVITATION -->
           <div class="action-fields" id="assignInvitationFields" style="display:none;">
-            <!-- Assigned Personnel -->
-            <div class="form-group">
-              <label for="invAssignedPersonnel">Assigned Personnel:</label>
-            <select id="invAssignedPersonnel" name="assigned_personnel" required>
-              <option value="" disabled selected hidden>Select Personnel</option>
-              <option value="Maybelen Jamorawon">Maybelen Jamorawon</option>
-              <option value="Agnes Bartolome">Agnes Bartolome</option>
-            </select>
-            </div>
-  
-
+           
             <!-- To -->
             <div class="form-group">
               <label for="invTo">To:</label>
               <div id="invTo"></div>
             </div>
+
+             <!-- Location -->
+            <div class="form-group">
+              <label for="invLocation">Location:</label>
+              <input id="invLocation" type="text" name="location" value="Autofilled Location" readonly>
+            </div>
+            
+            <!-- Agenda -->
+            <div class="form-group">
+              <label for="invAgenda">Agenda:</label>
+              <input type="text" id="invAgenda" name="agenda" readonly>
+            </div>
+            <hr>
 
             <!-- Date of Meeting -->
             <div class="form-group">
@@ -279,17 +316,15 @@
               <label for="invTime">Time of Meeting:</label>
               <input id="invTime" type="time" name="meeting_time" required>
             </div>
-            
-            <!-- Location -->
+
+            <!-- Assigned Personnel -->
             <div class="form-group">
-              <label for="invLocation">Location:</label>
-              <input id="invLocation" type="text" name="location" value="Autofilled Location" readonly>
-            </div>
-            
-            <!-- Agenda -->
-            <div class="form-group">
-              <label for="invAgenda">Agenda:</label>
-              <input type="text" id="invAgenda" name="agenda" readonly>
+              <label for="invAssignedPersonnel">Assigned Personnel:</label>
+            <select id="invAssignedPersonnel" name="assigned_personnel" required>
+              <option value="" disabled selected hidden>Select Personnel</option>
+              <option value="Maybelen Jamorawon">Maybelen Jamorawon</option>
+              <option value="Agnes Bartolome">Agnes Bartolome</option>
+            </select>
             </div>
           </div>
         </div>
@@ -548,6 +583,7 @@
           } catch (e) {}
         });
         document.querySelectorAll('#modal input[type=checkbox], #assignModal input[type=checkbox]').forEach(cb => cb.checked = false);
+        document.querySelectorAll('#modal input[type=radio], #assignModal input[type=radio]').forEach(r => r.checked = false);
         document.querySelectorAll('#modal input[type=file], #assignModal input[type=file]').forEach(f => { try { f.value = null; } catch(e){} });
         const witnessContainer = document.getElementById('witnessContainer');
         if (witnessContainer) {
@@ -555,10 +591,16 @@
         }
         const fileUploadContainer = document.getElementById('fileUploadContainer');
         if (fileUploadContainer) {
-          fileUploadContainer.innerHTML = `<div class="file-row"><input type="file" name="mediationFiles[]"><input type="text" name="fileDescription[]" placeholder="File type (e.g. Proof, Document)"></div>`;
+          fileUploadContainer.innerHTML = `<div class="fileUp-row"><input type="text" name="fileDescription[]" placeholder="File type (e.g. Proof, Document)"><input type="file" name="mediationFiles[]"></div>`;
         }
         const attachedFilesContainer = document.getElementById('attachedFilesContainer');
         if (attachedFilesContainer) attachedFilesContainer.innerHTML = '';
+        // Reset “Out of Jurisdiction” extras
+        const outOthersInput = document.getElementById('outOthersInput');
+        if (outOthersInput) outOthersInput.value = '';
+        const outNotes = document.getElementById('outOfJurisdictionNotes');
+        if (outNotes) outNotes.value = '';
+
         // Hide action-specific panels
         document.querySelectorAll('#modal .action-fields').forEach(div => div.style.display = 'none');
         document.querySelectorAll('#assignModal .action-fields').forEach(div => div.style.display = 'none');
@@ -570,13 +612,17 @@
     document.getElementById("actionType").addEventListener("change", function () {
       document.getElementById("actionAssessmentFields").style.display = "none";
       document.getElementById("actionMediationFields").style.display = "none";
+      document.getElementById("actionOutOfJurisdictionFields").style.display = "none";
 
       if (this.value === "Assessment") {
         document.getElementById("actionAssessmentFields").style.display = "block";
       } else if (this.value === "Mediation") {
         document.getElementById("actionMediationFields").style.display = "block";
+      } else if (this.value === "Out of Jurisdiction") {
+        document.getElementById("actionOutOfJurisdictionFields").style.display = "block";
       }
     });
+
 
     // Assign modal dropdown
     document.getElementById("assignType").addEventListener("change", function () {
@@ -631,7 +677,50 @@
       `;
       container.appendChild(div);
     }
- 
+
+
+    document.addEventListener("DOMContentLoaded", () => {
+    // Existing toggle logic for "others" checkboxes
+    const togglePairs = [
+      { checkbox: 'othersCheckbox', input: 'othersInput' },
+    ];
+
+    togglePairs.forEach(pair => {
+      const cb = document.getElementById(pair.checkbox);
+      const input = document.getElementById(pair.input);
+      if (cb && input) {
+        cb.addEventListener('change', function () {
+          if (this.checked) {
+            input.style.display = 'inline-block';
+            input.required = true;
+          } else {
+            input.style.display = 'none';
+            input.required = false;
+            input.value = '';
+          }
+        });
+      }
+    });
+
+    // New logic for Out of Jurisdiction radio buttons
+    const outOthersRadio = document.getElementById('outOthersRadio');
+    const outOthersInput = document.getElementById('outOthersInput');
+    const outRadios = document.querySelectorAll('input[name="outOfJurisdiction"]');
+
+    outRadios.forEach(radio => {
+      radio.addEventListener('change', function () {
+        if (outOthersRadio.checked) {
+          outOthersInput.style.display = 'inline-block';
+          outOthersInput.required = true;
+        } else {
+          outOthersInput.style.display = 'none';
+          outOthersInput.required = false;
+          outOthersInput.value = '';
+        }
+      });
+    });
+  });
+
 
     function saveAction() {
       const complaintId = (typeof currentComplaintId !== 'undefined') ? currentComplaintId : null;
@@ -665,11 +754,22 @@
         const loc = document.getElementById('inspectionLocation');
         const deadline = document.getElementById('inspectionDeadline');
         const scopeCheckboxes = document.querySelectorAll("input[name='scope[]']");
+        const othersCheckbox = document.getElementById('othersCheckbox');
+        const othersInput = document.getElementById('othersInput');
+
         if (assigned && !assigned.value) missing.push('Inspector');
         if (loc && !loc.value) missing.push('Inspection Location');
         if (deadline && !deadline.value) missing.push('Deadline');
+
+        // check if any regular checkbox is checked
         const anyChecked = Array.from(scopeCheckboxes).some(cb => cb.checked);
-        if (!anyChecked) missing.push('Scope (at least one option)');
+
+        // check if “Others” is filled properly
+        const othersFilled = othersCheckbox?.checked && othersInput?.value.trim();
+
+        if (!anyChecked && !othersFilled) {
+          missing.push('Scope (at least one option)');
+        }
       } else if (actionType === 'Mediation') {
         const agenda = document.querySelector("input[name='agenda']");
         const summary = document.querySelector("textarea[name='summary']");
@@ -682,7 +782,20 @@
         if (validUploads.length === 0) missing.push('At least one uploaded file with description');
       } else if (actionType === 'Assessment') {
         const notes = document.getElementById('assessmentNotes');
-        if (notes && !notes.value) missing.push('Assessment Notes'); }
+        if (notes && !notes.value) missing.push('Assessment Notes');
+      } else if (actionType === 'Out of Jurisdiction') {
+        const notes = document.getElementById('outOfJurisdictionNotes');
+        const outOthersRadio = document.getElementById('outOthersRadio');
+        const outOthersInput = document.getElementById('outOthersInput');
+        const jurisdictionRadios = document.querySelectorAll("input[name='outOfJurisdiction']");
+
+        const anySelected = Array.from(jurisdictionRadios).some(r => r.checked);
+        const othersFilled = outOthersRadio?.checked && outOthersInput?.value.trim();
+
+        if (!anySelected) missing.push('Out of Jurisdiction (select one option)');
+        if (outOthersRadio?.checked && !othersFilled) missing.push('Please specify "Others" under Out of Jurisdiction');
+        if (notes && !notes.value.trim()) missing.push('Out of Jurisdiction Notes');
+      }
       if (missing.length) {
         alert('Please fill required fields before saving: ' + missing.join(', '));
         return;
@@ -732,15 +845,38 @@
         };
         description = details.notes; // use notes as description
       } 
+      else if (actionType === "Out of Jurisdiction") {
+        const selectedRadio = document.querySelector('input[name="outOfJurisdiction"]:checked');
+        const othersInput = document.getElementById('outOthersInput');
+        const notes = document.querySelector("#outOfJurisdictionNotes")?.value || "";
+
+        const jurisdictionValue = selectedRadio
+          ? (selectedRadio.value === 'Others' ? othersInput?.value.trim() || 'Others' : selectedRadio.value)
+          : '';
+
+        details = {
+          jurisdiction: jurisdictionValue,
+          notes: notes
+        };
+        description = `${jurisdictionValue} - ${notes}`;
+      }
       else if (actionType === "Inspection") {
+        const othersValue = document.querySelector("#othersCheckbox")?.checked 
+          ? document.querySelector("#othersInput")?.value.trim() 
+          : "";
+
+        const scopes = Array.from(document.querySelectorAll("input[name='scope[]']:checked")).map(cb => cb.value);
+        if (othersValue) scopes.push(othersValue);
+
         details = {
           deadline: document.querySelector("#inspectionDeadline")?.value || "",
           inspector: document.querySelector("#assignedPersonnel")?.value || "",
           location: document.querySelector("#inspectionLocation")?.value || "",
-          scope: Array.from(document.querySelectorAll("input[name='scope[]']:checked")).map(cb => cb.value)
+          scope: scopes
         };
-        description = "Inspection scheduled"; // generic description
-      } 
+
+        description = "Inspection scheduled";
+      }
       else if (actionType === "Invitation") {
         details = {
           to: document.querySelector("#invTo")?.value || "",
@@ -752,16 +888,17 @@
         description = "Invitation scheduled"; // generic description
       }
 
-      const payload = {
-        complaint_id: complaintId,
-        action_type: actionType,
-        assigned_to: assignedTo,
-        action_datetime: new Date().toISOString().slice(0,19).replace("T"," "),
-        description: description,
-        ...details
-      };
 
-      console.log('payload to send:', payload);
+    // Create final payload
+    const payload = {
+      complaint_id: complaintId,
+      action_type: actionType,
+      assigned_to: assignedTo,
+      action_datetime: new Date().toISOString().slice(0,19).replace("T"," "),
+      description: description,
+    };
+
+    console.log("payload to send:", payload);
 
       // Disable the save button to prevent double submissions
       const modalSaveBtn = document.getElementById('modalSaveBtn');
