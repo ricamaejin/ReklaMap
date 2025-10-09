@@ -112,7 +112,7 @@
 
       <!-- Section 1 -->
       <div class="section-header">LOT DETAILS AND CLAIM:</div>
-      <p><strong>1. What is the nature of the boundary issue? </strong></p>
+      <p><strong>1. What is the nature of the boundary issue? </strong> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
       <label><input type="checkbox" value="Neighbor structure extends beyond line"> A neighbor’s house or structure extends beyond their boundary line</label>
       <label><input type="checkbox" value="Fence overlaps into my property"> A fence or wall installed by the neighbor overlaps into my property</label>
       <label><input type="checkbox" value="Construction within my claimed boundary"> Construction is ongoing within my claimed boundary</label>
@@ -129,18 +129,22 @@
       <label><input type="radio" name="conflict" style="margin-bottom: 12px;"> Not sure</label>
 
       <p><strong>3. Has the encroaching structure already been built or is it under construction?</strong></p>
-      <label><input type="radio" name="reason"> Fully constructed</label>
-      <label><input type="radio" name="reason"> Partially constructed</label>
-      <label><input type="radio" name="reason"> Ongoing construction</label>
-      <label><input type="radio" name="reason" style="margin-bottom: 12px;"> Structure was removed but boundary still contested</label>
+      <label><input type="radio"> Fully constructed</label>
+      <label><input type="radio"> Partially constructed</label>
+      <label><input type="radio"> Ongoing construction</label>
+      <label><input type="radio" style="margin-bottom: 12px;"> Structure was removed but boundary still contested</label>
       
       <p><strong>4. Were you given any prior notice before the structure crossed into your property?</strong></p>
       <label><input type="radio" name="notice"> Yes</label>
       <label><input type="radio" name="notice" style="margin-bottom: 12px;"> No</label>
       
-      <p><strong>5. Have you discussed or confronted the other party about the boundary issue?</strong></p>
-      <label><input type="radio" name="confronted"> Yes</label>
-      <label><input type="radio" name="confronted" style="margin-bottom: 12px;"> No</label>
+      <p> <strong>5. Have you discussed or confronted the other party about the boundary issue?</strong></p>
+      <label><input type="radio" name="confronted" value="yes" id="reasonYes"> Yes</label>
+      <div id="reasonDetails" style="display: none; margin-left: 22px;">
+        <p>Date Reported</p>
+        <input id="reasonDateInput" type="date" style="width: 20%; padding: 8px; margin-top: 6px; margin-left: 18px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;"/>
+      </div>
+      <label><input type="radio" name="confronted" value="no"> No</label>
 
       <p><strong>6. Has the dispute led to any of the following? </strong><i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
       <label><input type="checkbox"> Threats or harassment</label>
@@ -149,48 +153,42 @@
       <label><input type="checkbox"> Property damage</label>
       <label><input type="checkbox" style="margin-bottom: 12px;" value="None"> None</label>
 
-      <p> <strong>7. Have you discussed or confronted the other party about the boundary issue?</strong></p>
-      <label><input type="radio" name="reason" value="yes" id="reasonYes"> Yes</label>
-      <div id="reasonDetails" style="display: none; margin-left: 22px;">
-        <p>Date Reported</p>
-        <input id="reasonDateInput" type="date" style="width: 20%; padding: 8px; margin-top: 6px; margin-left: 18px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;"/>
-      </div>
-      <label><input type="radio" name="reason" value="no"> No</label>
-
-      <label><strong>8. Have you reported this boundary issue to any office or authority?</strong></label>
+      <label><strong>7. Have you reported this boundary issue to any office or authority?</strong> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></label>
       <label><input type="checkbox" name="boundary_reported_to[]" value="Barangay"> Barangay</label>
       <label><input type="checkbox" name="boundary_reported_to[]" value="HOA"> HOA</label>
       <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> NGC</label>
-      <label><input type="checkbox" name="boundary_reported_to[]" value="None"> None</label>
+      <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> USAD - PHASELAD</label>
+      <label><input type="checkbox" name="boundary_reported_to[]" value="none"> None</label>
 
-      <label><strong>9. Was there any site inspection or verification conducted?</strong></label>
+      <label><strong>8. Was there any site inspection or verification conducted?</strong></label>
       <label><input type="radio" name="site_inspection" value="Yes - Barangay" required> Yes – by Barangay</label>
       <label><input type="radio" name="site_inspection" value="Yes - HOA"> Yes – by HOA</label>
       <label><input type="radio" name="site_inspection" value="Yes - NGC"> Yes – by NGC</label>
+      <label><input type="radio" name="site_inspection" value="Yes - NGC"> Yes – by USAD - PHASELAD</label>
       <label><input type="radio" name="site_inspection" value="No"> No</label>
       <label><input type="radio" name="site_inspection" value="Not sure"> Not sure</label>
 
-      <label><strong>10. What was the result of the report or inspection?</strong></label>
+      <label><strong>9. What was the result of the report or inspection?</strong> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></label>
       <label><input type="checkbox" name="site_result[]" value="Advised to adjust or vacate"> The other party was advised to adjust or vacate</label>
       <label><input type="checkbox" name="site_result[]" value="Asked to provide more documents"> I was advised to provide more documents</label>
       <label><input type="checkbox" name="site_result[]" value="Still under investigation"> The issue is still under investigation</label>
+      <label><input type="checkbox" name="site_result[]" value="No valid claim"> I was told I have no valid claim</label>
       <label><input type="checkbox" name="site_result[]" value="No action taken"> No action was taken</label>
       <label><input type="checkbox" name="site_result[]" value="Not applicable"> Not applicable / No inspection yet</label>
 
-      <label><strong>11. Do you have any documents or proof showing your boundary or property line?</strong></label>
+      <label><strong>10. Do you have any documents or proof showing your boundary or property line?</strong></label>
       <label><input type="radio" name="have_docs" value="Yes" required> Yes</label>
         <div id="boundaryDocOptions" style="display:none; margin-left: 15px;">
-          <p><strong>Please specify:</strong></p>
+          <p><strong>Please specify:</strong> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
           <label><input type="checkbox" name="boundary_docs[]" value="Subdivision or site survey map"> Subdivision or site survey map</label>
-          <label><input type="checkbox" name="boundary_docs[]" value="Lot assignment document"> Lot assignment document</label>
-          <label><input type="checkbox" name="boundary_docs[]" value="Certificate of Lot Award (CLA)"> Certificate of Lot Award (CLA)</label>
-          <label><input type="checkbox" name="boundary_docs[]" value="Approved fence or building plan"> Approved fence or building plan</label>
+          <label><input type="checkbox" name="boundary_docs[]" value="Certificate of Lot Award (CLA)"> Title</label>
+          <label><input type="checkbox" name="boundary_docs[]" value="Approved fence or building plan"> Building permit</label>
           <label><input type="checkbox" name="boundary_docs[]" value="Barangay certification or inspection report"> Barangay certification or inspection report</label>
           <label><input type="checkbox" name="boundary_docs[]" value="Photographs showing boundary markers or encroachment"> Photographs showing boundary markers or encroachment</label>
         </div>
       <label><input type="radio" name="have_docs" value="No"> No</label>
 
-      <p><strong>12. Is there an ongoing development or government housing project in the area?</strong></p>
+      <p><strong>11. Is there an ongoing development or government housing project in the area?</strong></p>
       <label><input type="radio" name="reason"> Yes</label>
       <label><input type="radio" name="reason"> No</label>
       <label><input type="radio" name="reason" style="margin-bottom: 12px;"> Not sure</label>
@@ -245,22 +243,22 @@
 
       <label><strong>4. Do they claim to have legal or assignment documents?</strong></label>
       <div class="options-group">
-        <label><input type="radio" name="boundary_claim_docs" value="Yes"> Yes</label>
+        <label><input type="radio" name="boundary_claim_docs" value="Yes" id="boundaryClaimDocsYes"> Yes</label>
+        <div id="boundaryClaimDocOptions" style="display:none; margin-left: 15px;">
+          <p style="font-weight: bold; margin-left: 15px;">Which documents do they have? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+          <label><input type="checkbox" name="occupant_documents[]" value="title" style="margin-left: 33px;"> Title</label>
+          <label><input type="checkbox" name="occupant_documents[]" value="contract_to_sell" style="margin-left: 33px;"> Contract to Sell</label>
+          <label><input type="checkbox" name="occupant_documents[]" value="certificate_full_payment" style="margin-left: 33px;"> Certificate of Full Payment</label>
+          <label><input type="checkbox" name="occupant_documents[]" value="qualification_stub" style="margin-left: 33px;"> Pre-qualification Stub</label>
+          <label><input type="checkbox" name="occupant_documents[]" value="contract_agreement" style="margin-left: 33px;"> Contract/Agreement</label>
+          <label><input type="checkbox" name="occupant_documents[]" value="deed_of_sale" style="margin-left: 33px;"> Deed of Sale</label>
+        </div>
         <label><input type="radio" name="boundary_claim_docs" value="No"> No</label>
         <label><input type="radio" name="boundary_claim_docs" value="Not sure"> Not sure</label>
       </div>
 
-      <div id="boundaryClaimDocOptions" style="display:none; margin-left: 15px;">
-        <p>If “Yes,” what documents do they have?</p>
-        <label><input type="checkbox" name="boundary_claim_docs_list[]" value="CLA"> Certificate of Lot Award (CLA)</label>
-        <label><input type="checkbox" name="boundary_claim_docs_list[]" value="Notice of Award"> Notice of Award</label>
-        <label><input type="checkbox" name="boundary_claim_docs_list[]" value="Deed of Assignment / Transfer"> Deed of Assignment / Transfer</label>
-        <label><input type="checkbox" name="boundary_claim_docs_list[]" value="Certification from NGC/NHA/Barangay"> Certification from NGC/NHA/Barangay</label>
-        <label><input type="checkbox" name="boundary_claim_docs_list[]" value="Other supporting paper"> Other supporting paper (e.g., tax receipt, ID copy, etc.)</label>
-      </div>
-
       <!-- Section 3 -->
-        <p style="font-weight: bold;">Please describe what happened briefly, including how you found out about the issue.</p>
+        <p  class="section-label">Please describe what happened briefly, including how you found out about the issue.</p>
         <textarea></textarea>
 
         <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
@@ -438,49 +436,6 @@
       });
     })();
 
-    // Q6: Make "None" exclusive - if checked, uncheck others and vice versa
-    (function setupExclusiveCheckboxForQ6() {
-      const q6Checkboxes = form.querySelectorAll('input[type="checkbox"]');
-      const disputeCheckboxes = [];
-      
-      // Find Q6 checkboxes by looking for specific text content
-      q6Checkboxes.forEach(cb => {
-        const label = cb.closest('label');
-        if (label && (
-          label.textContent.includes('Threats or harassment') ||
-          label.textContent.includes('Physical altercation') ||
-          label.textContent.includes('Demolition or forced entry') ||
-          label.textContent.includes('Property damage') ||
-          (label.textContent.includes('None') && cb.value === 'None')
-        )) {
-          disputeCheckboxes.push(cb);
-        }
-      });
-
-      if (disputeCheckboxes.length === 0) return;
-
-      const noneCheckbox = disputeCheckboxes.find(cb => cb.value === 'None');
-      const otherCheckboxes = disputeCheckboxes.filter(cb => cb !== noneCheckbox);
-
-      if (!noneCheckbox) return;
-
-      // When "None" is checked, uncheck all others
-      noneCheckbox.addEventListener('change', function() {
-        if (this.checked) {
-          otherCheckboxes.forEach(cb => cb.checked = false);
-        }
-      });
-
-      // When any other checkbox is checked, uncheck "None"
-      otherCheckboxes.forEach(cb => {
-        cb.addEventListener('change', function() {
-          if (this.checked) {
-            noneCheckbox.checked = false;
-          }
-        });
-      });
-    })();
-
     // Setup add/remove for "Relationship with the person involved" section
     (function setupRelationshipInputs() {
       const container = document.getElementById('relationshipContainer');
@@ -550,5 +505,155 @@
     })();
   });
 </script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('BoundaryDisputeForm');
+  if (!form) return;
+
+  // --- helpers ---
+  function findQ6Start() {
+    const nodes = Array.from(form.querySelectorAll('p, label, div, h1, h2, h3'));
+    return nodes.find(el => {
+      const t = (el.textContent || '').trim();
+      return /^6\./.test(t) || /Has the dispute led/i.test(t);
+    }) || null;
+  }
+
+  function isQ7Header(el) {
+    if (!el) return false;
+    const t = (el.textContent || '').trim();
+    if (/^7\./.test(t)) return true;
+    if (/Have you reported/i.test(t)) return true;
+    const strong = el.querySelector && el.querySelector('strong');
+    if (strong && /^\s*7\./.test((strong.textContent || '').trim())) return true;
+    return false;
+  }
+
+  function collectCheckboxesBetween(startEl, stopCond) {
+    const boxes = [];
+    let el = startEl.nextElementSibling;
+    while (el) {
+      if (stopCond(el)) break;
+      if (el.querySelector) {
+        const inputs = Array.from(el.querySelectorAll('input[type="checkbox"]'));
+        inputs.forEach(i => boxes.push(i));
+      }
+      el = el.nextElementSibling;
+    }
+    return boxes;
+  }
+
+  function setupExclusiveNoneForList(checkboxList) {
+    if (!checkboxList || checkboxList.length === 0) return;
+    // find the group's "None" checkbox by value or by label text
+    const none = checkboxList.find(cb => {
+      if (!cb) return false;
+      const v = (cb.value || '').trim().toLowerCase();
+      if (v === 'none') return true;
+      const lbl = cb.closest && cb.closest('label');
+      return lbl && /\bnone\b/i.test(lbl.textContent || '');
+    });
+    if (!none) return;
+    const others = checkboxList.filter(cb => cb !== none);
+
+    // initialize state (handles prechecked)
+    if (none.checked) {
+      others.forEach(cb => { cb.checked = false; cb.disabled = true; cb.closest('label')?.classList.add('disabled'); });
+    } else {
+      others.forEach(cb => { cb.disabled = false; cb.closest('label')?.classList.remove('disabled'); });
+    }
+
+    // When None toggles
+    none.addEventListener('change', () => {
+      if (none.checked) {
+        others.forEach(cb => { cb.checked = false; cb.disabled = true; cb.closest('label')?.classList.add('disabled'); });
+      } else {
+        others.forEach(cb => { cb.disabled = false; cb.closest('label')?.classList.remove('disabled'); });
+      }
+    });
+
+    // When any other is checked, ensure None is unchecked (and enabled)
+    others.forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) {
+          none.checked = false;
+          none.disabled = false;
+          none.closest('label')?.classList.remove('disabled');
+        }
+      });
+    });
+  }
+
+  // --- Q6: collect checkboxes between Q6 header and Q7 header ---
+  const q6Start = findQ6Start();
+  const q6Checkboxes = q6Start ? collectCheckboxesBetween(q6Start, isQ7Header) : [];
+  setupExclusiveNoneForList(q6Checkboxes);
+
+  // --- Q7: by name attribute ---
+  const q7Checkboxes = Array.from(form.querySelectorAll('input[name="boundary_reported_to[]"][type="checkbox"]'));
+  setupExclusiveNoneForList(q7Checkboxes);
+
+  // --- small CSS hint for disabled labels (visual cue) ---
+  const style = document.createElement('style');
+  style.textContent = `
+    label.disabled { opacity: 0.6; }
+    label.disabled input { cursor: not-allowed; }
+  `;
+  document.head.appendChild(style);
+});
+</script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+  const q9Checkboxes = document.querySelectorAll('input[name="site_result[]"]');
+  if (q9Checkboxes.length === 0) return;
+
+  const notApplicable = Array.from(q9Checkboxes).find(
+    cb => (cb.value || "").toLowerCase().includes("not applicable")
+  );
+  const others = Array.from(q9Checkboxes).filter(cb => cb !== notApplicable);
+
+  if (!notApplicable) return;
+
+  // Initial state check
+  if (notApplicable.checked) {
+    others.forEach(cb => {
+      cb.checked = false;
+      cb.disabled = true;
+      cb.closest("label")?.classList.add("disabled");
+    });
+  }
+
+  // When Not Applicable is toggled
+  notApplicable.addEventListener("change", () => {
+    if (notApplicable.checked) {
+      others.forEach(cb => {
+        cb.checked = false;
+        cb.disabled = true;
+        cb.closest("label")?.classList.add("disabled");
+      });
+    } else {
+      others.forEach(cb => {
+        cb.disabled = false;
+        cb.closest("label")?.classList.remove("disabled");
+      });
+    }
+  });
+
+  // If others are checked, uncheck Not Applicable
+  others.forEach(cb => {
+    cb.addEventListener("change", () => {
+      if (cb.checked) {
+        notApplicable.checked = false;
+        notApplicable.disabled = false;
+        notApplicable.closest("label")?.classList.remove("disabled");
+      }
+    });
+  });
+});
+
+</script>
+
 </body>
 </html>

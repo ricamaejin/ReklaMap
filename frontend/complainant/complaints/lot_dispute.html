@@ -60,17 +60,15 @@
           <span style="color:var(--muted);font-size:13px;margin-left:8px"><i style="font-size: 14px; font-weight: normal; color: grey;">(If more than one area is affected, list all applicable pairs.)</i></span>
         </div>
       </div>
-      <p>1. How did you come into possession of the lot?</p>
+      <p style="font-weight: bold;">1. How did you come into possession of the lot?</p>
       <label><input type="radio" name="possession" value="Official assignment by NGCHDP/NHA"> I was officially assigned the lot by NGCHDP/NHA</label>
       <label><input type="radio" name="possession" value="Passed on by a family member"> The lot was passed on to me by a family member</label>
       <label><input type="radio" name="possession" value="Purchased from another occupant"> I purchased the lot from another occupant</label>
       <label><input type="radio" name="possession" value="Living since project started"> I have been living here since the NCC project started</label>
       <label><input type="radio" name="possession" value="Relocated after demolition/displacement"> I relocated here after demolition/displacement elsewhere</label>
-      <label><input type="radio" name="possession" value="Verbal promise by former officer/neighbor"> I was verbally promised the lot by a former officer or neighbor</label>
-      <label><input type="radio" name="possession" value="Other" id="possessionOther"> Other</label>
-      <input type="text" id="possessionOtherText" placeholder="Please specify" class="hidden">
+      <label><input type="radio" name="possession" value="Verbal promise by former officer/neighbor" style="margin-bottom: 12px;"> I was verbally promised the lot by a former officer or neighbor</label>
 
-      <p style="font-weight: bold;">2. What is the nature of the ownership conflict?</p>
+      <p style="font-weight: bold;">2. What is the nature of the ownership conflict? <i class="hint">(Check all that apply)</i></p>
       <label><input type="checkbox" name="nature" value="Someone else has a contract"> Someone else has a contract for the same lot</label>
       <label><input type="checkbox" name="nature" value="Someone else claiming lot"> Someone else is claiming my assigned lot</label>
       <label><input type="checkbox" name="nature" value="Assigned different lot"> I was assigned a different lot than what I was told</label>
@@ -82,9 +80,10 @@
       <label><input type="checkbox" name="nature" value="Not sure" style="margin-bottom: 12px;"> I am not sure what caused the dispute</label>
       
       <p style="font-weight: bold;">3. When did the dispute start?</p>
-      <input name="dispute_start_date" type="date" title="Dispute start date">
+      <input name="dispute_start_date" type="date" title="Dispute start date" 
+      style="width: 20%; padding: 8px; margin-top: 6px; margin-left: 18px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
 
-      <p style="font-weight: bold;">4. What led you to raise this complaint?</p>
+      <p style="font-weight: bold;">4. What led you to raise this complaint? <i class="hint">(Check all that apply)</i></p>
       <label><input type="checkbox" name="reason" value="Asked to vacate"> I was asked to vacate the lot I’ve been occupying</label>
       <label><input type="checkbox" name="reason" value="Denied access"> I was denied access to a lot I believe was assigned to me</label>
       <label><input type="checkbox" name="reason" value="Received notice"> I received notice that someone else is the rightful owner</label>
@@ -92,19 +91,20 @@
       <label><input type="checkbox" name="reason" value="Discovered duplicate record"> I discovered another person listed in official records for my lot</label>
       <label><input type="checkbox" name="reason" value="Clarification only" style="margin-bottom: 12px;"> I just want clarification about my assigned lot (no direct conflict yet)</label>
 
-      <p style="font-weight: bold;">5. Have you reported this to any authority? <i class="hint">(Check all that apply)</i></p>
-      <label><input type="checkbox" class="reported_to" value="Barangay"> Barangay</label>
-      <label><input type="checkbox" class="reported_to" value="HOA"> HOA</label>
-      <label><input type="checkbox" class="reported_to" value="NGC"> NGC</label>
-      <label><input type="checkbox" class="reported_to" value="None" style="margin-bottom: 12px;"> None</label>
+      <label><strong>5. Have you reported this boundary issue to any office or authority?</strong></label>
+      <label><input type="checkbox" name="boundary_reported_to[]" value="Barangay"> Barangay</label>
+      <label><input type="checkbox" name="boundary_reported_to[]" value="HOA"> HOA</label>
+      <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> NGC</label>
+      <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> USAD - PHASELAD</label>
+      <label><input type="checkbox" name="boundary_reported_to[]" value="none"> None</label>
 
-      <p style="font-weight: bold;">6. What was the result of that report?</p>
-      <label><input type="checkbox" name="result" value="Other party vacate" required> The other party was asked to vacate</label>
-      <label><input type="checkbox" name="result" value="Asked for documentation"> The agency asked for more documentation</label>
-      <label><input type="checkbox" name="result" value="No action taken"> No action was taken</label>
-      <label><input type="checkbox" name="result" value="Under investigation"> The issue is still under investigation</label>
-      <label><input type="checkbox" name="result" value="No valid claim"> I was told I have no valid claim</label>
-      <label><input type="checkbox" name="result" value="No report made" style="margin-bottom: 12px;"> I did not make any report</label>
+      <label><strong>6. What was the result of the report or inspection?</strong> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></label>
+      <label><input type="checkbox" name="site_result[]" value="Advised to adjust or vacate"> The other party was advised to adjust or vacate</label>
+      <label><input type="checkbox" name="site_result[]" value="Asked to provide more documents"> I was advised to provide more documents</label>
+      <label><input type="checkbox" name="site_result[]" value="Still under investigation"> The issue is still under investigation</label>
+      <label><input type="checkbox" name="site_result[]" value="No valid claim"> I was told I have no valid claim</label>
+      <label><input type="checkbox" name="site_result[]" value="No action taken"> No action was taken</label>
+      <label><input type="checkbox" name="site_result[]" value="Not applicable"> Not applicable / No inspection yet</label>
 
       <!-- Section 2 -->
       <div class="section-header">PERSONS INVOLVED DETAILS</div>
@@ -132,11 +132,12 @@
       <label><input type="radio" name="claimDocs" value="Yes"> Yes</label>
         <div id="docOptions" style="display:none; margin-left: 35px;">
           <p style="margin-left: 5px; font-weight: bold;">What documents do they have?</p>
-          <label><input type="checkbox" name="docs" value="Certificate of Lot Award (CLA)"> Certificate of Lot Award (CLA)</label>
-          <label><input type="checkbox" name="docs" value="Notice of Award"> Notice of Award</label>
-          <label><input type="checkbox" name="docs" value="Deed of Assignment / Transfer"> Deed of Assignment / Transfer</label>
-          <label><input type="checkbox" name="docs" value="Certification from NGC/NHA/Barangay"> Certification from NGC/NHA/Barangay</label>
-          <label><input type="checkbox" name="docs" value="Other supporting paper"> Other supporting paper (e.g., tax receipt, ID copy, etc.)</label>
+          <label><input type="checkbox" name="docs" value="Certificate of Lot Award (CLA)">Title</label>
+          <label><input type="checkbox" name="docs" value="Notice of Award"> Contract to Sell</label>
+          <label><input type="checkbox" name="docs" value="Deed of Assignment / Transfer"> Certificate of Full Payment</label>
+          <label><input type="checkbox" name="docs" value="Certification from NGC/NHA/Barangay"> Pre-qualification Stub</label>
+          <label><input type="checkbox" name="docs" value="contract_agreement"> Contract/Agreement</label>
+          <label><input type="checkbox" name="docs" value="Other supporting paper"> Deed of Sale</label>
         </div>
       <label><input type="radio" name="claimDocs" value="No"> No</label>
       <label><input type="radio" name="claimDocs" value="Not Sure"> Not sure</label>
@@ -681,6 +682,110 @@ document.addEventListener("DOMContentLoaded", () => {
     normalizeRelationshipRows();
   })();
 });
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.querySelector('form');
+  if (!form) return;
+
+  // 🔧 Function that makes “None” exclusive per group
+  function setupExclusiveNone(checkboxes) {
+    if (!checkboxes || checkboxes.length === 0) return;
+    const noneCheckbox = Array.from(checkboxes).find(cb => cb.value.toLowerCase() === 'none');
+    const otherCheckboxes = Array.from(checkboxes).filter(cb => cb !== noneCheckbox);
+    if (!noneCheckbox) return;
+
+    // When "None" is checked → disable all others
+    noneCheckbox.addEventListener('change', () => {
+      if (noneCheckbox.checked) {
+        otherCheckboxes.forEach(cb => {
+          cb.checked = false;
+          cb.disabled = true;
+          cb.closest('label')?.classList.add('disabled');
+        });
+      } else {
+        otherCheckboxes.forEach(cb => {
+          cb.disabled = false;
+          cb.closest('label')?.classList.remove('disabled');
+        });
+      }
+    });
+
+    // When any other is checked → uncheck "None"
+    otherCheckboxes.forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) {
+          noneCheckbox.checked = false;
+          noneCheckbox.disabled = false;
+          noneCheckbox.closest('label')?.classList.remove('disabled');
+        }
+      });
+    });
+  }
+
+  // ✅ Apply to Question 5 only
+  const q5Checkboxes = Array.from(form.querySelectorAll('input[name="boundary_reported_to[]"]'));
+  setupExclusiveNone(q5Checkboxes);
+
+  // Optional: subtle styling for disabled ones
+  const style = document.createElement('style');
+  style.textContent = `
+    label.disabled { opacity: 0.6; cursor: not-allowed; }
+    label.disabled input { cursor: not-allowed; }
+  `;
+  document.head.appendChild(style);
+});
+</script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+  const q9Checkboxes = document.querySelectorAll('input[name="site_result[]"]');
+  if (q9Checkboxes.length === 0) return;
+
+  const notApplicable = Array.from(q9Checkboxes).find(
+    cb => (cb.value || "").toLowerCase().includes("not applicable")
+  );
+  const others = Array.from(q9Checkboxes).filter(cb => cb !== notApplicable);
+
+  if (!notApplicable) return;
+
+  // Initial state check
+  if (notApplicable.checked) {
+    others.forEach(cb => {
+      cb.checked = false;
+      cb.disabled = true;
+      cb.closest("label")?.classList.add("disabled");
+    });
+  }
+
+  // When Not Applicable is toggled
+  notApplicable.addEventListener("change", () => {
+    if (notApplicable.checked) {
+      others.forEach(cb => {
+        cb.checked = false;
+        cb.disabled = true;
+        cb.closest("label")?.classList.add("disabled");
+      });
+    } else {
+      others.forEach(cb => {
+        cb.disabled = false;
+        cb.closest("label")?.classList.remove("disabled");
+      });
+    }
+  });
+
+  // If others are checked, uncheck Not Applicable
+  others.forEach(cb => {
+    cb.addEventListener("change", () => {
+      if (cb.checked) {
+        notApplicable.checked = false;
+        notApplicable.disabled = false;
+        notApplicable.closest("label")?.classList.remove("disabled");
+      }
+    });
+  });
+});
+
 </script>
 </body>
 </html>

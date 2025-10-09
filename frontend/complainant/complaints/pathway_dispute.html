@@ -115,18 +115,17 @@
         <p style="font-weight: bold;">1. What type of pathway is being encroached upon?</p>
         <label><input type="radio" name="possession"> Public sidewalk (pedestrian path)</label>
         <label><input type="radio" name="possession"> Common path/alley used by residents</label>
-        <label><input type="radio" name="possession"> Barangay access road or eskinita</label>
         <label><input type="radio" name="possession"> Government-declared easement or right-of-way</label>
         <label><input type="radio" name="possession" style="margin-bottom: 12px;"> Path used for access to utilities (water lines, drainage, etc.)</label>
 
 
         <p style="font-weight: bold;">2. What is the nature of the encroachment?</p>
-        <label><input type="radio" name="conflict"> A permanent structure (e.g., house extension, wall) was built on the path</label>
-        <label><input type="radio" name="conflict"> A fence or gate blocks pedestrian access</label>
-        <label><input type="radio" name="conflict"> A store or business has occupied the pathway</label>
-        <label><input type="radio" name="conflict"> Temporary materials (e.g., chairs, tables, stalls) regularly block the path</label>
-        <label><input type="radio" name="conflict"> Vehicle/s parked long-term on the path or right-of-way</label>
-        <label><input type="radio" name="conflict" style="margin-bottom: 12px;"> Construction debris or materials are placed on the path</label>
+        <label><input type="radio" name="nature"> A permanent structure (e.g., house extension, wall) was built on the path</label>
+        <label><input type="radio" name="nature"> A fence or gate blocks pedestrian access</label>
+        <label><input type="radio" name="nature"> A store or business has occupied the pathway</label>
+        <label><input type="radio" name="nature"> Temporary materials (e.g., chairs, tables, stalls) regularly block the path</label>
+        <label><input type="radio" name="nature"> Vehicle/s parked long-term on the path or right-of-way</label>
+        <label><input type="radio" name="nature" style="margin-bottom: 12px;"> Construction debris or materials are placed on the path</label>
 
         <p style="font-weight: bold;">3. How long has the pathway been obstructed or encroached?</p>
         <label><input type="radio" name="conflict"> Less than 1 month</label>
@@ -135,10 +134,11 @@
         <label><input type="radio" name="conflict" style="margin-bottom: 12px;"> Not sure</label>
 
         <p style="font-weight: bold;">4. Is the obstruction still present at the time of filing this complaint?</p>
-        <label><input type="radio" name="reason"> Yes – fully blocked</label>
-        <label><input type="radio" name="reason"> Yes – partially blocked</label>
-        <label><input type="radio" name="reason"> No – it was removed but may return</label>
-        <label><input type="radio" name="reason" style="margin-bottom: 12px;"> Not sure</label>
+        <label><input type="radio" > Yes – fully blocked</label>
+        <label><input type="radio" > Yes – partially blocked</label>
+        <label><input type="radio" > No – it was removed but may return</label>
+        <label><input type="radio" > No</label>
+        <label><input type="radio"  style="margin-bottom: 12px;"> Not sure</label>
 
         <p style="font-weight: bold;">5. How has this encroachment affected your access or mobility? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
         <label><input type="checkbox"> I can no longer pass through the area</label>
@@ -148,59 +148,53 @@
         <label><input type="checkbox" style="margin-bottom: 12px;"> Emergency vehicles or services are affected</label>
 
         <p style="font-weight: bold;">6. Have other residents or the barangay raised similar concerns?</p>
-        <label><input type="radio" name="reason"> Yes</label>
-        <label><input type="radio" name="reason"> No</label>
-        <label><input type="radio" name="reason" style="margin-bottom: 12px;"> Not sure</label>
+        <label><input type="radio" > Yes</label>
+        <label><input type="radio" > No</label>
+        <label><input type="radio" style="margin-bottom: 12px;"> Not sure</label>
 
         <p style="font-weight: bold;">7. Has the encroaching party been informed or warned by anyone?</p>
-        <label><input type="radio" name="conflict"> Yes – by me</label>
-        <label><input type="radio" name="conflict"> Yes – by barangay officials</label>
-        <label><input type="radio" name="conflict"> No</label>
-        <label><input type="radio" name="conflict" style="margin-bottom: 12px;"> Not sure</label>
+        <label><input type="radio" > Yes – by me</label>
+        <label><input type="radio" > Yes – by barangay officials</label>
+        <label><input type="radio" > No</label>
+        <label><input type="radio"  style="margin-bottom: 12px;"> Not sure</label>
 
-        <p style="font-weight: bold;">8. Has the dispute led to any of the following? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+        <p><strong>8. Has the dispute led to any of the following? </strong><i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
         <label><input type="checkbox"> Threats or harassment</label>
         <label><input type="checkbox"> Physical altercation</label>
         <label><input type="checkbox"> Demolition or forced entry</label>
         <label><input type="checkbox"> Property damage</label>
-        <label><input type="checkbox" style="margin-bottom: 12px;"> None</label>
+        <label><input type="checkbox" style="margin-bottom: 12px;" value="None"> None</label>
 
-        <p style="font-weight: bold;">9.Have you reported this encroachment to the department before?</p>
-        <label><input type="radio" name="reason" value="yes" id="reasonYes"> Yes</label>
-        <div id="reasonDetails" style="display: none; margin-left: 22px;">
-          <p>Date Reported</p>
-          <input id="reasonDateInput" type="date" style="width: 20%; padding: 8px; margin-top: 6px; margin-left: 18px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;"/>
-        </div>
-        <label><input type="radio" name="reason" value="no"> No</label>
-
-        <label><strong>10. Have you reported this boundary issue to any office or authority?</strong></label>
+        <label><strong>9. Have you reported this boundary issue to any office or authority?</strong><i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></label>
         <label><input type="checkbox" name="boundary_reported_to[]" value="Barangay"> Barangay</label>
         <label><input type="checkbox" name="boundary_reported_to[]" value="HOA"> HOA</label>
         <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> NGC</label>
-        <label><input type="checkbox" name="boundary_reported_to[]" value="None"> None</label>
+        <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> USAD - PHASELAD</label>
+        <label><input type="checkbox" name="boundary_reported_to[]" value="none"> None</label>
 
-        <label><strong>11. Was there any site inspection or verification conducted?</strong></label>
+
+        <label><strong>10. Was there any site inspection or verification conducted?</strong></label>
         <label><input type="radio" name="site_inspection" value="Yes - Barangay" required> Yes – by Barangay</label>
         <label><input type="radio" name="site_inspection" value="Yes - HOA"> Yes – by HOA</label>
         <label><input type="radio" name="site_inspection" value="Yes - NGC"> Yes – by NGC</label>
+        <label><input type="radio" name="site_inspection" value="Yes - NGC"> Yes – by USAD - PHASELAD</label>
         <label><input type="radio" name="site_inspection" value="No"> No</label>
         <label><input type="radio" name="site_inspection" value="Not sure"> Not sure</label>
 
-        <label><strong>12. What was the result of the report or inspection?</strong></label>
+        <label><strong>11. What was the result of the report or inspection?</strong><i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></label>
         <label><input type="checkbox" name="site_result[]" value="Advised to adjust or vacate"> The other party was advised to adjust or vacate</label>
         <label><input type="checkbox" name="site_result[]" value="Asked to provide more documents"> I was advised to provide more documents</label>
         <label><input type="checkbox" name="site_result[]" value="Still under investigation"> The issue is still under investigation</label>
         <label><input type="checkbox" name="site_result[]" value="No action taken"> No action was taken</label>
         <label><input type="checkbox" name="site_result[]" value="Not applicable"> Not applicable / No inspection yet</label>
 
-        <p>13. Is there an ongoing development or government housing project in the area?</p>
-        <label><input type="radio" name="reason"> Yes</label>
-        <label><input type="radio" name="reason"> No</label>
-        <label><input type="radio" name="reason" style="margin-bottom: 12px;"> Not sure</label>
-
+        <p style="font-weight: bold;">12. Is there an ongoing development or government housing project in the area?</p>
+        <label><input type="radio" > Yes</label>
+        <label><input type="radio" > No</label>
+        <label><input type="radio"  style="margin-bottom: 12px;"> Not sure</label>
 
         <!-- Section 2 -->
-        <p style="font-weight: bold;">Please describe what happened briefly, including how you found out about the issue.</p>
+        <p  class="section-label">Please describe what happened briefly, including how you found out about the issue.</p>
         <textarea></textarea>
 
         <!-- Section 3 -->
@@ -254,6 +248,103 @@
     }
   });
 }
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('BoundaryDisputeForm');
+  if (!form) return;
+
+  // --- helpers ---
+  function findQ6Start() {
+    const nodes = Array.from(form.querySelectorAll('p, label, div, h1, h2, h3'));
+    return nodes.find(el => {
+      const t = (el.textContent || '').trim();
+      return /^8\./.test(t) || /Has the dispute led/i.test(t);
+    }) || null;
+  }
+
+  function isQ7Header(el) {
+    if (!el) return false;
+    const t = (el.textContent || '').trim();
+    if (/^7\./.test(t)) return true;
+    if (/Have you reported/i.test(t)) return true;
+    const strong = el.querySelector && el.querySelector('strong');
+    if (strong && /^\s*7\./.test((strong.textContent || '').trim())) return true;
+    return false;
+  }
+
+  function collectCheckboxesBetween(startEl, stopCond) {
+    const boxes = [];
+    let el = startEl.nextElementSibling;
+    while (el) {
+      if (stopCond(el)) break;
+      if (el.querySelector) {
+        const inputs = Array.from(el.querySelectorAll('input[type="checkbox"]'));
+        inputs.forEach(i => boxes.push(i));
+      }
+      el = el.nextElementSibling;
+    }
+    return boxes;
+  }
+
+  function setupExclusiveNoneForList(checkboxList) {
+    if (!checkboxList || checkboxList.length === 0) return;
+    // find the group's "None" checkbox by value or by label text
+    const none = checkboxList.find(cb => {
+      if (!cb) return false;
+      const v = (cb.value || '').trim().toLowerCase();
+      if (v === 'none') return true;
+      const lbl = cb.closest && cb.closest('label');
+      return lbl && /\bnone\b/i.test(lbl.textContent || '');
+    });
+    if (!none) return;
+    const others = checkboxList.filter(cb => cb !== none);
+
+    // initialize state (handles prechecked)
+    if (none.checked) {
+      others.forEach(cb => { cb.checked = false; cb.disabled = true; cb.closest('label')?.classList.add('disabled'); });
+    } else {
+      others.forEach(cb => { cb.disabled = false; cb.closest('label')?.classList.remove('disabled'); });
+    }
+
+    // When None toggles
+    none.addEventListener('change', () => {
+      if (none.checked) {
+        others.forEach(cb => { cb.checked = false; cb.disabled = true; cb.closest('label')?.classList.add('disabled'); });
+      } else {
+        others.forEach(cb => { cb.disabled = false; cb.closest('label')?.classList.remove('disabled'); });
+      }
+    });
+
+    // When any other is checked, ensure None is unchecked (and enabled)
+    others.forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) {
+          none.checked = false;
+          none.disabled = false;
+          none.closest('label')?.classList.remove('disabled');
+        }
+      });
+    });
+  }
+
+  // --- Q6: collect checkboxes between Q6 header and Q7 header ---
+  const q6Start = findQ6Start();
+  const q6Checkboxes = q6Start ? collectCheckboxesBetween(q6Start, isQ7Header) : [];
+  setupExclusiveNoneForList(q6Checkboxes);
+
+  // --- Q7: by name attribute ---
+  const q7Checkboxes = Array.from(form.querySelectorAll('input[name="boundary_reported_to[]"][type="checkbox"]'));
+  setupExclusiveNoneForList(q7Checkboxes);
+
+  // --- small CSS hint for disabled labels (visual cue) ---
+  const style = document.createElement('style');
+  style.textContent = `
+    label.disabled { opacity: 0.6; }
+    label.disabled input { cursor: not-allowed; }
+  `;
+  document.head.appendChild(style);
+});
 </script>
 </body>
 </html>
