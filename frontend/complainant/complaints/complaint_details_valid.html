@@ -60,78 +60,110 @@
             </ul>
           </div>
 
-                          <form class="readonly-preview">
-                            <input type="hidden" name="complaint_id" value="{{ complaint.complaint_id }}">
-                            <input type="hidden" name="registration_id" value="{{ registration.registration_id }}">
+                        <form class="readonly-preview">
+                          <input type="hidden" name="complaint_id" value="{{ complaint.complaint_id }}">
+                          <input type="hidden" name="registration_id" value="{{ registration.registration_id }}">
 
-                            <div class="section-header">COMPLAINANT'S DETAILS:</div>
+                          <div class="section-header">COMPLAINANT'S DETAILS:</div>
 
-                            {% if registration.category == 'family_of_member' %}
-                              <!-- Family member layout -->
-                              <div class="pairs">
-                                <div class="pair-row">
-                                  <div class="col">
-                                    <label class="small">Full Name:</label>
-                                    <input type="text" name="full_name" value="{% for part in [registration.first_name, registration.middle_name, registration.last_name, registration.suffix] if part %}{{ part }} {% endfor %}" readonly title="Full Name" aria-label="Full Name">
-                                  </div>
-                                </div>
-
-                                <div class="pair-row">
-                                  <div class="col">
-                                    <label class="small">Date of Birth:</label>
-                                    <input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly title="Date of Birth" aria-label="Date of Birth">
-                                  </div>
-                                  <div class="col">
-                                    <label class="small">Sex:</label>
-                                    <input type="text" name="sex" value="{{ registration.sex }}" readonly title="Sex" aria-label="Sex">
-                                  </div>
-                                </div>
-
-                                <div class="pair-row">
-                                  <div class="col">
-                                    <label class="small">Citizenship:</label>
-                                    <input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly title="Citizenship" aria-label="Citizenship">
-                                  </div>
-                                  <div class="col">
-                                    <label class="small">Age:</label>
-                                    <input type="text" name="age" value="{{ registration.age }}" readonly title="Age" aria-label="Age">
-                                  </div>
-                                </div>
-
-                                <div class="pair-row">
-                                  <div class="col">
-                                    <label class="small">Phone Number:</label>
-                                    <input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly title="Phone Number" aria-label="Phone Number">
-                                  </div>
-                                  <div class="col">
-                                    <label class="small">Year of Residence:</label>
-                                    <input type="text" name="year_of_residence" value="{{ registration.year_of_residence }}" readonly title="Year of Residence" aria-label="Year of Residence">
-                                  </div>
-                                </div>
-
-                                <div class="pair-row">
-                                  <div class="col">
-                                    <label class="small">Relationship:</label>
-                                    <input type="text" name="relationship" value="{{ relationship or '' }}" readonly title="Relationship" aria-label="Relationship">
-                                  </div>
-                                  <div class="col">
-                                    <label class="small">Current Address:</label>
-                                    <input type="text" name="cur_add" value="{{ registration.current_address }}" readonly title="Current Address" aria-label="Current Address">
-                                  </div>
+                          {% if registration.category == 'family_of_member' %}
+                            <!-- Family member layout -->
+                            <div class="pairs">
+                              <div class="pair-row">
+                                <div class="col">
+                                  <label class="small">Full Name:</label>
+                                  {% set mi = (registration.middle_name or '')|string %}
+                                  {% set mi_clean = mi.strip() %}
+                                  {% if mi_clean and mi_clean|length == 1 %}
+                                    {% set mi_clean = mi_clean ~ '.' %}
+                                  {% elif mi_clean and mi_clean|length > 1 and mi_clean.endswith('.') == false and mi_clean|length <= 3 %}
+                                    {# Handle cases like "B" or "b" or stray forms like "B.." -> ensure single dot #}
+                                    {% set mi_clean = mi_clean[0] ~ '.' %}
+                                  {% endif %}
+                                  {% set full_name_display = (
+                                    (registration.first_name or '') ~ ' ' ~
+                                    (mi_clean or '') ~ ( ' ' if mi_clean ) ~
+                                    (registration.last_name or '') ~ ( ' ' if registration.suffix ) ~
+                                    (registration.suffix or '')
+                                  ) %}
+                                  <input type="text" name="full_name" value="{{ full_name_display.strip() }}" readonly title="Full Name" aria-label="Full Name">
                                 </div>
                               </div>
 
-                              {% if parent_info %}
+                              <div class="pair-row">
+                                <div class="col">
+                                  <label class="small">Date of Birth:</label>
+                                  <input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly title="Date of Birth" aria-label="Date of Birth">
+                                </div>
+                                <div class="col">
+                                  <label class="small">Sex:</label>
+                                  <input type="text" name="sex" value="{{ registration.sex }}" readonly title="Sex" aria-label="Sex">
+                                </div>
+                              </div>
+
+                              <div class="pair-row">
+                                <div class="col">
+                                  <label class="small">Citizenship:</label>
+                                  <input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly title="Citizenship" aria-label="Citizenship">
+                                </div>
+                                <div class="col">
+                                  <label class="small">Age:</label>
+                                  <input type="text" name="age" value="{{ registration.age }}" readonly title="Age" aria-label="Age">
+                                </div>
+                              </div>
+
+                              <div class="pair-row">
+                                <div class="col">
+                                  <label class="small">Phone Number:</label>
+                                  <input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly title="Phone Number" aria-label="Phone Number">
+                                </div>
+                                <div class="col">
+                                  <label class="small">Year of Residence:</label>
+                                  <input type="text" name="year_of_residence" value="{{ registration.year_of_residence }}" readonly title="Year of Residence" aria-label="Year of Residence">
+                                </div>
+                              </div>
+
+                              <div class="pair-row">
+                                <div class="col">
+                                  <label class="small">Relationship:</label>
+                                  <input type="text" name="relationship" value="{{ relationship or '' }}" readonly title="Relationship" aria-label="Relationship">
+                                </div>
+                                <div class="col">
+                                  <label class="small">Current Address:</label>
+                                  <input type="text" name="cur_add" value="{{ registration.current_address }}" readonly title="Current Address" aria-label="Current Address">
+                                </div>
+                              </div>
+
+                              {# Removed supporting documents from family member personal section.
+                                 It will be shown inside HOA Member Information (parent_info) below. #}
+                            </div>
+
+
+                            {% if parent_info %}
                               <div>
                                 <h3>HOA Member Information</h3>
                                 <div class="pairs">
                                   <div class="pair-row">
                                     <div class="col">
                                       <label class="small">Full Name:</label>
-                                      <input type="text" name="parent_full_name" value="{{ parent_info.full_name or '' }}" readonly title="Full Name" aria-label="Parent Full Name">
+                                      {% set p_full = (parent_info.full_name or '')|string %}
+                                      {% set p_full = p_full |replace('  ', ' ') %}
+                                      {% set tokens = p_full.split(' ') %}
+                                      {% set norm_tokens = [] %}
+                                      {% for t in tokens %}
+                                        {% set tt = t.strip() %}
+                                        {% if tt|length == 1 %}
+                                          {% set _ = norm_tokens.append(tt ~ '.') %}
+                                        {% elif tt|length > 1 and tt|replace('.', '')|length == 1 %}
+                                          {% set _ = norm_tokens.append(tt[0] ~ '.') %}
+                                        {% else %}
+                                          {% set _ = norm_tokens.append(tt) %}
+                                        {% endif %}
+                                      {% endfor %}
+                                      {% set parent_full_name_display = ' '.join(norm_tokens) %}
+                                      <input type="text" name="parent_full_name" value="{{ parent_full_name_display.strip() }}" readonly title="Full Name" aria-label="Parent Full Name">
                                     </div>
                                   </div>
-
                                   <div class="pair-row">
                                     <div class="col">
                                       <label class="small">Date of Birth:</label>
@@ -142,7 +174,6 @@
                                       <input type="text" name="parent_sex" value="{{ parent_info.sex or '' }}" readonly title="Sex" aria-label="Parent Sex">
                                     </div>
                                   </div>
-
                                   <div class="pair-row">
                                     <div class="col">
                                       <label class="small">Citizenship:</label>
@@ -153,228 +184,319 @@
                                       <input type="text" name="parent_age" value="{{ parent_info.age or '' }}" readonly title="Age" aria-label="Parent Age">
                                     </div>
                                   </div>
-
                                   <div class="pair-row">
                                     <div class="col">
                                       <label class="small">Year of Residence:</label>
                                       <input type="text" name="parent_year_of_residence" value="{{ parent_info.year_of_residence or '' }}" readonly title="Year of Residence" aria-label="Parent Year of Residence">
                                     </div>
                                   </div>
-
                                   <div class="pair-row">
                                     <div class="col">
                                       <label class="small">HOA:</label>
-                                      <input type="text" name="hoa" value="{{ get_area_name(registration.hoa) if registration.hoa else '' }}" readonly title="HOA" aria-label="HOA">
+                                      <input type="text" name="hoa" value="{{ parent_info.hoa or '' }}" readonly title="HOA" aria-label="HOA">
                                     </div>
                                   </div>
-
+                                  <div class="pair-row">
+                                    <div class="col">
+                                      <label class="small">Current Address:</label>
+                                      <input type="text" name="parent_current_address" value="{{ parent_info.current_address or '' }}" readonly title="Current Address" aria-label="Parent Current Address">
+                                    </div>
+                                  </div>
                                   <div class="pair-row">
                                     <div class="col">
                                       <label class="small">Block Assignment:</label>
-                                      <input type="text" name="blk_num" value="{{ registration.block_no }}" readonly title="Block Assignment" aria-label="Block Assignment">
+                                      <input type="text" name="blk_num" value="{{ parent_info.block_no }}" readonly title="Block Assignment" aria-label="Block Assignment">
                                     </div>
                                     <div class="col">
                                       <label class="small">Lot Assignment:</label>
-                                      <input type="text" name="lot_num" value="{{ registration.lot_no }}" readonly title="Lot Assignment" aria-label="Lot Assignment">
+                                      <input type="text" name="lot_num" value="{{ parent_info.lot_no }}" readonly title="Lot Assignment" aria-label="Lot Assignment">
                                     </div>
                                     <div class="col">
                                       <label class="small">Lot Size:</label>
-                                      <input type="text" name="lot_size" value="{{ registration.lot_size }}" readonly title="Lot Size" aria-label="Lot Size">
+                                      <input type="text" name="lot_size" value="{{ parent_info.lot_size }}" readonly title="Lot Size" aria-label="Lot Size">
                                     </div>
                                   </div>
-
                                   <div class="pair-row">
                                     <div class="col">
                                       <label class="small">Civil Status:</label>
-                                      <input type="text" name="civil_status" value="{{ registration.civil_status }}" readonly title="Civil Status" aria-label="Civil Status">
+                                      <input type="text" name="civil_status" value="{{ parent_info.civil_status }}" readonly title="Civil Status" aria-label="Civil Status">
                                     </div>
                                     <div class="col">
                                       <label class="small">Recipient of Other Housing:</label>
-                                      <input type="text" name="recipient_of_other_housing" value="{{ registration.recipient_of_other_housing }}" readonly title="Recipient of Other Housing" aria-label="Recipient of Other Housing">
+                                      <input type="text" name="recipient_of_other_housing" value="{{ parent_info.recipient_of_other_housing }}" readonly title="Recipient of Other Housing" aria-label="Recipient of Other Housing">
+                                    </div>
+                                  </div>
+
+                                  {# Supporting Documents for HOA member (parent) placed after Civil Status and Recipient #}
+                                  <div class="pair-row" style="margin-top:12px;">
+                                    <div class="col" style="flex:1 1 100%;">
+                                      <label style="font-weight:600; display:block; margin-bottom:2px;">What Supporting Documents does your Family Member have?</label>
+                                      {% set doc_options = [
+                                        ('title', 'Title'),
+                                        ('contract_to_sell', 'Contract to Sell'),
+                                        ('certificate_of_full_payment', 'Certificate of Full Payment'),
+                                        ('pre_qualification_stub', 'Pre-qualification Stub'),
+                                        ('contract_agreement', 'Contract/Agreement'),
+                                        ('deed_of_sale', 'Deed of Sale')
+                                      ] %}
+                                      {% set selected_docs = parent_info.supporting_documents or {} %}
+                                      <div class="checkbox-group" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px;">
+                                        {% for val, label in doc_options %}
+                                          {% set is_checked = false %}
+                                          {% if selected_docs is mapping and val in selected_docs %}
+                                            {% set is_checked = selected_docs[val] %}
+                                          {% endif %}
+                                          <label style="white-space:nowrap;"><input type="checkbox" disabled {% if is_checked %}checked{% endif %}> {{ label }}</label>
+                                        {% endfor %}
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
                               </div>
-                              {% endif %}
+                            {% endif %}
 
+                          {% else %}
+                            <!-- HOA member or non-member layout -->
+                            {% if registration.category == 'non_member' %}
+                              <!-- Non-member layout: two-column grouping like lot_dispute.html -->
+                              <div class="pairs">
+                                <div class="pair-row">
+                                  <div class="col">
+                                    <label class="small">Full Name:</label>
+                                    {% set mi = (registration.middle_name or '')|string %}
+                                    {% set mi_clean = mi.strip() %}
+                                    {% if mi_clean and mi_clean|length == 1 %}
+                                      {% set mi_clean = mi_clean ~ '.' %}
+                                    {% elif mi_clean and mi_clean|length > 1 and mi_clean.endswith('.') == false and mi_clean|length <= 3 %}
+                                      {% set mi_clean = mi_clean[0] ~ '.' %}
+                                    {% endif %}
+                                    {% set full_name_display = ((registration.first_name or '') ~ ' ' ~ (mi_clean or '') ~ ( ' ' if mi_clean ) ~ (registration.last_name or '') ~ ( ' ' if registration.suffix ) ~ (registration.suffix or '')) %}
+                                    <input type="text" name="full_name" value="{{ full_name_display.strip() }}" readonly title="Full Name" aria-label="Full Name">
+                                  </div>
+                                </div>
+                                <div class="pair-row">
+                                  <div class="col">
+                                    <label class="small">Date of Birth:</label>
+                                    <input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly title="Date of Birth" aria-label="Date of Birth">
+                                  </div>
+                                  <div class="col">
+                                    <label class="small">Sex:</label>
+                                    <input type="text" name="sex" value="{{ registration.sex }}" readonly title="Sex" aria-label="Sex">
+                                  </div>
+                                </div>
+                                <div class="pair-row">
+                                  <div class="col">
+                                    <label class="small">Citizenship:</label>
+                                    <input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly title="Citizenship" aria-label="Citizenship">
+                                  </div>
+                                  <div class="col">
+                                    <label class="small">Age:</label>
+                                    <input type="text" name="age" value="{{ registration.age }}" readonly title="Age" aria-label="Age">
+                                  </div>
+                                </div>
+                                <div class="pair-row">
+                                  <div class="col">
+                                    <label class="small">Phone Number:</label>
+                                    <input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly title="Phone Number" aria-label="Phone Number">
+                                  </div>
+                                  <div class="col">
+                                    <label class="small">Year of Residence:</label>
+                                    <input type="text" name="year_of_residence" value="{{ registration.year_of_residence }}" readonly title="Year of Residence" aria-label="Year of Residence">
+                                  </div>
+                                </div>
+                                <div class="pair-row">
+                                  <div class="col">
+                                    <label class="small">Civil Status:</label>
+                                    <input type="text" name="civil_status" value="{{ registration.civil_status }}" readonly title="Civil Status" aria-label="Civil Status">
+                                  </div>
+                                  <div class="col">
+                                    <label class="small">Recipient of Other Housing:</label>
+                                    <input type="text" name="recipient_of_other_housing" value="{{ registration.recipient_of_other_housing }}" readonly title="Recipient of other housing programs" aria-label="Recipient of other housing programs">
+                                  </div>
+                                </div>
+                                <div class="pair-row">
+                                  <div class="col">
+                                    <label class="small">Current Address:</label>
+                                    <input type="text" name="cur_add" value="{{ registration.current_address }}" readonly title="Current Address" aria-label="Current Address">
+                                  </div>
+                                </div>
+                                <div class="pair-row">
+                                  <div class="col">
+                                    <label class="small">Area (HOA):</label>
+                                    <input type="text" name="hoa" value="{{ get_area_name(registration.hoa) if registration.hoa else '' }}" readonly title="Area (HOA)" aria-label="Area (HOA)">
+                                  </div>
+                                </div>
+                              </div>
                             {% else %}
-                              <!-- HOA member or non-member layout -->
-                              {% if registration.category == 'non_member' %}
-                                <!-- Non-member simplified layout - only show specified fields -->
-                                <div class="pairs">
-                                  <div class="pair-row">
-                                    <div class="col">
-                                      <label class="small">Full Name:</label>
-                                      <input type="text" name="full_name" value="{% for part in [registration.first_name, registration.middle_name, registration.last_name, registration.suffix] if part %}{{ part }} {% endfor %}" readonly title="Full Name" aria-label="Full Name">
-                                    </div>
-                                  </div>
-                                  <div class="pair-row">
-                                    <div class="col">
-                                      <label class="small">Date of Birth:</label>
-                                      <input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly title="Date of Birth" aria-label="Date of Birth">
-                                    </div>
-                                    <div class="col">
-                                      <label class="small">Sex:</label>
-                                      <input type="text" name="sex" value="{{ registration.sex }}" readonly title="Sex" aria-label="Sex">
-                                    </div>
-                                  </div>
-                                  <div class="pair-row">
-                                    <div class="col">
-                                      <label class="small">Citizenship:</label>
-                                      <input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly title="Citizenship" aria-label="Citizenship">
-                                    </div>
-                                    <div class="col">
-                                      <label class="small">Age:</label>
-                                      <input type="text" name="age" value="{{ registration.age }}" readonly title="Age" aria-label="Age">
-                                    </div>
-                                  </div>
-                                  <div class="pair-row">
-                                    <div class="col">
-                                      <label class="small">Phone Number:</label>
-                                      <input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly title="Phone Number" aria-label="Phone Number">
-                                    </div>
-                                    <div class="col">
-                                      <label class="small">Year of Residence:</label>
-                                      <input type="text" name="year_of_residence" value="{{ registration.year_of_residence }}" readonly title="Year of Residence" aria-label="Year of Residence">
-                                    </div>
-                                  </div>
-                                  <div class="pair-row">
-                                    <div class="col">
-                                      <label class="small">Current Address:</label>
-                                      <input type="text" name="cur_add" value="{{ registration.current_address }}" readonly title="Current Address" aria-label="Current Address">
-                                    </div>
-                                    <div class="col">
-                                      <label class="small">Civil Status:</label>
-                                      <input type="text" name="civil_status" value="{{ registration.civil_status }}" readonly title="Civil Status" aria-label="Civil Status">
-                                    </div>
-                                  </div>
-                                  <div class="pair-row">
-                                    <div class="col">
-                                      <label class="small">Area (HOA):</label>
-                                      <input type="text" name="hoa" value="{{ get_area_name(registration.hoa) if registration.hoa else '' }}" readonly title="Area (HOA)" aria-label="Area (HOA)">
-                                    </div>
-                                    <div class="col"></div>
-                                  </div>
-                                  
-                                  <div class="pair-row">
-                                    <div class="col">
-                                      <label class="small">Recipient of other housing programs:</label>
-                                      <input type="text" name="recipient_of_other_housing" value="{{ registration.recipient_of_other_housing }}" readonly title="Recipient of other housing programs" aria-label="Recipient of other housing programs">
-                                    </div>
-                                    <div class="col"></div>
+                              <!-- HOA member layout (original layout with lot information) -->
+                              <div class="pairs">
+                                <div class="pair-row">
+                                  <div class="col">
+                                    <label class="small">Full Name:</label>
+                                    {% set mi = (registration.middle_name or '')|string %}
+                                    {% set mi_clean = mi.strip() %}
+                                    {% if mi_clean and mi_clean|length == 1 %}
+                                      {% set mi_clean = mi_clean ~ '.' %}
+                                    {% elif mi_clean and mi_clean|length > 1 and mi_clean.endswith('.') == false and mi_clean|length <= 3 %}
+                                      {% set mi_clean = mi_clean[0] ~ '.' %}
+                                    {% endif %}
+                                    {% set full_name_display = (
+                                      (registration.first_name or '') ~ ' ' ~
+                                      (mi_clean or '') ~ ( ' ' if mi_clean ) ~
+                                      (registration.last_name or '') ~ ( ' ' if registration.suffix ) ~
+                                      (registration.suffix or '')
+                                    ) %}
+                                    <input type="text" name="full_name" value="{{ full_name_display.strip() }}" readonly title="Full Name" aria-label="Full Name">
                                   </div>
                                 </div>
-                              {% else %}
-                                <!-- HOA member layout (original layout with lot information) -->
-                                <div class="pairs">
-                                  <div class="pair-row">
-                                    <div class="col">
-                                      <label class="small">Full Name:</label>
-                                      <input type="text" name="full_name" value="{% for part in [registration.first_name, registration.middle_name, registration.last_name, registration.suffix] if part %}{{ part }} {% endfor %}" readonly title="Full Name" aria-label="Full Name">
-                                    </div>
+                                <div class="pair-row">
+                                  <div class="col">
+                                    <label class="small">Date of Birth:</label>
+                                    <input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly title="Date of Birth" aria-label="Date of Birth">
                                   </div>
-                                  <div class="pair-row">
-                                    <div class="col">
-                                      <label class="small">Date of Birth:</label>
-                                      <input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly title="Date of Birth" aria-label="Date of Birth">
-                                    </div>
-                                    <div class="col">
-                                      <label class="small">Sex:</label>
-                                      <input type="text" name="sex" value="{{ registration.sex }}" readonly title="Sex" aria-label="Sex">
-                                    </div>
-                                  </div>
-                                  <div class="pair-row">
-                                    <div class="col">
-                                      <label class="small">Civil Status:</label>
-                                      <input type="text" name="civil_stat" value="{{ registration.civil_status }}" readonly title="Civil Status" aria-label="Civil Status">
-                                    </div>
-                                    <div class="col">
-                                      <label class="small">Citizenship:</label>
-                                      <input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly title="Citizenship" aria-label="Citizenship">
-                                    </div>
-                                  </div>
-                                  <div class="pair-row">
-                                    <div class="col">
-                                      <label class="small">Current Address:</label>
-                                      <input type="text" name="cur_add" value="{{ registration.current_address }}" readonly title="Current Address" aria-label="Current Address">
-                                    </div>
-                                  </div>
-                                  <div class="pair-row">
-                                    <div class="col">
-                                      <label class="small">HOA:</label>
-                                      <input type="text" name="hoa" value="{{ get_area_name(registration.hoa) if registration.hoa else '' }}" readonly title="HOA" aria-label="HOA">
-                                    </div>
-                                  </div>
-                                  <div class="pair-row">
-                                    <div class="col">
-                                      <label class="small">Block Assignment:</label>
-                                      <input type="text" name="blk_num" value="{{ registration.block_no }}" readonly title="Block Assignment" aria-label="Block Assignment">
-                                    </div>
-                                    <div class="col">
-                                      <label class="small">Lot Assignment:</label>
-                                      <input type="text" name="lot_num" value="{{ registration.lot_no }}" readonly title="Lot Assignment" aria-label="Lot Assignment">
-                                    </div>
-                                    <div class="col">
-                                      <label class="small">Lot Size:</label>
-                                      <input type="text" name="lot_size" value="{{ registration.lot_size }}" readonly title="Lot Size" aria-label="Lot Size">
-                                    </div>
-                                  </div>
-                                  <div class="pair-row">
-                                    <div class="col">
-                                      <label class="small">Phone Number:</label>
-                                      <input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly title="Phone Number" aria-label="Phone Number">
-                                    </div>
-                                    <div class="col"></div>
+                                  <div class="col">
+                                    <label class="small">Sex:</label>
+                                    <input type="text" name="sex" value="{{ registration.sex }}" readonly title="Sex" aria-label="Sex">
                                   </div>
                                 </div>
-                              {% endif %}
+                                <div class="pair-row">
+                                  <div class="col">
+                                    <label class="small">Citizenship:</label>
+                                    <input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly title="Citizenship" aria-label="Citizenship">
+                                  </div>
+                                  <div class="col">
+                                    <label class="small">Age:</label>
+                                    <input type="text" name="age" value="{{ registration.age }}" readonly title="Age" aria-label="Age">
+                                  </div>
+                                </div>
+                                <div class="pair-row">
+                                  <div class="col">
+                                    <label class="small">Phone Number:</label>
+                                    <input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly title="Phone Number" aria-label="Phone Number">
+                                  </div>
+                                  <div class="col">
+                                    <label class="small">Year of Residence:</label>
+                                    <input type="text" name="year_of_residence" value="{{ registration.year_of_residence }}" readonly title="Year of Residence" aria-label="Year of Residence">
+                                  </div>
+                                </div>
+                                <div class="pair-row">
+                                  <div class="col">
+                                    <label class="small">Current Address:</label>
+                                    <input type="text" name="cur_add" value="{{ registration.current_address }}" readonly title="Current Address" aria-label="Current Address">
+                                  </div>
+                                </div>
+                                <div class="pair-row">
+                                  <div class="col">
+                                    <label class="small">HOA:</label>
+                                    <input type="text" name="hoa" value="{{ get_area_name(registration.hoa) if registration.hoa else '' }}" readonly title="HOA" aria-label="HOA">
+                                  </div>
+                                </div>
+                                <div class="pair-row">
+                                  <div class="col">
+                                    <label class="small">Block Assignment:</label>
+                                    <input type="text" name="blk_num" value="{{ registration.block_no }}" readonly title="Block Assignment" aria-label="Block Assignment">
+                                  </div>
+                                  <div class="col">
+                                    <label class="small">Lot Assignment:</label>
+                                    <input type="text" name="lot_num" value="{{ registration.lot_no }}" readonly title="Lot Assignment" aria-label="Lot Assignment">
+                                  </div>
+                                  <div class="col">
+                                    <label class="small">Lot Size:</label>
+                                    <input type="text" name="lot_size" value="{{ registration.lot_size }}" readonly title="Lot Size" aria-label="Lot Size">
+                                  </div>
+                                </div>
+                                <div class="pair-row">
+                                  <div class="col">
+                                    <label class="small">Civil Status:</label>
+                                    <input type="text" name="civil_status" value="{{ registration.civil_status }}" readonly title="Civil Status" aria-label="Civil Status">
+                                  </div>
+                                  <div class="col">
+                                    <label class="small">Recipient of Other Housing:</label>
+                                    <input type="text" name="recipient_of_other_housing" value="{{ registration.recipient_of_other_housing }}" readonly title="Recipient of other housing programs" aria-label="Recipient of other housing programs">
+                                  </div>
+                                </div>
+                                {% set show_supporting_docs = registration.category in ['hoa_member', 'family_of_member'] %}
+                                {% if show_supporting_docs %}
+                                  <div class="pair-row" style="margin-top:18px; margin-bottom:8px;">
+                                    <div class="col" style="flex:1 1 100%;">
+                                      {% set labelText = 'What Supporting Documents do you have?' %}
+                                      {% if registration.category == 'family_of_member' %}
+                                        {% set labelText = 'What Supporting Documents does your Family Member have?' %}
+                                      {% endif %}
+                                      <label style="font-weight:600; display:block; margin-bottom:2px;">{{ labelText }}</label>
+                                      {% set doc_options = [
+                                        ('title', 'Title'),
+                                        ('contract_to_sell', 'Contract to Sell'),
+                                        ('certificate_of_full_payment', 'Certificate of Full Payment'),
+                                        ('pre_qualification_stub', 'Pre-qualification Stub'),
+                                        ('contract_agreement', 'Contract/Agreement'),
+                                        ('deed_of_sale', 'Deed of Sale')
+                                      ] %}
+                                      {% set selected_docs = registration.supporting_documents or {} %}
+                                      <div class="checkbox-group" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px;">
+                                        {% for val, label in doc_options %}
+                                          {% set is_checked = false %}
+                                          {% if selected_docs is mapping and val in selected_docs %}
+                                            {% set is_checked = selected_docs[val] %}
+                                          {% endif %}
+                                          <label style="white-space:nowrap;">
+                                            <input type="checkbox" disabled {% if is_checked %}checked{% endif %}> {{ label }}
+                                          </label>
+                                        {% endfor %}
+                                      </div>
+                                    </div>
+                                  </div>
+                                {% endif %}
+                              </div> {# closes .pairs #}
                             {% endif %}
+                          {% endif %}
 
-                            <div class="section-header">LOT DETAILS AND CLAIM:</div>
+      
+                          <div class="section-header">LOT DETAILS AND CLAIM:</div>
 
-                            {# Render block/lot pairs for non_member Lot Dispute #}
-                            {% if registration.category == 'non_member' and complaint.type_of_complaint == 'Lot Dispute' and lot_dispute and lot_dispute.block_lot %}
-                              <div id="nonMemberBlockLotSection">
-                                <p>What is the specific block and lot involved in the lot dispute?</p>
-                                <div class="pairs" id="pairsContainer" aria-live="polite">
-                                  {% for pair in lot_dispute.block_lot %}
-                                    <div class="pair-row">
-                                      <div class="col">
-                                        <label class="small">Block No.</label>
-                                        <input type="text" value="{{ pair.block }}" readonly title="Block No." placeholder="Block No.">
-                                      </div>
-                                      <div class="col">
-                                        <label class="small">Lot No.</label>
-                                        <input type="text" value="{{ pair.lot }}" readonly title="Lot No." placeholder="Lot No.">
-                                      </div>
+                          {# Render block/lot pairs for non_member Lot Dispute #}
+                          {% if registration.category == 'non_member' and complaint.type_of_complaint == 'Lot Dispute' and lot_dispute and lot_dispute.block_lot %}
+                            <div id="nonMemberBlockLotSection">
+                              <p>What is the specific block and lot involved in the lot dispute?</p>
+                              <div class="pairs" id="pairsContainer" aria-live="polite">
+                                {% for pair in lot_dispute.block_lot %}
+                                  <div class="pair-row">
+                                    <div class="col">
+                                      <label class="small">Block No.</label>
+                                      <input type="text" value="{{ pair.block }}" readonly title="Block No." placeholder="Block No.">
                                     </div>
-                                  {% endfor %}
-                                </div>
+                                    <div class="col">
+                                      <label class="small">Lot No.</label>
+                                      <input type="text" value="{{ pair.lot }}" readonly title="Lot No." placeholder="Lot No.">
+                                    </div>
+                                  </div>
+                                {% endfor %}
                               </div>
-                            {% endif %}
+                            </div>
+                          {% endif %}
 
-                            {% for field in form_structure %}
-                              {% if field.type == 'block_lot_pairs' %}
-                                <p>{{ field.label }}</p>
-                                {% set pairs = answers[field.name] %}
-                                <div class="pairs">
-                                  {% if pairs %}
-                                    {% for pair in pairs %}
-                                    <div class="pair-row">
-                                      <div class="col">
-                                        <label class="small">Block No.</label>
-                                        <input type="text" value="{{ pair.block or pair['block'] }}" disabled title="Block No." aria-label="Block No.">
-                                      </div>
-                                      <div class="col">
-                                        <label class="small">Lot No.</label>
-                                        <input type="text" value="{{ pair.lot or pair['lot'] }}" disabled title="Lot No." aria-label="Lot No.">
-                                      </div>
+                          {% for field in form_structure %}
+                            {% if field.type == 'block_lot_pairs' %}
+                              <p>{{ field.label }}</p>
+                              {% set pairs = answers[field.name] %}
+                              <div class="pairs">
+                                {% if pairs %}
+                                  {% for pair in pairs %}
+                                  <div class="pair-row">
+                                    <div class="col">
+                                      <label class="small">Block No.</label>
+                                      <input type="text" value="{{ pair.block or pair['block'] }}" disabled title="Block No." aria-label="Block No.">
                                     </div>
-                                    {% endfor %}
-                                  {% else %}
-                                    <div class="readonly-value">None</div>
-                                  {% endif %}
-                                </div>
+                                    <div class="col">
+                                      <label class="small">Lot No.</label>
+                                      <input type="text" value="{{ pair.lot or pair['lot'] }}" disabled title="Lot No." aria-label="Lot No.">
+                                    </div>
+                                  </div>
+                                  {% endfor %}
+                                {% else %}
+                                  <div class="readonly-value">None</div>
+                                {% endif %}
+                              </div>
 
               {% elif field.type == 'radio' %}
                 <p>{{ field.label }}</p>
@@ -385,24 +507,67 @@
                   {# Handle nested data structure from database - extract the actual claim value #}
                   {% set claim_value = '' %}
                   {% if q9_data %}
-                    {% if q9_data.claim %}
+                    {# Try all possible formats the claim value could be stored in #}
+                    {% if q9_data is string %}
+                      {% set claim_value = q9_data %}
+                    {% elif q9_data.claim is defined %}
                       {% if q9_data.claim is string %}
                         {% set claim_value = q9_data.claim %}
-                      {% elif q9_data.claim.claim %}
-                        {% if q9_data.claim.claim is string %}
-                          {% set claim_value = q9_data.claim.claim %}
-                        {% elif q9_data.claim.claim.claim %}
-                          {% set claim_value = q9_data.claim.claim.claim %}
-                        {% endif %}
+                      {% elif q9_data.claim.claim is defined and q9_data.claim.claim is string %}
+                        {% set claim_value = q9_data.claim.claim %}
+                      {% elif q9_data.claim.claim is defined and q9_data.claim.claim.claim is defined %}
+                        {% set claim_value = q9_data.claim.claim.claim %}
                       {% endif %}
                     {% endif %}
                   {% endif %}
                   
-                  {# Always show the radio group for q9 #}
+                  {# More aggressive extraction for q9 value - check for Yes/No/Not Sure values anywhere in the data structure #}
+                  {% if not claim_value and q9_data %}
+                    {% set q9_str = q9_data|string|lower %}
+                    {% if 'yes' in q9_str %}
+                      {% set claim_value = 'Yes' %}
+                    {% elif 'no' in q9_str and not 'not sure' in q9_str %}
+                      {% set claim_value = 'No' %}
+                    {% elif 'not sure' in q9_str or 'unsure' in q9_str %}
+                      {% set claim_value = 'Not Sure' %}
+                    {% endif %}
+                  {% endif %}
+                  
+                  {# Normalize the claim value for better matching #}
+                  {% set normalized_claim = claim_value|string|trim|lower %}
+                  
                   <div class="radio-group">
                     {% for val, label in field.options %}
                       <label class="option">
-                        <input type="radio" name="{{ field.name }}" value="{{ val }}" disabled {% if claim_value == val %}checked{% endif %}>
+                        {% set normalized_val = val|string|trim|lower %}
+                        {% set normalized_label = label|string|trim|lower %}
+                        {% set matches = false %}
+                        {% if normalized_claim == normalized_val or normalized_claim == normalized_label %}
+                          {% set matches = true %}
+                        {% endif %}
+                        {% if not matches and claim_value %}
+                          {% set claim_val_str = claim_value|string %}
+                          {% if (val|string) in claim_val_str or (label|string) in claim_val_str or normalized_val in normalized_claim or normalized_label in normalized_claim %}
+                            {% set matches = true %}
+                          {% endif %}
+                        {% endif %}
+                        {% if not matches and q9_data %}
+                          {% set q9_str = q9_data|string|lower %}
+                          {% if (val|string|lower) in q9_str or (label|string|lower) in q9_str %}
+                            {% set matches = true %}
+                          {% endif %}
+                        {% endif %}
+                        {% if not matches %}
+                          {% set q9_raw_lower = q9_data|string|lower %}
+                          {% if (val == 'Yes' or normalized_label == 'yes') and ((q9_data.documents is defined and q9_data.documents) or (q9_data.claim is defined and (q9_data.claim == 'Yes' or q9_data.claim == 'yes'))) %}
+                            {% set matches = true %}
+                          {% elif (val == 'No' or normalized_label == 'no') and (q9_data.claim is defined and q9_data.claim == 'No') %}
+                            {% set matches = true %}
+                          {% elif ('not sure' in normalized_label or 'unsure' in normalized_label) and ('not sure' in q9_raw_lower or 'unsure' in q9_raw_lower) %}
+                            {% set matches = true %}
+                          {% endif %}
+                        {% endif %}
+                        <input type="radio" name="{{ field.name }}" value="{{ val }}" disabled {% if matches %}checked{% endif %}>
                         {{ label }}
                       </label>
                     {% endfor %}
@@ -418,7 +583,38 @@
                             {% if doc_field.name == 'docs' %}
                               {% for val, label in doc_field.options %}
                                 <label class="option" style="display: block; margin-bottom: 6px;">
-                                  <input type="checkbox" name="q9_documents" value="{{ val }}" disabled {% if q9_data.documents and val in q9_data.documents %}checked{% endif %}>
+                                  {% set doc_checked = false %}
+                                  {% set normalized_val = val|string|trim|lower %}
+                                  {% set normalized_label = label|string|trim|lower %}
+                                  {% if q9_data.documents %}
+                                    {% if q9_data.documents is string %}
+                                      {% if ',' in q9_data.documents %}
+                                        {% set doc_list = q9_data.documents|string|replace(' ', '')|split(',') %}
+                                        {% for doc in doc_list %}
+                                          {% set normalized_doc = doc|string|trim|lower %}
+                                          {% if normalized_doc == normalized_val or normalized_doc == normalized_label or (val|string) in (doc|string) or (label|string) in (doc|string) %}
+                                            {% set doc_checked = true %}
+                                          {% endif %}
+                                        {% endfor %}
+                                      {% elif q9_data.documents|string|trim|lower == normalized_val or q9_data.documents|string|trim|lower == normalized_label or (val|string) in (q9_data.documents|string) or (label|string) in (q9_data.documents|string) %}
+                                        {% set doc_checked = true %}
+                                      {% endif %}
+                                    {% elif q9_data.documents is iterable %}
+                                      {% for doc in q9_data.documents %}
+                                        {% set normalized_doc = doc|string|trim|lower %}
+                                        {% if normalized_doc == normalized_val or normalized_doc == normalized_label or (val|string) in (doc|string) or (label|string) in (doc|string) %}
+                                          {% set doc_checked = true %}
+                                        {% endif %}
+                                      {% endfor %}
+                                    {% endif %}
+                                  {% endif %}
+                                  {% if not doc_checked %}
+                                    {% set q9_str = q9_data|string|lower %}
+                                    {% if normalized_val in q9_str or normalized_label in q9_str %}
+                                      {% set doc_checked = true %}
+                                    {% endif %}
+                                  {% endif %}
+                                  <input type="checkbox" name="q9_documents" value="{{ val }}" disabled {% if doc_checked %}checked{% endif %}>
                                   {{ label }}
                                 </label>
                               {% endfor %}
@@ -429,7 +625,7 @@
                     </div>
                   {% endif %}
                 {% else %}
-                  {# Standard radio field handling #}
+                  {# Standard radio field handling with improved matching #}
                   {% set raw = answers[field.name] if field.name in answers else '' %}
                   {% set raw_str = raw|string %}
                   {% set is_multi = ',' in raw_str %}
@@ -438,7 +634,16 @@
                     <div class="checkbox-group">
                       {% for val, label in field.options %}
                         <label class="option">
-                          <input type="checkbox" disabled {% if val in selected_list %}checked{% endif %}> {{ label }}
+                          {% set normalized_val = val|string|trim|lower %}
+                          {% set normalized_label = label|string|trim|lower %}
+                          {% set selected = false %}
+                          {% for sel in selected_list %}
+                            {% set normalized_sel = sel|string|trim|lower %}
+                            {% if normalized_sel == normalized_val or normalized_sel == normalized_label or (val|string) in (sel|string) or (label|string) in (sel|string) %}
+                              {% set selected = true %}
+                            {% endif %}
+                          {% endfor %}
+                          <input type="checkbox" disabled {% if selected %}checked{% endif %}> {{ label }}
                         </label>
                       {% endfor %}
                     </div>
@@ -446,81 +651,140 @@
                     <div class="radio-group">
                       {% for val, label in field.options %}
                         <label class="option">
-                          <input type="radio" name="{{ field.name }}" value="{{ val }}" disabled {% if raw_str == val %}checked{% endif %}>
+                          {% set normalized_val = val|string|trim|lower %}
+                          {% set normalized_raw = raw_str|string|trim|lower %}
+                          {% set normalized_label = label|string|trim|lower %}
+                          {% set matches = false %}
+                          {% if normalized_raw %}
+                            {% if normalized_raw == normalized_val or normalized_raw == normalized_label %}
+                              {% set matches = true %}
+                            {% elif (val|string) in raw_str or (label|string) in raw_str %}
+                              {% set matches = true %}
+                            {% elif raw_str in (val|string) or raw_str in (label|string) %}
+                              {% set matches = true %}
+                            {% endif %}
+                          {% endif %}
+                          {% if not matches and field.name in answers %}
+                            {% set full_answer = answers[field.name] %}
+                            {% if full_answer is mapping and full_answer is not string %}
+                              {% set full_answer_str = full_answer|string|lower %}
+                              {% if (val|string|lower) in full_answer_str or (label|string|lower) in full_answer_str %}
+                                {% set matches = true %}
+                              {% endif %}
+                            {% endif %}
+                          {% endif %}
+                          <input type="radio" name="{{ field.name }}" value="{{ val }}" disabled {% if matches %}checked{% endif %}>
                           {{ label }}
                         </label>
                       {% endfor %}
                     </div>
                   {% endif %}
                 {% endif %}
-                
-              {% elif field.type == 'date' %}
-                                <p>{{ field.label }}</p>
-                                <input type="date" value="{{ answers[field.name] }}" disabled title="{{ field.label }}" aria-label="{{ field.label }}">
+              
+            {% elif field.type == 'date' %}
+                              <p>{{ field.label }}</p>
+                              <input type="date" value="{{ answers[field.name] }}" disabled title="{{ field.label }}" aria-label="{{ field.label }}">
 
                               {% elif field.type == 'checkbox' %}
                                 {% if field.name == 'q9' %}<div class="indent-subquestion">{% endif %}
                                 <p>{{ field.label }}</p>
-                                {% set selected = answers[field.name] if field.name in answers else [] %}
+                                {% set selected_raw = answers[field.name] if field.name in answers else [] %}
+                                {% set selected = [] %}
+                                {% if selected_raw %}
+                                  {% if selected_raw is string %}
+                                    {% if ',' in selected_raw %}
+                                      {% set selected = selected_raw|string|replace(' ', '')|split(',') %}
+                                    {% elif selected_raw|lower == 'none' %}
+                                      {% set selected = ['None'] %}
+                                    {% else %}
+                                      {% set selected = [selected_raw] %}
+                                    {% endif %}
+                                  {% elif selected_raw is iterable %}
+                                    {% set selected = selected_raw %}
+                                  {% else %}
+                                    {% set selected = [selected_raw|string] %}
+                                  {% endif %}
+                                {% endif %}
                                 <div class="checkbox-group">
                                   {% for val, label in field.options %}
                                     <label class="option">
-                                      <input type="checkbox" name="{{ field.name }}" value="{{ val }}" disabled {% if selected and (val in selected) %}checked{% endif %}>
+                                      {% set normalized_val = val|string|trim|lower %}
+                                      {% set normalized_label = label|string|trim|lower %}
+                                      {% set is_checked = false %}
+                                      {% for sel in selected %}
+                                        {% if sel %}
+                                          {% set normalized_sel = sel|string|trim|lower %}
+                                          {% if normalized_sel == normalized_val or normalized_sel == normalized_label %}
+                                            {% set is_checked = true %}
+                                          {% elif (val|string) in (sel|string) or (label|string) in (sel|string) %}
+                                            {% set is_checked = true %}
+                                          {% elif (sel|string) in (val|string) or (sel|string) in (label|string) %}
+                                            {% set is_checked = true %}
+                                          {% endif %}
+                                        {% endif %}
+                                      {% endfor %}
+                                      {% if not is_checked and field.name in answers %}
+                                        {% set raw_answer_str = answers[field.name]|string|lower %}
+                                        {% if (val|string|lower) in raw_answer_str or (label|string|lower) in raw_answer_str %}
+                                          {% set is_checked = true %}
+                                        {% endif %}
+                                      {% endif %}
+                                      <input type="checkbox" name="{{ field.name }}" value="{{ val }}" disabled {% if is_checked %}checked{% endif %}>
                                       {{ label }}
                                     </label>
                                   {% endfor %}
                                 </div>
                                 {% if field.name == 'q9' %}</div>{% endif %}
 
-                              {% elif field.type == 'text' %}
-                                <p>{{ field.label }}</p>
-                                <input type="text" value="{{ answers[field.name] }}" disabled title="{{ field.label }}" aria-label="{{ field.label }}">
+                            {% elif field.type == 'text' %}
+                              <p>{{ field.label }}</p>
+                              <input type="text" value="{{ answers[field.name] }}" disabled title="{{ field.label }}" aria-label="{{ field.label }}">
 
-                              {% elif field.type == 'multiple_text' %}
-                                <p>{{ field.label }}</p>
-                                {% set multiple_values = answers[field.name] if field.name in answers else [] %}
-                                {% if multiple_values %}
-                                  {% if multiple_values is string %}
-                                    {# Handle case where it's stored as JSON string #}
-                                    {% set multiple_list = multiple_values|from_json if multiple_values else [] %}
-                                  {% else %}
-                                    {# Handle case where it's already parsed as list #}
-                                    {% set multiple_list = multiple_values %}
-                                  {% endif %}
-                                  <div style="margin-left: 15px;">
-                                    {% for item in multiple_list %}
-                                      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
-                                        <input type="text" value="{{ item }}" readonly style="flex: 1; background: #f3f3f3; color: #888; border-color: #d3d3d3; cursor: not-allowed;" title="{{ field.label }}">
-                                      </div>
-                                    {% endfor %}
-                                  </div>
+                            {% elif field.type == 'multiple_text' %}
+                              <p>{{ field.label }}</p>
+                              {% set multiple_values = answers[field.name] if field.name in answers else [] %}
+                              {% if multiple_values %}
+                                {% if multiple_values is string %}
+                                  {# Handle case where it's stored as JSON string #}
+                                  {% set multiple_list = multiple_values|from_json if multiple_values else [] %}
                                 {% else %}
-                                  <div class="readonly-value">N/A</div>
+                                  {# Handle case where it's already parsed as list #}
+                                  {% set multiple_list = multiple_values %}
                                 {% endif %}
+                                <div style="margin-left: 15px;">
+                                  {% for item in multiple_list %}
+                                    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                                      <input type="text" value="{{ item }}" readonly style="flex: 1; background: #f3f3f3; color: #888; border-color: #d3d3d3; cursor: not-allowed;" title="{{ field.label }}">
+                                    </div>
+                                  {% endfor %}
+                                </div>
+                              {% else %}
+                                <div class="readonly-value">N/A</div>
+                              {% endif %}
 
-                              {% elif field.type == 'textarea' %}
-                                <p><strong>{{ field.label }}</strong></p>
-                                <textarea readonly title="{{ field.label }}" aria-label="{{ field.label }}">{{ answers[field.name] }}</textarea>
-
+                            {% elif field.type == 'textarea' %}
+                              <p><strong>{{ field.label }}</strong></p>
+                              <textarea readonly title="{{ field.label }}" aria-label="{{ field.label }}">{{ answers[field.name] }}</textarea>
+                              <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
+                              <div class="consent">
+                                By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
+                              </div>
                               {% elif field.type == 'signature' %}
                                 <div class="signature">
                                   {% if answers.signature %}
-                                    <a href="{{ url_for('overlapping.uploaded_signature', filename=answers.signature) }}" target="_blank">View Signature</a>
+                                    <a href="{{ url_for('complainant.uploaded_signature', filename=answers.signature) }}" target="_blank">View Signature</a>
                                   {% else %}
                                     <p><em>No signature uploaded</em></p>
                                   {% endif %}
                                 </div>
-                              {% endif %}
-                            {% endfor %}
+                            {% endif %}
+                          {% endfor %}
 
-                            <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
-                            <div class="consent">
-                              By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
-                            </div>
-                          </form>
-                        </div>
+                            
+                        </form>
+                      </div>
 
-                        <!-- Right Panel -->
+                      <!-- Right Panel -->
                         <div class="right-panel">
                           <div class="timeline" id="complainantTimeline">
                             <!-- Dynamic timeline will be loaded here -->
@@ -817,7 +1081,3 @@
                     </script>
                   </body>
                   </html>
-
-
-
-

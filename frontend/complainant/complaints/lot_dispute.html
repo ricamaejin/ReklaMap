@@ -6,6 +6,14 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
+  <style>
+    /* Grey out autofilled (read-only) complainant detail fields */
+    #complainantDetails .pairs input[readonly] {
+      color: #555 !important; /* grey text */
+      background: #f1f3f5 !important; /* subtle grey background */
+    }
+    #complainantDetails .pairs input[readonly]::placeholder { color: #888; }
+  </style>
 </head>
 <body>
 
@@ -51,13 +59,9 @@
       <div class="section-header">LOT DETAILS AND CLAIM:</div>
       <!-- Non-member only: Block/Lot pairs involved in the dispute (excluding theirs) -->
       <div id="nonMemberBlockLotSection" style="display:none;">
-        <p>What is the specific block and lot involved in the lot dispute?</p>
+  <p style="font-weight:bold;">What is the specific block and lot involved in the lot dispute?</p>
         <div class="pairs" id="pairsContainer" aria-live="polite">
           <!-- rows will be added here -->
-        </div>
-        <div class="pair-controls">
-          <button type="button" class="btn add small" id="addPairBtn" style="margin-bottom: 12px;">+ Add</button>
-          <span style="color:var(--muted);font-size:13px;margin-left:8px"><i style="font-size: 14px; font-weight: normal; color: grey;">(If more than one area is affected, list all applicable pairs.)</i></span>
         </div>
       </div>
       <p style="font-weight: bold;">1. How did you come into possession of the lot?</p>
@@ -94,9 +98,9 @@
       <label><strong>5. Have you reported this boundary issue to any office or authority?</strong></label>
       <label><input type="checkbox" name="boundary_reported_to[]" value="Barangay"> Barangay</label>
       <label><input type="checkbox" name="boundary_reported_to[]" value="HOA"> HOA</label>
-      <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> NGC</label>
-      <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> USAD - PHASELAD</label>
-      <label><input type="checkbox" name="boundary_reported_to[]" value="none"> None</label>
+  <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> NGC</label>
+  <label><input type="checkbox" name="boundary_reported_to[]" value="USAD - PHASELAD"> USAD - PHASELAD</label>
+  <label><input type="checkbox" name="boundary_reported_to[]" value="None"> None</label>
 
       <label><strong>6. What was the result of the report or inspection?</strong> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></label>
       <label><input type="checkbox" name="site_result[]" value="Advised to adjust or vacate"> The other party was advised to adjust or vacate</label>
@@ -114,7 +118,7 @@
           <input type="text" name="opposing_name[]" placeholder="Enter name" style="flex: 1; margin-left: 15px;">
         </div>
       </div>
-      <button type="button" class="btn add small" id="addOpposingNameBtn" style="margin-left: 15px; margin-bottom: 12px;">+ Add another person</button>
+      <!-- Removed multi-add for opposing claimant -->
 
       <p style="font-weight: bold;">2. Relationship with person involved?</p>
       <div id="relationshipContainer">
@@ -122,7 +126,7 @@
           <input type="text" name="relationship_with_person[]" placeholder="Relationship to the individual (neighbor, relative, etc.)" style="flex: 1; margin-left: 15px;">
         </div>
       </div>
-      <button type="button" class="btn add small" id="addRelationshipBtn" style="margin-left: 15px; margin-bottom: 12px;">+ Add another relationship</button>
+      <!-- Removed multi-add for relationship -->
       <p style="font-weight: bold;">3. Do they reside on the disputed lot?</p>
       <label><input type="radio" name="reside" value="Yes"> Yes</label>
       <label><input type="radio" name="reside" value="No"> No</label>
@@ -132,18 +136,18 @@
       <label><input type="radio" name="claimDocs" value="Yes"> Yes</label>
         <div id="docOptions" style="display:none; margin-left: 35px;">
           <p style="margin-left: 5px; font-weight: bold;">What documents do they have?</p>
-          <label><input type="checkbox" name="docs" value="Certificate of Lot Award (CLA)">Title</label>
-          <label><input type="checkbox" name="docs" value="Notice of Award"> Contract to Sell</label>
-          <label><input type="checkbox" name="docs" value="Deed of Assignment / Transfer"> Certificate of Full Payment</label>
-          <label><input type="checkbox" name="docs" value="Certification from NGC/NHA/Barangay"> Pre-qualification Stub</label>
-          <label><input type="checkbox" name="docs" value="contract_agreement"> Contract/Agreement</label>
-          <label><input type="checkbox" name="docs" value="Other supporting paper"> Deed of Sale</label>
+          <label><input type="checkbox" name="docs" value="Title"> Title</label>
+          <label><input type="checkbox" name="docs" value="Contract to Sell"> Contract to Sell</label>
+          <label><input type="checkbox" name="docs" value="Certificate of Full Payment"> Certificate of Full Payment</label>
+          <label><input type="checkbox" name="docs" value="Pre-qualification Stub"> Pre-qualification Stub</label>
+          <label><input type="checkbox" name="docs" value="Contract/Agreement"> Contract/Agreement</label>
+          <label><input type="checkbox" name="docs" value="Deed of Sale"> Deed of Sale</label>
         </div>
       <label><input type="radio" name="claimDocs" value="No"> No</label>
       <label><input type="radio" name="claimDocs" value="Not Sure"> Not sure</label>
     </div>
 
-      <p class="section-label">Please describe what happened briefly, including how you found out about the issue.</p>
+      <p class="section-label" style="color: black;">Please describe what happened briefly, including how you found out about the issue.</p>
       <textarea id="description" name="description" title="Please describe what happened briefly, including how you found out about the issue."></textarea>
 
       <!-- Section 3 -->
@@ -162,19 +166,80 @@
     </div>
   </div>
 
-
 <script>
   // Populate complainant details (same logic)
   document.addEventListener('DOMContentLoaded', async () => {
     try {
-      const res = await fetch('/complainant/lot_dispute/get_lot_session_data');
-      const d = await res.json();
+      const res = await fetch('/complainant/lot_dispute/get_lot_session_data', { credentials: 'same-origin' });
+      const contentType = res.headers.get('content-type') || '';
+
+      // If server responded with HTML (e.g., error page), avoid JSON parsing crash
+      if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error('Non-JSON response from get_lot_session_data:', { status: res.status, body: text.slice(0, 200) });
+        if (res.status === 401) {
+          showErrorPop('Please log in to continue. Redirecting to login…');
+          setTimeout(() => { window.location.href = '/complainant/complainant_login.html'; }, 1000);
+        } else {
+          showErrorPop('Could not load your details. Please try again.');
+        }
+        return;
+      }
+
+  const d = await res.json();
       const container = document.getElementById('complainantDetails');
-      if (!container || !d || d.error) return;
+      if (!container || !d || d.error) {
+        // If backend returned an error JSON, show a friendly message and stop
+        if (d && d.error) {
+          showErrorPop(d.error);
+        }
+        return;
+      }
 
   const pairs = document.createElement('div');
       pairs.className = 'pairs';
       let memberWrapper = null;
+
+
+      // Helper to create supporting documents section (only for hoa_member and family_of_member)
+      function createSupportingDocsSection() {
+        if ((d.category === 'hoa_member' || d.category === 'family_of_member') && d.supporting_documents) {
+          const docDiv = document.createElement('div');
+          docDiv.style.margin = '8px 0 16px 0';
+          let labelText = 'What Supporting Documents do you have?';
+          if (d.category === 'family_of_member') {
+            labelText = 'What Supporting Documents does your Family Member have?';
+          }
+            // Build the label
+            docDiv.innerHTML = `<label style="font-weight:600; display:block; margin-bottom:2px;">${labelText}</label>`;
+            // Define doc options (keys must match backend)
+            const docList = [
+              {key: 'title', label: 'Title'},
+              {key: 'contract_to_sell', label: 'Contract to Sell'},
+              {key: 'certificate_of_full_payment', label: 'Certificate of Full Payment'},
+              {key: 'pre_qualification_stub', label: 'Pre-qualification Stub'},
+              {key: 'contract_agreement', label: 'Contract/Agreement'},
+              {key: 'deed_of_sale', label: 'Deed of Sale'}
+            ];
+            // Determine selected docs (array or object)
+            let selected = {};
+            if (Array.isArray(d.supporting_documents)) {
+              d.supporting_documents.forEach(k => selected[k] = true);
+            } else if (typeof d.supporting_documents === 'object') {
+              selected = d.supporting_documents;
+            }
+            // Build the checkbox group as a grid
+            let group = `<div class='checkbox-group' style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px;">`;
+            docList.forEach(doc => {
+              const checked = selected[doc.key] ? 'checked' : '';
+              group += `<label style="white-space:nowrap;"><input type="checkbox" disabled ${checked}> ${doc.label}</label>`;
+            });
+            group += '</div>';
+            docDiv.innerHTML += group;
+            return docDiv;
+          }
+          return null;
+      }
 
       function row1(label, value, type = 'text') {
         const r = document.createElement('div');
@@ -189,6 +254,38 @@
           <div class="col"><label class="small">${l1}</label><input type="${t1}" value="${v1 || ''}" readonly></div>
           <div class="col"><label class="small">${l2}</label><input type="${t2}" value="${v2 || ''}" readonly></div>`;
         return r;
+
+          // --- Add Recipient of other housing programs and Supporting Documents ---
+          // Only if d.recipient_of_other_housing or d.supporting_documents exists
+          if (d.recipient_of_other_housing !== undefined || d.supporting_documents !== undefined) {
+            // Recipient of other housing programs
+            const recDiv = document.createElement('div');
+            recDiv.style.margin = '16px 0 8px 0';
+            recDiv.innerHTML = `<label style="font-weight:600;">Recipient of other housing programs besides NGCCHP?</label><br>
+              <label style="margin-right:16px;"><input type="radio" name="recipient_other_housing" value="Yes" disabled ${d.recipient_of_other_housing==="yes"||d.recipient_of_other_housing===true||d.recipient_of_other_housing==="Yes"?'checked':''}> Yes</label>
+              <label><input type="radio" name="recipient_other_housing" value="No" disabled ${d.recipient_of_other_housing==="no"||d.recipient_of_other_housing===false||d.recipient_of_other_housing==="No"?'checked':''}> No</label>`;
+            pairs.appendChild(recDiv);
+
+            // Supporting documents
+            if (d.supporting_documents) {
+              const docDiv = document.createElement('div');
+              docDiv.style.margin = '8px 0 16px 0';
+              docDiv.innerHTML = `<label style="font-weight:600;">What supporting documents do you have?</label><br>`;
+              const docList = [
+                {key: 'title', label: 'Title'},
+                {key: 'contract', label: 'Contract to Sell'},
+                {key: 'fullpay', label: 'Certificate of Full Payment'},
+                {key: 'award', label: 'Pre-qualification Stub'},
+                {key: 'agreement', label: 'Contract/Agreement'},
+                {key: 'deed', label: 'Deed of Sale'}
+              ];
+              docList.forEach(doc => {
+                const checked = d.supporting_documents[doc.key] ? 'checked' : '';
+                docDiv.innerHTML += `<label style="margin-right:16px;"><input type="checkbox" disabled ${checked}> ${doc.label}</label>`;
+              });
+              pairs.appendChild(docDiv);
+            }
+          }
       }
       function row3(l1, v1, l2, v2, l3, v3) {
         const r = document.createElement('div');
@@ -200,15 +297,30 @@
         return r;
       }
 
-      pairs.appendChild(row1('Full Name:', d.full_name));
+
+      // Helper to normalize middle initials to a single trailing period (e.g., "B" or "B.." -> "B.")
+      function normalizeName(name) {
+        if (!name || typeof name !== 'string') return name || '';
+        // Replace any single-letter token (optionally with dots) with the letter followed by a single dot
+        // Keep multi-letter tokens (e.g., Jr., III) unchanged
+        return name
+          .replace(/\b([A-Za-z])\.*\b/g, '$1.')
+          .replace(/\.{2,}/g, '.')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
       pairs.appendChild(row2('Date of Birth:', d.date_of_birth, 'Sex:', d.sex, 'date', 'text'));
       pairs.appendChild(row2('Citizenship:', d.citizenship, 'Age:', d.age));
       pairs.appendChild(row2('Phone Number:', d.phone_number, 'Year of Residence:', d.year_of_residence));
 
+      let civilRowIdx = null;
       if (d.category === 'family_of_member') {
         pairs.appendChild(row2('Relationship:', d.relationship || '', 'Current Address:', d.cur_add));
       } else if (d.category === 'non_member') {
         pairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
+        civilRowIdx = pairs.children.length - 1;
         pairs.appendChild(row1('Current Address:', d.cur_add));
         pairs.appendChild(row1('Area (HOA):', d.hoa || ''));
       } else {
@@ -217,7 +329,7 @@
 
       // For non_member, no Area selection dropdown; Area (HOA) is shown read-only above.
 
-  // HOA details for hoa_member and family_of_member
+      // HOA details for hoa_member and family_of_member
       if (d.category === 'hoa_member' || d.category === 'family_of_member') {
         if (d.category === 'family_of_member') {
           if (d.parent_info) {
@@ -232,12 +344,19 @@
             const memberPairs = document.createElement('div');
             memberPairs.className = 'pairs';
             const p = d.parent_info;
-            memberPairs.appendChild(row2('Full Name:', p.full_name, 'Date of Birth:', p.date_of_birth, 'text', 'date'));
+            memberPairs.appendChild(row2('Full Name:', normalizeName(p.full_name), 'Date of Birth:', p.date_of_birth, 'text', 'date'));
             memberPairs.appendChild(row2('Sex:', p.sex, 'Citizenship:', p.citizenship));
             memberPairs.appendChild(row2('Age:', p.age, 'Year of Residence:', p.year_of_residence));
             memberPairs.appendChild(row1('HOA:', d.hoa || ''));
+            // New: Parent's Current Address (from registration_fam_of_member)
+            memberPairs.appendChild(row1('Current Address:', p.current_address));
+            console.log("Parent info:", p);
             memberPairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
             memberPairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
+
+            // Insert supporting docs after Civil Status/Recipient row in memberPairs
+            const docSection = createSupportingDocsSection();
+            if (docSection) memberPairs.appendChild(docSection);
 
             wrapper.appendChild(memberPairs);
             memberWrapper = wrapper;
@@ -246,6 +365,20 @@
           pairs.appendChild(row1('HOA:', d.hoa || ''));
           pairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
           pairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
+          civilRowIdx = pairs.children.length - 1;
+        }
+      }
+
+      // Insert supporting documents section after Civil Status/Recipient row if present
+      if (civilRowIdx !== null) {
+        const docSection = createSupportingDocsSection();
+        if (docSection) {
+          // Insert after the Civil Status/Recipient row
+          if (pairs.children.length > civilRowIdx + 1) {
+            pairs.insertBefore(docSection, pairs.children[civilRowIdx + 1]);
+          } else {
+            pairs.appendChild(docSection);
+          }
         }
       }
 
@@ -267,6 +400,7 @@
       }
     } catch (e) {
       console.warn('Failed to populate lot dispute header:', e);
+      showErrorPop('Failed to load your details. Please refresh the page.');
     }
   });
 
@@ -284,11 +418,10 @@
     }, 1000);
   }
 
-  // Helper to manage dynamic Block/Lot pairs UI (mirrors overlapping)
+  // Helper to manage dynamic Block/Lot pairs
   function initBlockLotPairsUI(){
     const pairsContainer = document.getElementById('pairsContainer');
-    const addPairBtn = document.getElementById('addPairBtn');
-    if (!pairsContainer || !addPairBtn) return;
+    if (!pairsContainer) return;
 
     function createPairRow(block = '', lot = '') {
       const row = document.createElement('div');
@@ -320,46 +453,19 @@
       colLot.appendChild(lblLot);
       colLot.appendChild(inputLot);
 
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'remove';
-      removeBtn.textContent = 'Remove';
-      removeBtn.onclick = () => {
-        pairsContainer.removeChild(row);
-        updateRemoveButtons();
-      };
+      // Remove button is not needed if only one pair is allowed, so omit it
 
       row.appendChild(colBlock);
       row.appendChild(colLot);
-      row.appendChild(removeBtn);
 
       return row;
     }
 
-    function updateRemoveButtons() {
-      const rows = pairsContainer.querySelectorAll('.pair-row');
-      rows.forEach((r) => {
-        const btn = r.querySelector('button.remove');
-        btn.disabled = rows.length === 1;
-        btn.style.opacity = btn.disabled ? 0.45 : 1;
-        btn.style.cursor = btn.disabled ? 'not-allowed' : 'pointer';
-      });
-    }
-
-    // initial
+    // Only allow one pair row
     pairsContainer.appendChild(createPairRow());
-    updateRemoveButtons();
-
-    addPairBtn.addEventListener('click', () => {
-      pairsContainer.appendChild(createPairRow());
-      updateRemoveButtons();
-      const rows = pairsContainer.querySelectorAll('.pair-row');
-      const last = rows[rows.length-1];
-      last.querySelector('input[name="block_no[]"]').focus();
-    });
   }
 
-  // Submit Lot Dispute (match overlapping flow: form submit, no alerts)
+  // Submit Lot Dispute
   (function(){
     const form = document.getElementById('lotDisputeForm');
     const sigInput = document.getElementById('signatureInput');
@@ -395,7 +501,8 @@
       }
       possession = possession.substring(0, 200); // Limit to 200 chars
 
-      const reportedTo = Array.from(document.querySelectorAll('.reported_to:checked')).map(x => x.value);
+  // Q5: boundary_reported_to[] selections
+  const reportedTo = Array.from(document.querySelectorAll('input[name="boundary_reported_to[]"]:checked')).map(x => x.value);
       const disputeDate = document.querySelector('input[name="dispute_start_date"]').value;
       
       // Collect multiple opposing names
@@ -452,25 +559,30 @@
         }
       }
 
-      // Collect checkbox values for question 2
-      const natureChecked = Array.from(document.querySelectorAll('input[name="nature"]:checked')).map(x => x.value);
-      const conflictValue = natureChecked.join(', ').substring(0, 200); // Limit to 200 chars
+  // Collect checkbox values for question 2
+  const natureChecked = Array.from(document.querySelectorAll('input[name="nature"]:checked')).map(x => x.value);
 
-      // Collect checkbox values for question 4
-      const reasonChecked = Array.from(document.querySelectorAll('input[name="reason"]:checked')).map(x => x.value);
-      const reasonValue = reasonChecked.join(', ').substring(0, 200); // Limit to 200 chars
+  // Collect checkbox values for question 4
+  const reasonChecked = Array.from(document.querySelectorAll('input[name="reason"]:checked')).map(x => x.value);
 
-      // Collect checkbox values for question 6
-      const resultChecked = Array.from(document.querySelectorAll('input[name="result"]:checked')).map(x => x.value);
-      const resultValue = resultChecked.join(', ').substring(0, 200); // Limit to 200 chars
+  // Collect checkbox values for question 6
+  const siteResults = Array.from(document.querySelectorAll('input[name="site_result[]"]:checked')).map(x => x.value);
 
       const fd = new FormData();
-      fd.append('possession', possession);
-      fd.append('conflict', conflictValue);
-      fd.append('dispute_start_date', disputeDate);
-      fd.append('reason', reasonValue);
-      fd.append('reported_to', JSON.stringify(reportedTo));
-      fd.append('result', resultValue);
+  fd.append('possession', possession);
+  fd.append('dispute_start_date', disputeDate);
+
+  // Q2: append each selected "nature" answer separately
+  natureChecked.forEach(v => fd.append('nature', v));
+
+  // Q4: append each selected "reason" answer separately
+  reasonChecked.forEach(v => fd.append('reason', v));
+
+  // Q5: append each boundary_reported_to[] separately
+  reportedTo.forEach(v => fd.append('boundary_reported_to[]', v));
+
+  // Q6: append each site_result[] separately
+  siteResults.forEach(v => fd.append('site_result[]', v));
       
       // Append multiple opposing names
       opposingNames.forEach(name => {
@@ -526,161 +638,25 @@
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("lotDisputeForm");
+  if (!form) return;
   const claimDocsRadios = form.querySelectorAll("input[name='claimDocs']");
   const docOptions = document.getElementById("docOptions");
 
-  // Show/hide document options when "Yes" is selected
-  claimDocsRadios.forEach(radio => {
-    radio.addEventListener("change", () => {
-      docOptions.style.display = (radio.value === "Yes" && radio.checked) ? "block" : "none";
+  // Guard missing optional container
+  if (claimDocsRadios.length && docOptions) {
+    // Show/hide document options when "Yes" is selected
+    claimDocsRadios.forEach(radio => {
+      radio.addEventListener("change", () => {
+        docOptions.style.display = (radio.value === "Yes" && radio.checked) ? "block" : "none";
+      });
     });
-  });
+  }
 
   // Setup add/remove for "Name of opposing claimant" section
-  (function setupOpposingNameInputs() {
-    const container = document.getElementById('opposingNameContainer');
-    const addBtn = document.getElementById('addOpposingNameBtn');
-    if (!container || !addBtn) return;
-
-    function createOpposingNameRow(withRemove = true) {
-      const row = document.createElement('div');
-      row.className = 'opposing-name-input';
-      row.style.display = 'flex';
-      row.style.gap = '8px';
-      row.style.alignItems = 'center';
-      row.style.marginBottom = '8px';
-
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.name = 'opposing_name[]';
-      input.placeholder = 'Enter name';
-      input.style.flex = '1';
-      input.style.marginLeft = '15px';
-
-      row.appendChild(input);
-
-      if (withRemove) {
-        const removeBtn = document.createElement('button');
-        removeBtn.type = 'button';
-        removeBtn.className = 'btn add small remove-opposing-name';
-        removeBtn.textContent = 'Remove';
-        removeBtn.style.color = '#999';
-        row.appendChild(removeBtn);
-      }
-
-      return row;
-    }
-
-    // Ensure only rows after the first have remove buttons
-    function normalizeOpposingNameRows() {
-      const rows = container.querySelectorAll('.opposing-name-input');
-      rows.forEach((row, idx) => {
-        const removeBtn = row.querySelector('.remove-opposing-name');
-        if (idx === 0 && removeBtn) {
-          removeBtn.remove();
-        } else if (idx > 0 && !removeBtn) {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'btn add small remove-opposing-name';
-          btn.textContent = 'Remove';
-          btn.style.color = '#999';
-          row.appendChild(btn);
-        }
-      });
-    }
-
-    addBtn.addEventListener('click', () => {
-      container.appendChild(createOpposingNameRow(true));
-      normalizeOpposingNameRows();
-      const rows = container.querySelectorAll('.opposing-name-input');
-      const last = rows[rows.length-1];
-      last.querySelector('input[name="opposing_name[]"]').focus();
-    });
-
-    container.addEventListener('click', (e) => {
-      if (e.target && e.target.classList.contains('remove-opposing-name')) {
-        const row = e.target.closest('.opposing-name-input');
-        if (row) row.remove();
-        normalizeOpposingNameRows();
-      }
-    });
-
-    // Normalize initial state
-    normalizeOpposingNameRows();
-  })();
+  // Multi-add for opposing claimant removed; single input retained.
 
   // Setup add/remove for "Relationship with person involved" section
-  (function setupRelationshipInputs() {
-    const container = document.getElementById('relationshipContainer');
-    const addBtn = document.getElementById('addRelationshipBtn');
-    if (!container || !addBtn) return;
-
-    function createRelationshipRow(withRemove = true) {
-      const row = document.createElement('div');
-      row.className = 'relationship-input';
-      row.style.display = 'flex';
-      row.style.gap = '8px';
-      row.style.alignItems = 'center';
-      row.style.marginBottom = '8px';
-
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.name = 'relationship_with_person[]';
-      input.placeholder = 'Relationship to the individual (neighbor, relative, etc.)';
-      input.style.flex = '1';
-      input.style.marginLeft = '15px';
-
-      row.appendChild(input);
-
-      if (withRemove) {
-        const removeBtn = document.createElement('button');
-        removeBtn.type = 'button';
-        removeBtn.className = 'btn add small remove-relationship';
-        removeBtn.textContent = 'Remove';
-        removeBtn.style.color = '#999';
-        row.appendChild(removeBtn);
-      }
-
-      return row;
-    }
-
-    // Ensure only rows after the first have remove buttons
-    function normalizeRelationshipRows() {
-      const rows = container.querySelectorAll('.relationship-input');
-      rows.forEach((row, idx) => {
-        const removeBtn = row.querySelector('.remove-relationship');
-        if (idx === 0 && removeBtn) {
-          removeBtn.remove();
-        } else if (idx > 0 && !removeBtn) {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'btn add small remove-relationship';
-          btn.textContent = 'Remove';
-          btn.style.color = '#999';
-          row.appendChild(btn);
-        }
-      });
-    }
-
-    addBtn.addEventListener('click', () => {
-      container.appendChild(createRelationshipRow(true));
-      normalizeRelationshipRows();
-      const rows = container.querySelectorAll('.relationship-input');
-      const last = rows[rows.length-1];
-      last.querySelector('input[name="relationship_with_person[]"]').focus();
-    });
-
-    container.addEventListener('click', (e) => {
-      if (e.target && e.target.classList.contains('remove-relationship')) {
-        const row = e.target.closest('.relationship-input');
-        if (row) row.remove();
-        normalizeRelationshipRows();
-      }
-    });
-
-    // Normalize initial state
-    normalizeRelationshipRows();
-  })();
+  // Multi-add for relationship removed; single input retained.
 });
 </script>
 <script>

@@ -73,7 +73,10 @@
             <input type="text" name="reg_year" id="reg_year">
             <small class="warn" id="warn-reg_year">This field is required.</small>
           </label>
-          <label><!-- empty placeholder to keep 4 cols --></label>
+          <label>Current Address
+            <input type="text" name="reg_cur_add" id="reg_cur_add">
+            <small class="warn" id="warn-reg_cur_add">This field is required.</small>
+          </label>
         </div>
         
         <!-- separator -->
@@ -145,6 +148,11 @@
             <small class="warn" id="warn-parent_lot_size">This field is required.</small>
           </label>
 
+          <label>Current Address
+            <input type="text" name="parent_cur_add" id="parent_cur_add">
+            <small class="warn" id="warn-parent_cur_add">This field is required.</small>
+          </label>
+
           <!-- Civil status column (right) -->
           <aside class="civil-status">
             <div class="label">Civil Status:</div>
@@ -159,12 +167,7 @@
           </aside>
         </div>
 
-        <div class="form-grid" aria-hidden="false" style="grid-template-columns: repeat(2, 1fr) !important;">
-          <label>Current Address
-            <input type="text" name="reg_cur_add" id="reg_cur_add">
-            <small class="warn" id="warn-reg_cur_add">This field is required.</small>
-          </label>
-        </div>
+        
 
         <!-- radio question (one option per row) -->
         <div class="radio-section" role="group">
@@ -183,7 +186,7 @@
             <label><input type="checkbox" name="doc_title"> Title</label>
             <label><input type="checkbox" name="doc_contract"> Contract to Sell</label>
             <label><input type="checkbox" name="doc_fullpay"> Certificate of Full Payment</label>
-            <label><input type="checkbox" name="doc_award"> Certificate of Award</label>
+            <label><input type="checkbox" name="doc_award"> Pre-qualification Stub</label>
             <label><input type="checkbox" name="doc_agreement"> Contract/Agreement</label>
             <label><input type="checkbox" name="doc_deed"> Deed of Sale</label>
           </div>
@@ -225,7 +228,7 @@
     }
 
     // Clear warn on input/change
-    ["reg_last","reg_first","reg_cit","reg_phone","reg_year","parent_last","parent_first","parent_cit","parent_year","reg_relationship","parent_hoa","parent_blk","parent_lot_asn","parent_lot_size","reg_cur_add"].forEach(id=>{
+    ["reg_last","reg_first","reg_cit","reg_phone","reg_year","parent_last","parent_first","parent_cit","parent_year","reg_relationship","parent_hoa","parent_blk","parent_lot_asn","parent_lot_size","reg_cur_add","parent_cur_add"].forEach(id=>{
       const el = document.getElementById(id);
       if (el){ el.addEventListener('input', ()=> hideFieldWarn('warn-'+id, el)); }
     });
@@ -341,7 +344,8 @@
       const v12 = requireVal('#parent_blk','warn-parent_blk');
       const v13 = requireVal('#parent_lot_asn','warn-parent_lot_asn');
       const v14 = requireVal('#parent_lot_size','warn-parent_lot_size');
-      const v15 = requireVal('#reg_cur_add','warn-reg_cur_add');
+  const v15 = requireVal('#reg_cur_add','warn-reg_cur_add');
+  const v16 = requireVal('#parent_cur_add','warn-parent_cur_add');
 
       // Age validation (registrant must be 18 or older)
       const ageValue = parseInt(document.getElementById('reg_age').value);
@@ -368,7 +372,7 @@
         if (!firstInvalid) firstInvalid = document.querySelector('input[name="doc_title"]');
       } else hideFieldWarn('warn-docs');
 
-      const allOk = v1 && v2 && v3 && v4 && v5 && v6 && v7 && v8 && v9 && v10 && v11 && v12 && v13 && v14 && v15 && ageValid && !!recipientChecked && docsChecked.length > 0;
+  const allOk = v1 && v2 && v3 && v4 && v5 && v6 && v7 && v8 && v9 && v10 && v11 && v12 && v13 && v14 && v15 && v16 && ageValid && !!recipientChecked && docsChecked.length > 0;
       if (!allOk){
         showErrorPop('Please complete the required fields.');
         if (firstInvalid){
@@ -398,31 +402,11 @@
         }
 
         if (result.success) {
-          showErrorPop(result.message || "Registration successful!");
-
-          // Wait a moment for the popup to show, then redirect
-          setTimeout(() => {
-            // ✅ Use the same key as in dashboard.html
-            let complaintType = sessionStorage.getItem("complaintType");
-            console.log("Complaint Type from sessionStorage:", complaintType);
-
-            if (complaintType === "Overlapping") {
-              window.location.href = "/complainant/overlapping/new_overlap_form";
-            } else if (complaintType === "Lot Dispute") {
-              window.location.href = "/complainant/lot_dispute/new_lot_dispute_form";
-            } else if (complaintType === "Boundary Dispute") {
-              window.location.href = "/complainant/new_boundary_dispute_form";
-            } else if (complaintType === "Pathway Dispute") {
-              window.location.href = "/complainant/complaints/pathway_dispute.html";
-            } else if (complaintType === "Unauthorized Occupation") {
-              window.location.href = "/complainant/complaints/unauthorized_occupation.html";
-            } else if (complaintType === "Illegal Construction") {
-              window.location.href = "/complainant/complaints/illegal_construction.html";
-            } else {
-              window.location.href = "/complainant/complaints/general.html";
-            }
-          }, 1500);
-
+          if (result.redirect) {
+            window.location.href = result.redirect;
+          } else {
+            window.location.href = "/complainant/home/dashboard.html"; // safety fallback
+          }
         } else {
           showErrorPop(result.error || "Unknown error occurred.");
           submitBtn.disabled = false;

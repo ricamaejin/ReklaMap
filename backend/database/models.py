@@ -7,7 +7,6 @@ from sqlalchemy import Computed
 # -----------------------
 class Admin(db.Model):
     __tablename__ = "admin"
-    __tablename__ = "admin"
 
     admin_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     employee_id = db.Column(db.String(50), unique=True, nullable=False)
@@ -112,6 +111,7 @@ class Registration(db.Model):
     recipient_of_other_housing = db.Column(db.String(10))
     signature_path = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, server_default=db.func.now())
+    supporting_documents = db.Column(JSON, nullable=True)
 
     # relationship back to user
     user = db.relationship("User", backref="registrations")
@@ -169,7 +169,6 @@ class Complaint(db.Model):
         db.String(50),
         Computed(
             "case "
-            "when type_of_complaint = 'Overlapping' then 'Severe' "
             "when type_of_complaint = 'Pathway Dispute' then 'Severe' "
             "when type_of_complaint = 'Lot Dispute' then 'Moderate' "
             "when type_of_complaint = 'Boundary Dispute' then 'Moderate' "
@@ -179,13 +178,19 @@ class Complaint(db.Model):
         )
     )
     description = db.Column(db.Text)
-    
-    # Relationship to overlapping (one-to-one)
-    overlapping = db.relationship("Overlapping", backref="complaint", uselist=False, passive_deletes=True)
-
     complainant_name = db.Column(db.String(150), nullable=False)
     area_id = db.Column(db.Integer, db.ForeignKey('areas.area_id'), nullable=False)
     address = db.Column(db.String(255), nullable=False)
+
+
+    # Relationship to LotDispute (one-to-one)
+    lot_dispute = db.relationship(
+        "LotDispute",
+        back_populates="complaint",
+        uselist=False,
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
 
     def __repr__(self):
         return f"<Complaint {self.complaint_id}>"
@@ -217,7 +222,7 @@ class RegistrationNonMember(db.Model):
     connections = db.Column(db.JSON, nullable=True)
 
 # -----------------------
-# Fam Member of Member
+# Family Member of Member
 # -----------------------
 class RegistrationFamOfMember(db.Model):
     __tablename__ = "registration_fam_of_member"
@@ -249,44 +254,14 @@ class RegistrationFamOfMember(db.Model):
     phone_number = db.Column(db.String(20))
     year_of_residence = db.Column(DECIMAL(2, 0))
     relationship = db.Column(db.String(100), nullable=False)
+    current_address = db.Column(db.String(255))
     supporting_documents = db.Column(JSON)
+
 
     # Relationships back
     registration = db.relationship("Registration", backref="family_members")
     beneficiary = db.relationship("Beneficiary", backref="family_members")
 
-
-# -----------------------
-# Overlapping table
-# -----------------------
-class Overlapping(db.Model):
-    __tablename__ = "overlapping"
-
-    overlapping_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    complaint_id = db.Column(db.Integer, db.ForeignKey('complaints.complaint_id', ondelete="CASCADE"), nullable=False)
-    registration_id = db.Column(db.Integer, db.ForeignKey('registration.registration_id', ondelete="CASCADE"), nullable=False)
-    # Current DB schema (new): q1 VARCHAR(255) (current_status CSV), q2 JSON (pairs), q6 VARCHAR(50)
-    q1 = db.Column(db.String(255))
-    q2 = db.Column(db.JSON)
-    q3 = db.Column(db.String(50))
-    q4 = db.Column(db.JSON)
-    q5 = db.Column(db.JSON)
-    q6 = db.Column(db.String(50))
-    q7 = db.Column(db.String(80))
-    q8 = db.Column(db.String(100))
-    q9 = db.Column(db.JSON)
-    q10 = db.Column(db.String(50))
-    q11 = db.Column(db.String(50))
-    q12 = db.Column(db.String(50))
-    q13 = db.Column(db.String(50))
-    description = db.Column(db.Text)
-    signature = db.Column(db.String(255))
-
-    # relationships back to registration
-    registration = db.relationship("Registration", backref="overlapping_complaints", passive_deletes=True)
-
-    def __repr__(self):
-        return f"<Overlapping {self.overlapping_id}>"
     
 # -----------------------
 # Lot Dispute
@@ -313,7 +288,11 @@ class LotDispute(db.Model):
     signature = db.Column(db.String(255))
 
     # Relationship back to complaint
-    complaint = db.relationship("Complaint", backref="lot_dispute", passive_deletes=True)
+    complaint = db.relationship(
+        "Complaint",
+        back_populates="lot_dispute",
+        passive_deletes=True
+    )
 
 # -----------------------
 # Boundary Dispute

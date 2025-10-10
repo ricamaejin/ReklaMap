@@ -34,7 +34,7 @@ def submit_boundary_dispute():
         registration = Registration.query.get(registration_id)
         if not registration:
             return jsonify({"success": False, "message": "Parent registration not found"}), 400
-        # Build required Complaint fields similar to overlapping route
+    # Build required Complaint fields for boundary dispute route
         def clean_field(val):
             if not val:
                 return None

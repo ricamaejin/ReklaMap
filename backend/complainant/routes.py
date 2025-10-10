@@ -1,13 +1,11 @@
-
 from flask import Blueprint, request, jsonify, session, render_template, send_from_directory, current_app, abort, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from backend.database.models import User, Overlapping, Registration, Complaint, LotDispute, BoundaryDispute, RegistrationFamOfMember
+from backend.database.models import User, Registration, Complaint, LotDispute, BoundaryDispute, RegistrationFamOfMember, RegistrationHOAMember
 from backend.database.db import db
-from backend.complainant.overlapping import get_form_structure as get_overlap_form_structure
 from backend.complainant.lot_dispute import get_form_structure as get_lot_form_structure
+from backend.complainant.redirects import complaint_redirect_path
 import os, json, time
-from werkzeug.utils import secure_filename
 
 # -----------------------------
 # Paths
@@ -40,6 +38,17 @@ def get_area_name(area_id):
         return area.area_name if area else str(area_id)
     except (ValueError, TypeError):
         return str(area_id)
+
+# -----------------------------
+# Serve uploaded signature files (for previews)
+# -----------------------------
+@complainant_bp.route("/signatures/<path:filename>")
+def uploaded_signature(filename):
+    try:
+        # Limit to the known upload directory
+        return send_from_directory(UPLOAD_DIR, filename)
+    except Exception:
+        abort(404)
 
 # -----------------------------
 # SIGNUP ROUTE
@@ -185,6 +194,9 @@ def profile_registration():
             # Update the relationship from the fam_member table
             reg_data["relationship"] = fam_member.relationship
             
+            sd = getattr(fam_member, 'supporting_documents', {}) or {}
+            # Extract mapped values from supporting_docs JSON
+            hoa_raw = sd.get('hoa')
             reg_data["parent_info"] = {
                 "last_name": fam_member.last_name,
                 "first_name": fam_member.first_name,
@@ -196,12 +208,15 @@ def profile_registration():
                 "age": fam_member.age,
                 "phone_number": fam_member.phone_number,
                 "year_of_residence": fam_member.year_of_residence,
-                "civil_status": registration.civil_status,  # This comes from main registration
-                "current_address": registration.current_address,  # This comes from main registration
-                "hoa": get_area_name(registration.hoa) if registration.hoa else "",  # HOA info comes from main registration
-                "block_no": registration.block_no,  # Block info comes from main registration  
-                "lot_no": registration.lot_no,  # Lot info comes from main registration
-                "lot_size": registration.lot_size,  # Lot size comes from main registration
+                    "current_address": fam_member.current_address or (sd.get('current_address') if sd else "") or "",
+                # Pull HOA/lot/civil/recipient/current address from family member JSON
+                "hoa": get_area_name(hoa_raw) if hoa_raw else "",
+                "block_no": sd.get('block_assignment') or "",
+                "lot_no": sd.get('lot_assignment') or "",
+                "lot_size": sd.get('lot_size') or "",
+                "civil_status": sd.get('civil_status') or "",
+                "recipient_of_other_housing": sd.get('recipient_of_other_housing') or "",
+                "current_address": sd.get('current_address') or "",
             }
 
     return jsonify({
@@ -233,6 +248,71 @@ def get_complaint_type():
     ctype = session.get("type_of_complaint")
     return jsonify({"success": True, "type": ctype})
 
+# -----------------------------
+# Start complaint: resolve destination form
+# Used by dashboard modal to jump to the correct form page
+# -----------------------------
+@complainant_bp.route("/start-complaint", methods=["POST"])
+def start_complaint():
+    try:
+        user_id = session.get("user_id")
+        # Always reply JSON so the frontend never tries to parse HTML
+        if not user_id:
+            return jsonify({
+                "success": False,
+                "error": "Not logged in",
+                "redirect": "/complainant/complainant_login.html",
+            }), 200
+
+        payload = request.get_json(silent=True) or request.form
+        complaint_type = payload.get("type") if payload else None
+
+        registration = Registration.query.filter_by(user_id=user_id).first()
+        has_registration = bool(registration)
+
+        # Persist the selection in session for later flows
+        session["type_of_complaint"] = complaint_type
+
+        # Compute where to send the user (registered users go straight to form, otherwise to not_registered)
+        dest = complaint_redirect_path(complaint_type, has_registration)
+
+        # For form routes that need session context, we set what we can here; the specific form route may refine it
+        if registration:
+            session["registration_id"] = registration.registration_id
+
+        return jsonify({
+            "success": True,
+            "redirect": dest,
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Server error: {e}"}), 200
+
+# -----------------------------
+# JSON: Complaint details (for timeline)
+# Matches frontend fetch: /complainant/complaints/details/<id>
+# -----------------------------
+@complainant_bp.route("/complaints/details/<int:complaint_id>")
+def complaint_details_json(complaint_id):
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "error": "Not logged in"}), 401
+
+    complaint = Complaint.query.get_or_404(complaint_id)
+    registration = Registration.query.get(complaint.registration_id)
+    if not registration or registration.user_id != user_id:
+        return jsonify({"success": False, "error": "Forbidden"}), 403
+
+    return jsonify({
+        "success": True,
+        "complaint": {
+            "complaint_id": complaint.complaint_id,
+            "status": complaint.status,
+            "created_at": complaint.date_received.isoformat() if getattr(complaint, "date_received", None) else None,
+            "type_of_complaint": complaint.type_of_complaint,
+            "rejection_reason": getattr(complaint, "rejection_reason", None)
+        }
+    })
+
 
 # -----------------------------
 # View complaint details
@@ -242,258 +322,153 @@ def get_complaint_type():
 def view_complaint(complaint_id):
     user_id = session.get("user_id")
     if not user_id:
-        return "Not logged in", 401
+        return redirect("/complainant/complainant_login.html")
 
     complaint = Complaint.query.get_or_404(complaint_id)
     registration = Registration.query.get(complaint.registration_id)
     if not registration or registration.user_id != user_id:
-        return "Unauthorized", 403
+        return abort(403)
 
-    # Get answers from the correct table
+    # Attach supporting documents (if any) to the registration object for template access
+    try:
+        hoa_member = RegistrationHOAMember.query.filter_by(registration_id=registration.registration_id).first()
+        if hoa_member and getattr(hoa_member, 'supporting_documents', None):
+            # Dynamically attach to the model instance for template convenience
+            setattr(registration, 'supporting_documents', hoa_member.supporting_documents)
+        else:
+            # Ensure attribute exists to simplify template conditionals
+            if not hasattr(registration, 'supporting_documents'):
+                setattr(registration, 'supporting_documents', None)
+    except Exception:
+        # On any lookup error, keep a safe default
+        if not hasattr(registration, 'supporting_documents'):
+            setattr(registration, 'supporting_documents', None)
+
+    # Build answers from the correct complaint table
     answers = {}
-    # Select form structure provider by complaint type
-    if complaint.type_of_complaint == "Overlapping":
-        form_structure = get_overlap_form_structure("Overlapping")
-    elif complaint.type_of_complaint == "Lot Dispute":
-        form_structure = get_lot_form_structure("Lot Dispute")
-    else:
-        form_structure = []
+    lot_dispute = None
 
-    lot = None
-    if complaint.type_of_complaint == "Overlapping":
-        overlap = Overlapping.query.filter_by(complaint_id=complaint_id).first()
-        if overlap:
-            # New DB: q1 CSV current_status, q2 JSON pairs
-            # q2 -> pairs list
-            q2_pairs = []
+    def _parse_list(val):
+        try:
+            if isinstance(val, list):
+                return val
+            if isinstance(val, str):
+                s = val.strip()
+                if not s:
+                    return []
+                if s.startswith('['):
+                    return json.loads(s)
+                if ',' in s:
+                    return [p.strip() for p in s.split(',') if p.strip()]
+                return [s]
+        except Exception:
+            pass
+        return []
+
+    if complaint.type_of_complaint == "Lot Dispute":
+        form_structure = get_lot_form_structure("Lot Dispute")
+        # Load user's saved answers
+        lot_dispute = LotDispute.query.filter_by(complaint_id=complaint_id).first()
+        if lot_dispute:
+            # q2, q4–q8 can be JSON strings or CSV; normalize to lists
+            q2_list = _parse_list(getattr(lot_dispute, 'q2', None))
+            q4_list = _parse_list(getattr(lot_dispute, 'q4', None))
+            q5_list = _parse_list(getattr(lot_dispute, 'q5', None))
+            q6_list = _parse_list(getattr(lot_dispute, 'q6', None))
+            q7_list = _parse_list(getattr(lot_dispute, 'q7', None))
+            q8_list = _parse_list(getattr(lot_dispute, 'q8', None))
+
+            # q9 may be a json string {claim, documents}
+            q9_raw = getattr(lot_dispute, 'q9', None)
+            q9_data = {"claim": "", "documents": []}
             try:
-                # overlap.q2 is JSON-typed; if driver returns dict/list, use directly; if string, parse
-                if isinstance(overlap.q2, (list, dict)):
-                    q2_pairs = overlap.q2 if isinstance(overlap.q2, list) else [overlap.q2]
-                else:
-                    q2_pairs = json.loads(overlap.q2 or "[]")
+                if isinstance(q9_raw, dict):
+                    q9_data = {"claim": q9_raw.get("claim", ""), "documents": q9_raw.get("documents", [])}
+                elif isinstance(q9_raw, str) and q9_raw.strip():
+                    parsed = json.loads(q9_raw)
+                    if isinstance(parsed, dict):
+                        q9_data = {"claim": parsed.get("claim", ""), "documents": parsed.get("documents", [])}
             except Exception:
-                q2_pairs = []
-            # q1 -> current_status list for checkbox rendering
-            q1_list = []
-            if overlap.q1:
-                q1_list = [s.strip() for s in str(overlap.q1).split(',') if s.strip()]
-            answers = {
-                "q1": q1_list,
-                "q2": q2_pairs,
-                "q3": overlap.q3,
-                "q4": (overlap.q4 if isinstance(overlap.q4, list) else json.loads(overlap.q4 or "[]") if overlap.q4 else []),
-                "q5": (overlap.q5 if isinstance(overlap.q5, list) else json.loads(overlap.q5 or "[]") if overlap.q5 else []),
-                # q6 is now plain string
-                "q6": overlap.q6,
-                "q7": overlap.q7,
-                "q8": overlap.q8,
-                "q9": (overlap.q9 if isinstance(overlap.q9, list) else json.loads(overlap.q9 or "[]") if overlap.q9 else []),
-                "q10": overlap.q10,
-                "q11": overlap.q11,
-                "q12": overlap.q12,
-                "q13": overlap.q13,
-                "description": overlap.description,
-                "signature": overlap.signature
-            }
-            # Derive whether someone claimed overlap (Yes/No)
-            # If a sentinel '__yes_no_details__' exists, it means user picked Yes without selecting specific details.
+                pass
+
+            # q10 may be a json string {reside: Yes/No/Not Sure}
+            q10_raw = getattr(lot_dispute, 'q10', None)
+            q10_data = {}
             try:
-                q9_list = answers.get("q9") or []
-                if isinstance(q9_list, str):
-                    # tolerate string-encoded JSON
-                    q9_list = json.loads(q9_list or "[]")
-                has_yes = False
-                if isinstance(q9_list, list):
-                    has_yes = len(q9_list) > 0
-                    # Special-case sentinel
-                    if not has_yes and "__yes_no_details__" in q9_list:
-                        has_yes = True
-                answers["q9_approach"] = "yes" if has_yes else "no"
-            except Exception:
-                answers["q9_approach"] = "no"
-    elif complaint.type_of_complaint == "Lot Dispute":
-        # Build answers for Lot Dispute
-        lot = LotDispute.query.filter_by(complaint_id=complaint_id).first()
-        if lot:
-            # q5 is stored as JSON in DB (may be a JSON string) -> parse to list
-            try:
-                q5_list = lot.q5 if isinstance(lot.q5, list) else json.loads(lot.q5 or "[]")
-            except Exception:
-                q5_list = []
-            
-            # q7 (opposing names) - stored as JSON array
-            try:
-                q7_list = lot.q7 if isinstance(lot.q7, list) else json.loads(lot.q7 or "[]")
-            except Exception:
-                q7_list = []
-            
-            # q8 (relationships) - stored as JSON array  
-            try:
-                q8_list = lot.q8 if isinstance(lot.q8, list) else json.loads(lot.q8 or "[]")
-            except Exception:
-                q8_list = []
-            
-            # q9 (legal documents) - stored as JSON object
-            try:
-                q9_data = lot.q9 if isinstance(lot.q9, dict) else json.loads(lot.q9 or "{}")
-                
-                # Handle nested data structure - normalize to flat structure
-                if q9_data and 'claim' in q9_data:
-                    claim_value = q9_data['claim']
-                    # Handle nested structure like {"claim": {"claim": {"claim": "Yes"}}}
-                    while isinstance(claim_value, dict) and 'claim' in claim_value:
-                        claim_value = claim_value['claim']
-                    
-                    # Rebuild q9_data with normalized structure
-                    normalized_q9 = {
-                        'claim': claim_value if isinstance(claim_value, str) else '',
-                        'documents': q9_data.get('documents', [])
-                    }
-                    q9_data = normalized_q9
-                    
-            except Exception:
-                q9_data = {}
-            
-            # q10 (residence status) - stored as JSON object
-            try:
-                q10_data = lot.q10 if isinstance(lot.q10, dict) else json.loads(lot.q10 or "{}")
+                if isinstance(q10_raw, dict):
+                    q10_data = q10_raw
+                elif isinstance(q10_raw, str) and q10_raw.strip():
+                    q10_data = json.loads(q10_raw)
             except Exception:
                 q10_data = {}
-                
+
             # q3 is a date
-            q3_val = lot.q3.strftime("%Y-%m-%d") if lot.q3 else ""
+            q3_val = lot_dispute.q3.strftime("%Y-%m-%d") if getattr(lot_dispute, 'q3', None) else ""
+
             answers = {
-                "q1": lot.q1,
-                "q2": lot.q2,
+                "q1": getattr(lot_dispute, 'q1', '') or '',
+                "q2": q2_list,
                 "q3": q3_val,
-                "q4": lot.q4,
+                "q4": q4_list,
                 "q5": q5_list,
-                "q6": lot.q6,
+                "q6": q6_list,
                 "q7": q7_list,
                 "q8": q8_list,
                 "q9": q9_data,
                 "q10": q10_data,
-                # Prefer lot-level description/signature, fallback to complaint/registration
-                "description": (getattr(lot, "description", None) or complaint.description or ""),
-                "signature": (getattr(lot, "signature", None) or registration.signature_path or ""),
+                "description": getattr(lot_dispute, 'description', None) or getattr(complaint, 'description', '') or '',
+                "signature": getattr(lot_dispute, 'signature', None) or getattr(registration, 'signature_path', '') or '',
             }
-    # Add more complaint types here as needed
-    
-    # For family members, add parent info and relationship
+    else:
+        form_structure = []
+
+    # For family_of_member, include parent details and relationship for header section
     parent_info = None
     relationship = None
-    print(f"[DEBUG] Registration category: {registration.category}")
-    if registration.category == "family_of_member":
-        print("[DEBUG] Processing family member...")
-        fam_member = RegistrationFamOfMember.query.filter_by(registration_id=registration.registration_id).first()
-        print(f"[DEBUG] Found fam_member: {fam_member}")
-        if fam_member:
-            relationship = fam_member.relationship
-            print(f"[DEBUG] Relationship: {relationship}")
-            
-            def safe(val):
-                if not val:
-                    return ""
-                val_str = str(val).strip()
-                if val_str.lower() in {"na", "n/a", "none"}:
-                    return ""
-                return val_str
-            
-            # Parent info from fam_member table
-            parent_name_parts = [safe(fam_member.first_name), safe(fam_member.middle_name), safe(fam_member.last_name), safe(fam_member.suffix)]
-            parent_full_name = " ".join([part for part in parent_name_parts if part])
-            
-            parent_info = {
-                "full_name": parent_full_name,
-                "first_name": fam_member.first_name,
-                "middle_name": fam_member.middle_name,
-                "last_name": fam_member.last_name,
-                "suffix": fam_member.suffix,
-                "date_of_birth": fam_member.date_of_birth,
-                "sex": fam_member.sex,
-                "citizenship": fam_member.citizenship,
-                "age": fam_member.age,
-                "phone_number": fam_member.phone_number,
-                "year_of_residence": fam_member.year_of_residence,
-            }
-            print(f"[DEBUG] Created parent_info: {parent_info}")
-        else:
-            print("[DEBUG] No fam_member found")
-    else:
-        print("[DEBUG] Not a family member")
-    
-    print(f"[DEBUG] Final values - parent_info: {parent_info is not None}, relationship: {relationship}")
-    
-    # Determine whether to show Overlapping-specific Q9 follow-up (checkbox block)
-    form_structure_display = form_structure
-    if complaint.type_of_complaint == "Overlapping":
-        try:
-            show_q9_followup = False
-            if answers:
-                # Primary: explicit derived flag
-                if answers.get("q9_approach") == "yes":
-                    show_q9_followup = True
-                else:
-                    # Fallback: inspect q9 list (handles sentinel and actual selections)
-                    q9_list = answers.get("q9") or []
-                    if isinstance(q9_list, str):
-                        try:
-                            q9_list = json.loads(q9_list or "[]")
-                        except Exception:
-                            q9_list = []
-                    if isinstance(q9_list, list) and ("__yes_no_details__" in q9_list or len(q9_list) > 0):
-                        show_q9_followup = True
-            if not show_q9_followup:
-                form_structure_display = [f for f in form_structure if f.get("name") != "q9"]
-        except Exception:
-            form_structure_display = form_structure
+    try:
+        if registration.category == "family_of_member":
+            fam = RegistrationFamOfMember.query.filter_by(registration_id=registration.registration_id).first()
+            if fam:
+                relationship = fam.relationship
+                def _safe(v):
+                    return str(v).strip() if v else ""
+                parts = [_safe(fam.first_name), _safe(fam.middle_name), _safe(fam.last_name), _safe(fam.suffix)]
+                sd = getattr(fam, 'supporting_documents', {}) or {}
+                hoa_raw = sd.get('hoa')
+                parent_info = {
+                    "full_name": " ".join([p for p in parts if p]),
+                    "first_name": fam.first_name,
+                    "middle_name": fam.middle_name,
+                    "last_name": fam.last_name,
+                    "suffix": fam.suffix,
+                    "date_of_birth": fam.date_of_birth,
+                    "sex": fam.sex,
+                    "citizenship": fam.citizenship,
+                    "age": fam.age,
+                    "phone_number": fam.phone_number,
+                    "year_of_residence": fam.year_of_residence,
+                    "supporting_documents": getattr(fam, 'supporting_documents', None),
+                    # Additional mapped fields for templates
+                    "hoa": get_area_name(hoa_raw) if hoa_raw else "",
+                    "block_no": sd.get('block_assignment') or "",
+                    "lot_no": sd.get('lot_assignment') or "",
+                    "lot_size": sd.get('lot_size') or "",
+                    "civil_status": sd.get('civil_status') or "",
+                    "recipient_of_other_housing": sd.get('recipient_of_other_housing') or "",
+                    "current_address": sd.get('current_address') or "",
+                }
+    except Exception:
+        pass
 
+    template_name = "complaint_details_valid.html" if complaint.status == "Valid" else "complaint_details_invalid.html"
     return render_template(
-        "complaint_details_valid.html" if complaint.status == "Valid" else "complaint_details_invalid.html",
+        template_name,
         complaint=complaint,
         registration=registration,
-        form_structure=form_structure_display,
+        form_structure=form_structure,
         answers=answers,
+        get_area_name=get_area_name,
+        lot_dispute=lot_dispute,
         parent_info=parent_info,
         relationship=relationship,
-        get_area_name=get_area_name,
-        lot_dispute=lot
     )
-
-# -----------------------------
-# Utility route: Handle complaint type selection and registration check
-# -----------------------------
-@complainant_bp.route("/start-complaint", methods=["POST"])
-def start_complaint():
-    user_id = session.get("user_id")
-    if not user_id:
-        return jsonify({"success": False, "message": "Not logged in"}), 401
-    complaint_type = request.form.get("type") or request.json.get("type")
-    if not complaint_type:
-        return jsonify({"success": False, "message": "Complaint type required"}), 400
-    session["type_of_complaint"] = complaint_type
-    registration = Registration.query.filter_by(user_id=user_id).first()
-    if registration:
-        # Registration exists, redirect to complaint form
-        if complaint_type == "Overlapping":
-            return redirect("/complainant/overlapping/new_overlap_form")
-        elif complaint_type == "Lot Dispute":
-            # Route belongs to the lot_dispute blueprint
-            return redirect("/complainant/lot_dispute/new_lot_dispute_form")
-        elif complaint_type == "Boundary Dispute":
-            # Route belongs to the boundary_dispute blueprint
-            return redirect("/complainant/boundary_dispute/new_boundary_dispute_form")
-        elif complaint_type == "Pathway Dispute":
-            return redirect("/complainant/complaints/pathway_dispute.html")
-        elif complaint_type == "Unauthorized Occupation":
-            return redirect("/complainant/complaints/unauthorized_occupation.html")
-        elif complaint_type == "Illegal Construction":
-            return redirect("/complainant/complaints/illegal_construction.html")
-        else:
-            return redirect("/complainant/home/dashboard.html")
-    else:
-        # No registration, redirect to not_registered.html
-        return redirect("/complainant/not_registered")
-
-

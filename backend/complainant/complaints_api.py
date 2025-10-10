@@ -1,79 +1,10 @@
 from flask import Blueprint, jsonify, session
-from backend.database.models import Complaint, Overlapping, Registration, LotDispute
+from backend.database.models import Complaint, Registration, LotDispute
 from backend.database.db import db
 from sqlalchemy import text
 import json
 
 complaints_bp = Blueprint("complaints_bp", __name__, url_prefix="/complainant/complaints")
-
-
-# ---------------------------------
-# Helpers: tolerant JSON and pairs
-# ---------------------------------
-def _parse_pairs_field(value):
-    """Safely parse a pairs field that may be:
-    - a Python list/dict (already deserialized)
-    - a JSON string (list or dict)
-    - bytes
-    - an empty/whitespace/NA string
-    Returns a list (possibly empty). If a dict is provided, wrap in a list.
-    """
-    try:
-        if value is None:
-            return []
-        # Already a collection
-        if isinstance(value, list):
-            return value
-        if isinstance(value, tuple):
-            return list(value)
-        if isinstance(value, dict):
-            return [value]
-        # Bytes-like
-        if isinstance(value, (bytes, bytearray)):
-            try:
-                value = value.decode(errors="ignore")
-            except Exception:
-                return []
-        # String handling
-        if isinstance(value, str):
-            s = value.strip()
-            if not s:
-                return []
-            if s.lower() in {"n/a", "na", "none", "null"}:
-                return []
-            # Only attempt JSON if it appears JSON-like
-            if s[0] in "[{":
-                try:
-                    return json.loads(s)
-                except Exception:
-                    # Best-effort: normalize single quotes to double quotes
-                    try:
-                        return json.loads(s.replace("'", '"'))
-                    except Exception:
-                        return []
-            return []
-        # Unknown type
-        return []
-    except Exception:
-        return []
-
-
-def _first_block_lot(pairs):
-    """Extract the first (block, lot) from a list of pairs where each item may be:
-    - dict with keys like block/lot (with a few common aliases)
-    - list/tuple like [block, lot]
-    Returns (block, lot) or (None, None).
-    """
-    if not isinstance(pairs, list) or not pairs:
-        return (None, None)
-    first = pairs[0]
-    if isinstance(first, dict):
-        block = first.get("block") or first.get("blk") or first.get("blk_num") or first.get("block_no")
-        lot = first.get("lot") or first.get("lt") or first.get("lot_num") or first.get("lot_no")
-        return (block, lot)
-    if isinstance(first, (list, tuple)) and len(first) >= 2:
-        return (first[0], first[1])
-    return (None, None)
 
 # ---------------------------
 # Get all complaints for logged-in user
@@ -96,15 +27,6 @@ def get_submitted_complaints():
         complaints = Complaint.query.filter(
             Complaint.registration_id.in_(registration_ids)
         ).order_by(Complaint.date_received.desc()).all()
-
-        def extract_pairs(o):
-            if not o:
-                return []
-            # Prefer new q2 JSON (pairs), then legacy q1 JSON (pairs)
-            pairs = _parse_pairs_field(getattr(o, "q2", None))
-            if not pairs:
-                pairs = _parse_pairs_field(getattr(o, "q1", None))
-            return pairs if isinstance(pairs, list) else []
 
         result = []
         for c in complaints:
@@ -213,18 +135,7 @@ def get_submitted_complaints():
                 if not person_lot and reg:
                     person_lot = reg.lot_no
             else:
-                # Overlapping and other types: fallback to overlapping logic
-                o = c.overlapping
-                try:
-                    pairs = extract_pairs(o)
-                    b, l = _first_block_lot(pairs)
-                    person_block, person_lot = b, l
-                except Exception:
-                    person_block, person_lot = None, None
-                if o and hasattr(o, 'q8'):
-                    person_name = o.q8 or person_name
-                # Default role
-                person_role = "HOA Member"
+                person_role = "Complainant"
 
             # Fetch latest action from timeline
             latest_action = None
@@ -403,19 +314,7 @@ def get_complaint_details(complaint_id):
             if not person_lot and reg:
                 person_lot = reg.lot_no
         else:
-            o = complaint.overlapping
-            try:
-                pairs = _parse_pairs_field(getattr(o, "q2", None)) if o else []
-                if not pairs and o:
-                    pairs = _parse_pairs_field(getattr(o, "q1", None))
-                person_block, person_lot = _first_block_lot(pairs)
-            except Exception:
-                person_block, person_lot = None, None
-            if o and hasattr(o, 'q8'):
-                person_name = o.q8 or person_name
-            description = (o.description if o else description)
-            signature = (o.signature if o else None)
-            person_role = "HOA Member"
+            person_role = "Complainant"
 
         # Fetch latest action and complaint_stage
         latest_action = None

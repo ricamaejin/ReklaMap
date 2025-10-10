@@ -219,21 +219,38 @@
                 return;
             }
             sessionStorage.setItem("complaintType", type);
-            // Use backend to check registration and redirect
+            // Use backend to check registration and get a redirect URL
             try {
                 const res = await fetch("/complainant/start-complaint", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    credentials: "include",
+                    credentials: "same-origin",
                     body: JSON.stringify({ type })
                 });
+
                 if (res.redirected) {
                     window.location.href = res.url;
+                    return;
+                }
+
+                const contentType = res.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                    const text = await res.text();
+                    console.error('Unexpected non-JSON from start-complaint:', { status: res.status, body: text.slice(0, 200) });
+                    alert('Could not proceed. Please refresh and try again.');
+                    return;
+                }
+
+                const data = await res.json();
+                if (data && data.redirect) {
+                    window.location.href = data.redirect;
+                } else if (data && data.error) {
+                    alert(data.error);
                 } else {
-                    const data = await res.json();
-                    alert(data.message || "Unable to proceed.");
+                    alert('Unexpected response. Please try again.');
                 }
             } catch (err) {
+                console.error('start-complaint failed:', err);
                 alert("Error: " + err);
             }
         }

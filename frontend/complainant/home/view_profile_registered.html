@@ -7,6 +7,19 @@
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
   <script src="/js/registration_config.js"></script> <!-- This is correct! -->
+  <style>
+    /* Grey out all read-only input fields in the profile view */
+    #info-card input[readonly], #info-card input[disabled] {
+      background: #f3f3f3 !important;
+      color: #888 !important;
+      border-color: #d3d3d3 !important;
+      cursor: not-allowed;
+      opacity: 1 !important;
+    }
+    #info-card label[readonly], #info-card label[disabled] {
+      color: #888 !important;
+    }
+  </style>
 </head>
 <body>
 
@@ -129,67 +142,63 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Render the registration form as read-only, based on category
         let formHtml = "";
           if (r.category === "non_member") {
-              formHtml = `
-              <div class="form-grid">
-                  <label>Last Name<input type="text" value="${r.last_name || ""}" readonly></label>
-                  <label>First Name<input type="text" value="${r.first_name || ""}" readonly></label>
-                  <label>Middle Initial<input type="text" value="${r.middle_name || ""}" readonly></label>
-                  <label>Suffix<input type="text" value="${r.suffix || ""}" readonly></label>
-                  <label>Date of Birth<input type="date" value="${r.date_of_birth || ""}" readonly></label>
-                  <label>Sex<input type="text" value="${r.sex || ""}" readonly></label>
-                  <label>Citizenship<input type="text" value="${r.citizenship || ""}" readonly></label>
-                  <label>Age<input type="number" value="${r.age || ""}" readonly></label>
-              </div>
-              <div class="form-grid">
-                  <label>Phone Number<input type="text" value="${r.phone_number || ""}" readonly></label>
-                  <label>Year of Residence<input type="text" value="${r.year_of_residence || ""}" readonly></label>
-                  <label>Current Address<input type="text" value="${r.current_address || ""}" readonly></label>
-                  <label>Civil Status<input type="text" value="${r.civil_status || ""}" readonly></label>
-              </div>
+        formHtml = `
+        <div class="form-grid">
+          <label>Last Name<input type="text" value="${r.last_name || ""}" readonly></label>
+          <label>First Name<input type="text" value="${r.first_name || ""}" readonly></label>
+          <label>Middle Initial<input type="text" value="${r.middle_name || ""}" readonly></label>
+          <label>Suffix<input type="text" value="${r.suffix || ""}" readonly></label>
+          <label>Date of Birth<input type="date" value="${r.date_of_birth || ""}" readonly></label>
+          <label>Sex<input type="text" value="${r.sex || ""}" readonly></label>
+          <label>Citizenship<input type="text" value="${r.citizenship || ""}" readonly></label>
+          <label>Age<input type="number" value="${r.age || ""}" readonly></label>
+        </div>
+        <div class="form-grid">
+          <label>Phone Number<input type="text" value="${r.phone_number || ""}" readonly></label>
+          <label>Year of Residence<input type="text" value="${r.year_of_residence || ""}" readonly></label>
+          <label>Current Address<input type="text" value="${r.current_address || ""}" readonly></label>
+          <label>Civil Status<input type="text" value="${r.civil_status || ""}" readonly></label>
+        </div>
 
-              <hr class="separator">
-              <div>
-                <label style="display:block; font-weight:bold; margin-bottom:6px; color:#001241;">
-                  Recipient of other housing programs
-                  <input type="text" value="${r.recipient_of_other_housing || ""}" readonly
-                    style="display:block; margin-top:4px; padding:6px; border:1px solid #ccc; border-radius:6px; width:23%;">
-                </label>
-              </div>
-              `;
+        <hr class="separator">
+        <label style="display:block; font-weight:bold; margin-bottom:6px; color:#001241;">
+        Recipient of other housing programs
+        <input type="text" value="${r.recipient_of_other_housing || ""}" readonly
+          style="display:block; margin-top:4px; padding:6px; border:1px solid #ccc; border-radius:6px; width:100%; max-width:300px;">
+        </label>
+        `;
           }
 
         else if (r.category === "hoa_member") {
-            formHtml = `
-            <div class="form-grid">
-                <label>Last Name<input type="text" value="${r.last_name || ""}" readonly></label>
-                <label>First Name<input type="text" value="${r.first_name || ""}" readonly></label>
-                <label>Middle Initial<input type="text" value="${r.middle_name || ""}" readonly></label>
-                <label>Suffix<input type="text" value="${r.suffix || ""}" readonly></label>
-                <label>Date of Birth<input type="date" value="${r.date_of_birth || ""}" readonly></label>
-                <label>Sex<input type="text" value="${r.sex || ""}" readonly></label>
-                <label>Citizenship<input type="text" value="${r.citizenship || ""}" readonly></label>
-                <label>Age<input type="number" value="${r.age || ""}" readonly></label>
-            </div>
-            <div class="form-grid">
-                <label>Phone Number<input type="text" value="${r.phone_number || ""}" readonly></label>
-                <label>Year of Residence<input type="text" value="${r.year_of_residence || ""}" readonly></label>
-                <label>Current Address<input type="text" value="${r.current_address || ""}" readonly></label>
-                <label>Civil Status<input type="text" value="${r.civil_status || ""}" readonly></label>
-            </div>
-            <div class="form-grid" style="grid-template-columns: repeat(4, 1fr);">
-                <label>HOA<input type="text" value="${r.hoa || ""}" readonly></label>
-                <label>Block Assignment<input type="text" value="${r.block_no || ""}" readonly></label>
-                <label>Lot Assignment<input type="text" value="${r.lot_no || ""}" readonly></label>
-                <label>Lot Size<input type="text" value="${r.lot_size || ""}" readonly></label>
-            </div>
-              <div>
-                <label style="display:block; font-weight:bold; margin-bottom:6px; color:#001241;">
-                  Recipient of other housing programs
-                  <input type="text" value="${r.recipient_of_other_housing || ""}" readonly
-                    style="display:block; margin-top:4px; padding:6px; border:1px solid #ccc; border-radius:6px; width:23%;">
-                </label>
-              </div>
-            `;
+      formHtml = `
+      <div class="form-grid">
+        <label>Last Name<input type="text" value="${r.last_name || ""}" readonly></label>
+        <label>First Name<input type="text" value="${r.first_name || ""}" readonly></label>
+        <label>Middle Initial<input type="text" value="${r.middle_name || ""}" readonly></label>
+        <label>Suffix<input type="text" value="${r.suffix || ""}" readonly></label>
+        <label>Date of Birth<input type="date" value="${r.date_of_birth || ""}" readonly></label>
+        <label>Sex<input type="text" value="${r.sex || ""}" readonly></label>
+        <label>Citizenship<input type="text" value="${r.citizenship || ""}" readonly></label>
+        <label>Age<input type="number" value="${r.age || ""}" readonly></label>
+      </div>
+      <div class="form-grid">
+        <label>Phone Number<input type="text" value="${r.phone_number || ""}" readonly></label>
+        <label>Year of Residence<input type="text" value="${r.year_of_residence || ""}" readonly></label>
+        <label>Current Address<input type="text" value="${r.current_address || ""}" readonly></label>
+        <label>Civil Status<input type="text" value="${r.civil_status || ""}" readonly></label>
+      </div>
+      <div class="form-grid" style="grid-template-columns: repeat(4, 1fr);">
+        <label>HOA<input type="text" value="${r.hoa || ""}" readonly></label>
+        <label>Block Assignment<input type="text" value="${r.block_no || ""}" readonly></label>
+        <label>Lot Assignment<input type="text" value="${r.lot_no || ""}" readonly></label>
+        <label>Lot Size<input type="text" value="${r.lot_size || ""}" readonly></label>
+      </div>
+      <label style="display:block; font-weight:bold; margin-bottom:6px; color:#001241;">
+        Recipient of other housing programs
+        <input type="text" value="${r.recipient_of_other_housing || ""}" readonly
+          style="display:block; margin-top:4px; padding:6px; border:1px solid #ccc; border-radius:6px; width:100%; max-width:300px;">
+      </label>
+      `;
         } else if (r.category === "family_of_member") {
             // Family member info
             formHtml = `
@@ -210,7 +219,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <label style="display:block; font-weight:bold; margin-bottom:6px; color:#001241;">
                   Recipient of other housing programs
                   <input type="text" value="${r.recipient_of_other_housing || ""}" readonly
-                    style="display:block; margin-top:4px; padding:6px; border:1px solid #ccc; border-radius:6px; width:23%;">
+                    style="display:block; margin-top:4px; padding:6px; border:1px solid #ccc; border-radius:6px; width:100%;">
                 </label>
               </div>
             </div>
@@ -230,7 +239,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                   <label>Sex<input type="text" value="${r.parent_info.sex || ""}" readonly></label>
                   <label>Citizenship<input type="text" value="${r.parent_info.citizenship || ""}" readonly></label>
                   <label>Age<input type="number" value="${r.parent_info.age || ""}" readonly></label>
-                  <label>Phone Number<input type="text" value="${r.parent_info.phone_number || ""}" readonly></label>
                   <label>Year of Residence<input type="text" value="${r.parent_info.year_of_residence || ""}" readonly></label>
                   <label>HOA<input type="text" value="${r.parent_info.hoa || ""}" readonly></label>
                   <label>Block Assignment<input type="text" value="${r.parent_info.block_no || ""}" readonly></label>
@@ -238,13 +246,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                   <label>Lot Size<input type="text" value="${r.parent_info.lot_size || ""}" readonly></label>
                   <label>Civil Status<input type="text" value="${r.parent_info.civil_status || ""}" readonly></label>
                   <label>Current Address<input type="text" value="${r.parent_info.current_address || ""}" readonly></label>
-                  <div>
-                    <label style="display:block; font-weight:bold; margin-bottom:6px; color:#001241;">
-                      Recipient of other housing programs
-                      <input type="text" value="${r.recipient_of_other_housing || ""}" readonly
-                        style="display:block; margin-top:4px; padding:6px; border:1px solid #ccc; border-radius:6px; width:23%;">
-                    </label>
-                  </div>                
+                  <label>Recipient of other housing programs
+                    <input type="text" value="${r.recipient_of_other_housing || ""}" readonly>
+                  </label>
                 </div>
                 `;
             }

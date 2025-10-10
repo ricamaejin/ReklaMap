@@ -316,28 +316,13 @@
         }
 
         if (result.success) {
-          showErrorPop(result.message || "Registration successful!");
-
-          // Wait a moment for the popup to show, then redirect
-          setTimeout(() => {
-            const complaintType = sessionStorage.getItem("complaintType");
-            if (complaintType === "Overlapping") {
-              window.location.href = "/complainant/overlapping/new_overlap_form";
-            } else if (complaintType === "Lot Dispute") {
-              window.location.href = "/complainant/lot_dispute/new_lot_dispute_form";
-            } else if (complaintType === "Boundary Dispute") {
-              window.location.href = "/complainant/new_boundary_dispute_form";
-            } else if (complaintType === "Pathway Dispute") {
-              window.location.href = "/complainant/complaints/pathway_dispute.html";
-            } else if (complaintType === "Unauthorized Occupation") {
-              window.location.href = "/complainant/complaints/unauthorized_occupation.html";
-            } else if (complaintType === "Illegal Construction") {
-              window.location.href = "/complainant/complaints/illegal_construction.html";
-            } else {
-              window.location.href = "/complainant/complaints/general.html";
-            }
-          }, 1500);
-
+          // Prefer server-provided redirect (central authority)
+          if (result.redirect) {
+            window.location.href = result.redirect;
+            return;
+          }
+          // Fallback: dashboard if no redirect key (shouldn't normally happen)
+          window.location.href = "/complainant/home/dashboard.html";
         } else {
           showErrorPop("Error: " + (result.error || "Unknown error occurred."));
           submitBtn.disabled = false;
