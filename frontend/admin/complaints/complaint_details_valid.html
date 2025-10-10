@@ -35,6 +35,15 @@
       border-left: 4px solid #ffc107;
       background-color: #fffbf0;
     }
+    .timeline-clickable:hover {
+      background-color: #f8f9fa !important;
+      border-left-color: #007bff !important;
+      transform: translateX(2px);
+      transition: all 0.2s ease;
+    }
+    .timeline-clickable {
+      transition: all 0.2s ease;
+    }
   </style>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <body>
@@ -379,6 +388,25 @@
         </div>
         <div class="warning-footer">
           <button onclick="closeCustomAlert()">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIMELINE PREVIEW MODAL -->
+    <div class="modal-overlay" id="timelinePreviewModal" style="display:none;">
+      <div class="modal" style="display:flex; flex-direction:column; max-height:80vh;">
+        <div class="modal-top">
+          <h2 id="previewModalTitle">Action Details</h2>
+          <span class="close" onclick="closeTimelinePreview()">&times;</span>
+        </div>
+        <div class="modal-body" id="previewModalBody" style="overflow-y: auto; flex: 1;">
+          <!-- Dynamic content will be loaded here -->
+        </div>
+        <div class="modal-footer" style="margin-top: auto; padding: 15px; border-top: 1px solid #ddd;">
+          <div id="previewModalActions">
+            <button type="button" onclick="closeTimelinePreview()" class="btn-secondary">Close</button>
+            <button type="button" id="editPreviewAction" onclick="editTimelineEntry()" class="btn-primary" style="display: none;">Edit</button>
+          </div>
         </div>
       </div>
     </div>
@@ -852,6 +880,12 @@
       resolveModal.addEventListener('click', e => { if (e.target === resolveModal) closeResolveModal(); });
     }
 
+    // Add click outside handler for timeline preview modal
+    const timelinePreviewModal = document.getElementById('timelinePreviewModal');
+    if (timelinePreviewModal) {
+      timelinePreviewModal.addEventListener('click', e => { if (e.target === timelinePreviewModal) closeTimelinePreview(); });
+    }
+
     // Expose globally so your buttons can call them
     window.openComplaint = openComplaint;
     window.closeComplaint = closeComplaint;
@@ -965,15 +999,17 @@
     return messages[timelineStatus] || `${timelineStatus} - status unknown`;
   }
   
-  // Format date for timeline display
+  // Format date and time for timeline display
   function formatTimelineDate(dateString) {
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        month: 'numeric',
-        day: 'numeric',
-        year: 'numeric'
+      const dateStr = date.toLocaleDateString('en-US', {
+        month: 'numeric', day: 'numeric', year: 'numeric'
       });
+      const timeStr = date.toLocaleTimeString('en-US', {
+        hour: 'numeric', minute: '2-digit', hour12: true
+      });
+      return `${dateStr} | ${timeStr}`;
     } catch (error) {
       return dateString;
     }
@@ -1003,20 +1039,19 @@
     console.log('After sorting (most recent first):', filteredEntries.map(e => `${e.type_of_action} at ${e.action_datetime}`));
     console.log('After sorting (as Date objects):', filteredEntries.map(e => `${e.type_of_action} at ${new Date(e.action_datetime)}`));
     
-    // Generate HTML for timeline entries
+    // Generate HTML for timeline entries with new hierarchical layout
     const timelineHTML = filteredEntries.map(entry => {
       const timelineStatus = mapActionToTimelineStatus(entry.type_of_action);
-      const date = formatTimelineDate(entry.action_datetime);
+      const dateTime = formatTimelineDate(entry.action_datetime);
+      const assignedTo = entry.assigned_to || '';
       const description = entry.description ? 
         truncateDescription(entry.description) : 
         getDefaultMessage(entry.type_of_action, entry.assigned_to);
       
-      // File download button for files uploaded by staff/admin (especially for Sent Invitation entries)
+      // File download button for files uploaded by staff/admin
       const fileButton = entry.has_file ? 
-        `<button class="file-btn" data-pdf="${entry.file_path || '#'}" onclick="openTimelineFile('${entry.file_path || '#'}')" style="background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; margin-left: 10px;">📄 Download File</button>` : 
+        `<button class="file-btn" data-pdf="${entry.file_path || '#'}" onclick="openTimelineFile('${entry.file_path || '#'}')" style="background: #4CAF50; color: white; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-left: 10px;">📄 File</button>` : 
         '';
-      
-      const assignedTo = entry.assigned_to ? `<span>${entry.assigned_to}</span>` : '';
       
       // Add "Mark as Accepted" button for "Sent Invitation" entries (admin.account == 1 only)
       // Check if invitation has already been accepted by looking for "Accepted Invitation" entries
@@ -1026,21 +1061,25 @@
       if (timelineStatus === 'Sent Invitation') {
         if (hasAcceptedInvitation) {
           // Already accepted - show disabled gray button
-          acceptInvitationButton = `<button class="accept-invitation-btn" disabled style="margin-left: 10px; background: #6c757d; color: #adb5bd; border: none; padding: 5px 10px; border-radius: 3px; cursor: not-allowed;">Already Accepted</button>`;
+          acceptInvitationButton = `<button class="accept-invitation-btn" disabled style="background: #6c757d; color: #adb5bd; border: none; padding: 3px 8px; border-radius: 3px; cursor: not-allowed; font-size: 11px; margin-left: 5px;">Already Accepted</button>`;
         } else {
           // Not accepted yet - show clickable green button
-          acceptInvitationButton = `<button class="accept-invitation-btn" onclick="showAcceptInvitationModal(${entry.history_id})" style="margin-left: 10px; background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Mark as Accepted</button>`;
+          acceptInvitationButton = `<button class="accept-invitation-btn" onclick="showAcceptInvitationModal(${entry.history_id})" style="background: #28a745; color: white; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-left: 5px;">Mark as Accepted</button>`;
         }
       }
       
+      // Determine if this entry should be clickable for preview
+      const isPreviewable = ['Inspection', 'Send Invitation', 'Mediation', 'Assessment'].includes(timelineStatus) && 
+                           timelineStatus !== 'Accepted Invitation';
+      const clickableClass = isPreviewable ? 'timeline-clickable' : '';
+      const clickHandler = isPreviewable ? `onclick="showTimelinePreview('${entry.history_id}', '${entry.type_of_action}')"` : '';
+      
       return `
-        <div class="timeline-entry" data-status="${timelineStatus.toLowerCase().replace(/\s+/g, '-')}">
-          <h4>${date} - ${timelineStatus} 
-            ${fileButton}
-            ${assignedTo}
-            ${acceptInvitationButton}
-          </h4>
-          <p>${description}</p>
+        <div class="timeline-entry ${clickableClass}" data-status="${timelineStatus.toLowerCase().replace(/\s+/g, '-')}" ${clickHandler} style="${isPreviewable ? 'cursor: pointer;' : ''}">
+          <h4 style="font-size: 16px; margin: 0 0 5px 0;">${timelineStatus}</h4>
+          <div style="font-size: 13px; color: #666; margin-bottom: 3px;">${dateTime}</div>
+          <div style="font-size: 13px; color: #333; margin-bottom: 5px;">${assignedTo}${fileButton}${acceptInvitationButton}</div>
+          <div style="font-size: 12px; color: #555; line-height: 1.4;">${description}</div>
         </div>
       `;
     }).join('');
@@ -1545,7 +1584,428 @@
     document.getElementById('alertModal').style.display = 'none';
   }
 
+  // =====================================
+  // TIMELINE PREVIEW FUNCTIONALITY
+  // =====================================
+  
+  let currentPreviewData = null;
+
+  // Show timeline entry preview modal
+  async function showTimelinePreview(historyId, actionType) {
+    try {
+      console.log(`[TIMELINE PREVIEW] Opening preview for history ID: ${historyId}, action: ${actionType}`);
+      
+      // Fetch the detailed timeline entry data
+      const response = await fetch(`/admin/complaints/api/timeline_entry/${historyId}`, {
+        credentials: 'same-origin'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch timeline entry: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to load timeline entry');
+      }
+      
+      currentPreviewData = data.entry;
+      
+      // Populate the preview modal
+      populatePreviewModal(data.entry, actionType);
+      
+      // Show the modal
+      document.getElementById('timelinePreviewModal').style.display = 'flex';
+      
+    } catch (error) {
+      console.error('[TIMELINE PREVIEW] Error loading timeline entry:', error);
+      showCustomAlert('Error loading timeline entry details: ' + error.message);
+    }
+  }
+
+  // Populate the preview modal with timeline entry data
+  function populatePreviewModal(entry, actionType) {
+    const modalTitle = document.getElementById('previewModalTitle');
+    const modalBody = document.getElementById('previewModalBody');
+    const editButton = document.getElementById('editPreviewAction');
+    
+    modalTitle.textContent = `${actionType} - Details`;
+    
+    // Parse the details JSON
+    let details = {};
+    try {
+      if (entry.details) {
+        details = typeof entry.details === 'string' ? JSON.parse(entry.details) : entry.details;
+      }
+    } catch (e) {
+      console.error('Error parsing entry details:', e);
+    }
+    
+    // Generate preview content based on action type
+    let previewHTML = '';
+    
+    switch (actionType.toLowerCase()) {
+      case 'inspection':
+        previewHTML = generateInspectionPreview(details, entry);
+        break;
+      case 'send invitation':
+        previewHTML = generateInvitationPreview(details, entry);
+        break;
+      case 'mediation':
+        previewHTML = generateMediationPreview(details, entry);
+        break;
+      case 'assessment':
+        previewHTML = generateAssessmentPreview(details, entry);
+        break;
+      default:
+        previewHTML = generateGenericPreview(details, entry);
+    }
+    
+    modalBody.innerHTML = previewHTML;
+    
+    // Show edit button only if this entry was created by current user role (admin)
+    // For admin view, show edit button for admin-created actions
+    if (currentRole === 'admin' && ['inspection', 'send invitation', 'mediation', 'assessment'].includes(actionType.toLowerCase())) {
+      editButton.style.display = 'inline-block';
+    } else {
+      editButton.style.display = 'none';
+    }
+  }
+
+  // Generate inspection preview HTML
+  function generateInspectionPreview(details, entry) {
+    return `
+      <div style="padding: 15px;">
+        <div class="form-group">
+          <label><strong>Assigned Personnel:</strong></label>
+          <div class="readonly-field">${entry.assigned_to || 'Not specified'}</div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Deadline:</strong></label>
+          <div class="readonly-field">${details.deadline || 'Not specified'}</div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Location:</strong></label>
+          <div class="readonly-field">${details.location || 'Not specified'}</div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Scope of Work:</strong></label>
+          <div class="readonly-field">
+            ${details.scope ? (Array.isArray(details.scope) ? details.scope.join(', ') : details.scope) : 'Not specified'}
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Description:</strong></label>
+          <div class="readonly-field">${details.description || entry.description || 'No description provided'}</div>
+        </div>
+        
+        ${generateFileAttachments(details)}
+      </div>
+    `;
+  }
+
+  // Generate invitation preview HTML
+  function generateInvitationPreview(details, entry) {
+    return `
+      <div style="padding: 15px;">
+        <div class="form-group">
+          <label><strong>Assigned Personnel:</strong></label>
+          <div class="readonly-field">${entry.assigned_to || 'Not specified'}</div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Invited Individuals:</strong></label>
+          <div class="readonly-field">
+            ${details.individuals ? (Array.isArray(details.individuals) ? details.individuals.join(', ') : details.individuals) : 'Not specified'}
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Meeting Date:</strong></label>
+          <div class="readonly-field">${details.meeting_date || 'Not specified'}</div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Meeting Time:</strong></label>
+          <div class="readonly-field">${details.meeting_time || 'Not specified'}</div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Venue:</strong></label>
+          <div class="readonly-field">${details.venue || 'Not specified'}</div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Agenda:</strong></label>
+          <div class="readonly-field">${details.agenda || 'Not specified'}</div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Description:</strong></label>
+          <div class="readonly-field">${details.description || entry.description || 'No description provided'}</div>
+        </div>
+        
+        ${generateFileAttachments(details)}
+      </div>
+    `;
+  }
+
+  // Generate mediation preview HTML
+  function generateMediationPreview(details, entry) {
+    return `
+      <div style="padding: 15px;">
+        <div class="form-group">
+          <label><strong>Mediation Details:</strong></label>
+          <div class="readonly-field">${details.description || entry.description || 'No details provided'}</div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Date & Time:</strong></label>
+          <div class="readonly-field">${entry.action_datetime ? new Date(entry.action_datetime).toLocaleString() : 'Not specified'}</div>
+        </div>
+        
+        ${generateFileAttachments(details)}
+      </div>
+    `;
+  }
+
+  // Generate assessment preview HTML
+  function generateAssessmentPreview(details, entry) {
+    return `
+      <div style="padding: 15px;">
+        <div class="form-group">
+          <label><strong>Assessment Details:</strong></label>
+          <div class="readonly-field">${details.description || entry.description || 'No assessment details provided'}</div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Assessed By:</strong></label>
+          <div class="readonly-field">${entry.assigned_to || 'Admin'}</div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Date & Time:</strong></label>
+          <div class="readonly-field">${entry.action_datetime ? new Date(entry.action_datetime).toLocaleString() : 'Not specified'}</div>
+        </div>
+        
+        ${generateFileAttachments(details)}
+      </div>
+    `;
+  }
+
+  // Generate generic preview HTML
+  function generateGenericPreview(details, entry) {
+    return `
+      <div style="padding: 15px;">
+        <div class="form-group">
+          <label><strong>Action:</strong></label>
+          <div class="readonly-field">${entry.type_of_action}</div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Assigned To:</strong></label>
+          <div class="readonly-field">${entry.assigned_to || 'Not specified'}</div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Description:</strong></label>
+          <div class="readonly-field">${details.description || entry.description || 'No description provided'}</div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Date & Time:</strong></label>
+          <div class="readonly-field">${entry.action_datetime ? new Date(entry.action_datetime).toLocaleString() : 'Not specified'}</div>
+        </div>
+        
+        ${generateFileAttachments(details)}
+      </div>
+    `;
+  }
+
+  // Generate file attachments section
+  function generateFileAttachments(details) {
+    if (!details.files || !Array.isArray(details.files) || details.files.length === 0) {
+      return '';
+    }
+    
+    const filesHTML = details.files.map(file => {
+      const fileName = typeof file === 'string' ? file : file.name;
+      const fileUrl = typeof file === 'string' ? file : file.url || '#';
+      
+      return `
+        <div style="margin: 5px 0;">
+          <a href="${fileUrl}" target="_blank" style="color: #007bff; text-decoration: none;">
+            📄 ${fileName}
+          </a>
+        </div>
+      `;
+    }).join('');
+    
+    return `
+      <div class="form-group">
+        <label><strong>Attached Files:</strong></label>
+        <div class="readonly-field">
+          ${filesHTML}
+        </div>
+      </div>
+    `;
+  }
+
+  // Close timeline preview modal
+  function closeTimelinePreview() {
+    document.getElementById('timelinePreviewModal').style.display = 'none';
+    currentPreviewData = null;
+  }
+
+  // Edit timeline entry
+  function editTimelineEntry() {
+    if (!currentPreviewData) {
+      showCustomAlert('No timeline entry data available for editing.');
+      return;
+    }
+    
+    // Close the preview modal
+    closeTimelinePreview();
+    
+    // Open the appropriate action modal with pre-populated data
+    // This will use the existing modal system but populate it with the timeline entry data
+    if (currentPreviewData.type_of_action.toLowerCase().includes('inspection')) {
+      // Open assign modal for inspection editing
+      proceedToAssign();
+      // Pre-populate with existing data
+      setTimeout(() => populateAssignModalWithTimelineData(currentPreviewData), 100);
+    } else if (currentPreviewData.type_of_action.toLowerCase().includes('invitation')) {
+      // Open assign modal for invitation editing
+      proceedToAssign();
+      // Pre-populate with existing data
+      setTimeout(() => populateAssignModalWithTimelineData(currentPreviewData), 100);
+    } else {
+      // Open action modal for other types
+      proceedToAction();
+      // Pre-populate with existing data
+      setTimeout(() => populateActionModalWithTimelineData(currentPreviewData), 100);
+    }
+  }
+
+  // Populate assign modal with timeline data
+  function populateAssignModalWithTimelineData(timelineData) {
+    try {
+      const details = typeof timelineData.details === 'string' ? JSON.parse(timelineData.details) : timelineData.details;
+      
+      // Set assign type
+      const assignTypeSelect = document.getElementById('assignType');
+      if (assignTypeSelect) {
+        if (timelineData.type_of_action.toLowerCase().includes('inspection')) {
+          assignTypeSelect.value = 'inspection';
+        } else if (timelineData.type_of_action.toLowerCase().includes('invitation')) {
+          assignTypeSelect.value = 'invitation';
+        }
+        assignTypeSelect.dispatchEvent(new Event('change'));
+      }
+      
+      // Populate fields based on type
+      if (details.deadline) {
+        const deadlineEl = document.getElementById('deadline');
+        if (deadlineEl) deadlineEl.value = details.deadline;
+      }
+      
+      if (details.location) {
+        const locationEl = document.getElementById('location');
+        if (locationEl) locationEl.value = details.location;
+      }
+      
+      if (details.individuals) {
+        const invToEl = document.getElementById('invTo');
+        if (invToEl) invToEl.value = Array.isArray(details.individuals) ? details.individuals.join(', ') : details.individuals;
+      }
+      
+      if (details.meeting_date) {
+        const dateEl = document.getElementById('invDate');
+        if (dateEl) dateEl.value = details.meeting_date;
+      }
+      
+      if (details.meeting_time) {
+        const timeEl = document.getElementById('invTime');
+        if (timeEl) timeEl.value = details.meeting_time;
+      }
+      
+      if (details.venue) {
+        const venueEl = document.getElementById('invLocation');
+        if (venueEl) venueEl.value = details.venue;
+      }
+      
+      if (details.agenda) {
+        const agendaEl = document.getElementById('invAgenda');
+        if (agendaEl) agendaEl.value = details.agenda;
+      }
+      
+      if (timelineData.assigned_to) {
+        const assignedEl = document.getElementById('assignedPersonnel');
+        if (assignedEl) assignedEl.value = timelineData.assigned_to;
+      }
+      
+    } catch (error) {
+      console.error('Error populating assign modal with timeline data:', error);
+    }
+  }
+
+  // Populate action modal with timeline data
+  function populateActionModalWithTimelineData(timelineData) {
+    try {
+      const details = typeof timelineData.details === 'string' ? JSON.parse(timelineData.details) : timelineData.details;
+      
+      // Set action type
+      const actionTypeSelect = document.getElementById('actionType');
+      if (actionTypeSelect) {
+        actionTypeSelect.value = timelineData.type_of_action.toLowerCase();
+        actionTypeSelect.dispatchEvent(new Event('change'));
+      }
+      
+      // Populate description
+      if (details.description) {
+        const descriptionEl = document.getElementById('actionDescription');
+        if (descriptionEl) descriptionEl.value = details.description;
+      }
+      
+    } catch (error) {
+      console.error('Error populating action modal with timeline data:', error);
+    }
+  }
+
+  // Add CSS for readonly fields
+  const style = document.createElement('style');
+  style.textContent = `
+    .readonly-field {
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      padding: 8px 12px;
+      margin: 5px 0 15px 0;
+      color: #495057;
+      font-size: 14px;
+      min-height: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: #333;
+    }
+  `;
+  document.head.appendChild(style);
+
   // Make functions globally available
+  window.showTimelinePreview = showTimelinePreview;
+  window.closeTimelinePreview = closeTimelinePreview;
+  window.editTimelineEntry = editTimelineEntry;
   window.showCustomAlert = showCustomAlert;
   window.closeCustomAlert = closeCustomAlert;
   </script>

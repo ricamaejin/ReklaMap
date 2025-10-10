@@ -606,15 +606,17 @@ async function loadTimelineData() {
   }
 }
 
-// Format date for timeline display
+// Format date and time for timeline display
 function formatTimelineDate(dateString) {
   try {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'numeric',
-      day: 'numeric',
-      year: 'numeric'
+    const dateStr = date.toLocaleDateString('en-US', {
+      month: 'numeric', day: 'numeric', year: 'numeric'
     });
+    const timeStr = date.toLocaleTimeString('en-US', {
+      hour: 'numeric', minute: '2-digit', hour12: true
+    });
+    return `${dateStr} | ${timeStr}`;
   } catch (error) {
     return dateString;
   }
@@ -741,28 +743,31 @@ function renderTimeline(entries) {
   // Sort entries by date (most recent first)
   filteredEntries.sort((a, b) => new Date(b.action_datetime) - new Date(a.action_datetime));
   
-    // Generate HTML for timeline entries (copy admin design structure)
+    // Generate HTML for timeline entries with new hierarchical layout
     const timelineHTML = filteredEntries.map(entry => {
       const timelineStatus = mapActionToTimelineStatus(entry.type_of_action, false, 'staff');
-      const date = formatTimelineDate(entry.action_datetime);
+      const dateTime = formatTimelineDate(entry.action_datetime);
+      const assignedTo = entry.assigned_to || '';
       const description = entry.description ? 
         truncateDescription(entry.description) : 
         getDefaultMessage(entry.type_of_action, entry.assigned_to);
       
       // File download button for files uploaded by staff/admin 
       const fileButton = entry.has_file ? 
-        `<button class="file-btn" data-pdf="${entry.file_path || '#'}" onclick="openTimelineFile('${entry.file_path || '#'}')" style="background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; margin-left: 10px;">📄 Download File</button>` : 
+        `<button class="file-btn" data-pdf="${entry.file_path || '#'}" onclick="openTimelineFile('${entry.file_path || '#'}')" style="background: #4CAF50; color: white; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-left: 10px;">📄 File</button>` : 
         '';
       
-      const assignedTo = entry.assigned_to ? `<span>${entry.assigned_to}</span>` : '';
+      // Determine if this entry should be clickable for preview (only staff-completed actions)
+      const isPreviewable = ['Sent Invitation'].includes(timelineStatus);
+      const clickableClass = isPreviewable ? 'timeline-clickable' : '';
+      const clickHandler = isPreviewable ? `onclick="showTimelinePreview('${entry.history_id}', '${entry.type_of_action}')"` : '';
       
       return `
-        <div class="timeline-entry" data-status="${timelineStatus.toLowerCase().replace(/\s+/g, '-')}">
-          <h4>${date} - ${timelineStatus} 
-            ${fileButton}
-            ${assignedTo}
-          </h4>
-          <p>${description}</p>
+        <div class="timeline-entry ${clickableClass}" data-status="${timelineStatus.toLowerCase().replace(/\s+/g, '-')}" ${clickHandler} style="${isPreviewable ? 'cursor: pointer;' : ''}">
+          <h4 style="font-size: 16px; margin: 0 0 5px 0;">${timelineStatus}</h4>
+          <div style="font-size: 13px; color: #666; margin-bottom: 3px;">${dateTime}</div>
+          <div style="font-size: 13px; color: #333; margin-bottom: 5px;">${assignedTo}${fileButton}</div>
+          <div style="font-size: 12px; color: #555; line-height: 1.4;">${description}</div>
         </div>
       `;
     }).join('');  timelineContainer.innerHTML = timelineHTML;
@@ -1003,6 +1008,43 @@ function showMapError() {
 }
 
 // Map loading is now handled in the main DOMContentLoaded event listener above
+
+// =====================================
+// TIMELINE PREVIEW FUNCTIONALITY FOR STAFF
+// =====================================
+
+// Simple preview function for staff - shows basic details
+async function showTimelinePreview(historyId, actionType) {
+  try {
+    console.log(`[STAFF TIMELINE PREVIEW] Opening preview for history ID: ${historyId}, action: ${actionType}`);
+    
+    // For staff, show a simple alert with the action details
+    // This could be expanded to a full modal if needed
+    showCustomAlert(`Timeline Entry Details:\n\nAction: ${actionType}\nEntry ID: ${historyId}\n\nThis entry shows the completed staff task.`);
+    
+  } catch (error) {
+    console.error('[STAFF TIMELINE PREVIEW] Error:', error);
+    showCustomAlert('Error loading timeline entry details.');
+  }
+}
+
+// Add CSS for clickable timeline entries
+const style = document.createElement('style');
+style.textContent = `
+  .timeline-clickable:hover {
+    background-color: #f8f9fa !important;
+    border-left-color: #007bff !important;
+    transform: translateX(2px);
+    transition: all 0.2s ease;
+  }
+  .timeline-clickable {
+    transition: all 0.2s ease;
+  }
+`;
+document.head.appendChild(style);
+
+// Make functions globally available
+window.showTimelinePreview = showTimelinePreview;
 
 // Make map functions globally available
 window.loadComplaintMap = loadComplaintMap;

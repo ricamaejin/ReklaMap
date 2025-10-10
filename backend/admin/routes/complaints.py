@@ -298,6 +298,64 @@ def staff_complete_task():
             'error': str(e)
         }), 500
 
+@complaints_bp.route('/api/timeline_entry/<int:history_id>', methods=['GET'])
+def get_timeline_entry(history_id):
+    """Get detailed timeline entry for preview modal"""
+    try:
+        # Query the specific timeline entry
+        query = text("""
+            SELECT 
+                ch.history_id,
+                ch.complaint_id,
+                ch.type_of_action,
+                ch.assigned_to,
+                ch.action_datetime,
+                ch.details
+            FROM complaint_history ch
+            WHERE ch.history_id = :history_id
+        """)
+        
+        result = db.session.execute(query, {'history_id': history_id})
+        entry = result.fetchone()
+        
+        if not entry:
+            return jsonify({
+                'success': False,
+                'error': 'Timeline entry not found'
+            }), 404
+        
+        # Convert to dictionary
+        entry_data = {
+            'history_id': entry.history_id,
+            'complaint_id': entry.complaint_id,
+            'type_of_action': entry.type_of_action,
+            'assigned_to': entry.assigned_to,
+            'action_datetime': entry.action_datetime.isoformat() if entry.action_datetime else '',
+            'details': entry.details,
+            'description': ''
+        }
+        
+        # Parse details to extract description if available
+        if entry.details:
+            try:
+                import json
+                details_dict = json.loads(entry.details) if isinstance(entry.details, str) else entry.details
+                entry_data['description'] = details_dict.get('description', '')
+            except (json.JSONDecodeError, TypeError):
+                pass
+        
+        return jsonify({
+            'success': True,
+            'entry': entry_data
+        })
+        
+    except Exception as e:
+        print(f"Error fetching timeline entry {history_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 def format_complainant_name(first_name, middle_name, last_name, suffix):
     """Format complainant name as 'FirstName M. LastName, Suffix'"""
     name_parts = []
