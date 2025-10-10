@@ -10,6 +10,7 @@ from backend.database.models import (
     Beneficiary,
     RegistrationHOAMember
 )
+from backend.complainant.redirects import complaint_redirect_path
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, '..', '..', 'frontend', 'complainant', 'home')
@@ -24,6 +25,8 @@ mem_reg_bp = Blueprint(
 UPLOAD_FOLDER = "uploads/signatures"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# Redirect helper now imported from backend.complainant.redirects
+
 
 @mem_reg_bp.route("/memreg", methods=["GET", "POST"])
 def mem_reg():
@@ -33,15 +36,13 @@ def mem_reg():
             if not user_id:
                 return jsonify({"success": False, "error": "User not logged in"}), 401
 
+
             # --- Get form fields ---
             category = request.form.get("category")
             last = request.form.get("reg_last", "").strip()
             first = request.form.get("reg_first", "").strip()
             mid = request.form.get("reg_mid", "").strip()
             suffix = request.form.get("reg_suffix", "").strip()
-            # Ensure NA/N/A/empty are saved as None
-            mid = mid if mid not in ("", "NA", "N/A") else None
-            suffix = suffix if suffix not in ("", "NA", "N/A") else None
             dob = request.form.get("reg_dob")
             sex = request.form.get("reg_sex")
             cit = request.form.get("reg_cit")
@@ -56,10 +57,17 @@ def mem_reg():
             cur_add = request.form.get("reg_cur_add")
             recipient = request.form.get("recipient")
             # Supporting documents (at least one required)
-            doc_fields = [
-                "doc_title", "doc_contract", "doc_fullpay", "doc_award", "doc_agreement", "doc_deed"
-            ]
-            docs_selected = [f for f in doc_fields if request.form.get(f) == "on"]
+            doc_map = {
+                "doc_title": "title",
+                "doc_contract": "contract_to_sell",
+                "doc_fullpay": "certificate_of_full_payment",
+                "doc_award": "pre_qualification_stub",
+                "doc_agreement": "contract_agreement",
+                "doc_deed": "deed_of_sale"
+            }
+            docs_selected = [v for k, v in doc_map.items() if request.form.get(k) == "on"]
+            # Create supporting documents JSON with expected keys (for RegistrationHOAMember)
+            supporting_docs = {v: (request.form.get(k) == "on") for k, v in doc_map.items()}
 
             # --- Validate required fields ---
             field_errors = {}
@@ -73,13 +81,15 @@ def mem_reg():
                 field_errors["reg_year"] = "Years of Residence is required."
             if not phone:
                 field_errors["reg_phone"] = "Contact Number is required."
+            if not hoa:
+                field_errors["reg_hoa"] = "HOA is required."
             if not blk:
                 field_errors["reg_blk"] = "Block Assignment is required."
             if not lot_asn:
                 field_errors["reg_lot_asn"] = "Lot Assignment is required."
-            if not cur_add:
-                field_errors["reg_cur_add"] = "Current Address is required."
-            if not recipient:
+            if not lot_size:
+                field_errors["reg_lot_size"] = "Lot Size is required."
+            if recipient not in ("yes", "no"):
                 field_errors["recipient"] = "Please select Yes or No."
             if not docs_selected:
                 field_errors["supporting_docs"] = "Select at least one supporting document."
@@ -90,6 +100,10 @@ def mem_reg():
                     return jsonify({"success": False, "field_errors": field_errors}), 400
                 # Fallback: show error popup
                 return jsonify({"success": False, "error": "Please complete the required fields."}), 400
+
+            # Ensure NA/N/A/empty are saved as None
+            mid = mid if mid not in ("", "NA", "N/A") else None
+            suffix = suffix if suffix not in ("", "NA", "N/A") else None
 
             # --- Convert numeric fields ---
             try:
@@ -125,19 +139,11 @@ def mem_reg():
 
             mismatches = []
 
-            # Compare middle initials - normalize by removing periods for comparison
-            db_middle = existing_beneficiary.middle_initial or None
-            if db_middle:
-                db_middle_normalized = db_middle.replace(".", "").strip().upper()
-            else:
-                db_middle_normalized = None
-                
-            if input_middle:
-                input_middle_normalized = input_middle.replace(".", "").strip().upper()
-            else:
-                input_middle_normalized = None
-
-            if db_middle_normalized != input_middle_normalized:
+            # Middle initial: ignore periods and case, only compare first letter
+            def normalize_mi(val):
+                if not val: return None
+                return str(val).replace('.', '').strip().upper()[:1] or None
+            if normalize_mi(existing_beneficiary.middle_initial) != normalize_mi(input_middle):
                 mismatches.append("Middle Name")
             if (existing_beneficiary.suffix or None) != input_suffix:
                 mismatches.append("Suffix")
@@ -159,6 +165,7 @@ def mem_reg():
                     mismatches.append("Lot Size")
             except Exception:
                 mismatches.append("Lot Size")
+            
 
             if mismatches:
                 return jsonify({
@@ -190,38 +197,28 @@ def mem_reg():
                 "civil_status": civil,
                 "current_address": cur_add,
                 "recipient_of_other_housing": recipient,
-                "signature_path": sig_filename
+                "signature_path": sig_filename,
+                # Store as JSON array of selected doc keys for preview
+                "supporting_documents": docs_selected
             }
 
             # --- Add registration ---
             new_member = Registration(**reg_data)
             db.session.add(new_member)
-            db.session.flush()  # ensures registration_id is available
-
-            # --- Link to registration_hoa_member ---
-            hoa_link = RegistrationHOAMember(
+            db.session.flush()  # Get the registration_id before commit
+            
+            # --- Create RegistrationHOAMember record with supporting documents ---
+            from backend.database.models import RegistrationHOAMember
+            hoa_member = RegistrationHOAMember(
                 registration_id=new_member.registration_id,
-                supporting_documents=None
+                supporting_documents=supporting_docs
             )
-            db.session.add(hoa_link)
-
+            db.session.add(hoa_member)
+            
             db.session.commit()
-            # Use complaint type from session for redirect
+            # Use centralized redirect logic
             complaint_type = session.get("type_of_complaint")
-            if complaint_type == "Overlapping":
-                next_url = "/complainant/overlapping/new_overlap_form"
-            elif complaint_type == "Lot Dispute":
-                next_url = "/complainant/lot_dispute/new_lot_dispute_form"
-            elif complaint_type == "Boundary Dispute":
-                next_url = "/complainant/boundary_dispute/new_boundary_dispute_form"
-            elif complaint_type == "Pathway Dispute":
-                next_url = "/complainant/complaints/pathway_dispute.html"
-            elif complaint_type == "Unauthorized Occupation":
-                next_url = "/complainant/complaints/unauthorized_occupation.html"
-            elif complaint_type == "Illegal Construction":
-                next_url = "/complainant/complaints/illegal_construction.html"
-            else:
-                next_url = "/complainant/home/dashboard.html"
+            next_url = complaint_redirect_path(complaint_type, has_registration=True)
 
             # If AJAX/fetch, return JSON with redirect URL
             if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:

@@ -25,7 +25,7 @@
   <!-- Main Form -->
   <div class="main">
     <div class="form-container">
-      <form  id="BoundaryDisputeForm">
+  <form  id="BoundaryDisputeForm" enctype="multipart/form-data">
       <h1 style="text-decoration: underline;">COMPLAINT FORM <br> BOUNDARY DISPUTE</h1>
       <div class="instructions">
         <p><strong>INSTRUCTION</strong></p>
@@ -38,182 +38,157 @@
         </ul>
       </div>
 
-      <div class="section-header">COMPLAINANT'S DETAILS:</div>
-        <div class="pairs">
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Full Name:</label>
-              <input type="text" name="full_name" readonly>
-            </div>
-          </div>
+  <div class="section-header">COMPLAINANT'S DETAILS:</div>
+  <div id="complainantDetails"></div>
 
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Date of Birth:</label>
-              <input type="date" name="date_of_birth" readonly 
-              style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
-            </div>
+<!-- CSS for complainant details (keep at top, before scripts) -->
+<style>
+  /* Grey out autofilled (read-only) complainant detail fields, match lot_dispute.html */
+  #complainantDetails .pairs input[readonly] {
+    color: #555 !important;
+    background: #f1f3f5 !important;
+  }
+  #complainantDetails .pairs input[readonly]::placeholder { color: #888; }
+  #complainantDetails .pair-row { display: flex; gap: 16px; margin-bottom: 8px; }
+  #complainantDetails .col { flex: 1; min-width: 120px; }
+  #complainantDetails label.small { font-size: 13px; color: #333; margin-bottom: 2px; display: block; }
+</style>
 
-            <div class="col">
-              <label class="small">Sex:</label>
-              <input type="text" name="sex" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Civil Status:</label>
-              <input type="text" name="civil_stat" readonly>
-            </div>
-            <div class="col">
-              <label class="small">Citizenship:</label>
-              <input type="text" name="citizenship" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Current Address:</label>
-              <input type="text" name="cur_add" readonly>
-            </div>
-
-            <div class="col">
-              <label class="small">HOA:</label>
-              <input type="text" name="hoa" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Block Assignment Number:</label>
-              <input type="text" name="blk_num" readonly>
-            </div>
-
-            <div class="col">
-              <label class="small">Lot Assignment Number:</label>
-              <input type="text" name="lot_num" readonly>
-            </div>
-
-            <div class="col">
-              <label class="small">Lot Area Size:</label>
-              <input type="text" name="lot_size" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Phone Number:</label>
-              <input type="text" name="phone_number" readonly>
-            </div>
-
-            <div class="col"></div>
-          </div>
-        </div>
+<!-- Blue popup for error messages (matches mem-reg.html style) -->
+<div id="errorPop" 
+  style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);z-index:999;background:#e3f2fd;color:#083048;width:max-content;padding:16px 28px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.12);font-weight:500;min-width:220px;max-width:340px;transition:opacity .2s;">
+  <span id="errorPopMsg"></span>
+</div>
 
       <!-- Section 1 -->
       <div class="section-header">LOT DETAILS AND CLAIM:</div>
-      <p><strong>1. What is the nature of the boundary issue? </strong></p>
-      <label><input type="checkbox" value="Neighbor structure extends beyond line"> A neighbor’s house or structure extends beyond their boundary line</label>
-      <label><input type="checkbox" value="Fence overlaps into my property"> A fence or wall installed by the neighbor overlaps into my property</label>
-      <label><input type="checkbox" value="Construction within my claimed boundary"> Construction is ongoing within my claimed boundary</label>
-      <label><input type="checkbox" value="Shared boundary demolished"> Shared boundary structure (wall/fence) was demolished without consent</label>
-      <label><input type="checkbox" value="Boundary markers moved"> Boundary markers (mohon) were moved or removed</label>
-      <label><input type="checkbox" value="Neighbor expanded structure beyond assigned area"> The neighbor expanded their structure beyond their assigned area</label>
-      <label><input type="checkbox" style="margin-bottom: 12px;"> Encroachment is affecting access to utilities (e.g., water, drainage, electricity)</label>
+      <!-- Non-member only: Block/Lot pairs involved in the dispute (excluding theirs) -->
+      <div id="nonMemberBlockLotSection" style="display:none; margin-bottom: 18px;">
+        <p style="font-weight:bold;">Please indicate your Block and Lot number.</p>
+        <div class="pairs" id="blockLotPairsContainer" aria-live="polite">
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Block No.</label>
+              <input type="text" name="block_no[]" placeholder="Block No.">
+            </div>
+            <div class="col">
+              <label class="small">Lot No.</label>
+              <input type="text" name="lot_no[]" placeholder="Lot No.">
+            </div>
+          </div>
+        </div>
+      </div>
+<script>
+// Show/hide non-member block/lot section (static, no dynamic rows)
+document.addEventListener('DOMContentLoaded', function() {
+  fetch('/complainant/boundary_dispute/get_boundary_session_data').then(r => r.json()).then(d => {
+    if (d && d.category === 'non_member') {
+      document.getElementById('nonMemberBlockLotSection').style.display = '';
+    }
+  });
+});
+</script>
+  <p><strong>1. What is the nature of the boundary issue? </strong> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+  <label><input type="checkbox" name="nature_of_issue" value="Neighbor structure extends beyond line"> A neighbor’s house or structure extends beyond their boundary line</label>
+  <label><input type="checkbox" name="nature_of_issue" value="Fence overlaps into my property"> A fence or wall installed by the neighbor overlaps into my property</label>
+  <label><input type="checkbox" name="nature_of_issue" value="Construction within my claimed boundary"> Construction is ongoing within my claimed boundary</label>
+  <label><input type="checkbox" name="nature_of_issue" value="Shared boundary demolished"> Shared boundary structure (wall/fence) was demolished without consent</label>
+  <label><input type="checkbox" name="nature_of_issue" value="Boundary markers moved"> Boundary markers (mohon) were moved or removed</label>
+  <label><input type="checkbox" name="nature_of_issue" value="Neighbor expanded structure beyond assigned area"> The neighbor expanded their structure beyond their assigned area</label>
+  <label><input type="checkbox" name="nature_of_issue" style="margin-bottom: 12px;" value="Encroachment affects utilities"> Encroachment is affecting access to utilities (e.g., water, drainage, electricity)</label>
 
 
       <p><strong>2. How long has this encroachment existed?</strong></p>
-      <label><input type="radio" name="conflict"> Less than 1 month</label>
-      <label><input type="radio" name="conflict"> 1-6 months</label>
-      <label><input type="radio" name="conflict"> More than 6 months</label>
-      <label><input type="radio" name="conflict" style="margin-bottom: 12px;"> Not sure</label>
+  <label><input type="radio" name="conflict" value="Less than 1 month"> Less than 1 month</label>
+  <label><input type="radio" name="conflict" value="1-6 months"> 1-6 months</label>
+  <label><input type="radio" name="conflict" value="More than 6 months"> More than 6 months</label>
+  <label><input type="radio" name="conflict" value="Not sure" style="margin-bottom: 12px;"> Not sure</label>
 
-      <p><strong>3. Has the encroaching structure already been built or is it under construction?</strong></p>
-      <label><input type="radio" name="reason"> Fully constructed</label>
-      <label><input type="radio" name="reason"> Partially constructed</label>
-      <label><input type="radio" name="reason"> Ongoing construction</label>
-      <label><input type="radio" name="reason" style="margin-bottom: 12px;"> Structure was removed but boundary still contested</label>
+  <p><strong>3. Has the encroaching structure already been built or is it under construction?</strong></p>
+  <label><input type="radio" name="structure_status" value="Fully constructed"> Fully constructed</label>
+  <label><input type="radio" name="structure_status" value="Partially constructed"> Partially constructed</label>
+  <label><input type="radio" name="structure_status" value="Ongoing construction"> Ongoing construction</label>
+  <label><input type="radio" name="structure_status" value="Structure was removed but boundary still contested" style="margin-bottom: 12px;"> Structure was removed but boundary still contested</label>
       
-      <p><strong>4. Were you given any prior notice before the structure crossed into your property?</strong></p>
-      <label><input type="radio" name="notice"> Yes</label>
-      <label><input type="radio" name="notice" style="margin-bottom: 12px;"> No</label>
+
+  <p><strong>4. Were you given any prior notice before the structure crossed into your property?</strong></p>
+  <label><input type="radio" name="notice" value="Yes"> Yes</label>
+  <label><input type="radio" name="notice" value="No" style="margin-bottom: 12px;"> No</label>
       
-      <p><strong>5. Have you discussed or confronted the other party about the boundary issue?</strong></p>
-      <label><input type="radio" name="confronted"> Yes</label>
-      <label><input type="radio" name="confronted" style="margin-bottom: 12px;"> No</label>
-
-      <p><strong>6. Has the dispute led to any of the following? </strong><i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
-      <label><input type="checkbox"> Threats or harassment</label>
-      <label><input type="checkbox"> Physical altercation</label>
-      <label><input type="checkbox"> Demolition or forced entry</label>
-      <label><input type="checkbox"> Property damage</label>
-      <label><input type="checkbox" style="margin-bottom: 12px;" value="None"> None</label>
-
-      <p> <strong>7. Have you discussed or confronted the other party about the boundary issue?</strong></p>
-      <label><input type="radio" name="reason" value="yes" id="reasonYes"> Yes</label>
+      <p> <strong>5. Have you discussed or confronted the other party about the boundary issue?</strong></p>
+      <label><input type="radio" name="confronted" value="yes" id="reasonYes"> Yes</label>
       <div id="reasonDetails" style="display: none; margin-left: 22px;">
-        <p>Date Reported</p>
-        <input id="reasonDateInput" type="date" style="width: 20%; padding: 8px; margin-top: 6px; margin-left: 18px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;"/>
+        <p><strong>Date Reported</strong></p>
+        <input id="reasonDateInput" name="reasonDateInput" type="date" style="width: 20%; padding: 8px; margin-top: 6px; margin-left: 18px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;"/>
       </div>
-      <label><input type="radio" name="reason" value="no"> No</label>
+      <label><input type="radio" name="confronted" value="no"> No</label>
 
-      <label><strong>8. Have you reported this boundary issue to any office or authority?</strong></label>
+  <p><strong>6. Has the dispute led to any of the following? </strong><i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+  <label><input type="checkbox" name="dispute_effects" value="Threats or harassment"> Threats or harassment</label>
+  <label><input type="checkbox" name="dispute_effects" value="Physical altercation"> Physical altercation</label>
+  <label><input type="checkbox" name="dispute_effects" value="Demolition or forced entry"> Demolition or forced entry</label>
+  <label><input type="checkbox" name="dispute_effects" value="Property damage"> Property damage</label>
+  <label><input type="checkbox" name="dispute_effects" style="margin-bottom: 12px;" value="None"> None</label>
+
+      <label><strong>7. Have you reported this boundary issue to any office or authority?</strong> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></label>
       <label><input type="checkbox" name="boundary_reported_to[]" value="Barangay"> Barangay</label>
       <label><input type="checkbox" name="boundary_reported_to[]" value="HOA"> HOA</label>
       <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> NGC</label>
-      <label><input type="checkbox" name="boundary_reported_to[]" value="None"> None</label>
+      <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> USAD - PHASELAD</label>
+      <label><input type="checkbox" name="boundary_reported_to[]" value="none"> None</label>
 
-      <label><strong>9. Was there any site inspection or verification conducted?</strong></label>
+      <label><strong>8. Was there any site inspection or verification conducted?</strong></label>
       <label><input type="radio" name="site_inspection" value="Yes - Barangay" required> Yes – by Barangay</label>
       <label><input type="radio" name="site_inspection" value="Yes - HOA"> Yes – by HOA</label>
       <label><input type="radio" name="site_inspection" value="Yes - NGC"> Yes – by NGC</label>
+      <label><input type="radio" name="site_inspection" value="Yes - NGC"> Yes – by USAD - PHASELAD</label>
       <label><input type="radio" name="site_inspection" value="No"> No</label>
       <label><input type="radio" name="site_inspection" value="Not sure"> Not sure</label>
 
-      <label><strong>10. What was the result of the report or inspection?</strong></label>
+      <label><strong>9. What was the result of the report or inspection?</strong> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></label>
       <label><input type="checkbox" name="site_result[]" value="Advised to adjust or vacate"> The other party was advised to adjust or vacate</label>
       <label><input type="checkbox" name="site_result[]" value="Asked to provide more documents"> I was advised to provide more documents</label>
       <label><input type="checkbox" name="site_result[]" value="Still under investigation"> The issue is still under investigation</label>
+      <label><input type="checkbox" name="site_result[]" value="No valid claim"> I was told I have no valid claim</label>
       <label><input type="checkbox" name="site_result[]" value="No action taken"> No action was taken</label>
       <label><input type="checkbox" name="site_result[]" value="Not applicable"> Not applicable / No inspection yet</label>
 
-      <label><strong>11. Do you have any documents or proof showing your boundary or property line?</strong></label>
+      <label><strong>10. Do you have any documents or proof showing your boundary or property line?</strong></label>
       <label><input type="radio" name="have_docs" value="Yes" required> Yes</label>
         <div id="boundaryDocOptions" style="display:none; margin-left: 15px;">
-          <p><strong>Please specify:</strong></p>
+          <p><strong>Please specify:</strong> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
           <label><input type="checkbox" name="boundary_docs[]" value="Subdivision or site survey map"> Subdivision or site survey map</label>
-          <label><input type="checkbox" name="boundary_docs[]" value="Lot assignment document"> Lot assignment document</label>
-          <label><input type="checkbox" name="boundary_docs[]" value="Certificate of Lot Award (CLA)"> Certificate of Lot Award (CLA)</label>
-          <label><input type="checkbox" name="boundary_docs[]" value="Approved fence or building plan"> Approved fence or building plan</label>
+          <label><input type="checkbox" name="boundary_docs[]" value="Certificate of Lot Award (CLA)"> Title</label>
+          <label><input type="checkbox" name="boundary_docs[]" value="Approved fence or building plan"> Building permit</label>
           <label><input type="checkbox" name="boundary_docs[]" value="Barangay certification or inspection report"> Barangay certification or inspection report</label>
           <label><input type="checkbox" name="boundary_docs[]" value="Photographs showing boundary markers or encroachment"> Photographs showing boundary markers or encroachment</label>
         </div>
       <label><input type="radio" name="have_docs" value="No"> No</label>
 
-      <p><strong>12. Is there an ongoing development or government housing project in the area?</strong></p>
-      <label><input type="radio" name="reason"> Yes</label>
-      <label><input type="radio" name="reason"> No</label>
-      <label><input type="radio" name="reason" style="margin-bottom: 12px;"> Not sure</label>
+  <p><strong>11. Is there an ongoing development or government housing project in the area?</strong></p>
+  <label><input type="radio" name="reason" value="Yes"> Yes</label>
+  <label><input type="radio" name="reason" value="No"> No</label>
+  <label><input type="radio" name="reason" value="Not sure" style="margin-bottom: 12px;"> Not sure</label>
 
       <!-- Section 2 -->
       <div class="section-header">PERSONS INVOLVED DETAILS</div>
-      <p>1. Who are the persons and specific block and lot numbers involved in the boundary dispute? 
+      <p><strong>1. Who are the persons and specific block and lot numbers involved in the boundary dispute?</strong> 
         <i style="font-size: 14px; font-weight: normal; color: grey;">(Excluding yours)</i>
       </p>
 
       <div class="pairs" id="pairsContainer" aria-live="polite" style="background-color: #f8fbff; border-radius: 6px; padding: 12px;">
         <div class="pair-row" style="display: flex; gap: 12px; align-items: center; margin-bottom: 10px;">
           <div style="flex: 1;">
-            <label for="personName">Name of Person</label>
-            <input type="text" placeholder="Enter name" class="form-control" />
+            <label for="personName_0">Name of Person</label>
+            <input type="text" id="personName_0" name="q12[0][name]" placeholder="Enter name" class="form-control" required />
           </div>
           <div style="width: 140px;">
-            <label for="blockNo">Block No.</label>
-            <input type="text" placeholder="Block No." class="form-control" />
+            <label for="blockNo_0">Block No.</label>
+            <input type="text" id="blockNo_0" name="q12[0][block]" placeholder="Block No." class="form-control" required />
           </div>
           <div style="width: 140px;">
-            <label for="lotNo">Lot No.</label>
-            <input type="text" placeholder="Lot No." class="form-control" />
+            <label for="lotNo_0">Lot No.</label>
+            <input type="text" id="lotNo_0" name="q12[0][lot]" placeholder="Lot No." class="form-control" required />
           </div>
           <button type="button" class="btn remove small" style="margin-top: 24px; color: #999;">Remove</button>
         </div>
@@ -244,311 +219,560 @@
       </div>
 
       <label><strong>4. Do they claim to have legal or assignment documents?</strong></label>
-      <div class="options-group">
-        <label><input type="radio" name="boundary_claim_docs" value="Yes"> Yes</label>
-        <label><input type="radio" name="boundary_claim_docs" value="No"> No</label>
-        <label><input type="radio" name="boundary_claim_docs" value="Not sure"> Not sure</label>
-      </div>
-
-      <div id="boundaryClaimDocOptions" style="display:none; margin-left: 15px;">
-        <p>If “Yes,” what documents do they have?</p>
-        <label><input type="checkbox" name="boundary_claim_docs_list[]" value="CLA"> Certificate of Lot Award (CLA)</label>
-        <label><input type="checkbox" name="boundary_claim_docs_list[]" value="Notice of Award"> Notice of Award</label>
-        <label><input type="checkbox" name="boundary_claim_docs_list[]" value="Deed of Assignment / Transfer"> Deed of Assignment / Transfer</label>
-        <label><input type="checkbox" name="boundary_claim_docs_list[]" value="Certification from NGC/NHA/Barangay"> Certification from NGC/NHA/Barangay</label>
-        <label><input type="checkbox" name="boundary_claim_docs_list[]" value="Other supporting paper"> Other supporting paper (e.g., tax receipt, ID copy, etc.)</label>
+      <div class="options-group" id="claimDocs">
+        <label><input type="radio" name="claimDocs" value="Yes"> Yes</label>
+        <div id="docOptions" style="display:none; margin-left: 35px;">
+          <p style="margin-left: 5px; font-weight: bold;">What documents do they have?</p>
+          <label><input type="checkbox" name="docs" value="Title"> Title</label>
+          <label><input type="checkbox" name="docs" value="Contract to Sell"> Contract to Sell</label>
+          <label><input type="checkbox" name="docs" value="Certificate of Full Payment"> Certificate of Full Payment</label>
+          <label><input type="checkbox" name="docs" value="Pre-qualification Stub"> Pre-qualification Stub</label>
+          <label><input type="checkbox" name="docs" value="Contract/Agreement"> Contract/Agreement</label>
+          <label><input type="checkbox" name="docs" value="Deed of Sale"> Deed of Sale</label>
+        </div>
+        <label><input type="radio" name="claimDocs" value="No"> No</label>
       </div>
 
       <!-- Section 3 -->
-        <p style="font-weight: bold;">Please describe what happened briefly, including how you found out about the issue.</p>
-        <textarea></textarea>
+  <p class="section-label" style="color: #222;">Please describe what happened briefly, including how you found out about the issue.</p>
+  <textarea name="description"></textarea>
 
         <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
         <div class="consent">
           By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
         </div>
-
-      <div class="signature">
-        <input type="file" id="signatureInput" accept="image/*" style="display:none;" />
-        <button type="button" class="upload-btn" onclick="document.getElementById('signatureInput').click()">Upload Signature</button>
-        <span id="signatureFileName" style="margin-left:10px;  font-style:italic;"></span>
-      </div>
-      </form>
-    </div>
-  </div>
-
+        <div class="signature">
+          <input type="file" id="signatureInput" name="signature_path" accept="image/*" style="display:none;" />
+          <button type="button" class="upload-btn" onclick="document.getElementById('signatureInput').click()">Upload Signature</button>
+          <span id="signatureFileName" style="margin-left:10px; font-style:italic;"></span>
+          <button type="submit" id="submitBtn" class="btn" style="display:none; margin-top:12px;">Submit Complaint</button>
+        </div>
 
 <script>
-  function setupConditionalDisplay(radioYesId, containerId, groupName) {
-    const yesRadio = document.getElementById(radioYesId);
-    const container = document.getElementById(containerId);
-    const radios = document.querySelectorAll(`input[name="${groupName}"]`);
-
-    radios.forEach(radio => {
-      radio.addEventListener("change", function () {
-        if (yesRadio.checked) {
-          container.style.display = "block";
-        } else {
-          container.style.display = "none";
-          const input = container.querySelector("input");
-          if (input) input.value = "";
-        }
-      });
-    });
-  } 
-
-    // Apply to all "Other & Conditional" groups
-    setupConditionalDisplay("reasonYes", "reasonDetails", "reason");
-
-
-    function handleFileInputChange(inputId, fileNameDisplayId) {
-    const sigInput = document.getElementById(inputId);
-    const sigFileName = document.getElementById(fileNameDisplayId);
-
-    sigInput.addEventListener("change", function () {
-      if (this.files.length > 0) {
-        sigFileName.textContent = "✔ " + this.files[0].name;
+// Blue popup helpers (copied from mem-reg.html)
+function showErrorPop(msg) {
+  const pop = document.getElementById('errorPop');
+  const popMsg = document.getElementById('errorPopMsg');
+  popMsg.textContent = msg;
+  pop.style.display = 'block';
+  pop.style.opacity = '1';
+  setTimeout(() => {
+    pop.style.opacity = '0';
+    setTimeout(() => { pop.style.display = 'none'; }, 400);
+  }, 1800);
+}
+// Signature file name display and submit button logic (EXACTLY match lot_dispute.html)
+document.addEventListener('DOMContentLoaded', () => {
+  // Show/hide docOptions when Yes/No is selected for claimDocs
+  const claimDocsYes = document.querySelector('input[name="claimDocs"][value="Yes"]');
+  const claimDocsNo = document.querySelector('input[name="claimDocs"][value="No"]');
+  const docOptions = document.getElementById('docOptions');
+  function toggleDocOptions() {
+    if (claimDocsYes && claimDocsYes.checked) {
+      if (docOptions) docOptions.style.display = '';
+    } else {
+      if (docOptions) docOptions.style.display = 'none';
+    }
+  }
+  if (claimDocsYes && claimDocsNo && docOptions) {
+    claimDocsYes.addEventListener('change', toggleDocOptions);
+    claimDocsNo.addEventListener('change', toggleDocOptions);
+    // Initialize on load
+    toggleDocOptions();
+  }
+  // Show/hide boundaryDocOptions when Yes/No is selected for have_docs
+  const haveDocsYes = document.querySelector('input[name="have_docs"][value="Yes"]');
+  const haveDocsNo = document.querySelector('input[name="have_docs"][value="No"]');
+  const boundaryDocOptions = document.getElementById('boundaryDocOptions');
+  function toggleBoundaryDocOptions() {
+    if (haveDocsYes && haveDocsYes.checked) {
+      if (boundaryDocOptions) boundaryDocOptions.style.display = '';
+    } else {
+      if (boundaryDocOptions) boundaryDocOptions.style.display = 'none';
+    }
+  }
+  if (haveDocsYes && haveDocsNo && boundaryDocOptions) {
+    haveDocsYes.addEventListener('change', toggleBoundaryDocOptions);
+    haveDocsNo.addEventListener('change', toggleBoundaryDocOptions);
+    // Initialize on load
+    toggleBoundaryDocOptions();
+  }
+  const sigInput = document.getElementById('signatureInput');
+  const sigName = document.getElementById('signatureFileName');
+  const submitBtn = document.getElementById('submitBtn');
+  if (sigInput) {
+    sigInput.addEventListener('change', function(){
+      if (this.files && this.files[0]) {
+        if (sigName) sigName.textContent = this.files[0].name;
+        if (submitBtn) submitBtn.style.display = 'inline-block';
       } else {
-        sigFileName.textContent = "";
+        if (sigName) sigName.textContent = '';
+        if (submitBtn) submitBtn.style.display = 'none';
       }
     });
   }
-</script>
 
-<script>
-  /* Helper to show the error popup (keeps your existing style) */
-  function showErrorPop(msg) {
-    const pop = document.getElementById('errorPop');
-    const popMsg = document.getElementById('errorPopMsg');
-    if (!pop || !popMsg) return alert(msg);
-    popMsg.textContent = msg;
-    pop.style.display = 'block';
-    pop.style.opacity = '1';
-    setTimeout(() => {
-      pop.style.opacity = '0';
-      setTimeout(() => { pop.style.display = 'none'; }, 400);
-    }, 1500);
+  // Show/hide additional question for 'Have you discussed or confronted the other party...'
+  const reasonYes = document.getElementById('reasonYes');
+  const reasonNo = document.querySelector('input[name="confronted"][value="no"]');
+  const reasonDetails = document.getElementById('reasonDetails');
+  function toggleReasonDetails() {
+    if (reasonYes && reasonYes.checked) {
+      if (reasonDetails) reasonDetails.style.display = '';
+    } else {
+      if (reasonDetails) reasonDetails.style.display = 'none';
+    }
   }
+  if (reasonYes && reasonNo && reasonDetails) {
+    reasonYes.addEventListener('change', toggleReasonDetails);
+    reasonNo.addEventListener('change', toggleReasonDetails);
+    // Initialize on load
+    toggleReasonDetails();
+  }
+});
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('BoundaryDisputeForm');
+// Populate complainant details (structure and layout copied from lot_dispute.html)
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const res = await fetch('/complainant/boundary_dispute/get_boundary_session_data');
+    if (!res.ok) return;
+    const d = await res.json();
+    const container = document.getElementById('complainantDetails');
+    if (!container || !d || d.error) return;
 
-    // Signature input logic
-    const sigInput = document.getElementById('signatureInput');
-    const submitBtn = document.getElementById('submitBtn');
-    const sigName = document.getElementById('signatureFileName');
+    const pairs = document.createElement('div');
+    pairs.className = 'pairs';
 
-    if (sigInput) {
-      sigInput.addEventListener('change', function() {
-        if (this.files && this.files[0]) {
-          if (sigName) sigName.textContent = this.files[0].name;
-          if (submitBtn) submitBtn.style.display = 'inline-block';
-        } else {
-          if (sigName) sigName.textContent = '';
-          if (submitBtn) submitBtn.style.display = 'none';
-        }
+    // Helper to create supporting documents section (only for hoa_member and family_of_member)
+    // Helper to create supporting documents section (checkbox grid, like lot_dispute.html)
+    function createSupportingDocsSection(docs) {
+      if (!docs) return null;
+      // Define doc options (keys must match backend)
+      const docList = [
+        {key: 'title', label: 'Title'},
+        {key: 'contract_to_sell', label: 'Contract to Sell'},
+        {key: 'certificate_of_full_payment', label: 'Certificate of Full Payment'},
+        {key: 'pre_qualification_stub', label: 'Pre-qualification Stub'},
+        {key: 'contract_agreement', label: 'Contract/Agreement'},
+        {key: 'deed_of_sale', label: 'Deed of Sale'}
+      ];
+      // Determine selected docs (array or object)
+      let selected = {};
+      if (Array.isArray(docs)) {
+        docs.forEach(k => selected[k] = true);
+      } else if (typeof docs === 'object') {
+        selected = docs;
+      }
+      // Build the grid
+      const row = document.createElement('div');
+      row.className = 'pair-row';
+      let html = `<div class=\"col\"><label class=\"small\" style=\"font-weight:600; display:block; margin-bottom:2px;\">Supporting Documents:</label>`;
+      html += `<div class='checkbox-group' style=\"display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px;\">`;
+      docList.forEach(doc => {
+        const checked = selected[doc.key] ? 'checked' : '';
+        html += `<label style=\"white-space:nowrap;\"><input type=\"checkbox\" disabled ${checked}> ${doc.label}</label>`;
       });
+      html += '</div></div>';
+      row.innerHTML = html;
+      return row;
     }
 
-    // Document section toggle
-    const haveDocsRadios = form.querySelectorAll("input[name='have_docs']");
-    const boundaryDocOptions = document.getElementById('boundaryDocOptions');
-    haveDocsRadios.forEach(r =>
-      r.addEventListener('change', () => {
-        boundaryDocOptions.style.display = r.value === 'Yes' && r.checked ? 'block' : 'none';
-      })
-    );
+    function row1(label, value, type = 'text') {
+      const r = document.createElement('div');
+      r.className = 'pair-row';
+      r.innerHTML = `<div class=\"col\"><label class=\"small\">${label}</label><input type=\"${type}\" value=\"${value || ''}\" readonly></div>`;
+      return r;
+    }
+    function row2(l1, v1, l2, v2, t1='text', t2='text') {
+      const r = document.createElement('div');
+      r.className = 'pair-row';
+      r.innerHTML = `
+        <div class=\"col\"><label class=\"small\">${l1}</label><input type=\"${t1}\" value=\"${v1 || ''}\" readonly></div>
+        <div class=\"col\"><label class=\"small\">${l2}</label><input type=\"${t2}\" value=\"${v2 || ''}\" readonly></div>`;
+      return r;
+    }
+    function row3(l1, v1, l2, v2, l3, v3) {
+      const r = document.createElement('div');
+      r.className = 'pair-row';
+      r.innerHTML = `
+        <div class=\"col\"><label class=\"small\">${l1}</label><input type=\"text\" value=\"${v1 || ''}\" readonly></div>
+        <div class=\"col\"><label class=\"small\">${l2}</label><input type=\"text\" value=\"${v2 || ''}\" readonly></div>
+        <div class=\"col\"><label class=\"small\">${l3}</label><input type=\"text\" value=\"${v3 || ''}\" readonly></div>`;
+      return r;
+    }
 
-    // Add block–lot pairs
-  document.getElementById("addPairBtn").addEventListener("click", () => {
-    const container = document.getElementById("pairsContainer");
-    const row = document.createElement("div");
-    row.classList.add("pair-row");
-    row.style.display = "flex";
-    row.style.gap = "12px";
-    row.style.alignItems = "center";
-    row.style.marginBottom = "10px";
+    // Helper to normalize middle initials to a single trailing period (e.g., "B" or "B.." -> "B.")
+    function normalizeName(name) {
+      if (!name || typeof name !== 'string') return name || '';
+      return name.replace(/\b([A-Z])\.*\b/g, '$1.');
+    }
 
-    row.innerHTML = `
-      <div style="flex: 1;">
-        <input type="text" placeholder="Enter name" class="form-control" />
-      </div>
-      <div style="width: 140px;">
-        <input type="text" placeholder="Block No." class="form-control" />
-      </div>
-      <div style="width: 140px;">
-        <input type="text" placeholder="Lot No." class="form-control" />
-      </div>
-      <button type="button" class="btn remove small" style="color: #999;">Remove</button>
-    `;
+    // HOA Member
+    if (d.category === 'hoa_member') {
+  pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
+  pairs.appendChild(row2('Date of Birth:', d.date_of_birth, 'Sex:', d.sex, 'date', 'text'));
+  pairs.appendChild(row2('Citizenship:', d.citizenship, 'Age:', d.age));
+  pairs.appendChild(row2('Phone Number:', d.phone_number, 'Year of Residence:', d.year_of_residence));
+  pairs.appendChild(row1('Area (HOA):', d.hoa));
+  pairs.appendChild(row1('Current Address:', d.cur_add));
+  pairs.appendChild(row3('Block:', d.blk_num, 'Lot:', d.lot_num, 'Lot Size:', d.lot_size));
+  pairs.appendChild(row2('Civil Status:', d.civil_status, 'Recipient of other housing programs:', d.recipient_of_other_housing));
+  const docsSection = createSupportingDocsSection(d.supporting_documents);
+  if (docsSection) pairs.appendChild(docsSection);
+    }
+    // Non-member
+    else if (d.category === 'non_member') {
+  pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
+  pairs.appendChild(row2('Date of Birth:', d.date_of_birth, 'Sex:', d.sex, 'date', 'text'));
+  pairs.appendChild(row2('Citizenship:', d.citizenship, 'Age:', d.age));
+  pairs.appendChild(row2('Phone Number:', d.phone_number, 'Year of Residence:', d.year_of_residence));
+  pairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
+  pairs.appendChild(row1('Current Address:', d.cur_add));
+  pairs.appendChild(row1('Area (HOA):', d.hoa || ''));
+    }
+    // Family of member
+    else if (d.category === 'family_of_member') {
+      // --- Updated layout for family_of_member HOA Member Information ---
+      pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
+      pairs.appendChild(row2('Date of Birth:', d.date_of_birth, 'Sex:', d.sex, 'date', 'text'));
+      pairs.appendChild(row2('Citizenship:', d.citizenship, 'Age:', d.age));
+      pairs.appendChild(row2('Phone Number:', d.phone_number, 'Year of Residence:', d.year_of_residence));
+      pairs.appendChild(row2('Relationship:', d.relationship || '', 'Current Address:', d.cur_add));
 
-    row.querySelector(".remove").addEventListener("click", () => row.remove());
-    container.appendChild(row);
-  });
+      let memberWrapper = null;
+      if (d.parent_info) {
+        memberWrapper = document.createElement('div');
+        memberWrapper.style.marginTop = '20px';
+        const h3 = document.createElement('h3');
+        h3.textContent = 'HOA Member Information';
+        h3.style.color = '#083048';
+        h3.style.marginBottom = '10px';
+        memberWrapper.appendChild(h3);
+        const memberPairs = document.createElement('div');
+        memberPairs.className = 'pairs';
+        const p = d.parent_info;
+        // Full Name (single row)
+        memberPairs.appendChild(row1('Full Name:', normalizeName(p.full_name)));
+        // Date of Birth | Sex
+        memberPairs.appendChild(row2('Date of Birth:', p.date_of_birth, 'Sex:', p.sex, 'date', 'text'));
+        // Citizenship | Age
+        memberPairs.appendChild(row2('Citizenship:', p.citizenship, 'Age:', p.age));
+        // Rest as before
+        memberPairs.appendChild(row1('Area (HOA):', d.hoa || ''));
+        memberPairs.appendChild(row1('Current Address:', p.current_address));
+        memberPairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
+        memberPairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
+        // Insert supporting docs after Civil Status/Recipient row in memberPairs
+        const docSection = createSupportingDocsSection(d.parent_info.supporting_documents);
+        if (docSection) memberPairs.appendChild(docSection);
+        memberWrapper.appendChild(memberPairs);
+      }
+      container.innerHTML = '';
+      container.appendChild(pairs);
+      if (memberWrapper) container.appendChild(memberWrapper);
+      return;
+    }
 
+    container.innerHTML = '';
+    container.appendChild(pairs);
+  } catch (e) {}
+});
 
-    // Submit handler
-    form.addEventListener('submit', async e => {
-      e.preventDefault();
-      const fd = new FormData(form);
-      // add array handling if needed
+// Q6/Q7/Q9 exclusive checkbox logic and disabled label styling
+document.addEventListener('DOMContentLoaded', () => {
+  function isQ7Header(el) {
+    if (!el) return false;
+    const t = (el.textContent || '').trim();
+    if (/^7\./.test(t)) return true;
+    if (/Have you reported/i.test(t)) return true;
+    const strong = el.querySelector && el.querySelector('strong');
+    if (strong && /^\s*7\./.test((strong.textContent || '').trim())) return true;
+    return false;
+  }
 
-      try {
-        const res = await fetch('/complainant/boundary_dispute/submit_boundary_dispute', {
-          method: 'POST',
-          body: fd,
-          credentials: 'include'
-        });
-        const data = await res.json();
-        if (data.success) {
-          window.location.href = '/complainant/home/dashboard.html';
-        } else {
-          alert(data.message || 'Submission failed');
-        }
-      } catch (err) {
-        alert('An error occurred while submitting.');
+  function collectCheckboxesBetween(startEl, stopCond) {
+    const boxes = [];
+    let el = startEl.nextElementSibling;
+    while (el) {
+      if (stopCond(el)) break;
+      if (el.querySelector) {
+        const inputs = Array.from(el.querySelectorAll('input[type="checkbox"]'));
+        inputs.forEach(i => boxes.push(i));
+      }
+      el = el.nextElementSibling;
+    }
+    return boxes;
+  }
+
+  function setupExclusiveNoneForList(checkboxList) {
+    if (!checkboxList || checkboxList.length === 0) return;
+    // find the group's "None" checkbox by value or by label text
+    const none = checkboxList.find(cb => {
+      if (!cb) return false;
+      const v = (cb.value || '').trim().toLowerCase();
+      if (v === 'none') return true;
+      const lbl = cb.closest && cb.closest('label');
+      return lbl && /\bnone\b/i.test(lbl.textContent || '');
+    });
+    if (!none) return;
+    const others = checkboxList.filter(cb => cb !== none);
+
+    // initialize state (handles prechecked)
+    if (none.checked) {
+      others.forEach(cb => { cb.checked = false; cb.disabled = true; cb.closest('label')?.classList.add('disabled'); });
+    } else {
+      others.forEach(cb => { cb.disabled = false; cb.closest('label')?.classList.remove('disabled'); });
+    }
+
+    // When None toggles
+    none.addEventListener('change', () => {
+      if (none.checked) {
+        others.forEach(cb => { cb.checked = false; cb.disabled = true; cb.closest('label')?.classList.add('disabled'); });
+      } else {
+        others.forEach(cb => { cb.disabled = false; cb.closest('label')?.classList.remove('disabled'); });
       }
     });
 
-    // Q8: Make "None" exclusive - if checked, uncheck others and vice versa
-    (function setupExclusiveCheckboxForBoundary() {
-      const reportCheckboxes = form.querySelectorAll('input[name="boundary_reported_to[]"]');
-      
-      if (reportCheckboxes.length === 0) return;
-
-      const noneCheckbox = Array.from(reportCheckboxes).find(cb => cb.value === 'None');
-      const otherCheckboxes = Array.from(reportCheckboxes).filter(cb => cb !== noneCheckbox);
-
-      if (!noneCheckbox) return;
-
-      // When "None" is checked, uncheck all others
-      noneCheckbox.addEventListener('change', function() {
-        if (this.checked) {
-          otherCheckboxes.forEach(cb => cb.checked = false);
+    // When any other is checked, ensure None is unchecked (and enabled)
+    others.forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) {
+          none.checked = false;
+          none.disabled = false;
+          none.closest('label')?.classList.remove('disabled');
         }
       });
+    });
+  }
 
-      // When any other checkbox is checked, uncheck "None"
-      otherCheckboxes.forEach(cb => {
-        cb.addEventListener('change', function() {
-          if (this.checked) {
-            noneCheckbox.checked = false;
-          }
-        });
+  // --- Q6: collect checkboxes between Q6 header and Q7 header ---
+  // Helper to find Q6 start (the <p> with Q6 label)
+  function findQ6Start() {
+    const ps = Array.from(document.querySelectorAll('p'));
+    return ps.find(p => /6\./.test(p.textContent || ''));
+  }
+  const q6Start = findQ6Start();
+  const q6Checkboxes = q6Start ? collectCheckboxesBetween(q6Start, isQ7Header) : [];
+  setupExclusiveNoneForList(q6Checkboxes);
+
+  // --- Q7: by name attribute ---
+  const form = document.getElementById('BoundaryDisputeForm') || document;
+  const q7Checkboxes = Array.from(form.querySelectorAll('input[name="boundary_reported_to[]"][type="checkbox"]'));
+  setupExclusiveNoneForList(q7Checkboxes);
+
+  // --- small CSS hint for disabled labels (visual cue) ---
+  const style = document.createElement('style');
+  style.textContent = `
+    label.disabled { opacity: 0.6; }
+    label.disabled input { cursor: not-allowed; }
+  `;
+  document.head.appendChild(style);
+});
+
+// Q9 exclusive logic (Not applicable disables others)
+document.addEventListener("DOMContentLoaded", () => {
+  const q9Checkboxes = document.querySelectorAll('input[name="site_result[]"]');
+  if (q9Checkboxes.length === 0) return;
+
+  const notApplicable = Array.from(q9Checkboxes).find(
+    cb => (cb.value || "").toLowerCase().includes("not applicable")
+  );
+  const others = Array.from(q9Checkboxes).filter(cb => cb !== notApplicable);
+
+  if (!notApplicable) return;
+
+  // Initial state check
+  if (notApplicable.checked) {
+    others.forEach(cb => {
+      cb.checked = false;
+      cb.disabled = true;
+      cb.closest("label")?.classList.add("disabled");
+    });
+  }
+
+  // When Not Applicable is toggled
+  notApplicable.addEventListener("change", () => {
+    if (notApplicable.checked) {
+      others.forEach(cb => {
+        cb.checked = false;
+        cb.disabled = true;
+        cb.closest("label")?.classList.add("disabled");
       });
-    })();
-
-    // Q6: Make "None" exclusive - if checked, uncheck others and vice versa
-    (function setupExclusiveCheckboxForQ6() {
-      const q6Checkboxes = form.querySelectorAll('input[type="checkbox"]');
-      const disputeCheckboxes = [];
-      
-      // Find Q6 checkboxes by looking for specific text content
-      q6Checkboxes.forEach(cb => {
-        const label = cb.closest('label');
-        if (label && (
-          label.textContent.includes('Threats or harassment') ||
-          label.textContent.includes('Physical altercation') ||
-          label.textContent.includes('Demolition or forced entry') ||
-          label.textContent.includes('Property damage') ||
-          (label.textContent.includes('None') && cb.value === 'None')
-        )) {
-          disputeCheckboxes.push(cb);
-        }
+    } else {
+      others.forEach(cb => {
+        cb.disabled = false;
+        cb.closest("label")?.classList.remove("disabled");
       });
-
-      if (disputeCheckboxes.length === 0) return;
-
-      const noneCheckbox = disputeCheckboxes.find(cb => cb.value === 'None');
-      const otherCheckboxes = disputeCheckboxes.filter(cb => cb !== noneCheckbox);
-
-      if (!noneCheckbox) return;
-
-      // When "None" is checked, uncheck all others
-      noneCheckbox.addEventListener('change', function() {
-        if (this.checked) {
-          otherCheckboxes.forEach(cb => cb.checked = false);
-        }
-      });
-
-      // When any other checkbox is checked, uncheck "None"
-      otherCheckboxes.forEach(cb => {
-        cb.addEventListener('change', function() {
-          if (this.checked) {
-            noneCheckbox.checked = false;
-          }
-        });
-      });
-    })();
-
-    // Setup add/remove for "Relationship with the person involved" section
-    (function setupRelationshipInputs() {
-      const container = document.getElementById('relationshipContainer');
-      const addBtn = document.getElementById('addRelationshipBtn');
-      if (!container || !addBtn) return;
-
-      function createRelationshipRow(withRemove = true) {
-        const row = document.createElement('div');
-        row.className = 'relationship-input';
-        row.style.display = 'flex';
-        row.style.gap = '8px';
-        row.style.alignItems = 'center';
-        row.style.marginBottom = '8px';
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.name = 'boundary_relationship[]';
-        input.placeholder = 'Specify relationship (neighbor, relative, etc.)';
-        input.style.flex = '1';
-        input.style.marginLeft = '15px';
-
-        row.appendChild(input);
-
-        if (withRemove) {
-          const removeBtn = document.createElement('button');
-          removeBtn.type = 'button';
-          removeBtn.className = 'btn add small remove-relationship';
-          removeBtn.textContent = 'Remove';
-          row.appendChild(removeBtn);
-        }
-
-        return row;
-      }
-
-      // Ensure only rows after the first have remove buttons
-      function normalizeRows() {
-        const rows = container.querySelectorAll('.relationship-input');
-        rows.forEach((row, idx) => {
-          const removeBtn = row.querySelector('.remove-relationship');
-          if (idx === 0 && removeBtn) {
-            removeBtn.remove();
-          } else if (idx > 0 && !removeBtn) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'btn add small remove-relationship';
-            btn.textContent = 'Remove';
-            row.appendChild(btn);
-          }
-        });
-      }
-
-      addBtn.addEventListener('click', () => {
-        container.appendChild(createRelationshipRow(true));
-        normalizeRows();
-      });
-
-      container.addEventListener('click', (e) => {
-        if (e.target && e.target.classList.contains('remove-relationship')) {
-          const row = e.target.closest('.relationship-input');
-          if (row) row.remove();
-          normalizeRows();
-        }
-      });
-
-      // Normalize initial state
-      normalizeRows();
-    })();
+    }
   });
+
+  // If others are checked, uncheck Not Applicable
+  others.forEach(cb => {
+    cb.addEventListener("change", () => {
+      if (cb.checked) {
+        notApplicable.checked = false;
+        notApplicable.disabled = false;
+        notApplicable.closest("label")?.classList.remove("disabled");
+      }
+    });
+  });
+});
+
+// Q12 dynamic row logic for persons involved
+document.addEventListener('DOMContentLoaded', function() {
+  // --- Persons Involved (q12) ---
+  const pairsContainer = document.getElementById('pairsContainer');
+  const addPairBtn = document.getElementById('addPairBtn');
+  if (pairsContainer && addPairBtn) {
+    function getNextIndex() {
+      // Find the highest index currently in use
+      const rows = pairsContainer.querySelectorAll('.pair-row');
+      let maxIdx = -1;
+      rows.forEach(row => {
+        const input = row.querySelector('input[name^="q12["]');
+        if (input) {
+          const match = input.name.match(/^q12\[(\d+)\]/);
+          if (match) {
+            const idx = parseInt(match[1], 10);
+            if (idx > maxIdx) maxIdx = idx;
+          }
+        }
+      });
+      return maxIdx + 1;
+    }
+
+    function createPairRow(idx) {
+      const row = document.createElement('div');
+      row.className = 'pair-row';
+      row.style.display = 'flex';
+      row.style.gap = '12px';
+      row.style.alignItems = 'center';
+      row.style.marginBottom = '10px';
+      row.innerHTML = `
+        <div style="flex: 1;">
+          <label for="personName_${idx}">Name of Person</label>
+          <input type="text" id="personName_${idx}" name="q12[${idx}][name]" placeholder="Enter name" class="form-control" required />
+        </div>
+        <div style="width: 140px;">
+          <label for="blockNo_${idx}">Block No.</label>
+          <input type="text" id="blockNo_${idx}" name="q12[${idx}][block]" placeholder="Block No." class="form-control" required />
+        </div>
+        <div style="width: 140px;">
+          <label for="lotNo_${idx}">Lot No.</label>
+          <input type="text" id="lotNo_${idx}" name="q12[${idx}][lot]" placeholder="Lot No." class="form-control" required />
+        </div>
+        <button type="button" class="btn remove small" style="margin-top: 24px; color: #999;">Remove</button>
+      `;
+      // Attach remove handler
+      row.querySelector('.remove').addEventListener('click', function() {
+        // Only remove if more than one row remains
+        if (pairsContainer.querySelectorAll('.pair-row').length > 1) {
+          row.remove();
+        } else {
+          showErrorPop('At least one entry is required.');
+        }
+      });
+      return row;
+    }
+
+    // Attach remove handler to initial row
+    const initialRow = pairsContainer.querySelector('.pair-row');
+    if (initialRow) {
+      const removeBtn = initialRow.querySelector('.remove');
+      if (removeBtn) {
+        removeBtn.addEventListener('click', function() {
+          if (pairsContainer.querySelectorAll('.pair-row').length > 1) {
+            initialRow.remove();
+          } else {
+            showErrorPop('At least one entry is required.');
+          }
+        });
+      }
+    }
+
+    addPairBtn.addEventListener('click', function() {
+      const idx = getNextIndex();
+      const newRow = createPairRow(idx);
+      pairsContainer.appendChild(newRow);
+    });
+  }
+
+  // --- Relationship dynamic add ---
+  const relationshipContainer = document.getElementById('relationshipContainer');
+  const addRelationshipBtn = document.getElementById('addRelationshipBtn');
+  if (relationshipContainer && addRelationshipBtn) {
+    addRelationshipBtn.addEventListener('click', function() {
+      const relDiv = document.createElement('div');
+      relDiv.className = 'relationship-input';
+      relDiv.style.display = 'flex';
+      relDiv.style.gap = '8px';
+      relDiv.style.alignItems = 'center';
+      relDiv.style.marginBottom = '8px';
+      relDiv.innerHTML = `
+        <input type="text" name="boundary_relationship" placeholder="Specify relationship (neighbor, relative, etc.)" style="flex: 1; margin-left: 15px;">
+        <button type="button" class="btn remove small" style="color: #999;">Remove</button>
+      `;
+      relDiv.querySelector('.remove').addEventListener('click', function() {
+        relDiv.remove();
+      });
+      relationshipContainer.appendChild(relDiv);
+    });
+  }
+});
 </script>
+
+<script>
+// Blue popup helpers (copied from mem-reg.html)
+function showErrorPop(msg) {
+  const pop = document.getElementById('errorPop');
+  const popMsg = document.getElementById('errorPopMsg');
+  popMsg.textContent = msg;
+  pop.style.display = 'block';
+  pop.style.opacity = '1';
+  setTimeout(() => {
+    pop.style.opacity = '0';
+    setTimeout(() => { pop.style.display = 'none'; }, 400);
+  }, 1000);
+}
+
+// AJAX submit for boundary dispute form, redirect to dashboard on success
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('BoundaryDisputeForm') || document.querySelector('form');
+  if (!form) return;
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) submitBtn.disabled = true;
+    const formData = new FormData(form);
+    fetch('/complainant/boundary_dispute/submit_boundary_dispute', {
+      method: 'POST',
+      body: formData,
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(async res => {
+      let data;
+      try { data = await res.json(); } catch { data = {}; }
+      if (data.success) {
+        window.location.href = '/complainant/home/dashboard.html';
+      } else {
+        // Show blue popup for q12 error, else alert
+        if (data.field === 'q12' && data.message) {
+          showErrorPop(data.message);
+        } else if (data.q12_errors) {
+          showErrorPop(Array.isArray(data.q12_errors) ? data.q12_errors.join('\n') : data.q12_errors);
+        } else {
+          alert(data.message || 'Submission failed.');
+        }
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    })
+    .catch(() => {
+      showErrorPop('Submission failed. Please try again.');
+      if (submitBtn) submitBtn.disabled = false;
+    });
+  });
+});
+</script>
+
 </body>
 </html>

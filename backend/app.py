@@ -24,8 +24,6 @@ from backend.complainant.memreg import mem_reg_bp
 from backend.complainant.complaints_api import complaints_bp as complainant_complaints_bp
 from backend.complainant.nonmemreg import nonmemreg_bp
 from backend.complainant.famreg import famreg_bp
-# Overlapping blueprint
-from backend.complainant.overlapping import overlapping_bp
 # Lot Dispute blueprint
 from backend.complainant.lot_dispute import lot_dispute_bp
 # Boundary Dispute blueprint
@@ -83,7 +81,6 @@ app.register_blueprint(mem_reg_bp)
 app.register_blueprint(complainant_complaints_bp)
 app.register_blueprint(nonmemreg_bp)
 app.register_blueprint(famreg_bp)
-app.register_blueprint(overlapping_bp)
 app.register_blueprint(lot_dispute_bp)
 app.register_blueprint(boundary_dispute_bp)
 

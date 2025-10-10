@@ -1,0 +1,130 @@
+{# --- LOT DETAILS AND CLAIM --- #}
+
+
+{# Non-member specific block/lot section #}
+{% if registration.category == 'non_member' and lot_dispute and lot_dispute.block_lot %}
+  <div id="nonMemberBlockLotSection">
+    <p>What is the specific block and lot involved in the lot dispute?</p>
+    <div class="pairs" id="pairsContainer" aria-live="polite">
+      {% for pair in lot_dispute.block_lot %}
+        <div class="pair-row">
+          <div class="col">
+            <label class="small">Block No.</label>
+            <input type="text" value="{{ pair.block }}" readonly title="Block No." placeholder="Block No.">
+          </div>
+          <div class="col">
+            <label class="small">Lot No.</label>
+            <input type="text" value="{{ pair.lot }}" readonly title="Lot No." placeholder="Lot No.">
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+
+{% for field in form_structure %}
+  {% if field.name in ['q1','q2','q3','q4','q5','q6'] %}
+    <div class="field-block">
+      <p>{{ field.label }}</p>
+      {% set value = answers.get(field.name) %}
+
+      {% if field.type == 'radio' %}
+        {% set selected = value|string|trim|lower %}
+        <div class="radio-group">
+          {% for val, label in field.options %}
+            {% set norm_val = val|string|trim|lower %}
+            {% set norm_label = label|string|trim|lower %}
+            <label class="option">
+              <input type="radio" disabled {% if selected == norm_val or selected == norm_label %}checked{% endif %}> {{ label }}
+            </label>
+          {% endfor %}
+        </div>
+
+      {% elif field.type == 'checkbox' %}
+        {% set selected = value if value is iterable and value is not string else [value] %}
+        <div class="checkbox-group">
+          {% for val, label in field.options %}
+            {% set checked = (val in selected) or (label in selected) %}
+            <label class="option">
+              <input type="checkbox" disabled {% if checked %}checked{% endif %}> {{ label }}
+            </label>
+          {% endfor %}
+        </div>
+
+      {% elif field.type == 'date' %}
+        <input type="date" value="{{ value }}" readonly>
+
+      {% endif %}
+    </div>
+  {% endif %}
+{% endfor %}
+
+
+{# --- PERSONS INVOLVED DETAILS --- #}
+<div class="section-header">PERSONS INVOLVED DETAILS</div>
+
+{% set persons_fields = ['q7','q8','q10','q9'] %}
+{% for fname in persons_fields %}
+  {% set field = (form_structure | selectattr('name', 'equalto', fname) | list)[0] %}
+  <div class="field-block">
+    <p>{{ loop.index }}. {{ field.label
+      |replace('7. ', '')
+      |replace('8. ', '')
+      |replace('9. ', '')
+      |replace('10. ', '') }}</p>
+
+    {% set value = answers.get(field.name) %}
+
+    {% if field.name == 'q9' %}
+      {% set claim = value.get('claim', '')|lower %}
+      {% set documents = value.get('documents', []) %}
+      <div class="radio-group">
+        {% for val, label in field.options %}
+          {% set checked = claim == val|lower or claim == label|lower %}
+          <label class="option">
+            <input type="radio" disabled {% if checked %}checked{% endif %}> {{ label }}
+          </label>
+        {% endfor %}
+      </div>
+
+      {% if claim == 'yes' and documents %}
+        <div class="checkbox-group" style="margin-left: 1rem;">
+          <p>Documents they have:</p>
+          {% for val, label in field.conditional.additional_fields[0].options %}
+            {% set checked = val in documents or label in documents %}
+            <label class="option">
+              <input type="checkbox" disabled {% if checked %}checked{% endif %}> {{ label }}
+            </label>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+    {% elif field.name == 'q10' %}
+      {% set selected = value.get('reside', '')|lower %}
+      <div class="radio-group">
+        {% for val, label in field.options %}
+          {% set checked = selected == val|lower or selected == label|lower %}
+          <label class="option">
+            <input type="radio" disabled {% if checked %}checked{% endif %}> {{ label }}
+          </label>
+        {% endfor %}
+      </div>
+
+    {% elif field.type == 'multiple_text' %}
+      {% set multi = value if value is iterable and value is not string else [value] %}
+      {% for item in multi %}
+        <input type="text" value="{{ item }}" readonly style="margin-bottom:4px;">
+      {% endfor %}
+    {% endif %}
+  </div>
+{% endfor %}
+
+
+
+{# --- FINAL DESCRIPTION --- #}
+<p class="section-label" style="color: black; font-weight: normal;">
+  Please describe what happened briefly, including how you found out about the issue.
+</p>
+<textarea readonly>{{ answers.get('description', '') }}</textarea>
+
