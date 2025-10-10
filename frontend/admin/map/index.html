@@ -173,6 +173,7 @@
                 const areaName = currentAreaData ? currentAreaData.area_name : (area.getAttribute('name') || area.id || 'Unknown Area');
                 const beneficiaries = currentAreaData ? currentAreaData.beneficiaries : 'N/A';
                 const complaints = currentAreaData ? currentAreaData.complaints : 'N/A';
+                const resolved = currentAreaData ? currentAreaData.resolved : 'N/A';
                 
                 tooltip.innerHTML = `
                   <div class="tooltip-content">
@@ -192,7 +193,7 @@
                     <div class="data-line">
                       <span class="data-icon">✅</span>
                       <span class="data-label">Resolved</span>
-                      <span class="data-value">N/A</span>
+                      <span class="data-value">${resolved}</span>
                     </div>
                   </div>
                 `;
@@ -201,28 +202,32 @@
               
               area.addEventListener('mousemove', e => {
                 if (tooltip.style.display === 'block') {
-                  // Keep tooltip positioned relative to the cursor with bounds checking
+                  // Position tooltip directly beside mouse cursor with minimal offset
                   const tooltipWidth = 220; // tooltip width from CSS
                   const tooltipHeight = 180; // approximate tooltip height
-                  const margin = 15;
+                  const margin = 10; // small margin to prevent cursor overlap
+                  
+                  // Use pageX and pageY for accurate positioning relative to document
+                  let left = e.pageX + margin;
+                  let top = e.pageY + margin;
+                  
+                  // Prevent tooltip from going off-screen
+                  const viewportWidth = window.innerWidth;
+                  const viewportHeight = window.innerHeight;
                   const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
                   const scrollY = window.pageYOffset || document.documentElement.scrollTop;
                   
-                  let left = e.clientX + scrollX + margin;
-                  let top = e.clientY + scrollY + margin;
-                  
-                  // Prevent tooltip from going off-screen with better bounds checking
-                  const viewportWidth = window.innerWidth;
-                  const viewportHeight = window.innerHeight;
-                  
+                  // Flip to left side of cursor if would go off right edge
                   if (left + tooltipWidth > scrollX + viewportWidth) {
-                    left = e.clientX + scrollX - tooltipWidth - margin;
-                  }
-                  if (top + tooltipHeight > scrollY + viewportHeight) {
-                    top = e.clientY + scrollY - tooltipHeight - margin;
+                    left = e.pageX - tooltipWidth - margin;
                   }
                   
-                  // Ensure tooltip stays within viewport bounds
+                  // Flip to top of cursor if would go off bottom edge
+                  if (top + tooltipHeight > scrollY + viewportHeight) {
+                    top = e.pageY - tooltipHeight - margin;
+                  }
+                  
+                  // Ensure tooltip stays within viewport bounds as final safeguard
                   left = Math.max(scrollX + 5, Math.min(left, scrollX + viewportWidth - tooltipWidth - 5));
                   top = Math.max(scrollY + 5, Math.min(top, scrollY + viewportHeight - tooltipHeight - 5));
                   
@@ -531,51 +536,81 @@
       };
     }
 
-    // Prefer explicit deadline if present; otherwise derive based on stage/action
+    // Calculate deadline using the same logic as the Deadline column in complaints table
     function adminGetDeadlineDate(complaint) {
       if (!complaint) return null;
 
-      // 1) Explicit deadline from API (supports multiple common field names)
-      if (complaint.deadline) {
-        const d = new Date(complaint.deadline);
-        if (!isNaN(d.getTime())) return d;
+      // Only show deadlines for Pending or Ongoing complaints
+      if (complaint.complaint_stage === 'Resolved') return null;
+      if ((complaint.status || '').toLowerCase().includes('invalid')) return null;
+      if ((complaint.status || '').toLowerCase().includes('resolved')) return null;
+
+      // Filter to only Pending or Ongoing complaints
+      if (complaint.complaint_stage !== 'Pending' && complaint.complaint_stage !== 'Ongoing') return null;
+
+      // For Pending complaints
+      if (complaint.complaint_stage === 'Pending' || !complaint.latest_action) {
+        const submittedDate = new Date(complaint.date_received);
+        if (isNaN(submittedDate.getTime())) return null;
+        // 6 days after submission (same as Deadline column logic)
+        return new Date(submittedDate.getTime() + 6 * 24 * 60 * 60 * 1000);
       }
 
-      // 2) Skip invalid/resolved from inbox
-      const statusText = (complaint.status || complaint.complaint_stage || '').toLowerCase();
-      if (statusText.includes('invalid')) return null;
-      if (statusText.includes('resolved')) return null;
-
-      // 3) Derive deadline
-      const isPending = (complaint.complaint_stage === 'Pending') || !complaint.latest_action;
-
-      if (isPending) {
-        const base = complaint.date_received ? new Date(complaint.date_received) : null;
-        if (!base || isNaN(base)) return null;
-        // Pending: 7 days from submission
-        return new Date(base.getTime() + 7 * 24 * 60 * 60 * 1000);
-      }
-
-      // Ongoing: last action + per-action rule
-      const base = complaint.action_datetime ? new Date(complaint.action_datetime) : null;
-      if (!base || isNaN(base)) return null;
+      // For Ongoing complaints - use same logic as Deadline column
+      if (!complaint.action_datetime) return null;
+      const actionDate = new Date(complaint.action_datetime);
+      if (isNaN(actionDate.getTime())) return null;
 
       const actionType = (complaint.latest_action || '').toLowerCase();
-      let daysToAdd = 1;
-      if (actionType.includes('inspection')) daysToAdd = 3;
-      else if (actionType.includes('invitation')) daysToAdd = 1;
-      else if (actionType.includes('mediation')) daysToAdd = 1;
-      else if (actionType.includes('assessment')) daysToAdd = 1;
 
-      return new Date(base.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+      // Get admin-set deadline for inspection
+      let adminDeadline = null;
+      if (complaint.admin_deadline) {
+        adminDeadline = new Date(complaint.admin_deadline);
+      } else if (complaint.inspection_deadline) {
+        adminDeadline = new Date(complaint.inspection_deadline);
+      }
+
+      // Get meeting datetime from invitation action
+      let meetingDateTime = null;
+      if (complaint.meeting_datetime) {
+        meetingDateTime = new Date(complaint.meeting_datetime);
+      } else if (complaint.meeting_date && complaint.meeting_time) {
+        meetingDateTime = new Date(`${complaint.meeting_date}T${complaint.meeting_time}`);
+      }
+
+      // Calculate deadline based on action type (same as Deadline column)
+      if (actionType.includes('inspection') && !actionType.includes('done')) {
+        return adminDeadline || new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+      } else if (actionType.includes('inspection done')) {
+        return new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+      } else if (actionType.includes('send invitation') || (actionType.includes('invitation') && !actionType.includes('sent') && !actionType.includes('accepted'))) {
+        return new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
+      } else if (actionType.includes('sent invitation')) {
+        return new Date(actionDate.getTime() + (20 * 24 * 60 * 60 * 1000));
+      } else if (actionType.includes('accepted invitation')) {
+        return meetingDateTime || actionDate;
+      } else if (actionType.includes('mediation')) {
+        const baseDate = meetingDateTime || actionDate;
+        return new Date(baseDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+      } else if (actionType.includes('assessment')) {
+        return null; // Assessment has no deadline
+      } else {
+        return new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
+      }
     }
 
     // Compute days left until deadline
 function adminGetDaysLeft(deadline) {
   if (!deadline) return null;
   const now = new Date();
-  // Difference in full days (ceil to handle partial days)
-  return Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  
+  // Normalize dates to compare only the date part (ignore time) - consistent with assigned.html and all.html
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate(), 0, 0, 0, 0);
+  
+  const timeDiff = deadlineDate.getTime() - today.getTime();
+  return Math.round(timeDiff / (1000 * 60 * 60 * 24));
 }
 
 // Build list of items that are due in <=3 days (inclusive) or overdue

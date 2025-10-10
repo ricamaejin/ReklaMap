@@ -339,14 +339,19 @@
           }
           
           const now = new Date();
-          const timeDiff = deadline.getTime() - now.getTime();
-          const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+          
+          // Normalize dates to compare only the date part (ignore time) - same logic as assigned.html
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+          const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate(), 0, 0, 0, 0);
+          
+          const timeDiff = deadlineDate.getTime() - today.getTime();
+          const daysDiff = Math.round(timeDiff / (1000 * 3600 * 24));
           
           let countdown = '';
           
           if (daysDiff < 0) {
             status = 'Overdue';
-            countdown = `<br/><small style="color: red; font-weight: bold;">${Math.abs(daysDiff)} day/s overdue</small>`;
+            countdown = `<br/><small style="color: red; font-weight: bold; font-size: 11px">${Math.abs(daysDiff)} day/s late</small>`;
           } else if (daysDiff === 0) {
             countdown = '<br/><small style="color: orange; font-weight: bold;">Due today</small>';
           } else {
@@ -526,15 +531,17 @@
     function calculatePendingDeadline(complaint) {
       const submittedDate = new Date(complaint.date_received);
       
-      // Calculate days remaining more accurately (submission day counts as day 1)
-      const submittedDateOnly = new Date(submittedDate.getFullYear(), submittedDate.getMonth(), submittedDate.getDate());
-      const nowDateOnly = new Date();
-      nowDateOnly.setHours(0, 0, 0, 0);
-      const daysElapsed = Math.floor((nowDateOnly - submittedDateOnly) / (1000 * 3600 * 24));
-      const daysDiff = 7 - daysElapsed;
+      // Calculate the actual deadline date (7 days from submission, but deadline is 6 days after submission date)
+      const deadlineDate = new Date(submittedDate.getTime() + (6 * 24 * 60 * 60 * 1000));
       
-      // Calculate the actual deadline date (7 days from submission)
-      const deadlineDate = new Date(submittedDateOnly.getTime() + (6 * 24 * 60 * 60 * 1000));
+      // Normalize dates to compare only the date part (ignore time) - same logic as assigned.html
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const normalizedDeadline = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), deadlineDate.getDate(), 0, 0, 0, 0);
+      
+      const timeDiff = normalizedDeadline.getTime() - today.getTime();
+      const daysDiff = Math.round(timeDiff / (1000 * 3600 * 24));
+      
       const dateStr = deadlineDate.toLocaleDateString();
 
       if (daysDiff < 0) {
@@ -843,29 +850,89 @@
         const complaints = Array.isArray(data) ? data : data.complaints || [];
 
         const now = new Date();
-        const overdue = [];
-        const almostDue = [];
+        const dueSoonItems = [];
 
         complaints.forEach(c => {
-          // Skip resolved complaints - they shouldn't appear in inbox
-          if (!c.action_datetime || c.status === "Resolved" || c.status === "Invalid" || c.complaint_stage === "Resolved" || c.is_resolved) return;
+          // Only show deadlines for Pending or Ongoing complaints (same filtering as index.html)
+          if (c.complaint_stage === 'Resolved') return;
+          if ((c.status || '').toLowerCase().includes('invalid')) return;
+          if ((c.status || '').toLowerCase().includes('resolved')) return;
 
-          const actionType = (c.latest_action || c.action_needed || "").toLowerCase();
-          let daysToAdd = 1;
-          if (actionType.includes("inspection")) daysToAdd = 3;
-          else if (actionType.includes("invitation")) daysToAdd = 1;
-          else if (actionType.includes("mediation")) daysToAdd = 1;
-          else if (actionType.includes("assessment")) daysToAdd = 1;
+          // Filter to only Pending or Ongoing complaints
+          if (c.complaint_stage !== 'Pending' && c.complaint_stage !== 'Ongoing') return;
+          
+          let deadline = null;
+          
+          // For Pending complaints
+          if (c.complaint_stage === 'Pending' || !c.latest_action) {
+            if (c.date_received) {
+              const submittedDate = new Date(c.date_received);
+              // 6 days after submission (same as Deadline column logic)
+              deadline = new Date(submittedDate.getTime() + 6 * 24 * 60 * 60 * 1000);
+            }
+          } else {
+            // For Ongoing complaints - use same logic as Deadline column
+            if (!c.action_datetime) return;
+            const actionDate = new Date(c.action_datetime);
+            const actionType = (c.latest_action || '').toLowerCase();
 
-          const actionDate = new Date(c.action_datetime);
-          const deadline = new Date(actionDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
-          const diffDays = Math.ceil((deadline - now) / (1000 * 3600 * 24));
+            // Get admin-set deadline for inspection
+            let adminDeadline = null;
+            if (c.admin_deadline) {
+              adminDeadline = new Date(c.admin_deadline);
+            } else if (c.inspection_deadline) {
+              adminDeadline = new Date(c.inspection_deadline);
+            }
 
-          if (diffDays < 0) overdue.push({ ...c, diffDays, deadline });
-          else if (diffDays <= 2) almostDue.push({ ...c, diffDays, deadline });
+            // Get meeting datetime from invitation action
+            let meetingDateTime = null;
+            if (c.meeting_datetime) {
+              meetingDateTime = new Date(c.meeting_datetime);
+            } else if (c.meeting_date && c.meeting_time) {
+              meetingDateTime = new Date(`${c.meeting_date}T${c.meeting_time}`);
+            }
+
+            // Calculate deadline based on action type (same as Deadline column)
+            if (actionType.includes('inspection') && !actionType.includes('done')) {
+              deadline = adminDeadline || new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+            } else if (actionType.includes('inspection done')) {
+              deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+            } else if (actionType.includes('send invitation') || (actionType.includes('invitation') && !actionType.includes('sent') && !actionType.includes('accepted'))) {
+              deadline = new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
+            } else if (actionType.includes('sent invitation')) {
+              deadline = new Date(actionDate.getTime() + (20 * 24 * 60 * 60 * 1000));
+            } else if (actionType.includes('accepted invitation')) {
+              deadline = meetingDateTime || actionDate;
+            } else if (actionType.includes('mediation')) {
+              const baseDate = meetingDateTime || actionDate;
+              deadline = new Date(baseDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+            } else if (actionType.includes('assessment')) {
+              return; // Assessment has no deadline
+            } else {
+              deadline = new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
+            }
+          }
+          
+          if (!deadline) return;
+          
+          // Use normalized date calculation for consistency with assigned.html and all.html
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+          const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate(), 0, 0, 0, 0);
+          
+          const timeDiff = deadlineDate.getTime() - today.getTime();
+          const diffDays = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+          
+          // Include if overdue (diffDays < 0) or due soon (<=3 days) - matching index.html threshold
+          if (diffDays <= 3) {
+            const isPending = (c.complaint_stage === 'Pending') || !c.latest_action;
+            dueSoonItems.push({ ...c, diffDays, deadline, isPending });
+          }
         });
+        
+        // Sort: overdue first, then soonest due (same as index.html)
+        dueSoonItems.sort((a, b) => a.diffDays - b.diffDays);
 
-        const totalCount = overdue.length + almostDue.length;
+        const totalCount = dueSoonItems.length;
         notifCount.textContent = totalCount > 0 ? totalCount : "0";
         notifCount.style.display = totalCount > 0 ? "inline-block" : "none";
 
@@ -895,19 +962,19 @@
           </div>
         `;
 
-        // Combine and render both overdue + almost due
-        [...overdue, ...almostDue].forEach(c => {
+        // Render all due soon items with consistent labeling logic
+        dueSoonItems.forEach(c => {
           let color, label;
           if (c.diffDays < 0) {
             const daysLate = Math.abs(c.diffDays);
             color = "red";
-            label = `Overdue (${daysLate} day${daysLate > 1 ? "s" : ""} late)`;
+            label = `Overdue (${daysLate} day${daysLate !== 1 ? "s" : ""} late)`;
           } else if (c.diffDays === 0) {
             color = "orange";
             label = "Due Today";
           } else {
             color = "green";
-            label = `Ongoing (${c.diffDays} day${c.diffDays > 1 ? "s" : ""} left)`;
+            label = `Ongoing (${c.diffDays} day${c.diffDays !== 1 ? "s" : ""} left)`;
           }
 
           inboxList.innerHTML += buildEntry(color, label, c.deadline, c);
