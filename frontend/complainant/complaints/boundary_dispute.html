@@ -38,77 +38,167 @@
         </ul>
       </div>
 
-      <div class="section-header">COMPLAINANT'S DETAILS:</div>
-        <div class="pairs">
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Full Name:</label>
-              <input type="text" name="full_name" readonly>
-            </div>
-          </div>
+  <div class="section-header">COMPLAINANT'S DETAILS:</div>
+  <div id="complainantDetails"></div>
+<style>
+  /* Grey out autofilled (read-only) complainant detail fields, match lot_dispute.html */
+  #complainantDetails .pairs input[readonly] {
+    color: #555 !important;
+    background: #f1f3f5 !important;
+  }
+  #complainantDetails .pairs input[readonly]::placeholder { color: #888; }
+  #complainantDetails .pair-row { display: flex; gap: 16px; margin-bottom: 8px; }
+  #complainantDetails .col { flex: 1; min-width: 120px; }
+  #complainantDetails label.small { font-size: 13px; color: #333; margin-bottom: 2px; display: block; }
+</style>
+<script>
+// Populate complainant details (structure and layout copied from lot_dispute.html)
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const res = await fetch('/complainant/boundary_dispute/get_boundary_session_data');
+    if (!res.ok) return;
+    const d = await res.json();
+    const container = document.getElementById('complainantDetails');
+    if (!container || !d || d.error) return;
 
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Date of Birth:</label>
-              <input type="date" name="date_of_birth" readonly 
-              style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
-            </div>
+    const pairs = document.createElement('div');
+    pairs.className = 'pairs';
 
-            <div class="col">
-              <label class="small">Sex:</label>
-              <input type="text" name="sex" readonly>
-            </div>
-          </div>
+    // Helper to create supporting documents section (only for hoa_member and family_of_member)
+    // Helper to create supporting documents section (checkbox grid, like lot_dispute.html)
+    function createSupportingDocsSection(docs) {
+      if (!docs) return null;
+      // Define doc options (keys must match backend)
+      const docList = [
+        {key: 'title', label: 'Title'},
+        {key: 'contract_to_sell', label: 'Contract to Sell'},
+        {key: 'certificate_of_full_payment', label: 'Certificate of Full Payment'},
+        {key: 'pre_qualification_stub', label: 'Pre-qualification Stub'},
+        {key: 'contract_agreement', label: 'Contract/Agreement'},
+        {key: 'deed_of_sale', label: 'Deed of Sale'}
+      ];
+      // Determine selected docs (array or object)
+      let selected = {};
+      if (Array.isArray(docs)) {
+        docs.forEach(k => selected[k] = true);
+      } else if (typeof docs === 'object') {
+        selected = docs;
+      }
+      // Build the grid
+      const row = document.createElement('div');
+      row.className = 'pair-row';
+      let html = `<div class=\"col\"><label class=\"small\" style=\"font-weight:600; display:block; margin-bottom:2px;\">Supporting Documents:</label>`;
+      html += `<div class='checkbox-group' style=\"display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px;\">`;
+      docList.forEach(doc => {
+        const checked = selected[doc.key] ? 'checked' : '';
+        html += `<label style=\"white-space:nowrap;\"><input type=\"checkbox\" disabled ${checked}> ${doc.label}</label>`;
+      });
+      html += '</div></div>';
+      row.innerHTML = html;
+      return row;
+    }
 
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Civil Status:</label>
-              <input type="text" name="civil_stat" readonly>
-            </div>
-            <div class="col">
-              <label class="small">Citizenship:</label>
-              <input type="text" name="citizenship" readonly>
-            </div>
-          </div>
+    function row1(label, value, type = 'text') {
+      const r = document.createElement('div');
+      r.className = 'pair-row';
+      r.innerHTML = `<div class="col"><label class="small">${label}</label><input type="${type}" value="${value || ''}" readonly></div>`;
+      return r;
+    }
+    function row2(l1, v1, l2, v2, t1='text', t2='text') {
+      const r = document.createElement('div');
+      r.className = 'pair-row';
+      r.innerHTML = `
+        <div class="col"><label class="small">${l1}</label><input type="${t1}" value="${v1 || ''}" readonly></div>
+        <div class="col"><label class="small">${l2}</label><input type="${t2}" value="${v2 || ''}" readonly></div>`;
+      return r;
+    }
+    function row3(l1, v1, l2, v2, l3, v3) {
+      const r = document.createElement('div');
+      r.className = 'pair-row';
+      r.innerHTML = `
+        <div class="col"><label class="small">${l1}</label><input type="text" value="${v1 || ''}" readonly></div>
+        <div class="col"><label class="small">${l2}</label><input type="text" value="${v2 || ''}" readonly></div>
+        <div class="col"><label class="small">${l3}</label><input type="text" value="${v3 || ''}" readonly></div>`;
+      return r;
+    }
 
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Current Address:</label>
-              <input type="text" name="cur_add" readonly>
-            </div>
+    // Helper to normalize middle initials to a single trailing period (e.g., "B" or "B.." -> "B.")
+    function normalizeName(name) {
+      if (!name || typeof name !== 'string') return name || '';
+      return name.replace(/\b([A-Z])\.*\b/g, '$1.');
+    }
 
-            <div class="col">
-              <label class="small">HOA:</label>
-              <input type="text" name="hoa" readonly>
-            </div>
-          </div>
+    // HOA Member
+    if (d.category === 'hoa_member') {
+  pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
+  pairs.appendChild(row2('Date of Birth:', d.date_of_birth, 'Sex:', d.sex, 'date', 'text'));
+  pairs.appendChild(row2('Citizenship:', d.citizenship, 'Age:', d.age));
+  pairs.appendChild(row2('Phone Number:', d.phone_number, 'Year of Residence:', d.year_of_residence));
+  pairs.appendChild(row1('Area (HOA):', d.hoa));
+  pairs.appendChild(row1('Current Address:', d.cur_add));
+  pairs.appendChild(row3('Block:', d.blk_num, 'Lot:', d.lot_num, 'Lot Size:', d.lot_size));
+  pairs.appendChild(row2('Civil Status:', d.civil_status, 'Recipient of other housing programs:', d.recipient_of_other_housing));
+  const docsSection = createSupportingDocsSection(d.supporting_documents);
+  if (docsSection) pairs.appendChild(docsSection);
+    }
+    // Non-member
+    else if (d.category === 'non_member') {
+  pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
+  pairs.appendChild(row2('Date of Birth:', d.date_of_birth, 'Sex:', d.sex, 'date', 'text'));
+  pairs.appendChild(row2('Citizenship:', d.citizenship, 'Age:', d.age));
+  pairs.appendChild(row2('Phone Number:', d.phone_number, 'Year of Residence:', d.year_of_residence));
+  pairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
+  pairs.appendChild(row1('Current Address:', d.cur_add));
+  pairs.appendChild(row1('Area (HOA):', d.hoa || ''));
+    }
+    // Family of member
+    else if (d.category === 'family_of_member') {
+      // --- Updated layout for family_of_member HOA Member Information ---
+      pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
+      pairs.appendChild(row2('Date of Birth:', d.date_of_birth, 'Sex:', d.sex, 'date', 'text'));
+      pairs.appendChild(row2('Citizenship:', d.citizenship, 'Age:', d.age));
+      pairs.appendChild(row2('Phone Number:', d.phone_number, 'Year of Residence:', d.year_of_residence));
+      pairs.appendChild(row2('Relationship:', d.relationship || '', 'Current Address:', d.cur_add));
 
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Block Assignment Number:</label>
-              <input type="text" name="blk_num" readonly>
-            </div>
+      let memberWrapper = null;
+      if (d.parent_info) {
+        memberWrapper = document.createElement('div');
+        memberWrapper.style.marginTop = '20px';
+        const h3 = document.createElement('h3');
+        h3.textContent = 'HOA Member Information';
+        h3.style.color = '#083048';
+        h3.style.marginBottom = '10px';
+        memberWrapper.appendChild(h3);
+        const memberPairs = document.createElement('div');
+        memberPairs.className = 'pairs';
+        const p = d.parent_info;
+        // Full Name (single row)
+        memberPairs.appendChild(row1('Full Name:', normalizeName(p.full_name)));
+        // Date of Birth | Sex
+        memberPairs.appendChild(row2('Date of Birth:', p.date_of_birth, 'Sex:', p.sex, 'date', 'text'));
+        // Citizenship | Age
+        memberPairs.appendChild(row2('Citizenship:', p.citizenship, 'Age:', p.age));
+        // Rest as before
+        memberPairs.appendChild(row1('Area (HOA):', d.hoa || ''));
+        memberPairs.appendChild(row1('Current Address:', p.current_address));
+        memberPairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
+        memberPairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
+        // Insert supporting docs after Civil Status/Recipient row in memberPairs
+        const docSection = createSupportingDocsSection(d.parent_info.supporting_documents);
+        if (docSection) memberPairs.appendChild(docSection);
+        memberWrapper.appendChild(memberPairs);
+      }
+      container.innerHTML = '';
+      container.appendChild(pairs);
+      if (memberWrapper) container.appendChild(memberWrapper);
+      return;
+    }
 
-            <div class="col">
-              <label class="small">Lot Assignment Number:</label>
-              <input type="text" name="lot_num" readonly>
-            </div>
-
-            <div class="col">
-              <label class="small">Lot Area Size:</label>
-              <input type="text" name="lot_size" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Phone Number:</label>
-              <input type="text" name="phone_number" readonly>
-            </div>
-
-            <div class="col"></div>
-          </div>
-        </div>
+    container.innerHTML = '';
+    container.appendChild(pairs);
+  } catch (e) {}
+});
+</script>
 
       <!-- Section 1 -->
       <div class="section-header">LOT DETAILS AND CLAIM:</div>
@@ -242,19 +332,18 @@
       </div>
 
       <label><strong>4. Do they claim to have legal or assignment documents?</strong></label>
-      <div class="options-group">
-        <label><input type="radio" name="boundary_claim_docs" value="Yes" id="boundaryClaimDocsYes"> Yes</label>
-        <div id="boundaryClaimDocOptions" style="display:none; margin-left: 15px;">
-          <p style="font-weight: bold; margin-left: 15px;">Which documents do they have? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
-          <label><input type="checkbox" name="occupant_documents[]" value="title" style="margin-left: 33px;"> Title</label>
-          <label><input type="checkbox" name="occupant_documents[]" value="contract_to_sell" style="margin-left: 33px;"> Contract to Sell</label>
-          <label><input type="checkbox" name="occupant_documents[]" value="certificate_full_payment" style="margin-left: 33px;"> Certificate of Full Payment</label>
-          <label><input type="checkbox" name="occupant_documents[]" value="qualification_stub" style="margin-left: 33px;"> Pre-qualification Stub</label>
-          <label><input type="checkbox" name="occupant_documents[]" value="contract_agreement" style="margin-left: 33px;"> Contract/Agreement</label>
-          <label><input type="checkbox" name="occupant_documents[]" value="deed_of_sale" style="margin-left: 33px;"> Deed of Sale</label>
+      <div class="options-group" id="claimDocs">
+        <label><input type="radio" name="claimDocs" value="Yes"> Yes</label>
+        <div id="docOptions" style="display:none; margin-left: 35px;">
+          <p style="margin-left: 5px; font-weight: bold;">What documents do they have?</p>
+          <label><input type="checkbox" name="docs" value="Title"> Title</label>
+          <label><input type="checkbox" name="docs" value="Contract to Sell"> Contract to Sell</label>
+          <label><input type="checkbox" name="docs" value="Certificate of Full Payment"> Certificate of Full Payment</label>
+          <label><input type="checkbox" name="docs" value="Pre-qualification Stub"> Pre-qualification Stub</label>
+          <label><input type="checkbox" name="docs" value="Contract/Agreement"> Contract/Agreement</label>
+          <label><input type="checkbox" name="docs" value="Deed of Sale"> Deed of Sale</label>
         </div>
-        <label><input type="radio" name="boundary_claim_docs" value="No"> No</label>
-        <label><input type="radio" name="boundary_claim_docs" value="Not sure"> Not sure</label>
+        <label><input type="radio" name="claimDocs" value="No"> No</label>
       </div>
 
       <!-- Section 3 -->
@@ -262,248 +351,10 @@
         <textarea></textarea>
 
         <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
-        <div class="consent">
-          By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
-        </div>
-
-      <div class="signature">
-        <input type="file" id="signatureInput" accept="image/*" style="display:none;" />
-        <button type="button" class="upload-btn" onclick="document.getElementById('signatureInput').click()">Upload Signature</button>
-        <span id="signatureFileName" style="margin-left:10px;  font-style:italic;"></span>
-      </div>
-      </form>
-    </div>
-  </div>
-
-
-<script>
-  function setupConditionalDisplay(radioYesId, containerId, groupName) {
-    const yesRadio = document.getElementById(radioYesId);
-    const container = document.getElementById(containerId);
-    const radios = document.querySelectorAll(`input[name="${groupName}"]`);
-
-    radios.forEach(radio => {
-      radio.addEventListener("change", function () {
-        if (yesRadio.checked) {
-          container.style.display = "block";
-        } else {
-          container.style.display = "none";
-          const input = container.querySelector("input");
-          if (input) input.value = "";
-        }
-      });
-    });
-  } 
-
-    // Apply to all "Other & Conditional" groups
-    setupConditionalDisplay("reasonYes", "reasonDetails", "reason");
-
-
-    function handleFileInputChange(inputId, fileNameDisplayId) {
-    const sigInput = document.getElementById(inputId);
-    const sigFileName = document.getElementById(fileNameDisplayId);
-
-    sigInput.addEventListener("change", function () {
-      if (this.files.length > 0) {
-        sigFileName.textContent = "✔ " + this.files[0].name;
-      } else {
-        sigFileName.textContent = "";
-      }
-    });
-  }
-</script>
-
-<script>
-  /* Helper to show the error popup (keeps your existing style) */
-  function showErrorPop(msg) {
-    const pop = document.getElementById('errorPop');
-    const popMsg = document.getElementById('errorPopMsg');
-    if (!pop || !popMsg) return alert(msg);
-    popMsg.textContent = msg;
-    pop.style.display = 'block';
-    pop.style.opacity = '1';
-    setTimeout(() => {
-      pop.style.opacity = '0';
-      setTimeout(() => { pop.style.display = 'none'; }, 400);
-    }, 1500);
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('BoundaryDisputeForm');
-
-    // Signature input logic
-    const sigInput = document.getElementById('signatureInput');
-    const submitBtn = document.getElementById('submitBtn');
-    const sigName = document.getElementById('signatureFileName');
-
-    if (sigInput) {
-      sigInput.addEventListener('change', function() {
-        if (this.files && this.files[0]) {
-          if (sigName) sigName.textContent = this.files[0].name;
-          if (submitBtn) submitBtn.style.display = 'inline-block';
-        } else {
-          if (sigName) sigName.textContent = '';
-          if (submitBtn) submitBtn.style.display = 'none';
-        }
-      });
-    }
-
-    // Document section toggle
-    const haveDocsRadios = form.querySelectorAll("input[name='have_docs']");
-    const boundaryDocOptions = document.getElementById('boundaryDocOptions');
-    haveDocsRadios.forEach(r =>
-      r.addEventListener('change', () => {
-        boundaryDocOptions.style.display = r.value === 'Yes' && r.checked ? 'block' : 'none';
-      })
-    );
-
-    // Add block–lot pairs
-  document.getElementById("addPairBtn").addEventListener("click", () => {
-    const container = document.getElementById("pairsContainer");
-    const row = document.createElement("div");
-    row.classList.add("pair-row");
-    row.style.display = "flex";
-    row.style.gap = "12px";
-    row.style.alignItems = "center";
-    row.style.marginBottom = "10px";
-
-    row.innerHTML = `
-      <div style="flex: 1;">
-        <input type="text" placeholder="Enter name" class="form-control" />
-      </div>
-      <div style="width: 140px;">
-        <input type="text" placeholder="Block No." class="form-control" />
-      </div>
-      <div style="width: 140px;">
-        <input type="text" placeholder="Lot No." class="form-control" />
-      </div>
-      <button type="button" class="btn remove small" style="color: #999;">Remove</button>
-    `;
-
-    row.querySelector(".remove").addEventListener("click", () => row.remove());
-    container.appendChild(row);
-  });
-
-
-    // Submit handler
-    form.addEventListener('submit', async e => {
-      e.preventDefault();
-      const fd = new FormData(form);
-      // add array handling if needed
-
-      try {
-        const res = await fetch('/complainant/boundary_dispute/submit_boundary_dispute', {
-          method: 'POST',
-          body: fd,
-          credentials: 'include'
-        });
-        const data = await res.json();
-        if (data.success) {
-          window.location.href = '/complainant/home/dashboard.html';
-        } else {
-          alert(data.message || 'Submission failed');
-        }
-      } catch (err) {
-        alert('An error occurred while submitting.');
-      }
-    });
-
-    // Q8: Make "None" exclusive - if checked, uncheck others and vice versa
-    (function setupExclusiveCheckboxForBoundary() {
-      const reportCheckboxes = form.querySelectorAll('input[name="boundary_reported_to[]"]');
-      
-      if (reportCheckboxes.length === 0) return;
-
-      const noneCheckbox = Array.from(reportCheckboxes).find(cb => cb.value === 'None');
-      const otherCheckboxes = Array.from(reportCheckboxes).filter(cb => cb !== noneCheckbox);
-
-      if (!noneCheckbox) return;
-
-      // When "None" is checked, uncheck all others
-      noneCheckbox.addEventListener('change', function() {
-        if (this.checked) {
-          otherCheckboxes.forEach(cb => cb.checked = false);
-        }
-      });
-
-      // When any other checkbox is checked, uncheck "None"
-      otherCheckboxes.forEach(cb => {
-        cb.addEventListener('change', function() {
-          if (this.checked) {
-            noneCheckbox.checked = false;
-          }
-        });
-      });
-    })();
-
-    // Setup add/remove for "Relationship with the person involved" section
-    (function setupRelationshipInputs() {
-      const container = document.getElementById('relationshipContainer');
-      const addBtn = document.getElementById('addRelationshipBtn');
-      if (!container || !addBtn) return;
-
-      function createRelationshipRow(withRemove = true) {
-        const row = document.createElement('div');
-        row.className = 'relationship-input';
-        row.style.display = 'flex';
-        row.style.gap = '8px';
-        row.style.alignItems = 'center';
-        row.style.marginBottom = '8px';
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.name = 'boundary_relationship[]';
-        input.placeholder = 'Specify relationship (neighbor, relative, etc.)';
-        input.style.flex = '1';
-        input.style.marginLeft = '15px';
-
-        row.appendChild(input);
-
-        if (withRemove) {
-          const removeBtn = document.createElement('button');
-          removeBtn.type = 'button';
-          removeBtn.className = 'btn add small remove-relationship';
-          removeBtn.textContent = 'Remove';
-          row.appendChild(removeBtn);
-        }
-
-        return row;
-      }
-
-      // Ensure only rows after the first have remove buttons
-      function normalizeRows() {
-        const rows = container.querySelectorAll('.relationship-input');
-        rows.forEach((row, idx) => {
-          const removeBtn = row.querySelector('.remove-relationship');
-          if (idx === 0 && removeBtn) {
-            removeBtn.remove();
-          } else if (idx > 0 && !removeBtn) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'btn add small remove-relationship';
-            btn.textContent = 'Remove';
-            row.appendChild(btn);
-          }
-        });
-      }
-
-      addBtn.addEventListener('click', () => {
-        container.appendChild(createRelationshipRow(true));
-        normalizeRows();
-      });
-
-      container.addEventListener('click', (e) => {
-        if (e.target && e.target.classList.contains('remove-relationship')) {
-          const row = e.target.closest('.relationship-input');
-          if (row) row.remove();
-          normalizeRows();
-        }
-      });
-
-      // Normalize initial state
-      normalizeRows();
-    })();
-  });
+    <p class="section-label">Please describe what happened briefly, including how you found out about the issue.</p>
+    <textarea name="description" rows="4" style="width:100%;margin-bottom:16px;"></textarea>
+    <div style="margin: 18px 0 8px 0; font-weight: bold;">Signature</div>
+    <input type="text" name="signature" placeholder="Enter your name as signature" style="width: 60%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 15px;">
 </script>
 
 <script>

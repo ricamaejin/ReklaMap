@@ -344,11 +344,14 @@
             const memberPairs = document.createElement('div');
             memberPairs.className = 'pairs';
             const p = d.parent_info;
-            memberPairs.appendChild(row2('Full Name:', normalizeName(p.full_name), 'Date of Birth:', p.date_of_birth, 'text', 'date'));
-            memberPairs.appendChild(row2('Sex:', p.sex, 'Citizenship:', p.citizenship));
-            memberPairs.appendChild(row2('Age:', p.age, 'Year of Residence:', p.year_of_residence));
-            memberPairs.appendChild(row1('HOA:', d.hoa || ''));
-            // New: Parent's Current Address (from registration_fam_of_member)
+            // Full Name (single row)
+            memberPairs.appendChild(row1('Full Name:', normalizeName(p.full_name)));
+            // Date of Birth | Sex
+            memberPairs.appendChild(row2('Date of Birth:', p.date_of_birth, 'Sex:', p.sex, 'date', 'text'));
+            // Citizenship | Age
+            memberPairs.appendChild(row2('Citizenship:', p.citizenship, 'Age:', p.age));
+            // Rest as before
+            memberPairs.appendChild(row1('Area (HOA):', d.hoa || ''));
             memberPairs.appendChild(row1('Current Address:', p.current_address));
             console.log("Parent info:", p);
             memberPairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
@@ -362,7 +365,7 @@
             memberWrapper = wrapper;
           }
         } else {
-          pairs.appendChild(row1('HOA:', d.hoa || ''));
+          pairs.appendChild(row1('Area (HOA):', d.hoa || ''));
           pairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
           pairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
           civilRowIdx = pairs.children.length - 1;

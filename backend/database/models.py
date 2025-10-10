@@ -192,6 +192,16 @@ class Complaint(db.Model):
         passive_deletes=True
     )
 
+    # Relationship to BoundaryDispute
+    boundary_dispute = db.relationship(
+        "BoundaryDispute",
+        back_populates="complaint",
+        uselist=False,
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
+
     def __repr__(self):
         return f"<Complaint {self.complaint_id}>"
 
@@ -302,19 +312,42 @@ class BoundaryDispute(db.Model):
     __tablename__ = "boundary_dispute"
 
     boundary_dispute_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    complaint_id = db.Column(db.Integer, db.ForeignKey('complaints.complaint_id', ondelete="CASCADE"), nullable=False)
-    q1 = db.Column(db.String(200))  # nature of boundary issue
-    q2 = db.Column(db.String(80))   # duration
-    q3 = db.Column(db.String(80))   # constructed/under construction
-    q4 = db.Column(db.Enum('Yes','No'))
-    q5 = db.Column(db.Enum('Yes','No'))
-    q6 = db.Column(db.JSON)         # multiple choices
-    q7 = db.Column(db.Enum('Yes','No'))
-    q7_1 = db.Column(db.Date)       # conditional date
-    q8 = db.Column(db.Enum('Yes','No','Not Sure'))
+    complaint_id = db.Column(
+        db.Integer,
+        db.ForeignKey('complaints.complaint_id', ondelete="CASCADE"),
+        nullable=False
+    )
+
+    # Questionnaire fields
+    q1 = db.Column(db.JSON)                         # nature/issues
+    q2 = db.Column(db.String(50))                   # duration
+    q3 = db.Column(db.String(100))                  # structure status
+    q4 = db.Column(db.Enum('Yes', 'No'))            # prior notice
+    q5 = db.Column(db.Enum('Yes', 'No'))            # confronted
+    q5_1 = db.Column(db.Date)                       # date reported
+    q6 = db.Column(db.JSON)                         # dispute effects
+    q7 = db.Column(db.JSON)                         # reported to
+    q8 = db.Column(db.String(100))                  # site inspection
+    q9 = db.Column(db.JSON)                         # inspection result
+    q10 = db.Column(db.Enum('Yes', 'No'))           # have supporting docs
+    q10_1 = db.Column(db.JSON)                      # doc types
+    q11 = db.Column(db.Enum('Yes', 'No', 'Not sure'))  # govt project involvement
+    q12 = db.Column(db.JSON)                        # persons involved
+    q13 = db.Column(db.JSON)                        # relationships
+    q14 = db.Column(db.Enum('Yes', 'No', 'Not sure'))  # reside near site
+    q15 = db.Column(db.Enum('Yes', 'No'))           # claim docs
+    q15_1 = db.Column(db.JSON)                      # claim doc types
+
+    # Extra details
+    description = db.Column(db.Text)                # incident description
+    signature_path = db.Column(db.String(255))      # uploaded signature path
 
     # Relationship back to Complaint
-    complaint = db.relationship("Complaint", backref="boundary_dispute", passive_deletes=True)
+    complaint = db.relationship(
+        "Complaint",
+        back_populates="boundary_dispute",
+        passive_deletes=True
+    )
 
 
 
