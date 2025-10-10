@@ -1,6 +1,7 @@
 
 import os, json, time
 from flask import Blueprint, session, render_template, jsonify, request
+from werkzeug.utils import secure_filename
 from backend.database.models import Registration, Complaint, BoundaryDispute, Beneficiary, Block
 from backend.database.db import db
 
@@ -65,32 +66,25 @@ def submit_boundary_dispute():
         complainant_name = " ".join([p for p in name_parts if p])
         address = registration.current_address or ""
 
-        # Determine area_id
-        area_id = None
-        try:
-            if registration.block_no and registration.lot_no:
-                bn = registration.block_no
-                ln = registration.lot_no
-                try:
-                    bn = int(bn)
-                except Exception:
-                    pass
-                try:
-                    ln = int(ln)
-                except Exception:
-                    pass
-                blk = Block.query.filter_by(block_no=bn).first()
-                if blk:
-                    beneficiary = Beneficiary.query.filter_by(block_id=blk.block_id, lot_no=ln).first()
-                    if beneficiary:
-                        area_id = beneficiary.area_id
-        except Exception:
-            area_id = None
 
+
+
+
+        # --- Use area/HOA from registration as reference for Q12 validation only ---
+        # Resolve area_id from registration.hoa (can be area_id or area_name)
+        area_id = None
+        hoa_val = registration.hoa
+        try:
+            area_id = int(hoa_val)
+        except Exception:
+            from backend.database.models import Area
+            area_obj = Area.query.filter_by(area_name=hoa_val).first()
+            if area_obj:
+                area_id = area_obj.area_id
         if area_id is None:
             return jsonify({
                 "success": False,
-                "message": "Cannot submit complaint: Area assignment not found for your block and lot. Please contact admin.",
+                "message": "Cannot submit complaint: Area assignment not found for your HOA/area. Please contact admin.",
                 "mismatches": ["Area Assignment"]
             }), 400
 
@@ -106,29 +100,215 @@ def submit_boundary_dispute():
         db.session.add(new_complaint)
         db.session.flush()  # Assigns complaint_id without committing
 
-        # Create BoundaryDispute entry
+        # --- Robust cross-check for Q12 (persons involved) ---
+        # Q12: list of {name, block, lot} (excluding complainant)
+        import json as _json
+        # q12 can come as JSON string array OR as bracketed fields q12[0][name], q12[0][block], q12[0][lot]
+        q12_raw = request.form.getlist("q12")
+        q12_list = []
+        if len(q12_raw) == 1 and isinstance(q12_raw[0], str) and q12_raw[0].strip().startswith("["):
+            try:
+                q12_list = _json.loads(q12_raw[0])
+            except Exception:
+                q12_list = []
+        else:
+            # Build from bracketed fields
+            # Collect all keys like q12[<idx>][name|block|lot]
+            import re
+            pattern = re.compile(r"^q12\[(\d+)\]\[(name|block|lot)\]$")
+            q12_map = {}
+            for key in request.form.keys():
+                m = pattern.match(key)
+                if not m:
+                    continue
+                idx, field = m.group(1), m.group(2)
+                q12_map.setdefault(idx, {})[field] = request.form.get(key)
+            # Convert to ordered list by idx
+            for idx in sorted(q12_map.keys(), key=lambda x: int(x)):
+                q12_list.append(q12_map[idx])
+
+        area_id = new_complaint.area_id
+        from backend.database.models import Beneficiary, Block
+        failed_entries = []
+        def normalize_mi(val):
+            if not val: return None
+            return str(val).replace('.', '').strip().upper()[:1] or None
+
+        for entry in q12_list:
+            name = (entry.get("name") or "").strip()
+            block = entry.get("block")
+            lot = entry.get("lot")
+            if not (name and block and lot):
+                failed_entries.append({"entry": entry, "reason": ["Missing required fields"]})
+                continue
+            # Parse name: try to split into first, (optional middle), last
+            name_parts = name.split()
+            if len(name_parts) < 2:
+                failed_entries.append({"entry": entry, "reason": ["Name must include at least first and last name"]})
+                continue
+            # Case-insensitive, whitespace-trimmed match for first and last name
+            first = name_parts[0].strip().upper()
+            last = name_parts[-1].strip().upper()
+            middle = name_parts[1].strip().upper() if len(name_parts) > 2 else None
+            try:
+                block_no = int(str(block).strip())
+                lot_no = int(str(lot).strip())
+            except Exception:
+                failed_entries.append({"entry": entry, "reason": ["Block/Lot must be numbers"]})
+                continue
+            blk = Block.query.filter_by(area_id=area_id, block_no=block_no).first()
+            if not blk:
+                failed_entries.append({"entry": entry, "reason": ["Block Assignment"]})
+                continue
+            # Find beneficiary by block, lot, area
+            ben = Beneficiary.query.filter(
+                Beneficiary.area_id == area_id,
+                Beneficiary.block_id == blk.block_id,
+                Beneficiary.lot_no == lot_no
+            ).first()
+            if not ben:
+                failed_entries.append({"entry": entry, "reason": ["No matching beneficiary for block/lot in your HOA"]})
+                continue
+            # Compare first and last name (case-insensitive, whitespace-trimmed, must match exactly)
+            ben_first = (ben.first_name or '').strip().upper()
+            ben_last = (ben.last_name or '').strip().upper()
+            mismatch = []
+            if ben_first != first:
+                mismatch.append("First Name")
+            if ben_last != last:
+                mismatch.append("Last Name")
+            # Optionally check middle initial
+            if middle:
+                if normalize_mi(ben.middle_initial) != normalize_mi(middle):
+                    mismatch.append("Middle Name")
+            # Block Assignment (should always match, but double-check)
+            try:
+                benef_block_no = ben.block.block_no if ben.block else None
+            except Exception:
+                benef_block_no = None
+            if benef_block_no != block_no:
+                mismatch.append("Block Assignment")
+            # Lot Assignment
+            if str(ben.lot_no) != str(lot_no):
+                mismatch.append("Lot Assignment")
+            # HOA
+            if str(ben.area_id) != str(area_id):
+                mismatch.append("HOA")
+            if mismatch:
+                failed_entries.append({"entry": entry, "reason": mismatch})
+
+        if failed_entries:
+            # Compose error message listing failed entries and reasons
+            msg = "The following person(s) have mismatches: "
+            msg += "; ".join([
+                f"{e['entry'].get('name','?')} (Block {e['entry'].get('block','?')}, Lot {e['entry'].get('lot','?')}): " + ", ".join(e['reason']) for e in failed_entries
+            ])
+            return jsonify({"success": False, "message": msg, "field": "q12"}), 400
+
+        # Map HTML form fields to BoundaryDispute columns (ensure correct mapping and types)
+        # Q1: nature_of_issue (checkboxes, string[])
+        q1 = request.form.getlist("nature_of_issue")
+        if not q1 or (len(q1) == 1 and not q1[0]):
+            q1 = []
+        # Q2: conflict (radio, string)
+        q2 = clean_field(request.form.get("conflict"))
+        # Q3: structure_status (radio, string)
+        q3 = clean_field(request.form.get("structure_status"))
+
+        # Q4: notice (radio, Yes/No)
+        q4 = clean_enum((request.form.get("notice") or "").strip().capitalize(), ["Yes", "No"])
+        # Q5: confronted (radio, Yes/No)
+        q5 = clean_enum((request.form.get("confronted") or "").strip().capitalize(), ["Yes", "No"])
+        # Q5_1: reasonDateInput (date)
+        q5_1 = parse_date(request.form.get("reasonDateInput"))
+        # Q6: dispute_effects (checkboxes, string[])
+        q6 = request.form.getlist("dispute_effects")
+        if not q6 or (len(q6) == 1 and not q6[0]):
+            q6 = []
+        # Q7: boundary_reported_to[] (checkboxes, string[])
+        q7 = request.form.getlist("boundary_reported_to[]")
+        if not q7 or (len(q7) == 1 and not q7[0]):
+            q7 = []
+        # Q8: site_inspection (radio, string)
+        # Normalize some similar values for site_inspection
+        si = clean_field(request.form.get("site_inspection"))
+        q8 = si
+        # Q9: site_result[] (checkboxes, string[])
+        q9 = request.form.getlist("site_result[]")
+        if not q9 or (len(q9) == 1 and not q9[0]):
+            q9 = []
+        # Q10: have_docs (radio, Yes/No)
+        q10 = clean_enum(request.form.get("have_docs"), ["Yes", "No"])
+        # Q10_1: boundary_docs[] (checkboxes, string[])
+        q10_1 = request.form.getlist("boundary_docs[]")
+        if not q10_1 or (len(q10_1) == 1 and not q10_1[0]):
+            q10_1 = []
+        # Q11: reason (radio, Yes/No/Not sure)
+        q11 = clean_enum((request.form.get("reason") or "").strip().capitalize(), ["Yes", "No", "Not sure"])
+        # Q12: q12 (persons involved, JSON array)
+        # Already validated and parsed as q12_list above
+        q12 = q12_list
+        # Q13: boundary_relationship (text[])
+        q13 = request.form.getlist("boundary_relationship")
+        if not q13 or (len(q13) == 1 and not q13[0]):
+            q13 = []
+        # Q14: boundary_reside (radio, Yes/No/Not sure)
+        q14 = clean_enum((request.form.get("boundary_reside") or "").strip().capitalize(), ["Yes", "No", "Not sure"])
+        # Q15: claimDocs (radio, Yes/No)
+        q15 = clean_enum(request.form.get("claimDocs"), ["Yes", "No"])
+        # Q15_1: docs (checkboxes, string[])
+        q15_1 = request.form.getlist("docs")
+        if not q15_1 or (len(q15_1) == 1 and not q15_1[0]):
+            q15_1 = []
+        # Description: textarea
+        description = clean_field(request.form.get("description"))
+        # Signature upload: accept file and save to uploads/signatures
+        signature_path = None
+        try:
+            file = request.files.get("signature_path")
+            if file and getattr(file, 'filename', ''):
+                filename = secure_filename(file.filename)
+                # Use backend/uploads/signatures as in complainant.routes
+                upload_dir = os.path.join(BASE_DIR, "..", "uploads", "signatures")
+                upload_dir = os.path.normpath(upload_dir)
+                os.makedirs(upload_dir, exist_ok=True)
+                save_path = os.path.join(upload_dir, filename)
+                # Avoid overwriting: if exists, add a timestamp prefix
+                if os.path.exists(save_path):
+                    name, ext = os.path.splitext(filename)
+                    filename = f"{int(time.time())}_{name}{ext}"
+                    save_path = os.path.join(upload_dir, filename)
+                file.save(save_path)
+                # Store just the filename; serving route will use known dir
+                signature_path = filename
+            else:
+                # Fallback to text path if provided
+                signature_path = clean_field(request.form.get("signature_path"))
+        except Exception:
+            signature_path = clean_field(request.form.get("signature_path"))
+
         boundary_entry = BoundaryDispute(
             complaint_id=new_complaint.complaint_id,
-            q1=json.dumps(request.form.getlist("q1")),
-            q2=clean_field(request.form.get("q2")),
-            q3=clean_field(request.form.get("q3")),
-            q4=clean_enum(request.form.get("q4"), ["Yes", "No"]),
-            q5=clean_enum(request.form.get("q5"), ["Yes", "No"]),
-            q5_1=parse_date(request.form.get("q5_1")),
-            q6=json.dumps(request.form.getlist("q6")),
-            q7=json.dumps(request.form.getlist("q7")),
-            q8=clean_field(request.form.get("q8")),
-            q9=json.dumps(request.form.getlist("q9")),
-            q10=clean_enum(request.form.get("q10"), ["Yes", "No"]),
-            q10_1=json.dumps(request.form.getlist("q10_1")),
-            q11=clean_enum(request.form.get("q11"), ["Yes", "No", "Not sure"]),
-            q12=json.dumps(request.form.getlist("q12")),
-            q13=json.dumps(request.form.getlist("q13")),
-            q14=clean_enum(request.form.get("q14"), ["Yes", "No", "Not sure"]),
-            q15=clean_enum(request.form.get("q15"), ["Yes", "No"]),
-            q15_1=json.dumps(request.form.getlist("q15_1")),
-            description=clean_field(request.form.get("description")),
-            signature_path=clean_field(request.form.get("signature_path"))
+            q1=json.dumps(q1),
+            q2=q2,
+            q3=q3,
+            q4=q4,
+            q5=q5,
+            q5_1=q5_1,
+            q6=json.dumps(q6),
+            q7=json.dumps(q7),
+            q8=q8,
+            q9=json.dumps(q9),
+            q10=q10,
+            q10_1=json.dumps(q10_1),
+            q11=q11,
+            q12=json.dumps(q12),
+            q13=json.dumps(q13),
+            q14=q14,
+            q15=q15,
+            q15_1=json.dumps(q15_1),
+            description=description,
+            signature_path=signature_path
         )
 
         db.session.add(boundary_entry)

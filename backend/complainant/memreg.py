@@ -139,7 +139,11 @@ def mem_reg():
 
             mismatches = []
 
-            if (existing_beneficiary.middle_initial or None) != input_middle:
+            # Middle initial: ignore periods and case, only compare first letter
+            def normalize_mi(val):
+                if not val: return None
+                return str(val).replace('.', '').strip().upper()[:1] or None
+            if normalize_mi(existing_beneficiary.middle_initial) != normalize_mi(input_middle):
                 mismatches.append("Middle Name")
             if (existing_beneficiary.suffix or None) != input_suffix:
                 mismatches.append("Suffix")

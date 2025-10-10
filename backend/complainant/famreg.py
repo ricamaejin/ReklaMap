@@ -61,7 +61,11 @@ def famreg():
             input_middle = parent_mid if parent_mid not in ("", "NA", "N/A") else None
             input_suffix = parent_suffix if parent_suffix not in ("", "NA", "N/A") else None
 
-            if (parent_beneficiary.middle_initial or None) != input_middle:
+            # Middle initial: ignore periods and case, only compare first letter
+            def normalize_mi(val):
+                if not val: return None
+                return str(val).replace('.', '').strip().upper()[:1] or None
+            if normalize_mi(parent_beneficiary.middle_initial) != normalize_mi(input_middle):
                 mismatches.append("Middle Name")
             if (parent_beneficiary.suffix or None) != input_suffix:
                 mismatches.append("Suffix")
@@ -82,7 +86,7 @@ def famreg():
                 
             try:
                 if parent_lot_asn and str(parent_lot_asn) != str(parent_beneficiary.lot_no):
-                    mismatches.append("Lot Number")
+                    mismatches.append("Lot Assignment")
             except Exception as e:
                 print(f"Lot comparison error: {e}")
                 

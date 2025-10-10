@@ -5,6 +5,7 @@ from backend.database.models import User, Registration, Complaint, LotDispute, B
 from backend.database.db import db
 from backend.complainant.lot_dispute import get_form_structure as get_lot_form_structure
 from backend.complainant.redirects import complaint_redirect_path
+from backend.database.models import BoundaryDispute
 import os, json, time
 
 # -----------------------------
@@ -347,6 +348,7 @@ def view_complaint(complaint_id):
     # Build answers from the correct complaint table
     answers = {}
     lot_dispute = None
+    boundary_dispute = None
 
     def _parse_list(val):
         try:
@@ -419,6 +421,61 @@ def view_complaint(complaint_id):
                 "description": getattr(lot_dispute, 'description', None) or getattr(complaint, 'description', '') or '',
                 "signature": getattr(lot_dispute, 'signature', None) or getattr(registration, 'signature_path', '') or '',
             }
+    elif complaint.type_of_complaint == "Boundary Dispute":
+        # Build answers from BoundaryDispute
+        bd = BoundaryDispute.query.filter_by(complaint_id=complaint_id).first()
+        boundary_dispute = bd
+        form_structure = []
+        if bd:
+            def _json_list(v):
+                try:
+                    if isinstance(v, list):
+                        return v
+                    if isinstance(v, str) and v.strip():
+                        s = v.strip()
+                        if s.startswith('['):
+                            return json.loads(s)
+                        if ',' in s:
+                            return [p.strip() for p in s.split(',') if p.strip()]
+                    return []
+                except Exception:
+                    return []
+            def _safe(v):
+                return v or ''
+            # q12 is a list of dicts
+            q12_val = []
+            try:
+                raw = getattr(bd, 'q12', None)
+                if isinstance(raw, list):
+                    q12_val = raw
+                elif isinstance(raw, str) and raw.strip():
+                    q12_val = json.loads(raw)
+            except Exception:
+                q12_val = []
+
+            # Collect all other fields
+            answers = {
+                'q1': _json_list(getattr(bd, 'q1', None)),
+                'q2': _safe(getattr(bd, 'q2', None)),
+                'q3': _safe(getattr(bd, 'q3', None)),
+                'q4': _safe(getattr(bd, 'q4', None)),
+                'q5': _safe(getattr(bd, 'q5', None)),
+                'q5_1': getattr(bd, 'q5_1', None).strftime('%Y-%m-%d') if getattr(bd, 'q5_1', None) else '',
+                'q6': _json_list(getattr(bd, 'q6', None)),
+                'q7': _json_list(getattr(bd, 'q7', None)),
+                'q8': _safe(getattr(bd, 'q8', None)),
+                'q9': _json_list(getattr(bd, 'q9', None)),
+                'q10': _safe(getattr(bd, 'q10', None)),
+                'q10_1': _json_list(getattr(bd, 'q10_1', None)),
+                'q11': _safe(getattr(bd, 'q11', None)),
+                'q12': q12_val,
+                'q13': _json_list(getattr(bd, 'q13', None)),
+                'q14': _safe(getattr(bd, 'q14', None)),
+                'q15': _safe(getattr(bd, 'q15', None)),
+                'q15_1': _json_list(getattr(bd, 'q15_1', None)),
+                'description': _safe(getattr(bd, 'description', None)),
+                'signature_path': _safe(getattr(bd, 'signature_path', None)),
+            }
     else:
         form_structure = []
 
@@ -469,6 +526,7 @@ def view_complaint(complaint_id):
         answers=answers,
         get_area_name=get_area_name,
         lot_dispute=lot_dispute,
+        boundary_dispute=boundary_dispute,
         parent_info=parent_info,
         relationship=relationship,
     )
