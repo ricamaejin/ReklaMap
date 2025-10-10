@@ -58,9 +58,21 @@ def get_area_stats(area_code):
     result = db.session.execute(complaints_query, {'area_id': area.area_id})
     complaints_count = result.fetchone()[0] or 0
     
+    # Count resolved complaints in this area by joining with registration and beneficiaries tables
+    resolved_query = text("""
+        SELECT COUNT(DISTINCT c.complaint_id) as resolved_count
+        FROM complaints c
+        LEFT JOIN registration r ON c.registration_id = r.registration_id
+        LEFT JOIN beneficiaries b ON r.beneficiary_id = b.beneficiary_id
+        WHERE b.area_id = :area_id AND c.complaint_stage = 'Resolved'
+    """)
+    
+    resolved_result = db.session.execute(resolved_query, {'area_id': area.area_id})
+    resolved_count = resolved_result.fetchone()[0] or 0
+    
     return jsonify({
         "area_name": area.area_name,
         "beneficiaries": beneficiaries_count,
         "complaints": complaints_count,
-        "resolved": 0  # Keep as 0 or N/A as requested
+        "resolved": resolved_count
     })

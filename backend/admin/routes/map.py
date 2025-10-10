@@ -41,14 +41,78 @@ def serve_area_svg(area_code):
     else:
         abort(404)
 
-# 🆕 API endpoint to get complaint stats for an area (placeholder for now)
+# 🆕 API endpoint to get complaint stats for an area
 @map_bp.route("/api/complaints/<int:area_id>")
 def get_complaint_stats(area_id):
-    # TODO: Replace with actual complaint data from database
-    # For now, return placeholder data
-    return jsonify({
-        "total": 0,
-        "resolved": 0,
-        "ongoing": 0,
-        "unresolved": 0
-    })
+    from backend.database.db import db
+    from sqlalchemy import text
+    
+    try:
+        # Get area_code for this area_id first to handle different join patterns
+        area_query = text("SELECT area_code FROM areas WHERE area_id = :area_id")
+        area_result = db.session.execute(area_query, {'area_id': area_id})
+        area_row = area_result.fetchone()
+        
+        if not area_row:
+            return jsonify({"total": 0, "resolved": 0, "ongoing": 0, "unresolved": 0}), 404
+            
+        area_code = area_row[0]
+        
+        # Total Complaints: Count based on registration_id from complaints table, 
+        # joined with both beneficiaries.area_id and registration.hoa patterns
+        total_query = text("""
+            SELECT COUNT(DISTINCT c.complaint_id) as total_count
+            FROM complaints c
+            LEFT JOIN registration r ON c.registration_id = r.registration_id
+            LEFT JOIN beneficiaries b ON r.beneficiary_id = b.beneficiary_id
+            LEFT JOIN areas a1 ON b.area_id = a1.area_id
+            LEFT JOIN areas a2 ON r.hoa = a2.area_code OR r.hoa = a2.area_name
+            WHERE (b.area_id = :area_id OR a2.area_id = :area_id)
+        """)
+        
+        total_result = db.session.execute(total_query, {'area_id': area_id})
+        total_count = total_result.fetchone()[0] or 0
+        
+        # Ongoing Complaints: Count where complaint_stage == 'Ongoing'
+        ongoing_query = text("""
+            SELECT COUNT(DISTINCT c.complaint_id) as ongoing_count
+            FROM complaints c
+            LEFT JOIN registration r ON c.registration_id = r.registration_id
+            LEFT JOIN beneficiaries b ON r.beneficiary_id = b.beneficiary_id
+            LEFT JOIN areas a1 ON b.area_id = a1.area_id
+            LEFT JOIN areas a2 ON r.hoa = a2.area_code OR r.hoa = a2.area_name
+            WHERE (b.area_id = :area_id OR a2.area_id = :area_id) AND c.complaint_stage = 'Ongoing'
+        """)
+        
+        ongoing_result = db.session.execute(ongoing_query, {'area_id': area_id})
+        ongoing_count = ongoing_result.fetchone()[0] or 0
+        
+        # Resolved Complaints: Count where complaint_stage == 'Resolved'
+        resolved_query = text("""
+            SELECT COUNT(DISTINCT c.complaint_id) as resolved_count
+            FROM complaints c
+            LEFT JOIN registration r ON c.registration_id = r.registration_id
+            LEFT JOIN beneficiaries b ON r.beneficiary_id = b.beneficiary_id
+            LEFT JOIN areas a1 ON b.area_id = a1.area_id
+            LEFT JOIN areas a2 ON r.hoa = a2.area_code OR r.hoa = a2.area_name
+            WHERE (b.area_id = :area_id OR a2.area_id = :area_id) AND c.complaint_stage = 'Resolved'
+        """)
+        
+        resolved_result = db.session.execute(resolved_query, {'area_id': area_id})
+        resolved_count = resolved_result.fetchone()[0] or 0
+        
+        return jsonify({
+            "total": total_count,
+            "resolved": resolved_count,
+            "ongoing": ongoing_count,
+            "unresolved": 0  # Keep as 0 for now unless needed
+        })
+        
+    except Exception as e:
+        print(f"Error getting complaint stats for area {area_id}: {str(e)}")
+        return jsonify({
+            "total": 0,
+            "resolved": 0,
+            "ongoing": 0,
+            "unresolved": 0
+        }), 500

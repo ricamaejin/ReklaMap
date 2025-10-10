@@ -682,10 +682,6 @@ def complaint_details_invalid():
 def complaints_unresolved():
     return send_file(os.path.join(frontend_path, "admin", "complaints", "unresolved.html"))
 
-@complaints_bp.route("/timeline_test.html")
-def timeline_test():
-    return send_file(os.path.join(frontend_path, "timeline_test.html"))
-
 # Staff complaint detail pages
 @complaints_bp.route("/staff/complaints/complaint_inspector_valid.html")
 def staff_complaint_inspector_valid():
