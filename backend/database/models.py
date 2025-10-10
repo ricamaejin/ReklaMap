@@ -337,6 +337,7 @@ class BoundaryDispute(db.Model):
     q14 = db.Column(db.Enum('Yes', 'No', 'Not sure'))  # reside near site
     q15 = db.Column(db.Enum('Yes', 'No'))           # claim docs
     q15_1 = db.Column(db.JSON)                      # claim doc types
+    block_lot = db.Column(db.JSON)                  # non-member block/lot pairs
 
     # Extra details
     description = db.Column(db.Text)                # incident description

@@ -102,6 +102,7 @@
   <label><input type="checkbox" name="boundary_reported_to[]" value="USAD - PHASELAD"> USAD - PHASELAD</label>
   <label><input type="checkbox" name="boundary_reported_to[]" value="None"> None</label>
 
+
       <label><strong>6. What was the result of the report or inspection?</strong> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></label>
       <label><input type="checkbox" name="site_result[]" value="Advised to adjust or vacate"> The other party was advised to adjust or vacate</label>
       <label><input type="checkbox" name="site_result[]" value="Asked to provide more documents"> I was advised to provide more documents</label>
@@ -110,7 +111,7 @@
       <label><input type="checkbox" name="site_result[]" value="No action taken"> No action was taken</label>
       <label><input type="checkbox" name="site_result[]" value="Not applicable"> Not applicable / No inspection yet</label>
 
-      <!-- Section 2 -->
+      <!-- Section 2: PERSONS INVOLVED DETAILS -->
       <div class="section-header">PERSONS INVOLVED DETAILS</div>
       <p style="font-weight: bold;">1. Name of opposing claimant?</p>
       <div id="opposingNameContainer">
@@ -120,20 +121,14 @@
       </div>
       <!-- Removed multi-add for opposing claimant -->
 
-      <p style="font-weight: bold;">2. Relationship with person involved?</p>
-      <div id="relationshipContainer">
-        <div class="relationship-input" style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
-          <input type="text" name="relationship_with_person[]" placeholder="Relationship to the individual (neighbor, relative, etc.)" style="flex: 1; margin-left: 15px;">
-        </div>
-      </div>
-      <!-- Removed multi-add for relationship -->
-      <p style="font-weight: bold;">3. Do they reside on the disputed lot?</p>
+      <p style="font-weight: bold;">2. Do they reside on the disputed lot?</p>
       <label><input type="radio" name="reside" value="Yes"> Yes</label>
       <label><input type="radio" name="reside" value="No"> No</label>
       <label><input type="radio" name="reside" value="Not Sure"> Not sure</label>
-      <p style="font-weight: bold;">4. Do they claim to have legal documents?</p>
+
+      <p style="font-weight: bold;">3. Do they claim to have legal documents?</p>
       <div class="options-group" id="claimDocs">
-      <label><input type="radio" name="claimDocs" value="Yes"> Yes</label>
+        <label><input type="radio" name="claimDocs" value="Yes"> Yes</label>
         <div id="docOptions" style="display:none; margin-left: 35px;">
           <p style="margin-left: 5px; font-weight: bold;">What documents do they have?</p>
           <label><input type="checkbox" name="docs" value="Title"> Title</label>
@@ -143,9 +138,17 @@
           <label><input type="checkbox" name="docs" value="Contract/Agreement"> Contract/Agreement</label>
           <label><input type="checkbox" name="docs" value="Deed of Sale"> Deed of Sale</label>
         </div>
-      <label><input type="radio" name="claimDocs" value="No"> No</label>
-      <label><input type="radio" name="claimDocs" value="Not Sure"> Not sure</label>
-    </div>
+        <label><input type="radio" name="claimDocs" value="No"> No</label>
+        <label><input type="radio" name="claimDocs" value="Not Sure"> Not sure</label>
+      </div>
+
+      <p style="font-weight: bold;">4. Relationship with person involved?</p>
+      <div id="relationshipContainer">
+        <div class="relationship-input" style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+          <input type="text" name="relationship_with_person[]" placeholder="Relationship to the individual (neighbor, relative, etc.)" style="flex: 1; margin-left: 15px;">
+        </div>
+      </div>
+      <!-- Removed multi-add for relationship -->
 
       <p class="section-label" style="color: black;">Please describe what happened briefly, including how you found out about the issue.</p>
       <textarea id="description" name="description" title="Please describe what happened briefly, including how you found out about the issue."></textarea>

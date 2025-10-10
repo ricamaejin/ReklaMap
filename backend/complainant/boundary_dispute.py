@@ -287,8 +287,24 @@ def submit_boundary_dispute():
         except Exception:
             signature_path = clean_field(request.form.get("signature_path"))
 
+
+        # Handle block_lot for non-members (from static fields: block_no[] and lot_no[])
+        block_lot = None
+        if registration.category == 'non_member':
+            block_nos = request.form.getlist('block_no[]')
+            lot_nos = request.form.getlist('lot_no[]')
+            block_lot = []
+            for b, l in zip(block_nos, lot_nos):
+                b = (b or '').strip()
+                l = (l or '').strip()
+                if b or l:
+                    block_lot.append({'block': b, 'lot': l})
+            if not block_lot:
+                block_lot = None
+
         boundary_entry = BoundaryDispute(
             complaint_id=new_complaint.complaint_id,
+            block_lot=json.dumps(block_lot) if block_lot is not None else None,
             q1=json.dumps(q1),
             q2=q2,
             q3=q3,
@@ -472,3 +488,189 @@ def get_boundary_session_data():
                 }
 
     return jsonify(data)
+
+def get_form_structure(type_of_complaint: str):
+    if type_of_complaint != "Boundary Dispute":
+        return []
+
+    return [
+        {
+            "type": "checkbox",
+            "name": "q1",
+            "label": "1. What is the nature of the boundary issue? <i style='font-size: 14px; font-weight: normal; color: grey;'>(Check all that apply)</i>",
+            "options": [
+                ("Neighbor structure extends beyond line", "A neighbor’s house or structure extends beyond their boundary line"),
+                ("Fence overlaps into my property", "A fence or wall installed by the neighbor overlaps into my property"),
+                ("Construction within my claimed boundary", "Construction is ongoing within my claimed boundary"),
+                ("Shared boundary demolished", "Shared boundary structure (wall/fence) was demolished without consent"),
+                ("Boundary markers moved", "Boundary markers (mohon) were moved or removed"),
+                ("Neighbor expanded structure beyond assigned area", "The neighbor expanded their structure beyond their assigned area"),
+                ("Encroachment affects utilities", "Encroachment is affecting access to utilities (e.g., water, drainage, electricity)"),
+            ],
+        },
+        {
+            "type": "radio",
+            "name": "q2",
+            "label": "2. How long has this encroachment existed?",
+            "options": [
+                ("Less than 1 month", "Less than 1 month"),
+                ("1-6 months", "1-6 months"),
+                ("More than 6 months", "More than 6 months"),
+                ("Not sure", "Not sure"),
+            ],
+        },
+        {
+            "type": "radio",
+            "name": "q3",
+            "label": "3. Has the encroaching structure already been built or is it under construction?",
+            "options": [
+                ("Fully constructed", "Fully constructed"),
+                ("Partially constructed", "Partially constructed"),
+                ("Ongoing construction", "Ongoing construction"),
+                ("Structure was removed but boundary still contested", "Structure was removed but boundary still contested"),
+            ],
+        },
+        {
+            "type": "radio",
+            "name": "q4",
+            "label": "4. Were you given any prior notice before the structure crossed into your property?",
+            "options": [("Yes", "Yes"), ("No", "No")],
+        },
+        {
+            "type": "radio",
+            "name": "q5",
+            "label": "5. Have you discussed or confronted the other party about the boundary issue?",
+            "options": [("Yes", "Yes"), ("No", "No")],
+            "conditional": {
+                "trigger_value": "Yes",
+                "additional_fields": [
+                    {"type": "date", "name": "q5_1", "label": "Date Reported"},
+                ],
+            },
+        },
+        {
+            "type": "checkbox",
+            "name": "q6",
+            "label": "6. Has the dispute led to any of the following? <i style='font-size: 14px; font-weight: normal; color: grey;'>(Check all that apply)</i>",
+            "options": [
+                ("Threats or harassment", "Threats or harassment"),
+                ("Physical altercation", "Physical altercation"),
+                ("Demolition or forced entry", "Demolition or forced entry"),
+                ("Property damage", "Property damage"),
+                ("None", "None"),
+            ],
+        },
+        {
+            "type": "checkbox",
+            "name": "q7",
+            "label": "7. Have you reported this boundary issue to any office or authority? <i style='font-size: 14px; font-weight: normal; color: grey;'>(Check all that apply)</i>",
+            "options": [
+                ("Barangay", "Barangay"),
+                ("HOA", "HOA"),
+                ("NGC", "NGC"),
+                ("USAD - PHASELAD", "USAD - PHASELAD"),
+                ("None", "None"),
+            ],
+        },
+        {
+            "type": "radio",
+            "name": "q8",
+            "label": "8. Was there any site inspection or verification conducted?",
+            "options": [
+                ("Yes - Barangay", "Yes – by Barangay"),
+                ("Yes - HOA", "Yes – by HOA"),
+                ("Yes - NGC", "Yes – by NGC"),
+                ("Yes - USAD - PHASELAD", "Yes – by USAD - PHASELAD"),
+                ("No", "No"),
+                ("Not sure", "Not sure"),
+            ],
+        },
+        {
+            "type": "checkbox",
+            "name": "q9",
+            "label": "9. What was the result of the report or inspection? <i style='font-size: 14px; font-weight: normal; color: grey;'>(Check all that apply)</i>",
+            "options": [
+                ("Advised to adjust or vacate", "The other party was advised to adjust or vacate"),
+                ("Asked to provide more documents", "I was advised to provide more documents"),
+                ("Still under investigation", "The issue is still under investigation"),
+                ("No valid claim", "I was told I have no valid claim"),
+                ("No action taken", "No action was taken"),
+                ("Not applicable", "Not applicable / No inspection yet"),
+            ],
+        },
+        {
+            "type": "radio",
+            "name": "q10",
+            "label": "10. Do you have any documents or proof showing your boundary or property line?",
+            "options": [("Yes", "Yes"), ("No", "No")],
+            "conditional": {
+                "trigger_value": "Yes",
+                "additional_fields": [
+                    {
+                        "type": "checkbox",
+                        "name": "q10_1",
+                        "label": "Please specify documents <i style='font-size: 14px; font-weight: normal; color: grey;'>(Check all that apply)</i>",
+                        "options": [
+                            ("Subdivision or site survey map", "Subdivision or site survey map"),
+                            ("Certificate of Lot Award (CLA)", "Title"),
+                            ("Approved fence or building plan", "Building permit"),
+                            ("Barangay certification or inspection report", "Barangay certification or inspection report"),
+                            ("Photographs showing boundary markers or encroachment", "Photographs showing boundary markers or encroachment"),
+                        ],
+                    },
+                ],
+            },
+        },
+        {
+            "type": "radio",
+            "name": "q11",
+            "label": "11. Is there an ongoing development or government housing project in the area?",
+            "options": [("Yes", "Yes"), ("No", "No"), ("Not sure", "Not sure")],
+        },
+        {
+            "type": "table",
+            "name": "q12",
+            "label": "12. Who are the persons and specific block and lot numbers involved in the boundary dispute? (Excluding yours)",
+            "columns": ["Name", "Block", "Lot"],
+        },
+        {
+            "type": "multiple_text",
+            "name": "q13",
+            "label": "13. Relationship with the person involved",
+        },
+        {
+            "type": "radio",
+            "name": "q14",
+            "label": "14. Do they reside on or near the disputed boundary?",
+            "options": [("Yes", "Yes"), ("No", "No"), ("Not sure", "Not sure")],
+        },
+        {
+            "type": "radio",
+            "name": "q15",
+            "label": "15. Do they claim to have legal or assignment documents?",
+            "options": [("Yes", "Yes"), ("No", "No")],
+            "conditional": {
+                "trigger_value": "Yes",
+                "additional_fields": [
+                    {
+                        "type": "checkbox",
+                        "name": "q15_1",
+                        "label": "What documents do they have?",
+                        "options": [
+                            ("Title", "Title"),
+                            ("Contract to Sell", "Contract to Sell"),
+                            ("Certificate of Full Payment", "Certificate of Full Payment"),
+                            ("Pre-qualification Stub", "Pre-qualification Stub"),
+                            ("Contract/Agreement", "Contract/Agreement"),
+                            ("Deed of Sale", "Deed of Sale"),
+                        ],
+                    },
+                ],
+            },
+        },
+        {
+            "type": "textarea",
+            "name": "description",
+            "label": "Please describe what happened briefly, including how you found out about the issue.",
+        },
+    ]

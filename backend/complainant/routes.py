@@ -4,6 +4,7 @@ from werkzeug.utils import secure_filename
 from backend.database.models import User, Registration, Complaint, LotDispute, BoundaryDispute, RegistrationFamOfMember, RegistrationHOAMember
 from backend.database.db import db
 from backend.complainant.lot_dispute import get_form_structure as get_lot_form_structure
+from backend.complainant.boundary_dispute import get_form_structure as get_boundary_form_structure
 from backend.complainant.redirects import complaint_redirect_path
 from backend.database.models import BoundaryDispute
 import os, json, time
@@ -321,6 +322,7 @@ def complaint_details_json(complaint_id):
 
 @complainant_bp.route("/complaint/<int:complaint_id>")
 def view_complaint(complaint_id):
+    print('[DEBUG] view_complaint called for complaint_id:', complaint_id)
     user_id = session.get("user_id")
     if not user_id:
         return redirect("/complainant/complainant_login.html")
@@ -367,6 +369,7 @@ def view_complaint(complaint_id):
             pass
         return []
 
+    print('[DEBUG] complaint.type_of_complaint:', complaint.type_of_complaint)
     if complaint.type_of_complaint == "Lot Dispute":
         form_structure = get_lot_form_structure("Lot Dispute")
         # Load user's saved answers
@@ -421,12 +424,26 @@ def view_complaint(complaint_id):
                 "description": getattr(lot_dispute, 'description', None) or getattr(complaint, 'description', '') or '',
                 "signature": getattr(lot_dispute, 'signature', None) or getattr(registration, 'signature_path', '') or '',
             }
+
+            print("\n[DEBUG] --- Final Data Before Render ---")
+            print("[DEBUG] Complaint Type:", complaint.type_of_complaint)
+            print("[DEBUG] form_structure length:", len(form_structure))
+            print("[DEBUG] form_structure fields:")
+            for f in form_structure:
+                print("   ", f.get("name"), "-", f.get("type"))
+
+            print("[DEBUG] answers keys:", list(answers.keys()))
+            for k, v in answers.items():
+                print(f"   {k}: {v}")
+            print("[DEBUG] -----------------------------------\n")
     elif complaint.type_of_complaint == "Boundary Dispute":
         # Build answers from BoundaryDispute
         bd = BoundaryDispute.query.filter_by(complaint_id=complaint_id).first()
+        print('[DEBUG] BoundaryDispute record found:', bool(bd))
         boundary_dispute = bd
-        form_structure = []
+        form_structure = get_boundary_form_structure("Boundary Dispute")
         if bd:
+            print('[DEBUG] Building answers dict for Boundary Dispute')
             def _json_list(v):
                 try:
                     if isinstance(v, list):
@@ -476,6 +493,9 @@ def view_complaint(complaint_id):
                 'description': _safe(getattr(bd, 'description', None)),
                 'signature_path': _safe(getattr(bd, 'signature_path', None)),
             }
+            print("[DEBUG] Complaint Preview Answers:")
+            for k, v in answers.items():
+                print(f"  {k}: {v} (type: {type(v)})")
     else:
         form_structure = []
 
