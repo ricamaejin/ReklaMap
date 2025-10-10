@@ -1,5 +1,7 @@
+
 import os, json, time
 from flask import Blueprint, session, render_template, jsonify, request
+from werkzeug.utils import secure_filename
 from backend.database.models import Registration, Complaint, BoundaryDispute, Beneficiary, Block
 from backend.database.db import db
 
@@ -30,11 +32,13 @@ def submit_boundary_dispute():
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({"success": False, "message": "User not logged in"}), 401
+
         registration_id = request.form.get('registration_id') or session.get('registration_id')
         registration = Registration.query.get(registration_id)
         if not registration:
             return jsonify({"success": False, "message": "Parent registration not found"}), 400
-        # Build required Complaint fields similar to overlapping route
+
+        # Helper functions
         def clean_field(val):
             if not val:
                 return None
@@ -43,42 +47,48 @@ def submit_boundary_dispute():
                 return None
             return val_str
 
+        def clean_enum(val, allowed):
+            return val if val in allowed else None
+
+        def parse_date(val):
+            from datetime import datetime
+            if not val:
+                return None
+            try:
+                return datetime.strptime(val, "%Y-%m-%d").date()
+            except ValueError:
+                return None
+
+        # Build complainant name and address
         middle_name = clean_field(registration.middle_name)
         suffix = clean_field(registration.suffix)
         name_parts = [registration.first_name, middle_name, registration.last_name, suffix]
         complainant_name = " ".join([p for p in name_parts if p])
         address = registration.current_address or ""
 
-        area_id = None
-        try:
-            if registration.block_no and registration.lot_no:
-                bn = registration.block_no
-                ln = registration.lot_no
-                try:
-                    bn = int(bn)
-                except Exception:
-                    pass
-                try:
-                    ln = int(ln)
-                except Exception:
-                    pass
-                beneficiary = Beneficiary.query.filter_by(block_id=bn, lot_no=ln).first()
-                if not beneficiary:
-                    blk = Block.query.filter_by(block_no=bn).first()
-                    if blk:
-                        beneficiary = Beneficiary.query.filter_by(block_id=blk.block_id, lot_no=ln).first()
-                if beneficiary:
-                    area_id = beneficiary.area_id
-        except Exception:
-            area_id = None
 
+
+
+
+        # --- Use area/HOA from registration as reference for Q12 validation only ---
+        # Resolve area_id from registration.hoa (can be area_id or area_name)
+        area_id = None
+        hoa_val = registration.hoa
+        try:
+            area_id = int(hoa_val)
+        except Exception:
+            from backend.database.models import Area
+            area_obj = Area.query.filter_by(area_name=hoa_val).first()
+            if area_obj:
+                area_id = area_obj.area_id
         if area_id is None:
             return jsonify({
                 "success": False,
-                "message": "Cannot submit complaint: Area assignment not found for your block and lot. Please contact admin.",
+                "message": "Cannot submit complaint: Area assignment not found for your HOA/area. Please contact admin.",
                 "mismatches": ["Area Assignment"]
             }), 400
 
+        # Create Complaint
         new_complaint = Complaint(
             registration_id=registration.registration_id,
             type_of_complaint="Boundary Dispute",
@@ -88,35 +98,377 @@ def submit_boundary_dispute():
             address=address
         )
         db.session.add(new_complaint)
-        db.session.flush()
-        q1 = request.form.get("possession")
-        q2 = request.form.get("conflict")
-        q3 = request.form.get("reason")
-        q4 = request.form.get("q4")
-        q5 = request.form.get("q5")
-        q6 = request.form.getlist("q6")
-        q7 = request.form.get("reason")
-        q7_1 = request.form.get("reasonDateInput")
-        q8 = request.form.get("q8")
+        db.session.flush()  # Assigns complaint_id without committing
+
+        # --- Robust cross-check for Q12 (persons involved) ---
+        # Q12: list of {name, block, lot} (excluding complainant)
+        import json as _json
+        # q12 can come as JSON string array OR as bracketed fields q12[0][name], q12[0][block], q12[0][lot]
+        q12_raw = request.form.getlist("q12")
+        q12_list = []
+        if len(q12_raw) == 1 and isinstance(q12_raw[0], str) and q12_raw[0].strip().startswith("["):
+            try:
+                q12_list = _json.loads(q12_raw[0])
+            except Exception:
+                q12_list = []
+        else:
+            # Build from bracketed fields
+            # Collect all keys like q12[<idx>][name|block|lot]
+            import re
+            pattern = re.compile(r"^q12\[(\d+)\]\[(name|block|lot)\]$")
+            q12_map = {}
+            for key in request.form.keys():
+                m = pattern.match(key)
+                if not m:
+                    continue
+                idx, field = m.group(1), m.group(2)
+                q12_map.setdefault(idx, {})[field] = request.form.get(key)
+            # Convert to ordered list by idx
+            for idx in sorted(q12_map.keys(), key=lambda x: int(x)):
+                q12_list.append(q12_map[idx])
+
+        area_id = new_complaint.area_id
+        from backend.database.models import Beneficiary, Block
+        failed_entries = []
+        def normalize_mi(val):
+            if not val: return None
+            return str(val).replace('.', '').strip().upper()[:1] or None
+
+        for entry in q12_list:
+            name = (entry.get("name") or "").strip()
+            block = entry.get("block")
+            lot = entry.get("lot")
+            if not (name and block and lot):
+                failed_entries.append({"entry": entry, "reason": ["Missing required fields"]})
+                continue
+            # Parse name: try to split into first, (optional middle), last
+            name_parts = name.split()
+            if len(name_parts) < 2:
+                failed_entries.append({"entry": entry, "reason": ["Name must include at least first and last name"]})
+                continue
+            # Case-insensitive, whitespace-trimmed match for first and last name
+            first = name_parts[0].strip().upper()
+            last = name_parts[-1].strip().upper()
+            middle = name_parts[1].strip().upper() if len(name_parts) > 2 else None
+            try:
+                block_no = int(str(block).strip())
+                lot_no = int(str(lot).strip())
+            except Exception:
+                failed_entries.append({"entry": entry, "reason": ["Block/Lot must be numbers"]})
+                continue
+            blk = Block.query.filter_by(area_id=area_id, block_no=block_no).first()
+            if not blk:
+                failed_entries.append({"entry": entry, "reason": ["Block Assignment"]})
+                continue
+            # Find beneficiary by block, lot, area
+            ben = Beneficiary.query.filter(
+                Beneficiary.area_id == area_id,
+                Beneficiary.block_id == blk.block_id,
+                Beneficiary.lot_no == lot_no
+            ).first()
+            if not ben:
+                failed_entries.append({"entry": entry, "reason": ["No matching beneficiary for block/lot in your HOA"]})
+                continue
+            # Compare first and last name (case-insensitive, whitespace-trimmed, must match exactly)
+            ben_first = (ben.first_name or '').strip().upper()
+            ben_last = (ben.last_name or '').strip().upper()
+            mismatch = []
+            if ben_first != first:
+                mismatch.append("First Name")
+            if ben_last != last:
+                mismatch.append("Last Name")
+            # Optionally check middle initial
+            if middle:
+                if normalize_mi(ben.middle_initial) != normalize_mi(middle):
+                    mismatch.append("Middle Name")
+            # Block Assignment (should always match, but double-check)
+            try:
+                benef_block_no = ben.block.block_no if ben.block else None
+            except Exception:
+                benef_block_no = None
+            if benef_block_no != block_no:
+                mismatch.append("Block Assignment")
+            # Lot Assignment
+            if str(ben.lot_no) != str(lot_no):
+                mismatch.append("Lot Assignment")
+            # HOA
+            if str(ben.area_id) != str(area_id):
+                mismatch.append("HOA")
+            if mismatch:
+                failed_entries.append({"entry": entry, "reason": mismatch})
+
+        if failed_entries:
+            # Compose error message listing failed entries and reasons
+            msg = "The following person(s) have mismatches: "
+            msg += "; ".join([
+                f"{e['entry'].get('name','?')} (Block {e['entry'].get('block','?')}, Lot {e['entry'].get('lot','?')}): " + ", ".join(e['reason']) for e in failed_entries
+            ])
+            return jsonify({"success": False, "message": msg, "field": "q12"}), 400
+
+        # Map HTML form fields to BoundaryDispute columns (ensure correct mapping and types)
+        # Q1: nature_of_issue (checkboxes, string[])
+        q1 = request.form.getlist("nature_of_issue")
+        if not q1 or (len(q1) == 1 and not q1[0]):
+            q1 = []
+        # Q2: conflict (radio, string)
+        q2 = clean_field(request.form.get("conflict"))
+        # Q3: structure_status (radio, string)
+        q3 = clean_field(request.form.get("structure_status"))
+
+        # Q4: notice (radio, Yes/No)
+        q4 = clean_enum((request.form.get("notice") or "").strip().capitalize(), ["Yes", "No"])
+        # Q5: confronted (radio, Yes/No)
+        q5 = clean_enum((request.form.get("confronted") or "").strip().capitalize(), ["Yes", "No"])
+        # Q5_1: reasonDateInput (date)
+        q5_1 = parse_date(request.form.get("reasonDateInput"))
+        # Q6: dispute_effects (checkboxes, string[])
+        q6 = request.form.getlist("dispute_effects")
+        if not q6 or (len(q6) == 1 and not q6[0]):
+            q6 = []
+        # Q7: boundary_reported_to[] (checkboxes, string[])
+        q7 = request.form.getlist("boundary_reported_to[]")
+        if not q7 or (len(q7) == 1 and not q7[0]):
+            q7 = []
+        # Q8: site_inspection (radio, string)
+        # Normalize some similar values for site_inspection
+        si = clean_field(request.form.get("site_inspection"))
+        q8 = si
+        # Q9: site_result[] (checkboxes, string[])
+        q9 = request.form.getlist("site_result[]")
+        if not q9 or (len(q9) == 1 and not q9[0]):
+            q9 = []
+        # Q10: have_docs (radio, Yes/No)
+        q10 = clean_enum(request.form.get("have_docs"), ["Yes", "No"])
+        # Q10_1: boundary_docs[] (checkboxes, string[])
+        q10_1 = request.form.getlist("boundary_docs[]")
+        if not q10_1 or (len(q10_1) == 1 and not q10_1[0]):
+            q10_1 = []
+        # Q11: reason (radio, Yes/No/Not sure)
+        q11 = clean_enum((request.form.get("reason") or "").strip().capitalize(), ["Yes", "No", "Not sure"])
+        # Q12: q12 (persons involved, JSON array)
+        # Already validated and parsed as q12_list above
+        q12 = q12_list
+        # Q13: boundary_relationship (text[])
+        q13 = request.form.getlist("boundary_relationship")
+        if not q13 or (len(q13) == 1 and not q13[0]):
+            q13 = []
+        # Q14: boundary_reside (radio, Yes/No/Not sure)
+        q14 = clean_enum((request.form.get("boundary_reside") or "").strip().capitalize(), ["Yes", "No", "Not sure"])
+        # Q15: claimDocs (radio, Yes/No)
+        q15 = clean_enum(request.form.get("claimDocs"), ["Yes", "No"])
+        # Q15_1: docs (checkboxes, string[])
+        q15_1 = request.form.getlist("docs")
+        if not q15_1 or (len(q15_1) == 1 and not q15_1[0]):
+            q15_1 = []
+        # Description: textarea
+        description = clean_field(request.form.get("description"))
+        # Signature upload: accept file and save to uploads/signatures
+        signature_path = None
+        try:
+            file = request.files.get("signature_path")
+            if file and getattr(file, 'filename', ''):
+                filename = secure_filename(file.filename)
+                # Use backend/uploads/signatures as in complainant.routes
+                upload_dir = os.path.join(BASE_DIR, "..", "uploads", "signatures")
+                upload_dir = os.path.normpath(upload_dir)
+                os.makedirs(upload_dir, exist_ok=True)
+                save_path = os.path.join(upload_dir, filename)
+                # Avoid overwriting: if exists, add a timestamp prefix
+                if os.path.exists(save_path):
+                    name, ext = os.path.splitext(filename)
+                    filename = f"{int(time.time())}_{name}{ext}"
+                    save_path = os.path.join(upload_dir, filename)
+                file.save(save_path)
+                # Store just the filename; serving route will use known dir
+                signature_path = filename
+            else:
+                # Fallback to text path if provided
+                signature_path = clean_field(request.form.get("signature_path"))
+        except Exception:
+            signature_path = clean_field(request.form.get("signature_path"))
+
         boundary_entry = BoundaryDispute(
             complaint_id=new_complaint.complaint_id,
-            q1=q1,
+            q1=json.dumps(q1),
             q2=q2,
             q3=q3,
             q4=q4,
             q5=q5,
+            q5_1=q5_1,
             q6=json.dumps(q6),
-            q7=q7,
-            q7_1=q7_1 if q7_1 else None,
-            q8=q8
+            q7=json.dumps(q7),
+            q8=q8,
+            q9=json.dumps(q9),
+            q10=q10,
+            q10_1=json.dumps(q10_1),
+            q11=q11,
+            q12=json.dumps(q12),
+            q13=json.dumps(q13),
+            q14=q14,
+            q15=q15,
+            q15_1=json.dumps(q15_1),
+            description=description,
+            signature_path=signature_path
         )
+
         db.session.add(boundary_entry)
         db.session.commit()
+
         return jsonify({
             "success": True,
             "message": "Boundary dispute submitted successfully!",
             "complaint_id": new_complaint.complaint_id
         })
+
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "message": f"Server error: {e}"}), 500
+
+@boundary_dispute_bp.route('/get_boundary_session_data')
+def get_boundary_session_data():
+    registration_id = session.get("registration_id")
+    complaint_id = session.get("complaint_id")
+    if not registration_id:
+        return
+    reg = Registration.query.get(registration_id)
+    if not reg:
+        return
+
+    def safe(val):
+        if not val:
+            return ""
+        val_str = str(val).strip()
+        if val_str.lower() in {"na", "n/a", "none"}:
+            return ""
+        return val_str
+
+    name_parts = [safe(reg.first_name), safe(reg.middle_name), safe(reg.last_name), safe(reg.suffix)]
+    full_name = " ".join([p for p in name_parts if p])
+
+    # Default HOA value is the registration.hoa field (may be an ID or name)
+    hoa_value = getattr(reg, "hoa", "") or ""
+    # For non_member, hoa_member, and family_of_member, try to resolve area name from block/beneficiary
+    def resolve_area_name(block_no, lot_no):
+        try:
+            if block_no and lot_no:
+                bn = int(block_no)
+                ln = int(lot_no)
+                blk = Block.query.filter_by(block_no=bn).first()
+                if blk:
+                    beneficiary = Beneficiary.query.filter_by(block_id=blk.block_id, lot_no=ln).first()
+                    if beneficiary:
+                        from backend.database.models import Area
+                        area = Area.query.filter_by(area_id=beneficiary.area_id).first()
+                        if area:
+                            return area.area_name
+        except Exception:
+            pass
+        return ""
+
+    if reg.category == "non_member":
+        area_name = resolve_area_name(getattr(reg, "block_no", None), getattr(reg, "lot_no", None))
+        if area_name:
+            hoa_value = area_name
+        else:
+            # Fallback: try to resolve area name from hoa_value if it's an ID
+            try:
+                from backend.database.models import Area
+                hoa_id = int(hoa_value)
+                area = Area.query.filter_by(area_id=hoa_id).first()
+                if area:
+                    hoa_value = area.area_name
+            except Exception:
+                pass
+    elif reg.category in ("hoa_member", "family_of_member"):
+        area_name = resolve_area_name(getattr(reg, "block_no", None), getattr(reg, "lot_no", None))
+        if area_name:
+            hoa_value = area_name
+    data = {
+        "complaint_id": complaint_id,
+        "registration_id": reg.registration_id,
+        "category": reg.category,
+        "full_name": full_name,
+        "date_of_birth": reg.date_of_birth.isoformat() if reg.date_of_birth else "",
+        "sex": reg.sex,
+        "civil_status": reg.civil_status,
+        "citizenship": reg.citizenship,
+        "age": reg.age,
+        "cur_add": reg.current_address,
+        "phone_number": reg.phone_number,
+        "year_of_residence": reg.year_of_residence,
+        "recipient_of_other_housing": reg.recipient_of_other_housing,
+        "hoa": hoa_value,
+        "blk_num": getattr(reg, "block_no", "") or "",
+        "lot_num": getattr(reg, "lot_no", "") or "",
+        "lot_size": getattr(reg, "lot_size", "") or "",
+        "supporting_documents": None,
+    }
+
+    if reg.category == "hoa_member":
+        from backend.database.models import RegistrationHOAMember
+        hoa_member = RegistrationHOAMember.query.filter_by(registration_id=reg.registration_id).first()
+        if hoa_member and hoa_member.supporting_documents:
+            data["supporting_documents"] = hoa_member.supporting_documents
+    elif reg.category == "non_member":
+        from backend.database.models import RegistrationNonMember
+        non_member = RegistrationNonMember.query.filter_by(registration_id=reg.registration_id).first()
+        if non_member and hasattr(non_member, "connections") and isinstance(non_member.connections, dict):
+            data["connections"] = non_member.connections
+    elif reg.category == "family_of_member":
+        from backend.database.models import RegistrationFamOfMember, RegistrationHOAMember
+        fam = RegistrationFamOfMember.query.filter_by(registration_id=reg.registration_id).first()
+        if fam:
+            data["relationship"] = getattr(fam, "relationship", "")
+            # Find parent registration (the HOA member this family belongs to)
+            parent_reg = None
+            if fam.beneficiary_id:
+                # Try to find Registration with matching beneficiary_id and category 'hoa_member'
+                parent_reg = Registration.query.filter_by(beneficiary_id=fam.beneficiary_id, category="hoa_member").first()
+            if parent_reg:
+                parent_name_parts = [safe(parent_reg.first_name), safe(parent_reg.middle_name), safe(parent_reg.last_name), safe(parent_reg.suffix)]
+                parent_full_name = " ".join([p for p in parent_name_parts if p])
+                parent_info = {
+                    "full_name": parent_full_name,
+                    "date_of_birth": parent_reg.date_of_birth.isoformat() if parent_reg.date_of_birth else "",
+                    "sex": parent_reg.sex,
+                    "citizenship": parent_reg.citizenship,
+                    "age": parent_reg.age,
+                    "phone_number": parent_reg.phone_number,
+                    "year_of_residence": parent_reg.year_of_residence,
+                    "hoa": getattr(parent_reg, "hoa", "") or "",
+                    "current_address": parent_reg.current_address or "",
+                    "blk_num": getattr(parent_reg, "block_no", "") or "",
+                    "lot_num": getattr(parent_reg, "lot_no", "") or "",
+                    "lot_size": getattr(parent_reg, "lot_size", "") or "",
+                    "civil_status": parent_reg.civil_status,
+                    "recipient_of_other_housing": parent_reg.recipient_of_other_housing,
+                    "supporting_documents": None,
+                }
+                # Get supporting documents for parent HOA member
+                hoa_member = RegistrationHOAMember.query.filter_by(registration_id=parent_reg.registration_id).first()
+                if hoa_member and hoa_member.supporting_documents:
+                    parent_info["supporting_documents"] = hoa_member.supporting_documents
+                data["parent_info"] = parent_info
+            else:
+                # fallback: just use family member's own info (should not happen in normal flow)
+                parent_name_parts = [safe(fam.first_name), safe(fam.middle_name), safe(fam.last_name), safe(fam.suffix)]
+                parent_full_name = " ".join([p for p in parent_name_parts if p])
+                data["parent_info"] = {
+                    "full_name": parent_full_name,
+                    "date_of_birth": fam.date_of_birth.isoformat() if fam.date_of_birth else "",
+                    "sex": fam.sex,
+                    "citizenship": fam.citizenship,
+                    "age": fam.age,
+                    "phone_number": fam.phone_number,
+                    "year_of_residence": fam.year_of_residence,
+                    "hoa": "",
+                    "current_address": fam.current_address or "",
+                    "blk_num": "",
+                    "lot_num": "",
+                    "lot_size": "",
+                    "civil_status": "",
+                    "recipient_of_other_housing": "",
+                    "supporting_documents": fam.supporting_documents if hasattr(fam, "supporting_documents") else None,
+                }
+
+    return jsonify(data)

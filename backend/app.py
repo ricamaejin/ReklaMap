@@ -24,8 +24,6 @@ from backend.complainant.memreg import mem_reg_bp
 from backend.complainant.complaints_api import complaints_bp as complainant_complaints_bp
 from backend.complainant.nonmemreg import nonmemreg_bp
 from backend.complainant.famreg import famreg_bp
-# Overlapping blueprint
-from backend.complainant.overlapping import overlapping_bp
 # Lot Dispute blueprint
 from backend.complainant.lot_dispute import lot_dispute_bp
 # Boundary Dispute blueprint
@@ -48,6 +46,25 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # ✅ Initialize db with app
 db.init_app(app)
 
+# Add custom Jinja2 filters
+@app.template_filter('split')
+def split_filter(value, delimiter=','):
+    """Split a string by delimiter and return a list"""
+    if not value:
+        return []
+    return str(value).split(delimiter)
+
+@app.template_filter('from_json')
+def from_json_filter(value):
+    """Parse JSON string and return Python object"""
+    if not value:
+        return []
+    try:
+        import json
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return []
+
 # Register blueprints
 app.register_blueprint(auth_bp)
 app.register_blueprint(map_bp)
@@ -64,7 +81,6 @@ app.register_blueprint(mem_reg_bp)
 app.register_blueprint(complainant_complaints_bp)
 app.register_blueprint(nonmemreg_bp)
 app.register_blueprint(famreg_bp)
-app.register_blueprint(overlapping_bp)
 app.register_blueprint(lot_dispute_bp)
 app.register_blueprint(boundary_dispute_bp)
 

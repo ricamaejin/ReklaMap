@@ -49,7 +49,7 @@
             </select>
           </label>
 
-          <label>Date of Birth<input type="date" name="reg_dob"></label>
+          <label>Date of Birth<input type="date" name="reg_dob" id="reg_dob"></label>
           <label>Sex
             <select name="reg_sex">
               <option value="" disabled selected hidden></option>
@@ -60,7 +60,10 @@
             <input type="text" name="reg_cit" id="reg_cit">
             <small class="warn" id="warn-reg_cit">This field is required.</small>
           </label>
-          <label>Age<input type="number" name="reg_age" min="0" step="1"></label>
+          <label>Age
+            <input type="number" name="reg_age" id="reg_age" min="0" step="1" readonly>
+            <small class="warn" id="warn-reg_age">You must be 18 or older to register.</small>
+          </label>
 
           <label>Phone Number
             <input type="text" name="reg_phone" id="reg_phone">
@@ -70,7 +73,10 @@
             <input type="text" name="reg_year" id="reg_year">
             <small class="warn" id="warn-reg_year">This field is required.</small>
           </label>
-          <label><!-- empty placeholder to keep 4 cols --></label>
+          <label>Current Address
+            <input type="text" name="reg_cur_add" id="reg_cur_add">
+            <small class="warn" id="warn-reg_cur_add">This field is required.</small>
+          </label>
         </div>
         
         <!-- separator -->
@@ -97,7 +103,7 @@
             </select>
           </label>
 
-          <label>Date of Birth<input type="date" name="parent_dob"></label>
+          <label>Date of Birth<input type="date" name="parent_dob" id="parent_dob"></label>
           <label>Sex
             <select name="parent_sex">
               <option value="" disabled selected hidden></option>
@@ -108,7 +114,7 @@
             <input type="text" name="parent_cit" id="parent_cit">
             <small class="warn" id="warn-parent_cit">This field is required.</small>
           </label>
-          <label>Age<input type="number" name="parent_age" min="0" step="1"></label>
+          <label>Age<input type="number" name="parent_age" id="parent_age" min="0" step="1" readonly></label>
         </div>
 
         <div class="form-grid" aria-hidden="false" style="margin-bottom: -15px;">
@@ -142,6 +148,11 @@
             <small class="warn" id="warn-parent_lot_size">This field is required.</small>
           </label>
 
+          <label>Current Address
+            <input type="text" name="parent_cur_add" id="parent_cur_add">
+            <small class="warn" id="warn-parent_cur_add">This field is required.</small>
+          </label>
+
           <!-- Civil status column (right) -->
           <aside class="civil-status">
             <div class="label">Civil Status:</div>
@@ -156,12 +167,7 @@
           </aside>
         </div>
 
-        <div class="form-grid" aria-hidden="false" style="grid-template-columns: repeat(2, 1fr) !important;">
-          <label>Current Address
-            <input type="text" name="reg_cur_add" id="reg_cur_add">
-            <small class="warn" id="warn-reg_cur_add">This field is required.</small>
-          </label>
-        </div>
+        
 
         <!-- radio question (one option per row) -->
         <div class="radio-section" role="group">
@@ -180,7 +186,7 @@
             <label><input type="checkbox" name="doc_title"> Title</label>
             <label><input type="checkbox" name="doc_contract"> Contract to Sell</label>
             <label><input type="checkbox" name="doc_fullpay"> Certificate of Full Payment</label>
-            <label><input type="checkbox" name="doc_award"> Certificate of Award</label>
+            <label><input type="checkbox" name="doc_award"> Pre-qualification Stub</label>
             <label><input type="checkbox" name="doc_agreement"> Contract/Agreement</label>
             <label><input type="checkbox" name="doc_deed"> Deed of Sale</label>
           </div>
@@ -222,7 +228,7 @@
     }
 
     // Clear warn on input/change
-    ["reg_last","reg_first","reg_cit","reg_phone","reg_year","parent_last","parent_first","parent_cit","parent_year","reg_relationship","parent_hoa","parent_blk","parent_lot_asn","parent_lot_size","reg_cur_add"].forEach(id=>{
+    ["reg_last","reg_first","reg_cit","reg_phone","reg_year","parent_last","parent_first","parent_cit","parent_year","reg_relationship","parent_hoa","parent_blk","parent_lot_asn","parent_lot_size","reg_cur_add","parent_cur_add"].forEach(id=>{
       const el = document.getElementById(id);
       if (el){ el.addEventListener('input', ()=> hideFieldWarn('warn-'+id, el)); }
     });
@@ -232,6 +238,60 @@
     document.querySelectorAll('input[name^="doc_"]').forEach(c=>{
       c.addEventListener('change', ()=> hideFieldWarn('warn-docs'));
     });
+
+    // Age calculation and validation for both registrant and parent
+    function calculateAge(birthDate) {
+      const today = new Date();
+      const birth = new Date(birthDate);
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      
+      return age;
+    }
+    
+    // Registrant age calculation
+    const regDobField = document.getElementById('reg_dob');
+    const regAgeField = document.getElementById('reg_age');
+    
+    if (regDobField && regAgeField) {
+      regDobField.addEventListener('change', function() {
+        if (this.value) {
+          const age = calculateAge(this.value);
+          regAgeField.value = age;
+          
+          // Validate age (must be 18 or older)
+          if (age < 18) {
+            showFieldWarn('warn-reg_age', regAgeField);
+            showErrorPop('You must be 18 years or older to register.');
+          } else {
+            hideFieldWarn('warn-reg_age', regAgeField);
+          }
+        } else {
+          regAgeField.value = '';
+          hideFieldWarn('warn-reg_age', regAgeField);
+        }
+      });
+    }
+
+    // Parent age calculation
+    const parentDobField = document.getElementById('parent_dob');
+    const parentAgeField = document.getElementById('parent_age');
+    
+    if (parentDobField && parentAgeField) {
+      parentDobField.addEventListener('change', function() {
+        if (this.value) {
+          const age = calculateAge(this.value);
+          parentAgeField.value = age;
+        } else {
+          parentAgeField.value = '';
+        }
+      });
+    }
+
     function showErrorPop(msg) {
       const pop = document.getElementById('errorPop');
       const popMsg = document.getElementById('errorPopMsg');
@@ -284,7 +344,19 @@
       const v12 = requireVal('#parent_blk','warn-parent_blk');
       const v13 = requireVal('#parent_lot_asn','warn-parent_lot_asn');
       const v14 = requireVal('#parent_lot_size','warn-parent_lot_size');
-      const v15 = requireVal('#reg_cur_add','warn-reg_cur_add');
+  const v15 = requireVal('#reg_cur_add','warn-reg_cur_add');
+  const v16 = requireVal('#parent_cur_add','warn-parent_cur_add');
+
+      // Age validation (registrant must be 18 or older)
+      const ageValue = parseInt(document.getElementById('reg_age').value);
+      let ageValid = true;
+      if (isNaN(ageValue) || ageValue < 18) {
+        showFieldWarn('warn-reg_age', document.getElementById('reg_age'));
+        if (!firstInvalid) firstInvalid = document.getElementById('reg_age');
+        ageValid = false;
+      } else {
+        hideFieldWarn('warn-reg_age', document.getElementById('reg_age'));
+      }
 
       // Recipient required (radio)
       const recipientChecked = document.querySelector('input[name="recipient"]:checked');
@@ -300,7 +372,7 @@
         if (!firstInvalid) firstInvalid = document.querySelector('input[name="doc_title"]');
       } else hideFieldWarn('warn-docs');
 
-      const allOk = v1 && v2 && v3 && v4 && v5 && v6 && v7 && v8 && v9 && v10 && v11 && v12 && v13 && v14 && v15 && !!recipientChecked && docsChecked.length > 0;
+  const allOk = v1 && v2 && v3 && v4 && v5 && v6 && v7 && v8 && v9 && v10 && v11 && v12 && v13 && v14 && v15 && v16 && ageValid && !!recipientChecked && docsChecked.length > 0;
       if (!allOk){
         showErrorPop('Please complete the required fields.');
         if (firstInvalid){
@@ -330,31 +402,11 @@
         }
 
         if (result.success) {
-          showErrorPop(result.message || "Registration successful!");
-
-          // Wait a moment for the popup to show, then redirect
-          setTimeout(() => {
-            // ✅ Use the same key as in dashboard.html
-            let complaintType = sessionStorage.getItem("complaintType");
-            console.log("Complaint Type from sessionStorage:", complaintType);
-
-            if (complaintType === "Overlapping") {
-              window.location.href = "/complainant/overlapping/new_overlap_form";
-            } else if (complaintType === "Lot Dispute") {
-              window.location.href = "/complainant/new_lot_dispute_form";
-            } else if (complaintType === "Boundary Dispute") {
-              window.location.href = "/complainant/new_boundary_dispute_form";
-            } else if (complaintType === "Pathway Dispute") {
-              window.location.href = "/complainant/complaints/pathway_dispute.html";
-            } else if (complaintType === "Unauthorized Occupation") {
-              window.location.href = "/complainant/complaints/unauthorized_occupation.html";
-            } else if (complaintType === "Illegal Construction") {
-              window.location.href = "/complainant/complaints/illegal_construction.html";
-            } else {
-              window.location.href = "/complainant/complaints/general.html";
-            }
-          }, 1500);
-
+          if (result.redirect) {
+            window.location.href = result.redirect;
+          } else {
+            window.location.href = "/complainant/home/dashboard.html"; // safety fallback
+          }
         } else {
           showErrorPop(result.error || "Unknown error occurred.");
           submitBtn.disabled = false;

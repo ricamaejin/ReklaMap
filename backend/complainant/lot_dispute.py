@@ -1,23 +1,39 @@
-import os, json, time
 from datetime import datetime
-from flask import Blueprint, session, send_from_directory, jsonify, request
+from flask import Blueprint, session, send_from_directory, jsonify, request, render_template
 from werkzeug.utils import secure_filename
-from backend.database.models import Registration, Complaint, LotDispute, Beneficiary, Block, Area, RegistrationFamOfMember, GeneratedLots
+from backend.database.models import (
+    Registration,
+    Complaint,
+    LotDispute,
+    Beneficiary,
+    Block,
+    Area,
+    RegistrationFamOfMember,
+    GeneratedLots,
+)
 from backend.database.db import db
+import os, json, time
 
+
+# Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "frontend", "complainant", "complaints"))
 UPLOAD_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "uploads", "signatures"))
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+# Blueprint for Lot Dispute-only routes
 lot_dispute_bp = Blueprint(
     "lot_dispute",
     __name__,
-    url_prefix="/complainant/lot_dispute"
+    url_prefix="/complainant/lot_dispute",
 )
 
+
+# -----------------------------
+# Helpers
+# -----------------------------
+
 def get_area_name(area_id):
-    """Get area name from area_id"""
     if not area_id:
         return ""
     try:
@@ -26,25 +42,199 @@ def get_area_name(area_id):
     except (ValueError, TypeError):
         return str(area_id)
 
-@lot_dispute_bp.route('/new_lot_dispute_form')
+
+def _parse_list(val):
+    try:
+        if isinstance(val, list):
+            return val
+        if isinstance(val, str):
+            s = val.strip()
+            if not s:
+                return []
+            if s.startswith("["):
+                return json.loads(s)
+            if "," in s:
+                return [p.strip() for p in s.split(",") if p.strip()]
+            return [s]
+    except Exception:
+        pass
+    return []
+
+
+# -----------------------------
+# Preview route (optional)
+# -----------------------------
+
+@lot_dispute_bp.route("/complaint/<int:complaint_id>")
+def view_lot_dispute_complaint(complaint_id):
+    user_id = session.get("user_id")
+    if not user_id:
+        return "Not logged in", 401
+
+    complaint = Complaint.query.get_or_404(complaint_id)
+    registration = Registration.query.get(complaint.registration_id)
+    if not registration or registration.user_id != user_id:
+        return "Unauthorized", 403
+
+    # Attach supporting documents for templates
+    try:
+        from backend.database.models import RegistrationHOAMember
+        hoa_member = RegistrationHOAMember.query.filter_by(
+            registration_id=registration.registration_id
+        ).first()
+        if hoa_member and getattr(hoa_member, "supporting_documents", None):
+            setattr(registration, "supporting_documents", hoa_member.supporting_documents)
+        else:
+            if not hasattr(registration, "supporting_documents"):
+                setattr(registration, "supporting_documents", None)
+    except Exception:
+        if not hasattr(registration, "supporting_documents"):
+            setattr(registration, "supporting_documents", None)
+
+    # Use local helper directly (avoid re-importing this module)
+    form_structure = (
+        get_form_structure("Lot Dispute") if complaint.type_of_complaint == "Lot Dispute" else []
+    )
+
+    answers = {}
+    lot = None
+    if complaint.type_of_complaint == "Lot Dispute":
+        lot = LotDispute.query.filter_by(complaint_id=complaint_id).first()
+        if lot:
+            q2_list = _parse_list(getattr(lot, "q2", None))
+            q4_list = _parse_list(getattr(lot, "q4", None))
+            q5_list = _parse_list(getattr(lot, "q5", None))
+            q6_list = _parse_list(getattr(lot, "q6", None))
+            q7_list = _parse_list(getattr(lot, "q7", None))
+            q8_list = _parse_list(getattr(lot, "q8", None))
+
+            # q9 dict { claim, documents }
+            q9_raw = getattr(lot, "q9", None)
+            q9_data = {"claim": "", "documents": []}
+            try:
+                if isinstance(q9_raw, dict):
+                    q9_data = {"claim": q9_raw.get("claim", ""), "documents": q9_raw.get("documents", [])}
+                elif isinstance(q9_raw, str) and q9_raw.strip():
+                    parsed = json.loads(q9_raw)
+                    if isinstance(parsed, dict):
+                        q9_data = {"claim": parsed.get("claim", ""), "documents": parsed.get("documents", [])}
+            except Exception:
+                pass
+
+            # q10 dict
+            q10_raw = getattr(lot, "q10", None)
+            q10_data = {}
+            try:
+                if isinstance(q10_raw, dict):
+                    q10_data = q10_raw
+                elif isinstance(q10_raw, str) and q10_raw.strip():
+                    q10_data = json.loads(q10_raw)
+            except Exception:
+                q10_data = {}
+
+            q3_val = lot.q3.strftime("%Y-%m-%d") if getattr(lot, "q3", None) else ""
+
+            answers = {
+                "q1": getattr(lot, "q1", "") or "",
+                "q2": q2_list,
+                "q3": q3_val,
+                "q4": q4_list,
+                "q5": q5_list,
+                "q6": q6_list,
+                "q7": q7_list,
+                "q8": q8_list,
+                "q9": q9_data,
+                "q10": q10_data,
+                "description": (
+                    getattr(lot, "description", None) or getattr(complaint, "description", "") or ""
+                ),
+                "signature": (
+                    getattr(lot, "signature", None) or getattr(registration, "signature_path", "") or ""
+                ),
+            }
+
+    # Family of member parent info
+    parent_info = None
+    relationship = None
+    try:
+        if registration.category == "family_of_member":
+            fam_member = RegistrationFamOfMember.query.filter_by(
+                registration_id=registration.registration_id
+            ).first()
+            if fam_member:
+                relationship = fam_member.relationship
+                def safe(v):
+                    return str(v).strip() if v else ""
+                parts = [
+                    safe(fam_member.first_name),
+                    safe(fam_member.middle_name),
+                    safe(fam_member.last_name),
+                    safe(fam_member.suffix),
+                ]
+                sd = getattr(fam_member, "supporting_documents", {}) or {}
+                hoa_raw = sd.get("hoa")
+                parent_info = {
+                    "full_name": " ".join([p for p in parts if p]),
+                    "first_name": fam_member.first_name,
+                    "middle_name": fam_member.middle_name,
+                    "last_name": fam_member.last_name,
+                    "suffix": fam_member.suffix,
+                    "date_of_birth": fam_member.date_of_birth,
+                    "sex": fam_member.sex,
+                    "citizenship": fam_member.citizenship,
+                    "age": fam_member.age,
+                    "phone_number": fam_member.phone_number,
+                    "year_of_residence": fam_member.year_of_residence,
+                    "supporting_documents": getattr(fam_member, "supporting_documents", None),
+                    # Additional mapped fields for templates
+                    "hoa": get_area_name(hoa_raw) if hoa_raw else "",
+                    "block_no": sd.get("block_assignment") or "",
+                    "lot_no": sd.get("lot_assignment") or "",
+                    "lot_size": sd.get("lot_size") or "",
+                    "civil_status": sd.get("civil_status") or "",
+                    "recipient_of_other_housing": sd.get("recipient_of_other_housing") or "",
+                    "current_address": getattr(fam_member, "current_address", None) or sd.get("current_address") or "",
+                }
+    except Exception:
+        pass
+
+
+    return render_template(
+        "complaint_details_valid.html" if complaint.status == "Valid" else "complaint_details_invalid.html",
+        complaint=complaint,
+        registration=registration,
+        form_structure=form_structure,
+        answers=answers,
+        parent_info=parent_info,
+        relationship=relationship,
+        get_area_name=get_area_name,
+        lot_dispute=lot,
+    )
+
+
+# -----------------------------
+# New form and session data
+# -----------------------------
+
+@lot_dispute_bp.route("/new_lot_dispute_form")
 def new_lot_dispute_form():
-    user_id = session.get('user_id')
+    user_id = session.get("user_id")
     if not user_id:
         return "Not logged in", 401
     registration = Registration.query.filter_by(user_id=user_id).first()
     if not registration:
         return "No registration found for user", 400
     complaint_id = f"{user_id}-{int(time.time())}"
-    session['complaint_id'] = complaint_id
-    session['registration_id'] = registration.registration_id
+    session["complaint_id"] = complaint_id
+    session["registration_id"] = registration.registration_id
     html_dir = TEMPLATE_DIR
-    return send_from_directory(html_dir, 'lot_dispute.html')
+    return send_from_directory(html_dir, "lot_dispute.html")
 
-@lot_dispute_bp.route('/get_lot_session_data')
+
+@lot_dispute_bp.route("/get_lot_session_data")
 def get_lot_session_data():
-    """Provide registration and derived details for rendering category-specific header."""
-    registration_id = session.get('registration_id')
-    complaint_id = session.get('complaint_id')
+    registration_id = session.get("registration_id")
+    complaint_id = session.get("complaint_id")
     if not registration_id:
         return jsonify({"error": "No registration found in session"}), 400
     reg = Registration.query.get(registration_id)
@@ -76,20 +266,29 @@ def get_lot_session_data():
         "phone_number": reg.phone_number,
         "year_of_residence": reg.year_of_residence,
         "recipient_of_other_housing": reg.recipient_of_other_housing,
-        # Always include resolved HOA name if available
         "hoa": get_area_name(reg.hoa) if reg.hoa else "",
+        "blk_num": getattr(reg, "block_no", "") or "",
+        "lot_num": getattr(reg, "lot_no", "") or "",
+        "lot_size": getattr(reg, "lot_size", "") or "",
+        "supporting_documents": None,
     }
 
-    if reg.category in ["hoa_member", "family_of_member"]:
-        data.update({
-            "blk_num": reg.block_no,
-            "lot_num": reg.lot_no,
-            "lot_size": reg.lot_size,
-        })
-
-    if reg.category == "family_of_member":
+    if reg.category == "hoa_member":
+        from backend.database.models import RegistrationHOAMember
+        hoa_member = RegistrationHOAMember.query.filter_by(registration_id=reg.registration_id).first()
+        if hoa_member and hoa_member.supporting_documents:
+            data["supporting_documents"] = hoa_member.supporting_documents
+    elif reg.category == "non_member":
+        from backend.database.models import RegistrationNonMember
+        non_member = RegistrationNonMember.query.filter_by(registration_id=reg.registration_id).first()
+        if non_member and hasattr(non_member, "connections") and isinstance(non_member.connections, dict):
+            data["supporting_documents"] = non_member.connections
+    elif reg.category == "family_of_member":
         fam = RegistrationFamOfMember.query.filter_by(registration_id=reg.registration_id).first()
         if fam:
+            # Parent info
+            if fam.supporting_documents:
+                data["supporting_documents"] = fam.supporting_documents
             parent_name_parts = [safe(fam.first_name), safe(fam.middle_name), safe(fam.last_name), safe(fam.suffix)]
             parent_full_name = " ".join([p for p in parent_name_parts if p])
             data["relationship"] = fam.relationship
@@ -101,27 +300,46 @@ def get_lot_session_data():
                 "age": fam.age,
                 "phone_number": fam.phone_number,
                 "year_of_residence": fam.year_of_residence,
+                "current_address": fam.current_address or "",
             }
+            # Override top-level HOA/Block/Lot/Lot Size using family member JSON or beneficiary linkage
+            sd = getattr(fam, "supporting_documents", {}) or {}
+            hoa_src = sd.get("hoa")
+            if hoa_src:
+                data["hoa"] = get_area_name(hoa_src)
+            else:
+                try:
+                    from backend.database.models import Beneficiary
+                    if fam.beneficiary_id:
+                        ben = Beneficiary.query.get(fam.beneficiary_id)
+                        if ben:
+                            data["hoa"] = get_area_name(ben.area_id)
+                except Exception:
+                    pass
+            data["blk_num"] = sd.get("block_assignment") or data["blk_num"]
+            data["lot_num"] = sd.get("lot_assignment") or data["lot_num"]
+            data["lot_size"] = sd.get("lot_size") or data["lot_size"]
 
     return jsonify(data)
 
-@lot_dispute_bp.route('/validate_pairs', methods=['POST'])
+
+# -----------------------------
+# Validation and submission
+# -----------------------------
+
+@lot_dispute_bp.route("/validate_pairs", methods=["POST"])
 def validate_pairs():
-    """Validate provided Block/Lot pairs against the user's HOA area.
-    Expects JSON body: { "pairs": [{"block": "..", "lot": ".."}, ...] }
-    """
     try:
-        user_id = session.get('user_id')
+        user_id = session.get("user_id")
         if not user_id:
             return jsonify({"success": False, "message": "User not logged in"}), 401
-        registration_id = session.get('registration_id')
+        registration_id = session.get("registration_id")
         reg = Registration.query.get(registration_id) if registration_id else None
         if not reg:
             return jsonify({"success": False, "message": "Registration not found"}), 400
 
-        # Resolve area_id as in submit
         area_id = None
-        if getattr(reg, 'hoa', None):
+        if getattr(reg, "hoa", None):
             try:
                 area_id_candidate = int(reg.hoa)
                 if Area.query.get(area_id_candidate):
@@ -149,7 +367,7 @@ def validate_pairs():
             return jsonify({"success": False, "message": "Area assignment not found from your registration."}), 400
 
         payload = request.get_json(silent=True) or {}
-        pairs = payload.get('pairs')
+        pairs = payload.get("pairs")
         if not isinstance(pairs, list):
             return jsonify({"success": False, "message": "Invalid payload."}), 400
 
@@ -181,22 +399,27 @@ def validate_pairs():
                     found_invalid = True
                     break
         if found_invalid:
-            return jsonify({"success": False, "message": "Block or lot could not be found for your HOA.", "mismatches": ["Block or lot could not be found for your HOA."]}), 400
+            return jsonify({
+                "success": False,
+                "message": "Block or lot could not be found for your HOA.",
+                "mismatches": ["Block or lot could not be found for your HOA."],
+            }), 400
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "message": f"Server error: {e}"}), 500
 
-@lot_dispute_bp.route('/submit_lot_dispute', methods=['POST'])
+
+@lot_dispute_bp.route("/submit_lot_dispute", methods=["POST"])
 def submit_lot_dispute():
     try:
-        user_id = session.get('user_id')
+        user_id = session.get("user_id")
         if not user_id:
             return jsonify({"success": False, "message": "User not logged in"}), 401
-        registration_id = request.form.get('registration_id') or session.get('registration_id')
+        registration_id = request.form.get("registration_id") or session.get("registration_id")
         registration = Registration.query.get(registration_id)
         if not registration:
             return jsonify({"success": False, "message": "Parent registration not found"}), 400
-        # Build required Complaint fields
+
         def clean_field(val):
             if not val:
                 return None
@@ -211,16 +434,36 @@ def submit_lot_dispute():
         complainant_name = " ".join([p for p in name_parts if p])
         address = registration.current_address or ""
 
-        # Determine area via registration.hoa (preferred) or beneficiary using stored block/lot
         area_id = None
-        # Prefer area from registration.hoa if present (stored as area_id)
-        if getattr(registration, 'hoa', None):
+        # Prefer direct registration.hoa when present
+        if getattr(registration, "hoa", None):
             try:
                 area_id_candidate = int(registration.hoa)
                 if Area.query.get(area_id_candidate):
                     area_id = area_id_candidate
             except Exception:
                 area_id = None
+        # For family_of_member, use family JSON or beneficiary link
+        if area_id is None and registration.category == "family_of_member":
+            try:
+                fam = RegistrationFamOfMember.query.filter_by(registration_id=registration.registration_id).first()
+                if fam:
+                    sd = getattr(fam, "supporting_documents", {}) or {}
+                    hoa_src = sd.get("hoa")
+                    if hoa_src:
+                        try:
+                            candidate = int(hoa_src)
+                            if Area.query.get(candidate):
+                                area_id = candidate
+                        except Exception:
+                            pass
+                    if area_id is None and fam.beneficiary_id:
+                        ben = Beneficiary.query.get(fam.beneficiary_id)
+                        if ben:
+                            area_id = ben.area_id
+            except Exception:
+                area_id = None
+        # Fallback: derive via registration block/lot
         try:
             if area_id is None and registration.block_no and registration.lot_no:
                 bn = registration.block_no
@@ -235,7 +478,6 @@ def submit_lot_dispute():
                     pass
                 beneficiary = Beneficiary.query.filter_by(block_id=bn, lot_no=ln).first()
                 if not beneficiary:
-                    # Fallback: registration may store block_no instead of block_id
                     blk = Block.query.filter_by(block_no=bn).first()
                     if blk:
                         beneficiary = Beneficiary.query.filter_by(block_id=blk.block_id, lot_no=ln).first()
@@ -245,14 +487,12 @@ def submit_lot_dispute():
             area_id = None
 
         if area_id is None:
-            # No area found; cannot proceed
             return jsonify({
                 "success": False,
                 "message": "Cannot submit complaint: Area assignment not found from your registration.",
-                "mismatches": ["Area Assignment"]
+                "mismatches": ["Area Assignment"],
             }), 400
 
-        # Capture free-text description from form
         description = request.form.get("description")
 
         new_complaint = Complaint(
@@ -262,33 +502,28 @@ def submit_lot_dispute():
             complainant_name=complainant_name,
             area_id=area_id,
             address=address,
-            description=description
+            description=description,
         )
         db.session.add(new_complaint)
         db.session.flush()
+
         q1 = request.form.get("possession")
-        # Optional block/lot pairs (non-members). Expect JSON string from frontend.
         block_lot_raw = request.form.get("block_lot")
         block_lot = None
         if block_lot_raw:
             try:
                 parsed = json.loads(block_lot_raw)
-                # Basic shape validation: list of {block, lot}
                 if isinstance(parsed, list):
                     block_lot = [
-                        {
-                            "block": str(item.get("block", "")).strip(),
-                            "lot": str(item.get("lot", "")).strip(),
-                        }
-                        for item in parsed if isinstance(item, dict)
+                        {"block": str(item.get("block", "")).strip(), "lot": str(item.get("lot", "")).strip()}
+                        for item in parsed
+                        if isinstance(item, dict)
                     ]
                 else:
                     block_lot = None
             except Exception:
                 block_lot = None
 
-        # Server-side cross-check: ensure each provided Block/Lot exists within this HOA area
-        # Applies primarily to non-members, but safe to run for any provided pairs.
         if block_lot:
             found_invalid = False
             for idx, item in enumerate(block_lot, start=1):
@@ -319,13 +554,20 @@ def submit_lot_dispute():
                         break
             if found_invalid:
                 db.session.rollback()
-                return jsonify({
-                    "success": False,
-                    "message": "Block or lot could not be found for your HOA.",
-                    "mismatches": ["Block or lot could not be found for your HOA."]
-                }), 400
-        q2 = request.form.get("conflict")
-        # Parse date to Python date if provided
+                return jsonify(
+                    {
+                        "success": False,
+                        "message": "Block or lot could not be found for your HOA.",
+                        "mismatches": ["Block or lot could not be found for your HOA."],
+                    }
+                ), 400
+
+        try:
+            q2_list = request.form.getlist("nature")
+        except Exception:
+            q2_list = []
+        q2 = json.dumps(q2_list) if q2_list else None
+
         q3_raw = request.form.get("dispute_start_date")
         q3 = None
         if q3_raw:
@@ -333,12 +575,51 @@ def submit_lot_dispute():
                 q3 = datetime.strptime(q3_raw, "%Y-%m-%d").date()
             except Exception:
                 q3 = None
-        q4 = request.form.get("reason")
-        q5 = json.loads(request.form.get("reported_to") or "[]")
-        q6 = request.form.get("result")
-        q7 = request.form.get("opposing_name")
-        q8 = request.form.get("relationship_with_person")
-        q9 = request.form.get("legal_docs")
+
+        try:
+            q4_list = request.form.getlist("reason")
+        except Exception:
+            q4_list = []
+        q4 = json.dumps(q4_list) if q4_list else None
+
+        try:
+            q5_list = request.form.getlist("boundary_reported_to[]")
+        except Exception:
+            q5_list = []
+        q5 = json.dumps(q5_list)
+
+        try:
+            q6_list = request.form.getlist("site_result[]")
+        except Exception:
+            q6_list = []
+        q6 = json.dumps(q6_list) if q6_list else None
+
+        opposing_names = []
+        for key in request.form:
+            if key == "opposing_name[]":
+                opposing_names.extend(request.form.getlist(key))
+        q7 = json.dumps([name.strip() for name in opposing_names if name.strip()])
+
+        relationships = []
+        for key in request.form:
+            if key == "relationship_with_person[]":
+                relationships.extend(request.form.getlist(key))
+        q8 = json.dumps([rel.strip() for rel in relationships if rel.strip()])
+
+        legal_docs_claim = request.form.get("claimDocs")
+        q9_data = {"claim": legal_docs_claim}
+        if legal_docs_claim == "Yes":
+            docs_checked = []
+            for key in request.form:
+                if key == "docs":
+                    docs_checked.extend(request.form.getlist(key))
+            if docs_checked:
+                q9_data["documents"] = docs_checked
+        q9 = json.dumps(q9_data)
+
+        reside_answer = request.form.get("reside")
+        q10 = json.dumps({"reside": reside_answer}) if reside_answer else None
+
         lot_dispute_entry = LotDispute(
             complaint_id=new_complaint.complaint_id,
             q1=q1,
@@ -346,57 +627,62 @@ def submit_lot_dispute():
             q2=q2,
             q3=q3,
             q4=q4,
-            q5=json.dumps(q5),
+            q5=q5,
             q6=q6,
             q7=q7,
             q8=q8,
             q9=q9,
-            description=description
+            q10=q10,
+            description=description,
         )
         db.session.add(lot_dispute_entry)
-        
-        # Optional signature upload: save to shared signatures folder and attach to registration
+
         try:
-            file = request.files.get('signature')
-            if file and getattr(file, 'filename', ''):
+            file = request.files.get("signature")
+            if file and getattr(file, "filename", ""):
                 fname = secure_filename(file.filename)
-                # prefix to reduce collision risk
                 safe_name = f"{int(time.time())}_{fname}"
                 dest = os.path.join(UPLOAD_DIR, safe_name)
                 file.save(dest)
-                # store only the filename; previews use a route that resolves the path
                 registration.signature_path = safe_name
-                # also keep a copy reference on lot_dispute
                 lot_dispute_entry.signature = safe_name
         except Exception:
-            # Do not fail submission if signature save fails
             pass
 
         db.session.commit()
-        return jsonify({
-            "success": True,
-            "message": "Lot dispute submitted successfully!",
-            "complaint_id": new_complaint.complaint_id
-        })
+        return jsonify(
+            {
+                "success": True,
+                "message": "Lot dispute submitted successfully!",
+                "complaint_id": new_complaint.complaint_id,
+            }
+        )
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "message": f"Server error: {e}"}), 500
 
-@lot_dispute_bp.route('/areas')
+
+# -----------------------------
+# Misc
+# -----------------------------
+
+@lot_dispute_bp.route("/areas")
 def list_areas():
     try:
         areas = Area.query.order_by(Area.area_name.asc()).all()
-        return jsonify({
-            "success": True,
-            "areas": [{"area_id": a.area_id, "area_name": a.area_name} for a in areas]
-        })
+        return jsonify(
+            {
+                "success": True,
+                "areas": [{"area_id": a.area_id, "area_name": a.area_name} for a in areas],
+            }
+        )
     except Exception as e:
         return jsonify({"success": False, "message": f"Server error: {e}"}), 500
 
+
+# Keep form structure provider here for preview rendering
+
 def get_form_structure(type_of_complaint: str):
-    """Form structure used by previews (valid/invalid) for Lot Dispute.
-    Mirrors the complainant form so answers can be displayed like Overlapping.
-    """
     if type_of_complaint != "Lot Dispute":
         return []
     return [
@@ -415,81 +701,101 @@ def get_form_structure(type_of_complaint: str):
             ],
         },
         {
-            "type": "radio",
+            "type": "checkbox",
             "name": "q2",
             "label": "2. What is the nature of the ownership conflict?",
             "options": [
-                ("Contract duplication for same lot", "Someone else has a contract for the same lot"),
-                ("Another is claiming my assigned lot", "Someone else is claiming my assigned lot"),
-                ("Assigned a different lot than told", "I was assigned a different lot than what I was told"),
+                ("Someone else has a contract", "Someone else has a contract for the same lot"),
+                ("Someone else claiming lot", "Someone else is claiming my assigned lot"),
+                ("Assigned different lot", "I was assigned a different lot than what I was told"),
                 ("Lot not reflected in masterlist", "My lot is not reflected in the masterlist"),
-                ("Name removed or replaced in beneficiary list", "My name was removed or replaced in the beneficiary list"),
-                ("Lot illegally sold or reassigned", "Lot was illegally sold or reassigned to someone else"),
-                ("Family member/relative claiming the lot I occupy", "A family member/relative is claiming the lot I currently occupy"),
-                ("Assigned lot details incorrect in records", "My assigned lot details (e.g., lot no., area) are incorrect in the records"),
+                ("Name removed from list", "My name was removed or replaced in the beneficiary list"),
+                ("Lot illegally sold", "The lot was illegally sold or reassigned to someone else"),
+                ("Family member claiming", "A family member/relative is claiming the lot I currently occupy"),
+                ("Lot details incorrect", "My assigned lot details (e.g., lot no., area) are incorrect in the records"),
+                ("Not sure", "I am not sure what caused the dispute"),
             ],
         },
+        {"type": "date", "name": "q3", "label": "3. When did the dispute start?"},
         {
-            "type": "date",
-            "name": "q3",
-            "label": "3. When did the dispute start?",
-        },
-        {
-            "type": "radio",
+            "type": "checkbox",
             "name": "q4",
             "label": "4. What led you to raise this complaint?",
             "options": [
-                ("Asked to vacate the lot I occupy", "I was asked to vacate the lot I’ve been occupying"),
-                ("Denied access to lot I believe was assigned", "I was denied access to a lot I believe was assigned to me"),
-                ("Notice received that someone else is rightful owner", "I received notice that someone else is the rightful owner"),
-                ("Attempted to build and was stopped", "I attempted to build on the lot and was stopped"),
-                ("Another person listed in official records for my lot", "I discovered another person listed in official records for my lot"),
-                ("Other", "Other"),
+                ("Asked to vacate", "I was asked to vacate the lot I’ve been occupying"),
+                ("Denied access", "I was denied access to a lot I believe was assigned to me"),
+                ("Received notice", "I received notice that someone else is the rightful owner"),
+                ("Stopped from building", "I attempted to build on the lot and was stopped"),
+                ("Discovered duplicate record", "I discovered another person listed in official records for my lot"),
+                ("Clarification only", "I just want clarification about my assigned lot (no direct conflict yet)"),
             ],
         },
         {
             "type": "checkbox",
             "name": "q5",
-            "label": "5. Have you reported this to any authority?",
+            "label": "5. Have you reported this boundary issue to any office or authority?",
             "options": [
                 ("Barangay", "Barangay"),
                 ("HOA", "HOA"),
                 ("NGC", "NGC"),
+                ("USAD - PHASELAD", "USAD - PHASELAD"),
                 ("None", "None"),
             ],
         },
         {
-            "type": "radio",
+            "type": "checkbox",
             "name": "q6",
-            "label": "6. What was the result of that report?",
+            "label": "6. What was the result of the report or inspection?",
             "options": [
-                ("Other party asked to vacate", "The other party was asked to vacate"),
-                ("Agency asked for more documentation", "The agency asked for more documentation"),
+                ("Advised to adjust or vacate", "The other party was advised to adjust or vacate"),
+                ("Asked to provide more documents", "I was advised to provide more documents"),
+                ("Still under investigation", "The issue is still under investigation"),
+                ("No valid claim", "I was told I have no valid claim"),
                 ("No action taken", "No action was taken"),
-                ("Still under investigation", "Still under investigation"),
-                ("Told I have no valid claim", "I was told I have no valid claim"),
-                ("Other", "Other"),
+                ("Not applicable", "Not applicable / No inspection yet"),
             ],
         },
         {
-            "type": "text",
+            "type": "multiple_text",
             "name": "q7",
             "label": "7. Name of opposing claimant?",
+            "description": "Multiple names can be added for each person involved",
         },
         {
-            "type": "text",
+            "type": "multiple_text",
             "name": "q8",
             "label": "8. Relationship with person involved?",
+            "description": "Multiple relationships can be added corresponding to each person",
         },
         {
             "type": "radio",
             "name": "q9",
             "label": "9. Do they claim to have legal documents?",
-            "options": [
-                ("Yes", "Yes"),
-                ("No", "No"),
-                ("Not Sure", "Not sure"),
-            ],
+            "options": [("Yes", "Yes"), ("No", "No"), ("Not Sure", "Not sure")],
+            "conditional": {
+                "show_when": "Yes",
+                "additional_fields": [
+                    {
+                        "type": "checkbox",
+                        "name": "docs",
+                        "label": "What documents do they have?",
+                        "options": [
+                            ("Title", "Title"),
+                            ("Contract to Sell", "Contract to Sell"),
+                            ("Certificate of Full Payment", "Certificate of Full Payment"),
+                            ("Pre-qualification Stub", "Pre-qualification Stub"),
+                            ("Contract/Agreement", "Contract/Agreement"),
+                            ("Deed of Sale", "Deed of Sale"),
+                        ],
+                    }
+                ],
+            },
+        },
+        {
+            "type": "radio",
+            "name": "q10",
+            "label": "10. Do they reside on the disputed lot?",
+            "options": [("Yes", "Yes"), ("No", "No"), ("Not Sure", "Not sure")],
         },
         {
             "type": "textarea",

@@ -1,0 +1,324 @@
+{# Reusable Lot Dispute preview partial #}
+
+{# Non-member specific block/lot section #}
+{% if registration.category == 'non_member' and lot_dispute and lot_dispute.block_lot %}
+  <div id="nonMemberBlockLotSection">
+    <p>What is the specific block and lot involved in the lot dispute?</p>
+    <div class="pairs" id="pairsContainer" aria-live="polite">
+      {% for pair in lot_dispute.block_lot %}
+        <div class="pair-row">
+          <div class="col">
+            <label class="small">Block No.</label>
+            <input type="text" value="{{ pair.block }}" readonly title="Block No." placeholder="Block No.">
+          </div>
+          <div class="col">
+            <label class="small">Lot No.</label>
+            <input type="text" value="{{ pair.lot }}" readonly title="Lot No." placeholder="Lot No.">
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+{# Generic Lot Dispute field rendering based on form_structure #}
+{% for field in form_structure %}
+  {% if field.type == 'block_lot_pairs' %}
+    <p>{{ field.label }}</p>
+    {% set pairs = answers[field.name] %}
+    <div class="pairs">
+      {% if pairs %}
+        {% for pair in pairs %}
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Block No.</label>
+              <input type="text" value="{{ pair.block or pair['block'] }}" disabled title="Block No." aria-label="Block No.">
+            </div>
+            <div class="col">
+              <label class="small">Lot No.</label>
+              <input type="text" value="{{ pair.lot or pair['lot'] }}" disabled title="Lot No." aria-label="Lot No.">
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="readonly-value">None</div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if field.type == 'radio' %}
+    <p>{{ field.label }}</p>
+    {% if field.name == 'q9' %}
+      {# Special handling for lot dispute q9 - JSON structure with claim and documents #}
+      {% set q9_data = answers[field.name] if field.name in answers else {} %}
+      {% set claim_value = '' %}
+      {% if q9_data %}
+        {% if q9_data is string %}
+          {% set claim_value = q9_data %}
+        {% elif q9_data.claim is defined %}
+          {% if q9_data.claim is string %}
+            {% set claim_value = q9_data.claim %}
+          {% elif q9_data.claim.claim is defined and q9_data.claim.claim is string %}
+            {% set claim_value = q9_data.claim.claim %}
+          {% elif q9_data.claim.claim is defined and q9_data.claim.claim.claim is defined %}
+            {% set claim_value = q9_data.claim.claim.claim %}
+          {% endif %}
+        {% endif %}
+      {% endif %}
+      {% if not claim_value and q9_data %}
+        {% set q9_str = q9_data|string|lower %}
+        {% if 'yes' in q9_str %}
+          {% set claim_value = 'Yes' %}
+        {% elif 'no' in q9_str and not 'not sure' in q9_str %}
+          {% set claim_value = 'No' %}
+        {% elif 'not sure' in q9_str or 'unsure' in q9_str %}
+          {% set claim_value = 'Not Sure' %}
+        {% endif %}
+      {% endif %}
+      {% set normalized_claim = claim_value|string|trim|lower %}
+      <div class="radio-group">
+        {% for val, label in field.options %}
+          <label class="option">
+            {% set normalized_val = val|string|trim|lower %}
+            {% set normalized_label = label|string|trim|lower %}
+            {% set matches = false %}
+            {% if normalized_claim == normalized_val or normalized_claim == normalized_label %}
+              {% set matches = true %}
+            {% endif %}
+            {% if not matches and claim_value %}
+              {% set claim_val_str = claim_value|string %}
+              {% if (val|string) in claim_val_str or (label|string) in claim_val_str or normalized_val in normalized_claim or normalized_label in normalized_claim %}
+                {% set matches = true %}
+              {% endif %}
+            {% endif %}
+            {% if not matches and q9_data %}
+              {% set q9_str = q9_data|string|lower %}
+              {% if (val|string|lower) in q9_str or (label|string|lower) in q9_str %}
+                {% set matches = true %}
+              {% endif %}
+            {% endif %}
+            {% if not matches %}
+              {% set q9_raw_lower = q9_data|string|lower %}
+              {% if (val == 'Yes' or normalized_label == 'yes') and ((q9_data.documents is defined and q9_data.documents) or (q9_data.claim is defined and (q9_data.claim == 'Yes' or q9_data.claim == 'yes'))) %}
+                {% set matches = true %}
+              {% elif (val == 'No' or normalized_label == 'no') and (q9_data.claim is defined and q9_data.claim == 'No') %}
+                {% set matches = true %}
+              {% elif ('not sure' in normalized_label or 'unsure' in normalized_label) and ('not sure' in q9_raw_lower or 'unsure' in q9_raw_lower) %}
+                {% set matches = true %}
+              {% endif %}
+            {% endif %}
+            <input type="radio" name="{{ field.name }}" value="{{ val }}" disabled {% if matches %}checked{% endif %}>
+            {{ label }}
+          </label>
+        {% endfor %}
+      </div>
+      {% if claim_value == 'Yes' %}
+        <div style="margin-left: 20px; margin-top: 10px;">
+          <p><strong>Documents they have:</strong></p>
+          <div class="radio-group" style="margin-left: 15px;">
+            {% if field.conditional and field.conditional.additional_fields %}
+              {% for doc_field in field.conditional.additional_fields %}
+                {% if doc_field.name == 'docs' %}
+                  {% for val, label in doc_field.options %}
+                    <label class="option" style="display: block; margin-bottom: 6px;">
+                      {% set doc_checked = false %}
+                      {% set normalized_val = val|string|trim|lower %}
+                      {% set normalized_label = label|string|trim|lower %}
+                      {% if q9_data.documents %}
+                        {% if q9_data.documents is string %}
+                          {% if ',' in q9_data.documents %}
+                            {% set doc_list = q9_data.documents|string|replace(' ', '')|split(',') %}
+                            {% for doc in doc_list %}
+                              {% set normalized_doc = doc|string|trim|lower %}
+                              {% if normalized_doc == normalized_val or normalized_doc == normalized_label or (val|string) in (doc|string) or (label|string) in (doc|string) %}
+                                {% set doc_checked = true %}
+                              {% endif %}
+                            {% endfor %}
+                          {% elif q9_data.documents|string|trim|lower == normalized_val or q9_data.documents|string|trim|lower == normalized_label or (val|string) in (q9_data.documents|string) or (label|string) in (q9_data.documents|string) %}
+                            {% set doc_checked = true %}
+                          {% endif %}
+                        {% elif q9_data.documents is iterable %}
+                          {% for doc in q9_data.documents %}
+                            {% set normalized_doc = doc|string|trim|lower %}
+                            {% if normalized_doc == normalized_val or normalized_doc == normalized_label or (val|string) in (doc|string) or (label|string) in (doc|string) %}
+                              {% set doc_checked = true %}
+                            {% endif %}
+                          {% endfor %}
+                        {% endif %}
+                      {% endif %}
+                      {% if not doc_checked %}
+                        {% set q9_str = q9_data|string|lower %}
+                        {% if normalized_val in q9_str or normalized_label in q9_str %}
+                          {% set doc_checked = true %}
+                        {% endif %}
+                      {% endif %}
+                      <input type="checkbox" name="q9_documents" value="{{ val }}" disabled {% if doc_checked %}checked{% endif %}>
+                      {{ label }}
+                    </label>
+                  {% endfor %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    {% else %}
+      {# Standard radio field handling #}
+      {% set raw = answers[field.name] if field.name in answers else '' %}
+      {% set raw_str = raw|string %}
+      {% set is_multi = ',' in raw_str %}
+      {% if is_multi %}
+        {% set selected_list = raw_str|replace(' ', '')|split(',') %}
+        <div class="checkbox-group">
+          {% for val, label in field.options %}
+            <label class="option">
+              {% set normalized_val = val|string|trim|lower %}
+              {% set normalized_label = label|string|trim|lower %}
+              {% set selected = false %}
+              {% for sel in selected_list %}
+                {% set normalized_sel = sel|string|trim|lower %}
+                {% if normalized_sel == normalized_val or normalized_sel == normalized_label or (val|string) in (sel|string) or (label|string) in (sel|string) %}
+                  {% set selected = true %}
+                {% endif %}
+              {% endfor %}
+              <input type="checkbox" disabled {% if selected %}checked{% endif %}> {{ label }}
+            </label>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="radio-group">
+          {% for val, label in field.options %}
+            <label class="option">
+              {% set normalized_val = val|string|trim|lower %}
+              {% set normalized_raw = raw_str|string|trim|lower %}
+              {% set normalized_label = label|string|trim|lower %}
+              {% set matches = false %}
+              {% if normalized_raw %}
+                {% if normalized_raw == normalized_val or normalized_raw == normalized_label %}
+                  {% set matches = true %}
+                {% elif (val|string) in raw_str or (label|string) in raw_str %}
+                  {% set matches = true %}
+                {% elif raw_str in (val|string) or raw_str in (label|string) %}
+                  {% set matches = true %}
+                {% endif %}
+              {% endif %}
+              {% if not matches and field.name in answers %}
+                {% set full_answer = answers[field.name] %}
+                {% if full_answer is mapping and full_answer is not string %}
+                  {% set full_answer_str = full_answer|string|lower %}
+                  {% if (val|string|lower) in full_answer_str or (label|string|lower) in full_answer_str %}
+                    {% set matches = true %}
+                  {% endif %}
+                {% endif %}
+              {% endif %}
+              <input type="radio" name="{{ field.name }}" value="{{ val }}" disabled {% if matches %}checked{% endif %}>
+              {{ label }}
+            </label>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endif %}
+  {% endif %}
+
+  {% if field.type == 'date' %}
+    <p>{{ field.label }}</p>
+    <input type="date" value="{{ answers[field.name] }}" disabled title="{{ field.label }}" aria-label="{{ field.label }}">
+  {% endif %}
+
+  {% if field.type == 'checkbox' %}
+    {% if field.name == 'q9' %}<div class="indent-subquestion">{% endif %}
+    <p>{{ field.label }}</p>
+    {% set selected_raw = answers[field.name] if field.name in answers else [] %}
+    {% set selected = [] %}
+    {% if selected_raw %}
+      {% if selected_raw is string %}
+        {% if ',' in selected_raw %}
+          {% set selected = selected_raw|string|replace(' ', '')|split(',') %}
+        {% elif selected_raw|lower == 'none' %}
+          {% set selected = ['None'] %}
+        {% else %}
+          {% set selected = [selected_raw] %}
+        {% endif %}
+      {% elif selected_raw is iterable %}
+        {% set selected = selected_raw %}
+      {% else %}
+        {% set selected = [selected_raw|string] %}
+      {% endif %}
+    {% endif %}
+    <div class="checkbox-group">
+      {% for val, label in field.options %}
+        <label class="option">
+          {% set normalized_val = val|string|trim|lower %}
+          {% set normalized_label = label|string|trim|lower %}
+          {% set is_checked = false %}
+          {% for sel in selected %}
+            {% if sel %}
+              {% set normalized_sel = sel|string|trim|lower %}
+              {% if normalized_sel == normalized_val or normalized_sel == normalized_label %}
+                {% set is_checked = true %}
+              {% elif (val|string) in (sel|string) or (label|string) in (sel|string) %}
+                {% set is_checked = true %}
+              {% elif (sel|string) in (val|string) or (sel|string) in (label|string) %}
+                {% set is_checked = true %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {% if not is_checked and field.name in answers %}
+            {% set raw_answer_str = answers[field.name]|string|lower %}
+            {% if (val|string|lower) in raw_answer_str or (label|string|lower) in raw_answer_str %}
+              {% set is_checked = true %}
+            {% endif %}
+          {% endif %}
+          <input type="checkbox" name="{{ field.name }}" value="{{ val }}" disabled {% if is_checked %}checked{% endif %}>
+          {{ label }}
+        </label>
+      {% endfor %}
+    </div>
+    {% if field.name == 'q9' %}</div>{% endif %}
+  {% endif %}
+
+  {% if field.type == 'text' %}
+    <p>{{ field.label }}</p>
+    <input type="text" value="{{ answers[field.name] }}" disabled title="{{ field.label }}" aria-label="{{ field.label }}">
+  {% endif %}
+
+  {% if field.type == 'multiple_text' %}
+    <p>{{ field.label }}</p>
+    {% set multiple_values = answers[field.name] if field.name in answers else [] %}
+    {% if multiple_values %}
+      {% if multiple_values is string %}
+        {% set multiple_list = multiple_values|from_json if multiple_values else [] %}
+      {% else %}
+        {% set multiple_list = multiple_values %}
+      {% endif %}
+      <div style="margin-left: 15px;">
+        {% for item in multiple_list %}
+          <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+            <input type="text" value="{{ item }}" readonly style="flex: 1; background: #f3f3f3; color: #888; border-color: #d3d3d3; cursor: not-allowed;" title="{{ field.label }}">
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="readonly-value">N/A</div>
+    {% endif %}
+  {% endif %}
+
+  {% if field.type == 'textarea' %}
+    <p><strong>{{ field.label }}</strong></p>
+    <textarea readonly title="{{ field.label }}" aria-label="{{ field.label }}">{{ answers[field.name] }}</textarea>
+    <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
+    <div class="consent">
+      By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
+    </div>
+  {% endif %}
+
+  {% if field.type == 'signature' %}
+    <div class="signature">
+      {% if answers.signature %}
+        <a href="{{ url_for('complainant.uploaded_signature', filename=answers.signature) }}" target="_blank">View Signature</a>
+      {% else %}
+        <p><em>No signature uploaded</em></p>
+      {% endif %}
+    </div>
+  {% endif %}
+{% endfor %}

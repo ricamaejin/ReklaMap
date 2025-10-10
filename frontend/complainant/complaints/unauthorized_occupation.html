@@ -114,7 +114,6 @@
 
       <p style="font-weight: bold;">1. What is your legal connection to this property?</p>
       <label><input type="radio" name="legal_connection" value="beneficiary"> I am an awarded beneficiary.</label>
-      <label><input type="radio" name="legal_connection" value="representative"> I am an authorized representative of the owner/beneficiary.</label>
       <label><input type="radio" name="legal_connection" value="heir"> I am an heir/successor-in-interest of the deceased registered owner.</label>
       <label><input type="radio" name="legal_connection" value="purchaser"> I am the purchaser/buyer with a signed Deed of Sale or Contract to Sell.</label>
       <label><input type="radio" name="legal_connection" value="lessee"> I am a lessee/tenant with a valid and current lease agreement.</label>
@@ -147,7 +146,7 @@
         <label><input type="checkbox" name="occupant_documents[]" value="title" style="margin-left: 33px;"> Title</label>
         <label><input type="checkbox" name="occupant_documents[]" value="contract_to_sell" style="margin-left: 33px;"> Contract to Sell</label>
         <label><input type="checkbox" name="occupant_documents[]" value="certificate_full_payment" style="margin-left: 33px;"> Certificate of Full Payment</label>
-        <label><input type="checkbox" name="occupant_documents[]" value="certificate_of_award" style="margin-left: 33px;"> Certificate of Award</label>
+        <label><input type="checkbox" name="occupant_documents[]" value="qualification_stub" style="margin-left: 33px;"> Pre-qualification Stub</label>
         <label><input type="checkbox" name="occupant_documents[]" value="contract_agreement" style="margin-left: 33px;"> Contract/Agreement</label>
         <label><input type="checkbox" name="occupant_documents[]" value="deed_of_sale" style="margin-left: 33px;"> Deed of Sale</label>
       </div>
@@ -174,11 +173,12 @@
         <label><input type="radio" name="approachNoDetails" style="margin-left: 33px;"> I am not currently living in the area</label>
       </div>
 
-      <p style="font-weight: bold;">7. Have you reported this to any authority? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
-      <label><input type="checkbox"> Yes, I reported it to the Barangay</label>
-      <label><input type="checkbox"> Yes, I reported it to the HOA</label>
-      <label><input type="checkbox"> Yes, I reported it to the NGC</label>
-      <label><input type="checkbox" style="margin-bottom: 12px;" name="Not yet"> Not yet</label>
+      <label><strong>7. Have you reported this boundary issue to any office or authority?</strong> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></label>
+      <label><input type="checkbox" name="boundary_reported_to[]" value="Barangay"> Barangay</label>
+      <label><input type="checkbox" name="boundary_reported_to[]" value="HOA"> HOA</label>
+      <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> NGC</label>
+      <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> USAD - PHASELAD</label>
+      <label><input type="checkbox" name="boundary_reported_to[]" value="none"> None</label>
 
       <p style="font-weight: bold;">8. What was the result of that report?</p>
       <label><input type="radio" name="result"> The occupant was formally asked to leave</label>
@@ -188,17 +188,8 @@
       <label><input type="radio" name="result"> No action was taken by the authority.</label>
       <label><input type="radio" name="result" style="margin-bottom: 12px;"> I was told I have no valid claim</label>
 
-      <p style="font-weight: bold;">9. Have you filed a complaint about this specific issue with our department before?</p>
-      <label><input type="radio" name="previous_complaint" value="yes" id="prevComplaintYes"> Yes</label>
-      <div id="prevComplaintDetails" style="display:none;" class="indented">
-        <label style="font-weight: bold; margin-left: 35px;">Please provide the previous complaint reference number, if known:
-            <input type="text" name="prev_complaint_ref" placeholder="If not known please input NA" style="margin-left: 33px; width: 92%;">
-        </label>
-      </div>
-      <label><input type="radio" name="previous_complaint" value="no" style="margin-bottom: 12px;"> No, this is the first time I am reporting it to this department.</label>
-
       <!-- Section 2 -->
-      <p style="font-weight: bold;">Please describe what happened briefly, including how you found out about the issue.</p>
+      <p class="section-label">Please describe what happened briefly, including how you found out about the issue.</p>
       <textarea></textarea>
 
       <!-- Section 3 -->
@@ -372,50 +363,41 @@ function toggleDetailsByRadioValue(groupName, targetValue, detailsId) {
 toggleDetailsByRadioValue("occupant_claim", "docs", "reasonDetails");
 // fix No. 9: show previous complaint reference only when "Yes" is selected
 toggleDetailsByRadioValue("previous_complaint", "yes", "prevComplaintDetails");
+</script>
 
-// Q7: Make "Not yet" exclusive - if checked, uncheck others and vice versa
-(function setupExclusiveCheckbox() {
-  const checkboxes = document.querySelectorAll('.main input[type="checkbox"]');
-  const reportCheckboxes = [];
-  
-  // Find the authority reporting checkboxes (Q7)
-  checkboxes.forEach(cb => {
-    const label = cb.closest('label');
-    if (label && (
-      label.textContent.includes('reported it to the Barangay') ||
-      label.textContent.includes('reported it to the HOA') ||
-      label.textContent.includes('reported it to the NGC') ||
-      label.textContent.includes('Not yet')
-    )) {
-      reportCheckboxes.push(cb);
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Target all checkboxes in Q7
+  const checkboxes = document.querySelectorAll('input[name="boundary_reported_to[]"]');
+  if (!checkboxes.length) return;
+
+  const noneCheckbox = Array.from(checkboxes).find(cb => cb.value.toLowerCase() === 'none');
+  const otherCheckboxes = Array.from(checkboxes).filter(cb => cb !== noneCheckbox);
+
+  if (!noneCheckbox) return;
+
+  // Handle 'None' behavior
+  noneCheckbox.addEventListener('change', () => {
+    if (noneCheckbox.checked) {
+      otherCheckboxes.forEach(cb => {
+        cb.checked = false;
+        cb.disabled = true;
+      });
+    } else {
+      otherCheckboxes.forEach(cb => cb.disabled = false);
     }
   });
 
-  if (reportCheckboxes.length === 0) return;
-
-  const notYetCheckbox = reportCheckboxes.find(cb => 
-    cb.closest('label').textContent.includes('Not yet')
-  );
-  const otherCheckboxes = reportCheckboxes.filter(cb => cb !== notYetCheckbox);
-
-  if (!notYetCheckbox) return;
-
-  // When "Not yet" is checked, uncheck all others
-  notYetCheckbox.addEventListener('change', function() {
-    if (this.checked) {
-      otherCheckboxes.forEach(cb => cb.checked = false);
-    }
-  });
-
-  // When any other checkbox is checked, uncheck "Not yet"
+  // Handle others (uncheck 'None' if any other is checked)
   otherCheckboxes.forEach(cb => {
-    cb.addEventListener('change', function() {
-      if (this.checked) {
-        notYetCheckbox.checked = false;
+    cb.addEventListener('change', () => {
+      if (cb.checked) {
+        noneCheckbox.checked = false;
+        noneCheckbox.disabled = false;
       }
     });
   });
-})();
+});
 </script>
 
 </body>

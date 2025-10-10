@@ -1,11 +1,12 @@
-from flask import Blueprint, render_template, request, jsonify, session
+from flask import Blueprint, render_template, request, jsonify, session, redirect
 import logging
 import traceback
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
 from backend.database.db import db
-from backend.database.models import Registration, Area, Beneficiary, RegistrationNonMember, Block
+from backend.database.models import Registration, Area, Beneficiary, Block, RegistrationNonMember
+from backend.complainant.redirects import complaint_redirect_path
 from pathlib import Path
 import json
 
@@ -116,6 +117,23 @@ def nonmemreg():
                 except Exception:
                     return None
 
+            # --- Process "connections" checkboxes ---
+            connections = {}
+            checkbox_labels = [
+                "I live on the lot but I am not the official beneficiary",
+                "I live near the lot and I am affected by the issue",
+                "I am claiming ownership of the lot",
+                "I am related to the person currently occupying the lot",
+                "I was previously assigned to this lot but was replaced or removed"
+            ]
+
+            for idx, label in enumerate(checkbox_labels, start=1):
+                connections[f"connection_{idx}"] = request.form.get(f"connection_{idx}") == "on"
+                
+            other_text = request.form.get("connection_other")
+            if other_text:
+                connections["connection_other"] = other_text.strip()
+                
             new_reg = Registration(
                 user_id=user_id,
                 category=category,
@@ -137,42 +155,22 @@ def nonmemreg():
                 beneficiary_id=None
             )
             db.session.add(new_reg)
-            db.session.flush()  # get registration_id before committing
-
-            # --- Process "connections" checkboxes ---
-            connections = []
-            checkbox_labels = [
-                "I live on the lot but I am not the official beneficiary",
-                "I live near the lot and I am affected by the issue",
-                "I am claiming ownership of the lot",
-                "I am related to the person currently occupying the lot",
-                "I was previously assigned to this lot but was replaced or removed"
-            ]
-
-            for idx, label in enumerate(checkbox_labels, start=1):
-                if request.form.get(f"connection_{idx}") == "on":
-                    connections.append(label)
-
-            other_text = request.form.get("connection_other")
-            if other_text:
-                connections.append(other_text.strip())
-
-            # Commit main registration first
+            db.session.flush()  # Get the registration_id before commit
+            
+            # Create RegistrationNonMember record with connections
+            non_member = RegistrationNonMember(
+                registration_id=new_reg.registration_id,
+                connections=connections
+            )
+            db.session.add(non_member)
+            
             db.session.commit()
 
-            # --- Save non-member registration details (best-effort) ---
-            if category == "non_member":
-                try:
-                    non_mem = RegistrationNonMember(
-                        registration_id=new_reg.registration_id,
-                        connections=connections
-                    )
-                    db.session.add(non_mem)
-                    db.session.commit()
-                except Exception:
-                    db.session.rollback()
+            # Determine redirect target based on stored complaint type (centralized mapping)
+            complaint_type = session.get("type_of_complaint")
+            next_url = complaint_redirect_path(complaint_type, has_registration=True)
 
-            return jsonify({"success": True, "message": "Registered successfully!"})
+            return jsonify({"success": True, "message": "Registered successfully!", "redirect": next_url})
 
         except Exception as e:
             db.session.rollback()

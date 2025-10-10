@@ -1,15 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <style>
+    .warn{display:none;color:#d32f2f;font-size:12px;margin-top:4px}
+    .invalid-input{border-color:#d32f2f !important; outline-color:#d32f2f !important}
+    input.invalid-input, select.invalid-input{border-color:#d32f2f !important; background-color:#fff8f8 !important; box-shadow:0 0 0 1px #d32f2f !important;}
+    input[type="radio"].invalid-input, input[type="checkbox"].invalid-input{box-shadow:0 0 0 2px #d32f2f !important;}
+  </style>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
-  <style>
-    .warn{display:none;color:#d32f2f;font-size:12px;margin-top:4px}
-    .invalid-input{border-color:#d32f2f !important; outline-color:#d32f2f !important}
-  </style>
 </head>
 <body>
     
@@ -35,13 +37,11 @@
   <form id="memRegForm" method="post" enctype="multipart/form-data" style="position:relative;">
   <!-- Error Popup (centered in viewport) -->
     <div class="form-grid" aria-hidden="false">
-          <label class="required-asterisk">Last Name
-            <input type="text" name="reg_last" id="reg_last">
-            <small class="warn" id="warn-reg_last">This field is required.</small>
+          <label>Last Name<input type="text" name="reg_last">
+            <small class="warn" id="warn-reg_last">Last Name is required</small>
           </label>
-          <label class="required-asterisk">First Name
-            <input type="text" name="reg_first" id="reg_first">
-            <small class="warn" id="warn-reg_first">This field is required.</small>
+          <label>First Name<input type="text" name="reg_first">
+            <small class="warn" id="warn-reg_first">First Name is required</small>
           </label>
           <label>Middle Initial<input type="text" name="reg_mid"></label>
           <label>Suffix
@@ -53,28 +53,30 @@
             </select>
           </label>
 
-          <label>Date of Birth<input type="date" name="reg_dob"></label>
+          <label>Date of Birth<input type="date" name="reg_dob" id="reg_dob">
+            <small class="warn" id="warn-reg_dob">Date of Birth is required</small>
+          </label>
           <label>Sex
             <select name="reg_sex">
               <option value="" disabled selected hidden></option>
               <option>Male</option><option>Female</option>
             </select>
           </label>
-          <label class="required-asterisk">Citizenship
-            <input type="text" name="reg_cit" id="reg_cit">
-            <small class="warn" id="warn-reg_cit">This field is required.</small>
+          <label>Citizenship<input type="text" name="reg_cit">
+            <small class="warn" id="warn-reg_cit">Citizenship is required</small>
           </label>
-          <label>Age<input type="number" name="reg_age" min="0" step="1"></label>
+          <label>Age
+            <input type="number" name="reg_age" id="reg_age" min="0" step="1" readonly>
+            <small class="warn" id="warn-reg_age">You must be 18 or older to register.</small>
+          </label>
         </div>
 
         <div class="form-grid" aria-hidden="false" style="margin-bottom: -15px;">
-          <label class="required-asterisk">Years of Residence
-            <input type="text" name="reg_year" id="reg_year">
-            <small class="warn" id="warn-reg_year">This field is required.</small>
+          <label>Years of Residence<input type="text" name="reg_year">
+            <small class="warn" id="warn-reg_year">Years of Residence is required</small>
           </label>
-          <label class="required-asterisk">Contact Number
-            <input type="text" name="reg_phone" id="reg_phone">
-            <small class="warn" id="warn-reg_phone">This field is required.</small>
+          <label>Contact Number<input type="text" name="reg_phone">
+            <small class="warn" id="warn-reg_phone">Contact Number is required</small>
           </label>
           <label>HOA
             <select name="reg_hoa" required>
@@ -83,16 +85,17 @@
                 <option value="{{ area.area_id }}">{{ area.area_name }}</option>
               {% endfor %}
             </select>
+            <small class="warn" id="warn-reg_hoa">HOA selection is required</small>
           </label>
-          <label class="required-asterisk">Block Assignment
-            <input type="text" name="reg_blk" id="reg_blk">
-            <small class="warn" id="warn-reg_blk">This field is required.</small>
+          <label>Block Assignment<input type="text" name="reg_blk">
+            <small class="warn" id="warn-reg_blk">Block Assignment is required</small>
           </label>
-          <label class="required-asterisk">Lot Assignment
-            <input type="text" name="reg_lot_asn" id="reg_lot_asn">
-            <small class="warn" id="warn-reg_lot_asn">This field is required.</small>
+          <label>Lot Assignment<input type="text" name="reg_lot_asn">
+            <small class="warn" id="warn-reg_lot_asn">Lot Assignment is required</small>
           </label>
-          <label>Lot Size<input type="text" name="reg_lot_size"></label>
+          <label>Lot Size<input type="text" name="reg_lot_size">
+            <small class="warn" id="warn-reg_lot_size">Lot Size is required</small>
+          </label>
 
           <!-- Civil status column (right) -->
           <aside class="civil-status">
@@ -105,38 +108,38 @@
                 <label><input type="radio" name="fam_civil" value="divorced"> Divorced</label>
                 <label><input type="radio" name="fam_civil" value="annulled"> Annulled</label>
               </div>
+              <small class="warn" id="warn-fam_civil">Please select a civil status</small>
           </aside>
         </div>
 
         <div class="form-grid" aria-hidden="false" style="grid-template-columns: repeat(2, 1fr) !important;">
-          <label class="required-asterisk">Current Address
-            <input type="text" name="reg_cur_add" id="reg_cur_add">
-            <small class="warn" id="warn-reg_cur_add">This field is required.</small>
+          <label>Current Address<input type="text" name="reg_cur_add">
+            <small class="warn" id="warn-reg_cur_add">Current Address is required</small>
           </label>
         </div>
 
         <!-- radio question (one option per row) -->
         <div class="radio-section" role="group">
-          <p id="recipient-label" class="required-asterisk">Recipient of other housing programs besides NGCCHP ?</p>
+          <p id="recipient-label">Recipient of other housing programs besides NGCCHP ?</p>
           <div class="radio-list">
             <label><input type="radio" name="recipient" value="yes"> Yes</label>
             <label><input type="radio" name="recipient" value="no"> No</label>
           </div>
-          <small class="warn" id="warn-recipient">Please select Yes or No.</small>
+          <small class="warn" id="warn-recipient">Please select an option</small>
         </div>
 
         <!-- supporting documents (stacked) -->
         <div class="support-docs" role="group">
-          <p id="docs-label" class="required-asterisk">What supporting documents do you have?</p>
+          <p id="docs-label">What supporting documents do you have?</p>
           <div class="docs-list">
-            <label><input type="checkbox" name="doc_title" id="doc_title"> Title</label>
-            <label><input type="checkbox" name="doc_contract" id="doc_contract"> Contract to Sell</label>
-            <label><input type="checkbox" name="doc_fullpay" id="doc_fullpay"> Certificate of Full Payment</label>
-            <label><input type="checkbox" name="doc_award" id="doc_award"> Certificate of Award</label>
-            <label><input type="checkbox" name="doc_agreement" id="doc_agreement"> Contract/Agreement</label>
-            <label><input type="checkbox" name="doc_deed" id="doc_deed"> Deed of Sale</label>
+            <label><input type="checkbox" name="doc_title"> Title</label>
+            <label><input type="checkbox" name="doc_contract"> Contract to Sell</label>
+            <label><input type="checkbox" name="doc_fullpay"> Certificate of Full Payment</label>
+            <label><input type="checkbox" name="doc_award"> Pre-qualification Stub</label>
+            <label><input type="checkbox" name="doc_agreement"> Contract/Agreement</label>
+            <label><input type="checkbox" name="doc_deed"> Deed of Sale</label>
           </div>
-          <small class="warn" id="warn-supporting_docs">Select at least one option.</small>
+          <small class="warn" id="warn-docs">At least one supporting document is required</small>
         </div>
         
           <!-- Hidden category input -->
@@ -160,19 +163,7 @@
 
 
   <!-- Form submission script -->
-    <script>
-    // Inline field warning helpers
-    function showFieldWarn(id, inputEl){
-      const w = document.getElementById(id);
-      if (w) w.style.display = 'block';
-      if (inputEl) inputEl.classList.add('invalid-input');
-    }
-    function hideFieldWarn(id, inputEl){
-      const w = document.getElementById(id);
-      if (w) w.style.display = 'none';
-      if (inputEl) inputEl.classList.remove('invalid-input');
-    }
-
+  <script>
     function showErrorPop(msg) {
       const pop = document.getElementById('errorPop');
       const popMsg = document.getElementById('errorPopMsg');
@@ -185,20 +176,105 @@
       }, 1000);
     }
 
-    // Clear warn on input/change
-    ["reg_last","reg_first","reg_cit","reg_year","reg_phone","reg_blk","reg_lot_asn","reg_cur_add"].forEach(id=>{
-      const el = document.getElementById(id);
-      if (el){ el.addEventListener('input', ()=> hideFieldWarn('warn-'+id, el)); }
+    // Field warning helpers
+    function showFieldWarn(id, inputEl){
+      const w = document.getElementById(id);
+      if (w) w.style.display = 'block';
+      if (inputEl) inputEl.classList.add('invalid-input');
+    }
+    function hideFieldWarn(id, inputEl){
+      const w = document.getElementById(id);
+      if (w) w.style.display = 'none';
+      if (inputEl) inputEl.classList.remove('invalid-input');
+    }
+
+    // Add input event listeners to hide warnings when user types
+    document.querySelectorAll('input[type="text"], input[type="email"], input[type="date"], select').forEach(input => {
+      input.addEventListener('input', function() {
+        const warnId = 'warn-' + this.name;
+        if (this.value.trim() !== '') {
+          hideFieldWarn(warnId, this);
+        }
+      });
+      
+      // Also handle select change events
+      if (input.tagName === 'SELECT') {
+        input.addEventListener('change', function() {
+          const warnId = 'warn-' + this.name;
+          if (this.value !== '') {
+            hideFieldWarn(warnId, this);
+          }
+        });
+      }
     });
-    document.querySelectorAll('input[name="recipient"]').forEach(r=>{
-      r.addEventListener('change', ()=> hideFieldWarn('warn-recipient'));
+    
+    // Handle radio button changes
+    document.querySelectorAll('input[type="radio"]').forEach(radio => {
+      radio.addEventListener('change', function() {
+        const warnId = 'warn-' + this.name;
+        hideFieldWarn(warnId);
+        document.querySelectorAll(`input[name="${this.name}"]`).forEach(r => {
+          r.classList.remove('invalid-input');
+        });
+      });
     });
-    document.querySelectorAll('input[name^="doc_"]').forEach(c=>{
-      c.addEventListener('change', ()=> hideFieldWarn('warn-supporting_docs'));
+    
+    // Handle checkbox changes for supporting documents
+    document.querySelectorAll('.support-docs input[type="checkbox"]').forEach(checkbox => {
+      checkbox.addEventListener('change', function() {
+        const anyChecked = Array.from(document.querySelectorAll('.support-docs input[type="checkbox"]:checked')).length > 0;
+        if (anyChecked) {
+          hideFieldWarn('warn-docs');
+          document.querySelectorAll('.support-docs input[type="checkbox"]').forEach(cb => {
+            cb.classList.remove('invalid-input');
+          });
+        }
+      });
     });
 
+    // Age calculation and validation
+    const dobField = document.getElementById('reg_dob');
+    const ageField = document.getElementById('reg_age');
+    
+    function calculateAge(birthDate) {
+      const today = new Date();
+      const birth = new Date(birthDate);
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      
+      return age;
+    }
+    
+    if (dobField && ageField) {
+      dobField.addEventListener('change', function() {
+        if (this.value) {
+          hideFieldWarn('warn-reg_dob', this);
+          const age = calculateAge(this.value);
+          ageField.value = age;
+          
+          // Validate age (must be 18 or older)
+          if (age < 18) {
+            showFieldWarn('warn-reg_age', ageField);
+            showErrorPop('You must be 18 years or older to register.');
+          } else {
+            hideFieldWarn('warn-reg_age', ageField);
+          }
+        } else {
+          ageField.value = '';
+          hideFieldWarn('warn-reg_age', ageField);
+        }
+      });
+    }
+
+    // No longer set category from complaintType; category is always 'hoa_member' for this form
+
     document.getElementById("memRegForm").addEventListener("submit", async function(e) {
-      e.preventDefault();
+      e.preventDefault(); // stop page reload
+
       const submitBtn = this.querySelector('.btn.submit');
       if (submitBtn.disabled) {
         console.log('Submission blocked: already submitting');
@@ -210,50 +286,85 @@
       let firstInvalid = null;
       function requireVal(selector, warnId){
         const el = document.querySelector(selector);
-        const ok = el && String(el.value || '').trim() !== '';
-        if (!ok){
+        if (!el) return true; // Element doesn't exist, can't validate
+        const val = el.value.trim();
+        if (!val) {
           showFieldWarn(warnId, el);
           if (!firstInvalid) firstInvalid = el;
-        } else {
-          hideFieldWarn(warnId, el);
+          return false;
         }
-        return ok;
+        hideFieldWarn(warnId, el);
+        return true;
       }
 
-      const v1 = requireVal('#reg_last','warn-reg_last');
-      const v2 = requireVal('#reg_first','warn-reg_first');
-      const v3 = requireVal('#reg_cit','warn-reg_cit');
-      const v4 = requireVal('#reg_year','warn-reg_year');
-      const v5 = requireVal('#reg_phone','warn-reg_phone');
-      const v6 = requireVal('#reg_blk','warn-reg_blk');
-      const v7 = requireVal('#reg_lot_asn','warn-reg_lot_asn');
-      const v8 = requireVal('#reg_cur_add','warn-reg_cur_add');
+      // Required fields validation
+      const v1 = requireVal('input[name="reg_last"]', 'warn-reg_last');
+      const v2 = requireVal('input[name="reg_first"]', 'warn-reg_first');
+  const v3 = requireVal('input[name="reg_dob"]', 'warn-reg_dob');
+  const v4 = true; // Sex is not required
+  const v5 = requireVal('input[name="reg_cit"]', 'warn-reg_cit');
+  const v6 = requireVal('input[name="reg_year"]', 'warn-reg_year');
+  const v7 = requireVal('input[name="reg_phone"]', 'warn-reg_phone');
+  const v8 = requireVal('select[name="reg_hoa"]', 'warn-reg_hoa');
+  const v9 = requireVal('input[name="reg_blk"]', 'warn-reg_blk');
+  const v10 = requireVal('input[name="reg_lot_asn"]', 'warn-reg_lot_asn');
+  const v11 = requireVal('input[name="reg_lot_size"]', 'warn-reg_lot_size');
+  const v12 = requireVal('input[name="reg_cur_add"]', 'warn-reg_cur_add');
 
-      // Recipient required (radio)
+      // Recipient (radio buttons)
+      let recipientValid = false;
       const recipientChecked = document.querySelector('input[name="recipient"]:checked');
       if (!recipientChecked){
         showFieldWarn('warn-recipient');
         if (!firstInvalid) firstInvalid = document.querySelector('input[name="recipient"]');
-      } else hideFieldWarn('warn-recipient');
-
-      // Supporting docs required (at least one checkbox)
-      const docFields = ["doc_title","doc_contract","doc_fullpay","doc_award","doc_agreement","doc_deed"];
-      const docsChecked = docFields.some(id => document.getElementById(id) && document.getElementById(id).checked);
-      if (!docsChecked){
-        showFieldWarn('warn-supporting_docs');
-        if (!firstInvalid) firstInvalid = document.getElementById('doc_title');
-      } else hideFieldWarn('warn-supporting_docs');
-
-      const allOk = v1 && v2 && v3 && v4 && v5 && v6 && v7 && v8 && !!recipientChecked && docsChecked;
-      if (!allOk){
-        showErrorPop('Please complete the required fields.');
-        if (firstInvalid){
-          try{ firstInvalid.focus(); firstInvalid.scrollIntoView({behavior:'smooth', block:'center'}); }catch(_){ }
-        }
-        submitBtn.disabled = false;
-        return;
+        recipientValid = false;
+      } else {
+        hideFieldWarn('warn-recipient');
+        recipientValid = true;
       }
 
+      // Civil status (radio buttons)
+      let civilValid = false;
+      const civilChecked = document.querySelector('input[name="fam_civil"]:checked');
+      if (!civilChecked){
+        showFieldWarn('warn-fam_civil');
+        if (!firstInvalid) firstInvalid = document.querySelector('input[name="fam_civil"]');
+        civilValid = false;
+      } else {
+        hideFieldWarn('warn-fam_civil');
+        civilValid = true;
+      }
+
+      // Supporting documents (at least one checkbox)
+      const docCheckboxes = Array.from(document.querySelectorAll('.support-docs input[type="checkbox"]:checked'));
+      let docsValid = docCheckboxes.length > 0;
+      if (!docsValid) {
+        showFieldWarn('warn-docs');
+        if (!firstInvalid) firstInvalid = document.querySelector('.support-docs input[type="checkbox"]');
+      } else {
+        hideFieldWarn('warn-docs');
+      }
+
+      // Age validation (must be 18 or older)
+      let ageValid = true;
+      const ageValue = parseInt(document.getElementById('reg_age').value);
+      if (isNaN(ageValue) || ageValue < 18) {
+        showFieldWarn('warn-reg_age', document.getElementById('reg_age'));
+        ageValid = false;
+        if (!firstInvalid) firstInvalid = document.getElementById('reg_age');
+      } else {
+        hideFieldWarn('warn-reg_age', document.getElementById('reg_age'));
+      }
+
+      // Check if all validations passed
+      const allValid = v1 && v2 && v3 && v4 && v5 && v6 && v7 && v8 && v9 && v10 && v11 && v12 && recipientValid && civilValid && docsValid && ageValid;
+      if (!allValid) {
+  if (firstInvalid) firstInvalid.focus();
+  submitBtn.disabled = false;
+  return;
+      }
+
+      // Do not overwrite category; always send 'hoa_member'
       let formData = new FormData(this);
 
       try {
@@ -264,6 +375,7 @@
           headers: { "X-Requested-With": "XMLHttpRequest" }
         });
 
+        // Try to parse JSON, if fails, show error
         let result;
         try {
           result = await response.json();
@@ -276,16 +388,62 @@
         if (result.success) {
           if (result.redirect) {
             window.location.href = result.redirect;
-            return;
+          } else {
+            window.location.href = "/complainant/home/dashboard.html"; // safety fallback
           }
-          window.location.href = "/complainant/home/dashboard.html";
         } else if (result.field_errors) {
-          // Show inline errors for each field
+          // Highlight missing/invalid fields in red and show inline warnings
           Object.entries(result.field_errors).forEach(([field, msg]) => {
-            if (field === 'supporting_docs') {
-              showFieldWarn('warn-supporting_docs');
-            } else {
-              showFieldWarn('warn-' + field, document.getElementById(field));
+            let input = document.querySelector(`[name='${field}']`);
+            if (!input && field === 'supporting_docs') {
+              // Special: highlight all doc checkboxes
+              document.querySelectorAll('.support-docs input[type="checkbox"]').forEach(cb => {
+                cb.classList.add('invalid-input');
+              });
+              // Show warning below docs
+              let warn = document.getElementById('warn-docs');
+              if (!warn) {
+                warn = document.createElement('small');
+                warn.id = 'warn-docs';
+                warn.style.color = '#d32f2f';
+                warn.style.display = 'block';
+                warn.style.marginTop = '4px';
+                document.querySelector('.support-docs').appendChild(warn);
+              }
+              warn.textContent = msg;
+              warn.style.display = 'block';
+              return;
+            }
+            if (!input && field === 'recipient') {
+              // Highlight radio buttons
+              document.querySelectorAll('input[name="recipient"]').forEach(r => r.classList.add('invalid-input'));
+              let warn = document.getElementById('warn-recipient');
+              if (!warn) {
+                warn = document.createElement('small');
+                warn.id = 'warn-recipient';
+                warn.style.color = '#d32f2f';
+                warn.style.display = 'block';
+                warn.style.marginTop = '4px';
+                document.querySelector('.radio-section').appendChild(warn);
+              }
+              warn.textContent = msg;
+              warn.style.display = 'block';
+              return;
+            }
+            if (input) {
+              input.classList.add('invalid-input');
+              // Show or create warning below input
+              let warn = document.getElementById('warn-' + field);
+              if (!warn) {
+                warn = document.createElement('small');
+                warn.id = 'warn-' + field;
+                warn.style.color = '#d32f2f';
+                warn.style.display = 'block';
+                warn.style.marginTop = '4px';
+                input.parentNode.appendChild(warn);
+              }
+              warn.textContent = msg;
+              warn.style.display = 'block';
             }
           });
           showErrorPop('Please complete the required fields.');

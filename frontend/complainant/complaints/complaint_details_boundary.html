@@ -1,0 +1,142 @@
+{% set A = answers or {} %}
+<div class="section-header">LOT DETAILS AND CLAIM:</div>
+<div class="pairs">
+  <div class="pair-row">
+    <div class="col">
+      <label class="small">1. Nature of boundary issue</label>
+      <div class="readonly-value">{{ (A.q1 or []) | join(', ') }}</div>
+    </div>
+  </div>
+  <div class="pair-row">
+    <div class="col">
+      <label class="small">2. How long has this existed?</label>
+      <div class="readonly-value">{{ A.q2 or '' }}</div>
+    </div>
+    <div class="col">
+      <label class="small">3. Structure status</label>
+      <div class="readonly-value">{{ A.q3 or '' }}</div>
+    </div>
+  </div>
+  <div class="pair-row">
+    <div class="col">
+      <label class="small">4. Prior notice</label>
+      <div class="readonly-value">{{ A.q4 or '' }}</div>
+    </div>
+    <div class="col">
+      <label class="small">5. Discussed/confronted</label>
+      <div class="readonly-value">{{ A.q5 or '' }}</div>
+    </div>
+  </div>
+  {% if A.q5_1 %}
+  <div class="pair-row">
+    <div class="col">
+      <label class="small">5.1 Date Reported</label>
+      <div class="readonly-value">{{ A.q5_1 }}</div>
+    </div>
+  </div>
+  {% endif %}
+  <div class="pair-row">
+    <div class="col">
+      <label class="small">6. Effects of dispute</label>
+      <div class="readonly-value">{{ (A.q6 or []) | join(', ') }}</div>
+    </div>
+  </div>
+  <div class="pair-row">
+    <div class="col">
+      <label class="small">7. Reported to</label>
+      <div class="readonly-value">{{ (A.q7 or []) | join(', ') }}</div>
+    </div>
+    <div class="col">
+      <label class="small">8. Site inspection</label>
+      <div class="readonly-value">{{ A.q8 or '' }}</div>
+    </div>
+  </div>
+  <div class="pair-row">
+    <div class="col">
+      <label class="small">9. Result of inspection</label>
+      <div class="readonly-value">{{ (A.q9 or []) | join(', ') }}</div>
+    </div>
+  </div>
+  <div class="pair-row">
+    <div class="col">
+      <label class="small">10. Have documents?</label>
+      <div class="readonly-value">{{ A.q10 or '' }}</div>
+    </div>
+  </div>
+  {% if A.q10_1 and (A.q10_1|length) > 0 %}
+  <div class="pair-row">
+    <div class="col">
+      <label class="small">10.1 Documents</label>
+      <div class="readonly-value">{{ A.q10_1 | join(', ') }}</div>
+    </div>
+  </div>
+  {% endif %}
+  <div class="pair-row">
+    <div class="col">
+      <label class="small">11. Ongoing development in area?</label>
+      <div class="readonly-value">{{ A.q11 or '' }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="section-header">PERSONS INVOLVED DETAILS</div>
+<div class="pairs">
+  <div class="pair-row">
+    <div class="col">
+      <label class="small">1. Persons involved (Name • Block • Lot)</label>
+      {% if A.q12 and (A.q12|length) > 0 %}
+        <div class="simple-list">
+          {% for p in A.q12 %}
+            <div class="simple-list-item">{{ p.name }} • Block {{ p.block }} • Lot {{ p.lot }}</div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="readonly-value">None</div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="pair-row">
+    <div class="col">
+      <label class="small">2. Relationship</label>
+      <div class="readonly-value">{{ (A.q13 or []) | join(', ') }}</div>
+    </div>
+    <div class="col">
+      <label class="small">3. Do they reside near boundary?</label>
+      <div class="readonly-value">{{ A.q14 or '' }}</div>
+    </div>
+  </div>
+  <div class="pair-row">
+    <div class="col">
+      <label class="small">4. They claim legal/assignment docs?</label>
+      <div class="readonly-value">{{ A.q15 or '' }}</div>
+    </div>
+  </div>
+  {% if A.q15_1 and (A.q15_1|length) > 0 %}
+  <div class="pair-row">
+    <div class="col">
+      <label class="small">4.1 Which documents</label>
+      <div class="readonly-value">{{ A.q15_1 | join(', ') }}</div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="section-header">COMPLAINT NARRATIVE</div>
+<div class="pairs">
+  <div class="pair-row">
+    <div class="col">
+      <label class="small">Description</label>
+      <div class="readonly-value">{{ A.description or '' }}</div>
+    </div>
+  </div>
+  {% if A.signature_path %}
+  <div class="pair-row">
+    <div class="col">
+      <label class="small">Signature</label>
+      <div class="readonly-value">
+        <a href="/complainant/signatures/{{ A.signature_path }}" target="_blank" rel="noopener">{{ A.signature_path }}</a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
