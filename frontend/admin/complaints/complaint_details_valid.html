@@ -134,7 +134,7 @@
 
           <!-- FIELDS FOR ASSESSMENT -->
           <div class="action-fields" id="actionAssessmentFields" style="display:none; width:100%;">
-            <label style="display:block; margin-bottom:6px; font-weight:bold;">Assessment Notes:</label>
+            <label style="display:block; margin-bottom:6px; font-weight:bold;">Assessment Notes:<span style="color:red;">*</span></label>
             <textarea 
               id="assessmentNotes" 
               required 
@@ -147,7 +147,7 @@
             <!-- Assigned Personnel -->
             <div class="form-group">
             <label>Assigned Personnel:</label>
-            <input id="medAssignedPersonnel" type="text" name="medAssignedPersonnel" value="Josie Rosal" readonly>
+              <input id="medAssignedPersonnel" type="text" name="medAssignedPersonnel" value="Josie Rosal" readonly class="readonly-input">
             </div>
             <!-- Parties Involved  -->
             <div class="form-group">
@@ -157,12 +157,12 @@
             <hr>
             <!-- Agenda -->
             <div class="form-group">
-            <label>Agenda:</label>
+            <label>Agenda:<span style="color:red;">*</span></label>
             <input type="text" name="agenda" placeholder="Agenda">
             </div>
             <!-- Advisors/Witnesses -->
             <div class="form-group">
-              <label>Advisors / Witnesses:</label>
+              <label>Advisors / Witnesses:<span style="color:red;">*</span></label>
               <div id="witnessContainer">
                 <div class="witness-row">
                   <input type="text" name="witness[]" placeholder="Enter name" required>
@@ -174,19 +174,31 @@
             </div>
             <!-- Summary -->
             <div class="form-group">
-            <label>Summary:</label>
+            <label>Summary:<span style="color:red;">*</span></label>
             <textarea name="summary" placeholder="Enter mediation summary" required></textarea>
             </div>
             <!-- File uploads -->
             <div class="form-group">
-              <label>Upload Files:</label>
+              <label>Upload Files:<span style="color:red;">*</span></label>
               <div id="fileUploadContainer">
                 <div class="fileUp-row">
                   <input type="text" name="fileDescription[]" placeholder="File type (e.g. Proof, Document)" required>
-                  <input type="file" name="mediationFiles[]" class="file-input-small">
+
+                  <!-- Hidden file input -->
+                  <input type="file" name="mediationFiles[]" class="file-input-small" style="display:none;" id="fileInput1" />
+
+                  <!-- Custom upload button -->
+                  <button type="button" class="upload-btn" onclick="document.getElementById('fileInput1').click()">Upload File</button>
+
+                  <!-- Display selected file name -->
+                  <span id="fileName1" style="margin-left:10px; font-style:italic;"></span>
                 </div>
               </div>
             </div>
+
+
+
+
             <div class="form-group">
               <button class="form-group-button" type="button" onclick="addFileUpload()">+ Add Another File</button>
             </div>
@@ -194,7 +206,7 @@
 
           <!-- Out of Jurisdiction -->
           <div class="action-fields" id="actionOutOfJurisdictionFields" style="display:none; width:100%;">
-            <label style="display:block; font-weight:bold; margin-bottom:6px;">Out of Jurisdiction:</label>
+            <label style="display:block; font-weight:bold; margin-bottom:6px;">Out of Jurisdiction:<span style="color:red;">*</span></label>
             <div 
               class="checkbox-group-compact" 
               style="display:block; margin-left:15px; margin-top:10px;"
@@ -215,7 +227,7 @@
                 style="display:none; margin-top:5px; margin-left:25px; width:93%; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-size:14px;"
               />
             </div>
-          <label style="display:block; margin-bottom:6px; font-weight:bold;">Out of Jurisdiction Notes:</label>
+          <label style="display:block; margin-bottom:6px; font-weight:bold;">Out of Jurisdiction Notes:<span style="color:red;">*</span></label>
               <textarea 
                 id="outOfJurisdictionNotes" 
                 required 
@@ -256,22 +268,22 @@
             <!-- Assigned Personnel -->
             <div class="form-group">
               <label>Assigned Personnel:</label>
-              <input id="assignedPersonnel" type="text" readonly>
+              <input id="assignedPersonnel" type="text" readonly class="readonly-input">
             </div>
             <!-- Location of Inspection -->
             <div class="form-group">
               <label>Location of Inspection:</label>
-              <input id="inspectionLocation" type="text" value="Alley 2 HOA" readonly>
+              <input id="inspectionLocation" type="text" value="Alley 2 HOA" readonly class="readonly-input">
             </div>            
             <hr>
             <!-- Deadline -->
             <div class="form-group">
-              <label>Deadline:</label>
+              <label>Deadline:<span style="color:red;">*</span></label>
               <input id="inspectionDeadline" type="date" required style="margin-left: 30x;">
             </div>
             <!-- Scope of Inspection (compact) -->
             <div class="form-group">
-              <label>Scope of Inspection:</label>
+              <label>Scope of Inspection:<span style="color:red;">*</span></label>
                 <div class="checkbox-group-compact">
                   <label class="checkbox-item-compact"><input type="checkbox" name="scope[]" value="safety"> Safety</label>
                   <label class="checkbox-item-compact"><input type="checkbox" name="scope[]" value="affected_lots"> Affected lot/s</label>
@@ -295,31 +307,31 @@
              <!-- Location -->
             <div class="form-group">
               <label for="invLocation">Location:</label>
-              <input id="invLocation" type="text" name="location" value="Autofilled Location" readonly>
+              <input id="invLocation" type="text" name="location" value="Autofilled Location" readonly class="readonly-input">
             </div>
             
             <!-- Agenda -->
             <div class="form-group">
               <label for="invAgenda">Agenda:</label>
-              <input type="text" id="invAgenda" name="agenda" readonly>
+              <input type="text" id="invAgenda" name="agenda" readonly class="readonly-input">
             </div>
             <hr>
 
             <!-- Date of Meeting -->
             <div class="form-group">
-              <label for="invDate">Date of Meeting:</label>
+              <label for="invDate">Date of Meeting:<span style="color:red;">*</span></label>
               <input id="invDate" type="date" name="meeting_date" required>
             </div>
             
             <!-- Time of Meeting -->
             <div class="form-group">
-              <label for="invTime">Time of Meeting:</label>
+              <label for="invTime">Time of Meeting: <span style="color:red;">*</span></label>
               <input id="invTime" type="time" name="meeting_time" required>
             </div>
 
             <!-- Assigned Personnel -->
             <div class="form-group">
-              <label for="invAssignedPersonnel">Assigned Personnel:</label>
+              <label for="invAssignedPersonnel">Assigned Personnel:<span style="color:red;">*</span></label>
             <select id="invAssignedPersonnel" name="assigned_personnel" required>
               <option value="" disabled selected hidden>Select Personnel</option>
               <option value="Maybelen Jamorawon">Maybelen Jamorawon</option>
@@ -467,7 +479,7 @@
       }
 
       if (invAgendaEl) invAgendaEl.value = data.agenda || '';
-      if (invLocationEl) invLocationEl.value = data.location || '2nd FLR. USAD-PHASELAD OFFICE, BARANGAY MAIN';
+      if (invLocationEl) invLocationEl.value = data.location || '2nd FLR. USAD-PHASELAD OFFICE, BAYANIHAN BUILDING BARANGAY MAIN';
 
       // Inspection fields
       const assignedPersonnelEl = document.getElementById('assignedPersonnel');
@@ -1604,6 +1616,12 @@
       window.location.href = '/admin/complaints/all.html';
     }
   }
+
+    // Update file name when a file is selected
+  document.getElementById('fileInput1').addEventListener('change', function() {
+    const fileName = this.files[0] ? this.files[0].name : '';
+    document.getElementById('fileName1').textContent = fileName;
+  });
   </script>
 </body>
 </html>

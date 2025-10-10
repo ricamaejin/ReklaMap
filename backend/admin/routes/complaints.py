@@ -1466,7 +1466,7 @@ def api_action_autofill(complaint_id):
         complaint_type = complaint.type_of_complaint.lower().replace(" ", "_")
         autofill_data = {
             "agenda": complaint.type_of_complaint,
-            "location": "2nd FLR. USAD-PHASELAD OFFICE, BARANGAY MAIN"
+            "location": "2nd FLR. USAD-PHASELAD OFFICE, BAYANIHAN BUILDING BARANGAY MAIN"
         }
 
         # Default complainant name
