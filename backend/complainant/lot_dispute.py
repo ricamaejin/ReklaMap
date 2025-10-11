@@ -679,7 +679,6 @@ def list_areas():
     except Exception as e:
         return jsonify({"success": False, "message": f"Server error: {e}"}), 500
 
-
 # Keep form structure provider here for preview rendering
 
 def get_form_structure(type_of_complaint: str):
@@ -697,7 +696,6 @@ def get_form_structure(type_of_complaint: str):
                 ("Living since project started", "I have been living here since the NCC project started"),
                 ("Relocated after demolition/displacement", "I relocated here after demolition/displacement elsewhere"),
                 ("Verbal promise by former officer/neighbor", "I was verbally promised the lot by a former officer or neighbor"),
-                ("Other", "Other"),
             ],
         },
         {

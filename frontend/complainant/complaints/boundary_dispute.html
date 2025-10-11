@@ -78,16 +78,6 @@
           </div>
         </div>
       </div>
-<script>
-// Show/hide non-member block/lot section (static, no dynamic rows)
-document.addEventListener('DOMContentLoaded', function() {
-  fetch('/complainant/boundary_dispute/get_boundary_session_data').then(r => r.json()).then(d => {
-    if (d && d.category === 'non_member') {
-      document.getElementById('nonMemberBlockLotSection').style.display = '';
-    }
-  });
-});
-</script>
   <p><strong>1. What is the nature of the boundary issue? </strong> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
   <label><input type="checkbox" name="nature_of_issue" value="Neighbor structure extends beyond line"> A neighbor’s house or structure extends beyond their boundary line</label>
   <label><input type="checkbox" name="nature_of_issue" value="Fence overlaps into my property"> A fence or wall installed by the neighbor overlaps into my property</label>
@@ -770,6 +760,17 @@ document.addEventListener('DOMContentLoaded', function() {
       showErrorPop('Submission failed. Please try again.');
       if (submitBtn) submitBtn.disabled = false;
     });
+  });
+});
+</script>
+
+<script>
+// Show/hide non-member block/lot section (static, no dynamic rows)
+document.addEventListener('DOMContentLoaded', function() {
+  fetch('/complainant/boundary_dispute/get_boundary_session_data').then(r => r.json()).then(d => {
+    if (d && d.category === 'non_member') {
+      document.getElementById('nonMemberBlockLotSection').style.display = '';
+    }
   });
 });
 </script>

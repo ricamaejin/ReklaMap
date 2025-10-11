@@ -29,7 +29,26 @@
       <p>{{ field.label }}</p>
       {% set value = answers.get(field.name) %}
 
-      {% if field.type == 'radio' %}
+      {% if field.type == 'radio' and field.name == 'q1' %}
+        {% set selected = value|string|trim|lower %}
+        <div class="radio-group">
+          {% set q1_options = [
+            ('Official assignment by NGCHDP/NHA', 'I was officially assigned the lot by NGCHDP/NHA'),
+            ('Passed on by a family member', 'The lot was passed on to me by a family member'),
+            ('Purchased from another occupant', 'I purchased the lot from another occupant'),
+            ('Living since project started', 'I have been living here since the NCC project started'),
+            ('Relocated after demolition/displacement', 'I relocated here after demolition/displacement elsewhere'),
+            ('Verbal promise by former officer/neighbor', 'I was verbally promised the lot by a former officer or neighbor')
+          ] %}
+          {% for val, label in q1_options %}
+            {% set norm_val = val|string|trim|lower %}
+            {% set norm_label = label|string|trim|lower %}
+            <label class="option">
+              <input type="radio" disabled {% if selected == norm_val or selected == norm_label %}checked{% endif %}> {{ label }}
+            </label>
+          {% endfor %}
+        </div>
+      {% elif field.type == 'radio' %}
         {% set selected = value|string|trim|lower %}
         <div class="radio-group">
           {% for val, label in field.options %}

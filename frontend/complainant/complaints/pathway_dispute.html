@@ -39,76 +39,7 @@
         </div>
 
         <div class="section-header">COMPLAINANT'S DETAILS:</div>
-          <div class="pairs">
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Full Name:</label>
-                <input type="text" name="full_name" readonly>
-              </div>
-            </div>
-
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Date of Birth:</label>
-                <input type="date" name="date_of_birth" readonly 
-                style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
-              </div>
-
-              <div class="col">
-                <label class="small">Sex:</label>
-                <input type="text" name="sex" readonly>
-              </div>
-            </div>
-
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Civil Status:</label>
-                <input type="text" name="civil_stat" readonly>
-              </div>
-              <div class="col">
-                <label class="small">Citizenship:</label>
-                <input type="text" name="citizenship" readonly>
-              </div>
-            </div>
-
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Current Address:</label>
-                <input type="text" name="cur_add" readonly>
-              </div>
-
-              <div class="col">
-                <label class="small">HOA:</label>
-                <input type="text" name="hoa" readonly>
-              </div>
-            </div>
-
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Block Assignment Number:</label>
-                <input type="text" name="blk_num" readonly>
-              </div>
-
-              <div class="col">
-                <label class="small">Lot Assignment Number:</label>
-                <input type="text" name="lot_num" readonly>
-              </div>
-
-              <div class="col">
-                <label class="small">Lot Area Size:</label>
-                <input type="text" name="lot_size" readonly>
-              </div>
-            </div>
-
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Phone Number:</label>
-                <input type="text" name="phone_number" readonly>
-              </div>
-
-              <div class="col"></div>
-            </div>
-          </div>
+        <div id="complainantDetails"></div>
 
         <!-- Section 1 -->
         <div class="section-header">LOT DETAILS AND CLAIM:</div>
@@ -134,11 +65,11 @@
         <label><input type="radio" name="conflict" style="margin-bottom: 12px;"> Not sure</label>
 
         <p style="font-weight: bold;">4. Is the obstruction still present at the time of filing this complaint?</p>
-        <label><input type="radio" > Yes – fully blocked</label>
-        <label><input type="radio" > Yes – partially blocked</label>
-        <label><input type="radio" > No – it was removed but may return</label>
-        <label><input type="radio" > No</label>
-        <label><input type="radio"  style="margin-bottom: 12px;"> Not sure</label>
+        <label><input type="radio" name="obstruction_present"> Yes – fully blocked</label>
+        <label><input type="radio" name="obstruction_present"> Yes – partially blocked</label>
+        <label><input type="radio" name="obstruction_present"> No – it was removed but may return</label>
+        <label><input type="radio" name="obstruction_present"> No</label>
+        <label><input type="radio" name="obstruction_present" style="margin-bottom: 12px;"> Not sure</label>
 
         <p style="font-weight: bold;">5. How has this encroachment affected your access or mobility? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
         <label><input type="checkbox"> I can no longer pass through the area</label>
@@ -148,24 +79,24 @@
         <label><input type="checkbox" style="margin-bottom: 12px;"> Emergency vehicles or services are affected</label>
 
         <p style="font-weight: bold;">6. Have other residents or the barangay raised similar concerns?</p>
-        <label><input type="radio" > Yes</label>
-        <label><input type="radio" > No</label>
-        <label><input type="radio" style="margin-bottom: 12px;"> Not sure</label>
+        <label><input type="radio" name="residents_concerned"> Yes</label>
+        <label><input type="radio" name="residents_concerned"> No</label>
+        <label><input type="radio" name="residents_concerned" style="margin-bottom: 12px;"> Not sure</label>
 
         <p style="font-weight: bold;">7. Has the encroaching party been informed or warned by anyone?</p>
-        <label><input type="radio" > Yes – by me</label>
-        <label><input type="radio" > Yes – by barangay officials</label>
-        <label><input type="radio" > No</label>
-        <label><input type="radio"  style="margin-bottom: 12px;"> Not sure</label>
+        <label><input type="radio" name="party_informed"> Yes – by me</label>
+        <label><input type="radio" name="party_informed"> Yes – by barangay officials</label>
+        <label><input type="radio" name="party_informed"> No</label>
+        <label><input type="radio" name="party_informed" style="margin-bottom: 12px;"> Not sure</label>
 
-        <p><strong>8. Has the dispute led to any of the following? </strong><i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+        <p><strong>8. Has the dispute led to any of the following? </strong><i style="font-size: 14px; font-weight: normal; color: grey;"> (Check all that apply)</i></p>
         <label><input type="checkbox"> Threats or harassment</label>
         <label><input type="checkbox"> Physical altercation</label>
         <label><input type="checkbox"> Demolition or forced entry</label>
         <label><input type="checkbox"> Property damage</label>
         <label><input type="checkbox" style="margin-bottom: 12px;" value="None"> None</label>
 
-        <label><strong>9. Have you reported this boundary issue to any office or authority?</strong><i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></label>
+        <label><strong>9. Have you reported this boundary issue to any office or authority?</strong><i style="font-size: 14px; font-weight: normal; color: grey;"> (Check all that apply)</i></label>
         <label><input type="checkbox" name="boundary_reported_to[]" value="Barangay"> Barangay</label>
         <label><input type="checkbox" name="boundary_reported_to[]" value="HOA"> HOA</label>
         <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> NGC</label>
@@ -181,7 +112,7 @@
         <label><input type="radio" name="site_inspection" value="No"> No</label>
         <label><input type="radio" name="site_inspection" value="Not sure"> Not sure</label>
 
-        <label><strong>11. What was the result of the report or inspection?</strong><i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></label>
+        <label><strong>11. What was the result of the report or inspection?</strong><i style="font-size: 14px; font-weight: normal; color: grey;"> (Check all that apply)</i></label>
         <label><input type="checkbox" name="site_result[]" value="Advised to adjust or vacate"> The other party was advised to adjust or vacate</label>
         <label><input type="checkbox" name="site_result[]" value="Asked to provide more documents"> I was advised to provide more documents</label>
         <label><input type="checkbox" name="site_result[]" value="Still under investigation"> The issue is still under investigation</label>
@@ -189,12 +120,12 @@
         <label><input type="checkbox" name="site_result[]" value="Not applicable"> Not applicable / No inspection yet</label>
 
         <p style="font-weight: bold;">12. Is there an ongoing development or government housing project in the area?</p>
-        <label><input type="radio" > Yes</label>
-        <label><input type="radio" > No</label>
-        <label><input type="radio"  style="margin-bottom: 12px;"> Not sure</label>
+        <label><input type="radio" name="ongoing_development"> Yes</label>
+        <label><input type="radio" name="ongoing_development"> No</label>
+        <label><input type="radio" name="ongoing_development" style="margin-bottom: 12px;"> Not sure</label>
 
         <!-- Section 2 -->
-        <p  class="section-label">Please describe what happened briefly, including how you found out about the issue.</p>
+        <p class="section-label" style="color: black;">Please describe what happened briefly, including how you found out about the issue.</p>
         <textarea></textarea>
 
         <!-- Section 3 -->
@@ -212,130 +143,134 @@
     </div>
   </div>
 
-
 <script>
-  function setupConditionalDisplay(radioYesId, containerId, groupName) {
-  const yesRadio = document.getElementById(radioYesId);
-  const container = document.getElementById(containerId);
-  const radios = document.querySelectorAll(`input[name="${groupName}"]`);
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const res = await fetch('/complainant/pathway_dispute/get_pathway_session_data', { credentials: 'same-origin' });
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) return;
+    const d = await res.json();
+    const container = document.getElementById('complainantDetails');
+    if (!container || !d || d.error) return;
 
-  radios.forEach(radio => {
-    radio.addEventListener("change", function () {
-      if (yesRadio.checked) {
-        container.style.display = "block";
-      } else {
-        container.style.display = "none";
-        const input = container.querySelector("input");
-        if (input) input.value = "";
-      }
-    });
-  });
-} 
-
-  // Apply to all "Other & Conditional" groups
-  setupConditionalDisplay("reasonYes", "reasonDetails", "reason");
-
-
-  function handleFileInputChange(inputId, fileNameDisplayId) {
-  const sigInput = document.getElementById(inputId);
-  const sigFileName = document.getElementById(fileNameDisplayId);
-
-  sigInput.addEventListener("change", function () {
-    if (this.files.length > 0) {
-      sigFileName.textContent = "✔ " + this.files[0].name;
-    } else {
-      sigFileName.textContent = "";
+    // --- Helper functions ---
+    function row1(label, value, type = 'text') {
+      const r = document.createElement('div');
+      r.className = 'pair-row';
+      r.innerHTML = `<div class="col"><label class="small">${label}</label><input type="${type}" value="${value || ''}" readonly></div>`;
+      return r;
     }
-  });
-}
+
+    function row2(l1, v1, l2, v2, t1='text', t2='text') {
+      const r = document.createElement('div');
+      r.className = 'pair-row';
+      r.innerHTML = `
+        <div class="col"><label class="small">${l1}</label><input type="${t1}" value="${v1 || ''}" readonly></div>
+        <div class="col"><label class="small">${l2}</label><input type="${t2}" value="${v2 || ''}" readonly></div>`;
+      return r;
+    }
+
+    function row3(l1, v1, l2, v2, l3, v3) {
+      const r = document.createElement('div');
+      r.className = 'pair-row';
+      r.innerHTML = `
+        <div class="col"><label class="small">${l1}</label><input type="text" value="${v1 || ''}" readonly></div>
+        <div class="col"><label class="small">${l2}</label><input type="text" value="${v2 || ''}" readonly></div>
+        <div class="col"><label class="small">${l3}</label><input type="text" value="${v3 || ''}" readonly></div>
+      `;
+      return r;
+    }
+
+    function normalizeName(name) {
+      if (!name || typeof name !== 'string') return name || '';
+      return name.replace(/\b([A-Z])\.*\b/g, '$1.');
+    }
+
+    function createSupportingDocsSection() {
+      if ((d.category === 'hoa_member' || d.category === 'family_of_member') && d.supporting_documents) {
+        const docDiv = document.createElement('div');
+        docDiv.style.margin = '8px 0 16px 0';
+        let labelText = 'What Supporting Documents do you have?';
+        if (d.category === 'family_of_member') {
+          labelText = 'What Supporting Documents does your Family Member have?';
+        }
+        docDiv.innerHTML = `<label style="font-weight:600; display:block; margin-bottom:2px;">${labelText}</label>`;
+
+        const docList = [
+          {key: 'title', label: 'Title'},
+          {key: 'contract_to_sell', label: 'Contract to Sell'},
+          {key: 'certificate_of_full_payment', label: 'Certificate of Full Payment'},
+          {key: 'pre_qualification_stub', label: 'Pre-qualification Stub'},
+          {key: 'contract_agreement', label: 'Contract/Agreement'},
+          {key: 'deed_of_sale', label: 'Deed of Sale'}
+        ];
+
+        let selected = {};
+        if (Array.isArray(d.supporting_documents)) {
+          d.supporting_documents.forEach(k => selected[k] = true);
+        } else if (typeof d.supporting_documents === 'object') {
+          selected = d.supporting_documents;
+        }
+
+        let group = `<div class='checkbox-group' style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px;">`;
+        docList.forEach(doc => {
+          const checked = selected[doc.key] ? 'checked' : '';
+          group += `<label style="white-space:nowrap;"><input type="checkbox" disabled ${checked}> ${doc.label}</label>`;
+        });
+        group += '</div>';
+        docDiv.innerHTML += group;
+        return docDiv;
+      }
+      return null;
+    }
+
+    // --- Render the complainant details ---
+    const pairs = document.createElement('div');
+    pairs.className = 'pairs';
+
+    const cat = d.category;
+
+    // --- Always show name, DOB, Sex, Citizenship, Age, Phone, Year of Residence ---
+    pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
+    pairs.appendChild(row2('Date of Birth:', d.date_of_birth, 'Sex:', d.sex, 'date', 'text'));
+    pairs.appendChild(row2('Citizenship:', d.citizenship, 'Age:', d.age));
+    pairs.appendChild(row2('Phone Number:', d.phone_number, 'Year of Residence:', d.year_of_residence));
+
+    if (cat === 'family_of_member') {
+      pairs.appendChild(row2('Relationship:', d.relationship || '', 'Current Address:', d.cur_add));
+      const docSection = createSupportingDocsSection();
+      if (docSection) pairs.appendChild(docSection);
+    } else if (cat === 'non_member' || cat === 'hoa_member') {
+      pairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
+      pairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
+      pairs.appendChild(row1('Current Address:', d.cur_add));
+      // Area (HOA) autofill fix: always use d.hoa, fallback to empty string
+      let hoaValue = '';
+      if (typeof d.hoa === 'string' && d.hoa.trim()) {
+        hoaValue = d.hoa;
+      } else if (typeof d.hoa === 'number') {
+        hoaValue = String(d.hoa);
+      }
+      pairs.appendChild(row1('Area (HOA):', hoaValue, 'text'));
+      const docSection = createSupportingDocsSection();
+      if (docSection) pairs.appendChild(docSection);
+    } else {
+      pairs.appendChild(row1('Current Address:', d.cur_add));
+    }
+
+    container.innerHTML = '';
+    container.appendChild(pairs);
+
+  } catch (e) {
+    console.error(e);
+  }
+});
 </script>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('BoundaryDisputeForm');
   if (!form) return;
-
-  // --- helpers ---
-  function findQ6Start() {
-    const nodes = Array.from(form.querySelectorAll('p, label, div, h1, h2, h3'));
-    return nodes.find(el => {
-      const t = (el.textContent || '').trim();
-      return /^8\./.test(t) || /Has the dispute led/i.test(t);
-    }) || null;
-  }
-
-  function isQ7Header(el) {
-    if (!el) return false;
-    const t = (el.textContent || '').trim();
-    if (/^7\./.test(t)) return true;
-    if (/Have you reported/i.test(t)) return true;
-    const strong = el.querySelector && el.querySelector('strong');
-    if (strong && /^\s*7\./.test((strong.textContent || '').trim())) return true;
-    return false;
-  }
-
-  function collectCheckboxesBetween(startEl, stopCond) {
-    const boxes = [];
-    let el = startEl.nextElementSibling;
-    while (el) {
-      if (stopCond(el)) break;
-      if (el.querySelector) {
-        const inputs = Array.from(el.querySelectorAll('input[type="checkbox"]'));
-        inputs.forEach(i => boxes.push(i));
-      }
-      el = el.nextElementSibling;
-    }
-    return boxes;
-  }
-
-  function setupExclusiveNoneForList(checkboxList) {
-    if (!checkboxList || checkboxList.length === 0) return;
-    // find the group's "None" checkbox by value or by label text
-    const none = checkboxList.find(cb => {
-      if (!cb) return false;
-      const v = (cb.value || '').trim().toLowerCase();
-      if (v === 'none') return true;
-      const lbl = cb.closest && cb.closest('label');
-      return lbl && /\bnone\b/i.test(lbl.textContent || '');
-    });
-    if (!none) return;
-    const others = checkboxList.filter(cb => cb !== none);
-
-    // initialize state (handles prechecked)
-    if (none.checked) {
-      others.forEach(cb => { cb.checked = false; cb.disabled = true; cb.closest('label')?.classList.add('disabled'); });
-    } else {
-      others.forEach(cb => { cb.disabled = false; cb.closest('label')?.classList.remove('disabled'); });
-    }
-
-    // When None toggles
-    none.addEventListener('change', () => {
-      if (none.checked) {
-        others.forEach(cb => { cb.checked = false; cb.disabled = true; cb.closest('label')?.classList.add('disabled'); });
-      } else {
-        others.forEach(cb => { cb.disabled = false; cb.closest('label')?.classList.remove('disabled'); });
-      }
-    });
-
-    // When any other is checked, ensure None is unchecked (and enabled)
-    others.forEach(cb => {
-      cb.addEventListener('change', () => {
-        if (cb.checked) {
-          none.checked = false;
-          none.disabled = false;
-          none.closest('label')?.classList.remove('disabled');
-        }
-      });
-    });
-  }
-
-  // --- Q6: collect checkboxes between Q6 header and Q7 header ---
-  const q6Start = findQ6Start();
-  const q6Checkboxes = q6Start ? collectCheckboxesBetween(q6Start, isQ7Header) : [];
-  setupExclusiveNoneForList(q6Checkboxes);
-
-  // --- Q7: by name attribute ---
-  const q7Checkboxes = Array.from(form.querySelectorAll('input[name="boundary_reported_to[]"][type="checkbox"]'));
-  setupExclusiveNoneForList(q7Checkboxes);
 
   // --- small CSS hint for disabled labels (visual cue) ---
   const style = document.createElement('style');
