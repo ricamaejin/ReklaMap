@@ -482,22 +482,24 @@
 
         <div class="section-header">LOT DETAILS AND CLAIM:</div>
 
-        {% if complaint.type_of_complaint == 'Boundary Dispute' %}
-          {% include 'complaint_details_boundary.html' %}
-        {% elif complaint.type_of_complaint == 'Lot Dispute' %}
-          {% include 'complaint_details_lot_dispute.html' %}
-        {% else %}
-          {% for field in form_structure %}
-            {% if field.type == 'textarea' %}
-              <p><strong>{{ field.label }}</strong></p>
-              <textarea readonly title="{{ field.label }}" aria-label="{{ field.label }}">{{ answers[field.name] }}</textarea>
-            {% elif field.type != 'signature' %}
-              {# Generic field rendering for all other non-signature types #}
-              <p><strong>{{ field.label }}</strong></p>
-              <input type="text" value="{{ answers[field.name] }}" readonly title="{{ field.label }}" aria-label="{{ field.label }}">
-            {% endif %}
-          {% endfor %}
-        {% endif %}
+          {% if complaint.type_of_complaint == 'Boundary Dispute' %}
+            {% include 'complaint_details_boundary.html' %}
+          {% elif complaint.type_of_complaint == 'Lot Dispute' %}
+            {% include 'complaint_details_lot_dispute.html' %}
+          {% elif complaint.type_of_complaint == 'Pathway Dispute' %}
+            {% include 'complaint_details_pathway.html' %}
+          {% else %}
+            {% for field in form_structure %}
+              {% if field.type == 'textarea' %}
+                <p><strong>{{ field.label }}</strong></p>
+                <textarea readonly title="{{ field.label }}" aria-label="{{ field.label }}">{{ answers[field.name] }}</textarea>
+              {% elif field.type != 'signature' %}
+                {# Generic field rendering for all other non-signature types #}
+                <p><strong>{{ field.label }}</strong></p>
+                <input type="text" value="{{ answers[field.name] }}" readonly title="{{ field.label }}" aria-label="{{ field.label }}">
+              {% endif %}
+            {% endfor %}
+          {% endif %}
 
         <!-- Consent Declaration (always before signature) -->
         <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
@@ -507,18 +509,11 @@
 
         <!-- Signature Section (always last) -->
         <div class="signature">
-          {% if complaint.type_of_complaint == 'Boundary Dispute' %}
-            {% if answers.signature_path %}
-              <a href="{{ url_for('complainant.uploaded_signature', filename=answers.signature_path) }}" target="_blank">View Signature</a>
-            {% else %}
-              <p><em>No signature uploaded</em></p>
-            {% endif %}
+          {% set sig = answers.signature or answers.signature_path %}
+          {% if sig %}
+            <a href="{{ url_for('complainant.uploaded_signature', filename=sig) }}" target="_blank">View Signature</a>
           {% else %}
-            {% if answers.signature %}
-              <a href="{{ url_for('complainant.uploaded_signature', filename=answers.signature) }}" target="_blank">View Signature</a>
-            {% else %}
-              <p><em>No signature uploaded</em></p>
-            {% endif %}
+            <p><em>No signature uploaded</em></p>
           {% endif %}
         </div>
 

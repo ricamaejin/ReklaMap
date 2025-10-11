@@ -235,12 +235,15 @@ def new_lot_dispute_form():
 def get_lot_session_data():
     registration_id = session.get("registration_id")
     complaint_id = session.get("complaint_id")
+    
     if not registration_id:
         return jsonify({"error": "No registration found in session"}), 400
+    
     reg = Registration.query.get(registration_id)
     if not reg:
         return jsonify({"error": "Registration not found"}), 404
 
+    # Helper to safely handle empty or NA values
     def safe(val):
         if not val:
             return ""
@@ -249,6 +252,7 @@ def get_lot_session_data():
             return ""
         return val_str
 
+    # Compose full name
     name_parts = [safe(reg.first_name), safe(reg.middle_name), safe(reg.last_name), safe(reg.suffix)]
     full_name = " ".join([p for p in name_parts if p])
 
@@ -262,7 +266,7 @@ def get_lot_session_data():
         "civil_status": reg.civil_status,
         "citizenship": reg.citizenship,
         "age": reg.age,
-        "cur_add": reg.current_address,
+        "cur_add": reg.current_address or "",
         "phone_number": reg.phone_number,
         "year_of_residence": reg.year_of_residence,
         "recipient_of_other_housing": reg.recipient_of_other_housing,
@@ -273,26 +277,58 @@ def get_lot_session_data():
         "supporting_documents": None,
     }
 
+    # Handle HOA members
     if reg.category == "hoa_member":
         from backend.database.models import RegistrationHOAMember
         hoa_member = RegistrationHOAMember.query.filter_by(registration_id=reg.registration_id).first()
         if hoa_member and hoa_member.supporting_documents:
             data["supporting_documents"] = hoa_member.supporting_documents
+
+    # Handle non-members
     elif reg.category == "non_member":
         from backend.database.models import RegistrationNonMember
         non_member = RegistrationNonMember.query.filter_by(registration_id=reg.registration_id).first()
-        if non_member and hasattr(non_member, "connections") and isinstance(non_member.connections, dict):
+        connections_val = ""
+        if non_member and hasattr(non_member, "connections") and non_member.connections:
+            conn = non_member.connections
+            checkbox_labels = [
+                "I live on the lot but I am not the official beneficiary",
+                "I live near the lot and I am affected by the issue",
+                "I am claiming ownership of the lot",
+                "I am related to the person currently occupying the lot",
+                "I was previously assigned to this lot but was replaced or removed"
+            ]
+            display_labels = []
+            if isinstance(conn, dict):
+                for idx, label in enumerate(checkbox_labels, start=1):
+                    if conn.get(f"connection_{idx}"):
+                        display_labels.append(label)
+                if conn.get("connection_other"):
+                    display_labels.append(str(conn["connection_other"]))
+            elif isinstance(conn, list):
+                display_labels = [str(x) for x in conn if x]
+            elif isinstance(conn, str):
+                display_labels = [conn]
+            else:
+                display_labels = [str(conn)]
+            connections_val = ", ".join(display_labels)
             data["supporting_documents"] = non_member.connections
+        data["connections"] = connections_val
+
+    # Handle family of HOA members
     elif reg.category == "family_of_member":
+        from backend.database.models import RegistrationFamOfMember, Beneficiary
         fam = RegistrationFamOfMember.query.filter_by(registration_id=reg.registration_id).first()
         if fam:
-            # Parent info
+            # Supporting documents for family member
             if fam.supporting_documents:
                 data["supporting_documents"] = fam.supporting_documents
+
+            # Parent info
             parent_name_parts = [safe(fam.first_name), safe(fam.middle_name), safe(fam.last_name), safe(fam.suffix)]
             parent_full_name = " ".join([p for p in parent_name_parts if p])
             data["relationship"] = fam.relationship
-            data["parent_info"] = {
+            parent_info = {
                 "full_name": parent_full_name,
                 "date_of_birth": fam.date_of_birth.isoformat() if fam.date_of_birth else "",
                 "sex": fam.sex,
@@ -302,25 +338,27 @@ def get_lot_session_data():
                 "year_of_residence": fam.year_of_residence,
                 "current_address": fam.current_address or "",
             }
-            # Override top-level HOA/Block/Lot/Lot Size using family member JSON or beneficiary linkage
+            data["parent_info"] = parent_info
+
+            # Override HOA, Block, Lot, Lot Size from family member or linked beneficiary
             sd = getattr(fam, "supporting_documents", {}) or {}
-            hoa_src = sd.get("hoa")
-            if hoa_src:
-                data["hoa"] = get_area_name(hoa_src)
+            if sd.get("hoa"):
+                data["hoa"] = get_area_name(sd["hoa"])
             else:
                 try:
-                    from backend.database.models import Beneficiary
                     if fam.beneficiary_id:
                         ben = Beneficiary.query.get(fam.beneficiary_id)
                         if ben:
                             data["hoa"] = get_area_name(ben.area_id)
                 except Exception:
                     pass
+
             data["blk_num"] = sd.get("block_assignment") or data["blk_num"]
             data["lot_num"] = sd.get("lot_assignment") or data["lot_num"]
             data["lot_size"] = sd.get("lot_size") or data["lot_size"]
 
     return jsonify(data)
+
 
 
 # -----------------------------

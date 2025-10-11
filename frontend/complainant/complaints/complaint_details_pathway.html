@@ -1,0 +1,107 @@
+{# Prefer a mapping to read values from: pathway_dispute.responses (if set) or fallback to answers dict #}
+{% set resp = pathway_dispute.responses if pathway_dispute and pathway_dispute.responses else answers %}
+
+{# --- Questions 1-12 --- #}
+{% for field in form_structure if field.type != 'textarea' %}
+<div class="question-block" style="margin-bottom: 18px;">
+    <p>{{ field.label | safe }}</p>
+
+    {# --- Get the value dynamically from mapping --- #}
+    {% set selected = resp[field.name] if resp and field.name in resp else None %}
+
+    {# --- Radio --- #}
+    {% if field.type == "radio" or field.type == "select" or field.type == "enum" %}
+        {% set sel_norm = (selected|string)|lower|replace(' ','') if selected is not none else '' %}
+        {% for value, label in field.options %}
+            {% set vnorm = (value|string)|lower|replace(' ','') %}
+            {% set lnorm = (label|string)|lower|replace(' ','') %}
+            <label style="display: block; margin-left: 8px;">
+                <input type="radio" name="{{ field.name }}" value="{{ value }}" {% if sel_norm == vnorm or sel_norm == lnorm %}checked{% endif %} disabled>
+                {{ label }}
+            </label>
+        {% endfor %}
+
+    {# --- Checkbox --- #}
+    {% elif field.type == "checkbox" %}
+        {# Build a robust list of selected entries from list, dict, or string (CSV or JSON-like), then normalize #}
+        {% set raw = [] %}
+        {% if selected %}
+            {% if selected is mapping %}
+                {% for k, v in selected.items() %}
+                    {% if v %}{% set _ = raw.append(k) %}{% endif %}
+                {% endfor %}
+            {% elif selected is string %}
+                {% set cleaned = selected.replace('[','').replace(']','').replace('"','') %}
+                {% for part in cleaned.split(',') %}
+                    {% set p = part.strip() %}
+                    {% if p %}{% set _ = raw.append(p) %}{% endif %}
+                {% endfor %}
+            {% else %}
+                {% for item in selected %}{% set _ = raw.append(item) %}{% endfor %}
+            {% endif %}
+        {% endif %}
+        {% set sel = namespace(list=[]) %}
+        {% for it in raw %}
+            {% set norm = (it|string)|replace('–','-')|replace('\u2013','-')|trim|lower %}
+            {% if norm %}{% set _ = sel.list.append(norm) %}{% endif %}
+        {% endfor %}
+        {% for value, label in field.options %}
+            {% set vnorm = (value|string)|replace('–','-')|replace('\u2013','-')|trim|lower %}
+            {% set lnorm = (label|string)|replace('–','-')|replace('\u2013','-')|trim|lower %}
+            <label style="display: block; margin-left: 8px;">
+                <input type="checkbox" name="{{ field.name }}" value="{{ value }}" {% if value in raw or label in raw or vnorm in sel.list or lnorm in sel.list %}checked{% endif %} disabled>
+                {{ label }}
+            </label>
+        {% endfor %}
+
+    {# --- Text --- #}
+    {% elif field.type == "text" %}
+        <input type="text" value="{{ selected if selected is not none else '' }}" readonly style="display:block; margin-bottom:4px; width:100%;">
+
+    {# --- Multiple Text --- #}
+    {% elif field.type == "multiple_text" %}
+        {% if selected %}
+            {% for val in selected %}
+                <input type="text" value="{{ val }}" readonly style="display:block; margin-bottom:4px; width:100%;">
+            {% endfor %}
+        {% endif %}
+
+    {# --- Table --- #}
+    {% elif field.type == "table" %}
+        {% if selected %}
+            {% set rows = selected %}
+        {% else %}
+            {% set rows = [] %}
+        {% endif %}
+        <table class="table" style="width:100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    {% for col in field.columns %}
+                        <th style="text-align:left; border-bottom: 1px solid #ccc; padding: 6px 4px;">{{ col }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                    <tr>
+                        {% for col in field.columns %}
+                            <td style="padding: 6px 4px;">{{ row.get(col, "") }}</td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+</div>
+{% endfor %}
+
+
+
+
+{# --- FINAL DESCRIPTION --- #}
+<p class="section-label" style="color: black; font-weight: normal;">
+    Please describe what happened briefly, including how you found out about the issue.
+</p>
+<textarea readonly>{{ answers.get('description', '') }}</textarea>
+
+
