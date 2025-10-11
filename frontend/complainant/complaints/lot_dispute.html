@@ -167,477 +167,196 @@
   </div>
 
 <script>
-  // Populate complainant details (same logic)
-  document.addEventListener('DOMContentLoaded', async () => {
-    try {
-      const res = await fetch('/complainant/lot_dispute/get_lot_session_data', { credentials: 'same-origin' });
-      const contentType = res.headers.get('content-type') || '';
+document.addEventListener('DOMContentLoaded', async () => {
+  const container = document.getElementById('complainantDetails');
+  if(!container) return;
 
-      // If server responded with HTML (e.g., error page), avoid JSON parsing crash
-      if (!contentType.includes('application/json')) {
-        const text = await res.text();
-        console.error('Non-JSON response from get_lot_session_data:', { status: res.status, body: text.slice(0, 200) });
-        if (res.status === 401) {
-          showErrorPop('Please log in to continue. Redirecting to login…');
-          setTimeout(() => { window.location.href = '/complainant/complainant_login.html'; }, 1000);
-        } else {
-          showErrorPop('Could not load your details. Please try again.');
-        }
-        return;
-      }
+  // --- Helper Functions ---
+  function row1(label, value, type='text') {
+    const r = document.createElement('div');
+    r.className = 'pair-row';
+    r.innerHTML = `<div class="col"><label class="small">${label}</label><input type="${type}" value="${value || ''}" readonly></div>`;
+    return r;
+  }
 
-  const d = await res.json();
-      const container = document.getElementById('complainantDetails');
-      if (!container || !d || d.error) {
-        // If backend returned an error JSON, show a friendly message and stop
-        if (d && d.error) {
-          showErrorPop(d.error);
-        }
-        return;
-      }
+  function row2(l1,v1,l2,v2,t1='text',t2='text'){
+    const r=document.createElement('div');
+    r.className='pair-row';
+    r.innerHTML=`
+      <div class="col"><label class="small">${l1}</label><input type="${t1}" value="${v1||''}" readonly></div>
+      <div class="col"><label class="small">${l2}</label><input type="${t2}" value="${v2||''}" readonly></div>`;
+    return r;
+  }
 
-  const pairs = document.createElement('div');
-      pairs.className = 'pairs';
-      let memberWrapper = null;
+  function row3(l1,v1,l2,v2,l3,v3){
+    const r=document.createElement('div');
+    r.className='pair-row';
+    r.innerHTML=`
+      <div class="col"><label class="small">${l1}</label><input type="text" value="${v1||''}" readonly></div>
+      <div class="col"><label class="small">${l2}</label><input type="text" value="${v2||''}" readonly></div>
+      <div class="col"><label class="small">${l3}</label><input type="text" value="${v3||''}" readonly></div>`;
+    return r;
+  }
 
+  function normalizeName(name){
+    if(!name || typeof name!=='string') return name||'';
+    return name.replace(/\b([A-Z])\.*\b/g,'$1.');
+  }
 
-      // Helper to create supporting documents section (only for hoa_member and family_of_member)
-      function createSupportingDocsSection() {
-        if ((d.category === 'hoa_member' || d.category === 'family_of_member') && d.supporting_documents) {
-          const docDiv = document.createElement('div');
-          docDiv.style.margin = '8px 0 16px 0';
-          let labelText = 'What Supporting Documents do you have?';
-          if (d.category === 'family_of_member') {
-            labelText = 'What Supporting Documents does your Family Member have?';
-          }
-            // Build the label
-            docDiv.innerHTML = `<label style="font-weight:600; display:block; margin-bottom:2px;">${labelText}</label>`;
-            // Define doc options (keys must match backend)
-            const docList = [
-              {key: 'title', label: 'Title'},
-              {key: 'contract_to_sell', label: 'Contract to Sell'},
-              {key: 'certificate_of_full_payment', label: 'Certificate of Full Payment'},
-              {key: 'pre_qualification_stub', label: 'Pre-qualification Stub'},
-              {key: 'contract_agreement', label: 'Contract/Agreement'},
-              {key: 'deed_of_sale', label: 'Deed of Sale'}
-            ];
-            // Determine selected docs (array or object)
-            let selected = {};
-            if (Array.isArray(d.supporting_documents)) {
-              d.supporting_documents.forEach(k => selected[k] = true);
-            } else if (typeof d.supporting_documents === 'object') {
-              selected = d.supporting_documents;
-            }
-            // Build the checkbox group as a grid
-            let group = `<div class='checkbox-group' style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px;">`;
-            docList.forEach(doc => {
-              const checked = selected[doc.key] ? 'checked' : '';
-              group += `<label style="white-space:nowrap;"><input type="checkbox" disabled ${checked}> ${doc.label}</label>`;
-            });
-            group += '</div>';
-            docDiv.innerHTML += group;
-            return docDiv;
-          }
-          return null;
-      }
+  function createSupportingDocsSection(docs, category){
+    if(!docs || (!Array.isArray(docs) && typeof docs!=='object')) return null;
+    const docDiv = document.createElement('div');
+    docDiv.style.margin='8px 0 16px 0';
+    const labelText = category==='family_of_member' ? 
+      'What Supporting Documents does your Family Member have?' : 
+      'What Supporting Documents do you have?';
+    docDiv.innerHTML=`<label style="font-weight:600; display:block; margin-bottom:2px;">${labelText}</label>`;
 
-      function row1(label, value, type = 'text') {
-        const r = document.createElement('div');
-        r.className = 'pair-row';
-        r.innerHTML = `<div class="col"><label class="small">${label}</label><input type="${type}" value="${value || ''}" readonly title="${label}"></div>`;
-        return r;
-      }
-      function row2(l1, v1, l2, v2, t1='text', t2='text') {
-        const r = document.createElement('div');
-        r.className = 'pair-row';
-        r.innerHTML = `
-          <div class="col"><label class="small">${l1}</label><input type="${t1}" value="${v1 || ''}" readonly></div>
-          <div class="col"><label class="small">${l2}</label><input type="${t2}" value="${v2 || ''}" readonly></div>`;
-        return r;
+    const docList = [
+      {key:'title',label:'Title'},
+      {key:'contract_to_sell',label:'Contract to Sell'},
+      {key:'certificate_of_full_payment',label:'Certificate of Full Payment'},
+      {key:'pre_qualification_stub',label:'Pre-qualification Stub'},
+      {key:'contract_agreement',label:'Contract/Agreement'},
+      {key:'deed_of_sale',label:'Deed of Sale'}
+    ];
 
-          // --- Add Recipient of other housing programs and Supporting Documents ---
-          // Only if d.recipient_of_other_housing or d.supporting_documents exists
-          if (d.recipient_of_other_housing !== undefined || d.supporting_documents !== undefined) {
-            // Recipient of other housing programs
-            const recDiv = document.createElement('div');
-            recDiv.style.margin = '16px 0 8px 0';
-            recDiv.innerHTML = `<label style="font-weight:600;">Recipient of other housing programs besides NGCCHP?</label><br>
-              <label style="margin-right:16px;"><input type="radio" name="recipient_other_housing" value="Yes" disabled ${d.recipient_of_other_housing==="yes"||d.recipient_of_other_housing===true||d.recipient_of_other_housing==="Yes"?'checked':''}> Yes</label>
-              <label><input type="radio" name="recipient_other_housing" value="No" disabled ${d.recipient_of_other_housing==="no"||d.recipient_of_other_housing===false||d.recipient_of_other_housing==="No"?'checked':''}> No</label>`;
-            pairs.appendChild(recDiv);
+    let selected={};
+    if(Array.isArray(docs)) docs.forEach(k=>selected[k]=true);
+    else if(typeof docs==='object') selected=docs;
 
-            // Supporting documents
-            if (d.supporting_documents) {
-              const docDiv = document.createElement('div');
-              docDiv.style.margin = '8px 0 16px 0';
-              docDiv.innerHTML = `<label style="font-weight:600;">What supporting documents do you have?</label><br>`;
-              const docList = [
-                {key: 'title', label: 'Title'},
-                {key: 'contract', label: 'Contract to Sell'},
-                {key: 'fullpay', label: 'Certificate of Full Payment'},
-                {key: 'award', label: 'Pre-qualification Stub'},
-                {key: 'agreement', label: 'Contract/Agreement'},
-                {key: 'deed', label: 'Deed of Sale'}
-              ];
-              docList.forEach(doc => {
-                const checked = d.supporting_documents[doc.key] ? 'checked' : '';
-                docDiv.innerHTML += `<label style="margin-right:16px;"><input type="checkbox" disabled ${checked}> ${doc.label}</label>`;
-              });
-              pairs.appendChild(docDiv);
-            }
-          }
-      }
-      function row3(l1, v1, l2, v2, l3, v3) {
-        const r = document.createElement('div');
-        r.className = 'pair-row';
-        r.innerHTML = `
-          <div class="col"><label class="small">${l1}</label><input type="text" value="${v1 || ''}" readonly></div>
-          <div class="col"><label class="small">${l2}</label><input type="text" value="${v2 || ''}" readonly></div>
-          <div class="col"><label class="small">${l3}</label><input type="text" value="${v3 || ''}" readonly></div>`;
-        return r;
-      }
+    let group=`<div class='checkbox-group' style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap:6px 16px;">`;
+    docList.forEach(doc=>{
+      const checked = selected[doc.key]? 'checked':'';
+      group+=`<label style="white-space:nowrap;"><input type="checkbox" disabled ${checked}> ${doc.label}</label>`;
+    });
+    group+='</div>';
+    docDiv.innerHTML+=group;
+    return docDiv;
+  }
 
-
-      // Helper to normalize middle initials to a single trailing period (e.g., "B" or "B.." -> "B.")
-      function normalizeName(name) {
-        if (!name || typeof name !== 'string') return name || '';
-        // Replace any single-letter token (optionally with dots) with the letter followed by a single dot
-        // Keep multi-letter tokens (e.g., Jr., III) unchanged
-        return name
-          .replace(/\b([A-Za-z])\.*\b/g, '$1.')
-          .replace(/\.{2,}/g, '.')
-          .replace(/\s+/g, ' ')
-          .trim();
-      }
-
-      pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
-      pairs.appendChild(row2('Date of Birth:', d.date_of_birth, 'Sex:', d.sex, 'date', 'text'));
-      pairs.appendChild(row2('Citizenship:', d.citizenship, 'Age:', d.age));
-      pairs.appendChild(row2('Phone Number:', d.phone_number, 'Year of Residence:', d.year_of_residence));
-
-      let civilRowIdx = null;
-      if (d.category === 'family_of_member') {
-        pairs.appendChild(row2('Relationship:', d.relationship || '', 'Current Address:', d.cur_add));
-      } else if (d.category === 'non_member') {
-        pairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
-        civilRowIdx = pairs.children.length - 1;
-        pairs.appendChild(row1('Current Address:', d.cur_add));
-        pairs.appendChild(row1('Area (HOA):', d.hoa || ''));
-      } else {
-        pairs.appendChild(row1('Current Address:', d.cur_add));
-      }
-
-      // For non_member, no Area selection dropdown; Area (HOA) is shown read-only above.
-
-      // HOA details for hoa_member and family_of_member
-      if (d.category === 'hoa_member' || d.category === 'family_of_member') {
-        if (d.category === 'family_of_member') {
-          if (d.parent_info) {
-            const wrapper = document.createElement('div');
-            wrapper.style.marginTop = '20px';
-
-            // Use the same markup and class as other section headers for blue box styling
-            const sectionHeader = document.createElement('div');
-            sectionHeader.className = 'section-header';
-            sectionHeader.textContent = 'HOA MEMBER INFORMATION';
-            wrapper.appendChild(sectionHeader);
-
-            const memberPairs = document.createElement('div');
-            memberPairs.className = 'pairs';
-            const p = d.parent_info;
-            // Full Name (single row)
-            memberPairs.appendChild(row1('Full Name:', normalizeName(p.full_name)));
-            // Date of Birth | Sex
-            memberPairs.appendChild(row2('Date of Birth:', p.date_of_birth, 'Sex:', p.sex, 'date', 'text'));
-            // Citizenship | Age
-            memberPairs.appendChild(row2('Citizenship:', p.citizenship, 'Age:', p.age));
-            // Rest as before
-            memberPairs.appendChild(row1('Area (HOA):', d.hoa || ''));
-            memberPairs.appendChild(row1('Current Address:', p.current_address));
-            console.log("Parent info:", p);
-            memberPairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
-            memberPairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
-
-            // Insert supporting docs after Civil Status/Recipient row in memberPairs
-            const docSection = createSupportingDocsSection();
-            if (docSection) memberPairs.appendChild(docSection);
-
-            wrapper.appendChild(memberPairs);
-            memberWrapper = wrapper;
-          }
-        } else {
-          pairs.appendChild(row1('Area (HOA):', d.hoa || ''));
-          pairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
-          pairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
-          civilRowIdx = pairs.children.length - 1;
-        }
-      }
-
-      // Insert supporting documents section after Civil Status/Recipient row if present
-      if (civilRowIdx !== null) {
-        const docSection = createSupportingDocsSection();
-        if (docSection) {
-          // Insert after the Civil Status/Recipient row
-          if (pairs.children.length > civilRowIdx + 1) {
-            pairs.insertBefore(docSection, pairs.children[civilRowIdx + 1]);
-          } else {
-            pairs.appendChild(docSection);
-          }
-        }
-      }
-
-      container.innerHTML = '';
-      container.appendChild(pairs);
-      if (memberWrapper) {
-        container.appendChild(memberWrapper);
-      }
-
-      // Show Block/Lot pairs question only for non_members
-      const nonMemberPairs = document.getElementById('nonMemberBlockLotSection');
-      if (nonMemberPairs) {
-        nonMemberPairs.style.display = d.category === 'non_member' ? '' : 'none';
-      }
-
-      // Initialize pairs UI only when visible
-      if (d.category === 'non_member') {
-        initBlockLotPairsUI();
-      }
-    } catch (e) {
-      console.warn('Failed to populate lot dispute header:', e);
-      showErrorPop('Failed to load your details. Please refresh the page.');
-    }
-  });
-
-  // Error pop-up
   function showErrorPop(msg) {
     const pop = document.getElementById('errorPop');
     const popMsg = document.getElementById('errorPopMsg');
-    if (!pop || !popMsg) return;
+    if(!pop || !popMsg) return;
     popMsg.textContent = msg;
-    pop.style.display = 'block';
-    pop.style.opacity = '1';
-    setTimeout(() => {
-      pop.style.opacity = '0';
-      setTimeout(() => { pop.style.display = 'none'; }, 400);
-    }, 1000);
+    pop.style.display='block';
+    pop.style.opacity='1';
+    setTimeout(()=>{
+      pop.style.opacity='0';
+      setTimeout(()=>{pop.style.display='none';},400);
+    },1000);
   }
 
-  // Helper to manage dynamic Block/Lot pairs
-  function initBlockLotPairsUI(){
-    const pairsContainer = document.getElementById('pairsContainer');
-    if (!pairsContainer) return;
+  try{
+    const res = await fetch('/complainant/boundary_dispute/get_boundary_session_data', {credentials:'same-origin'});
+    if(!res.ok) throw new Error('Failed to fetch session data');
+    const d = await res.json();
+    if(!d || d.error) throw new Error(d?.error || 'No data returned');
 
-    function createPairRow(block = '', lot = '') {
-      const row = document.createElement('div');
-      row.className = 'pair-row';
+    const pairs = document.createElement('div');
+    pairs.className='pairs';
+    const cat = d.category;
+    let memberWrapper = null;
 
-      const colBlock = document.createElement('div');
-      colBlock.className = 'col';
-      const lblBlock = document.createElement('label');
-      lblBlock.className = 'small';
-      lblBlock.textContent = 'Block No.';
-      const inputBlock = document.createElement('input');
-      inputBlock.type = 'text';
-      inputBlock.name = 'block_no[]';
-      inputBlock.value = block;
-      inputBlock.placeholder = 'Block No.';
-      colBlock.appendChild(lblBlock);
-      colBlock.appendChild(inputBlock);
+    // --- Basic info ---
+    pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
+    // Format date_of_birth as 'Month Day, Year' if possible
+    let dob = d.date_of_birth;
+    if (dob && typeof dob === 'string' && dob.match(/\d{4}-\d{2}-\d{2}/)) {
+      const dt = new Date(dob);
+      dob = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    } else if (dob && typeof dob === 'string' && dob.match(/\w{3},/)) {
+      // Try to parse RFC date string
+      const dt = new Date(dob);
+      if (!isNaN(dt)) dob = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+    pairs.appendChild(row2('Date of Birth:', dob, 'Age:', d.age));
+    pairs.appendChild(row2('Sex:', d.sex,'Citizenship:', d.citizenship));
+    pairs.appendChild(row3('Current Address:', d.cur_add,'Year of Residence:', d.year_of_residence,'Phone Number:', d.phone_number));
 
-      const colLot = document.createElement('div');
-      colLot.className = 'col';
-      const lblLot = document.createElement('label');
-      lblLot.className = 'small';
-      lblLot.textContent = 'Lot No.';
-      const inputLot = document.createElement('input');
-      inputLot.type = 'text';
-      inputLot.name = 'lot_no[]';
-      inputLot.value = lot;
-      inputLot.placeholder = 'Lot No.';
-      colLot.appendChild(lblLot);
-      colLot.appendChild(inputLot);
-
-      // Remove button is not needed if only one pair is allowed, so omit it
-
-      row.appendChild(colBlock);
-      row.appendChild(colLot);
-
-      return row;
+    if(cat!=='family_of_member'){
+      pairs.appendChild(row1('Area (HOA):', d.hoa||''));
+      pairs.appendChild(row2('Civil Status:', d.civil_status||'','Recipient of Other Housing:', d.recipient_of_other_housing||''));
+      if(cat==='hoa_member'){
+        pairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
+        const docSection = createSupportingDocsSection(d.supporting_documents, cat);
+        if(docSection) pairs.appendChild(docSection);
+      }
+      if(cat==='non_member'){
+        let connVal='';
+        if(Array.isArray(d.connections)) connVal=d.connections.join(', ');
+        else if(typeof d.connections==='string') connVal=d.connections;
+        else if(d.connections) connVal=String(d.connections);
+        const connRow = document.createElement('div');
+        connRow.className='pair-row';
+        connRow.innerHTML=`<div class="col" style="width:100%"><label class="small">How are you connected to the lot you are complaining about?</label><input type="text" value="${connVal}" readonly></div>`;
+        pairs.appendChild(connRow);
+      }
     }
 
-    // Only allow one pair row
-    pairsContainer.appendChild(createPairRow());
+    // --- family_of_member HOA MEMBER INFORMATION ---
+    if(cat==='family_of_member' && d.parent_info){
+      const wrapper = document.createElement('div');
+      wrapper.style.marginTop='20px';
+      const sectionHeader = document.createElement('div');
+      sectionHeader.className='section-header';
+      sectionHeader.textContent='HOA MEMBER INFORMATION';
+      wrapper.appendChild(sectionHeader);
+
+      const memberPairs = document.createElement('div');
+      memberPairs.className='pairs';
+      const p = d.parent_info;
+
+      memberPairs.appendChild(row1('Full Name:', normalizeName(p.full_name)));
+      // Format parent date_of_birth as 'Month Day, Year' if possible
+      let pdob = p.date_of_birth;
+      if (pdob && typeof pdob === 'string' && pdob.match(/\d{4}-\d{2}-\d{2}/)) {
+        const dt = new Date(pdob);
+        pdob = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      } else if (pdob && typeof pdob === 'string' && pdob.match(/\w{3},/)) {
+        // Try to parse RFC date string
+        const dt = new Date(pdob);
+        if (!isNaN(dt)) pdob = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      }
+      memberPairs.appendChild(row2('Date of Birth:', pdob, 'Age:', p.age));
+      memberPairs.appendChild(row2('Sex:', p.sex, 'Citizenship:', p.citizenship));
+      memberPairs.appendChild(row2('Current Address:', p.current_address, 'Year of Residence:', p.year_of_residence || ''));
+
+      // Use top-level `d` for overridden fields
+      memberPairs.appendChild(row1('Area (HOA):', d.hoa || ''));
+      memberPairs.appendChild(row3(
+        'Block Assignment:', d.blk_num || '',
+        'Lot Assignment:', d.lot_num || '',
+        'Lot Size:', d.lot_size || ''
+      ));
+      memberPairs.appendChild(row3(
+        'Civil Status:', d.civil_status || '',
+        'Recipient of Other Housing:', d.recipient_of_other_housing || '',
+        'Relationship:', d.relationship || ''
+      ));
+
+      // Supporting documents at the very bottom
+      const docSection = createSupportingDocsSection(p.supporting_documents || d.supporting_documents, 'family_of_member');
+      if(docSection) memberPairs.appendChild(docSection);
+
+      wrapper.appendChild(memberPairs);
+      memberWrapper = wrapper;
+    }
+
+    container.innerHTML='';
+    container.appendChild(pairs);
+    if(memberWrapper) container.appendChild(memberWrapper);
+
+  }catch(e){
+    console.warn('Failed to populate boundary dispute header:', e);
+    showErrorPop('Failed to load your details. Please refresh the page.');
   }
 
-  // Submit Lot Dispute
-  (function(){
-    const form = document.getElementById('lotDisputeForm');
-    const sigInput = document.getElementById('signatureInput');
-    const submitBtn = document.getElementById('submitBtn');
-    const sigName = document.getElementById('signatureFileName');
-
-    if (sigInput) {
-      sigInput.addEventListener('change', function(){
-        if (this.files && this.files[0]) {
-          if (sigName) sigName.textContent = this.files[0].name;
-          if (submitBtn) submitBtn.style.display = 'inline-block';
-        } else {
-          if (sigName) sigName.textContent = '';
-          if (submitBtn) submitBtn.style.display = 'none';
-        }
-      });
-    }
-
-    if (!form) return;
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const getRadio = (name) => {
-        const el = document.querySelector(`input[name="${name}"]:checked`);
-        return el ? el.value : '';
-      };
-
-      // Handle "Other" augmentations for possession field
-      let possession = getRadio('possession');
-      if (possession === 'Other') {
-        const t = document.getElementById('possessionOtherText').value.trim();
-        possession = t ? `Other: ${t}` : 'Other';
-      }
-      possession = possession.substring(0, 200); // Limit to 200 chars
-
-  // Q5: boundary_reported_to[] selections
-  const reportedTo = Array.from(document.querySelectorAll('input[name="boundary_reported_to[]"]:checked')).map(x => x.value);
-      const disputeDate = document.querySelector('input[name="dispute_start_date"]').value;
-      
-      // Collect multiple opposing names
-      const opposingNames = Array.from(document.querySelectorAll('input[name="opposing_name[]"]'))
-        .map(input => input.value.trim())
-        .filter(name => name !== '');
-      
-      // Collect multiple relationships
-      const relationships = Array.from(document.querySelectorAll('input[name="relationship_with_person[]"]'))
-        .map(input => input.value.trim())
-        .filter(rel => rel !== '');
-      
-      const legalDocs = getRadio('claimDocs');
-      const resideAnswer = getRadio('reside');
-
-      // Collect document types if "Yes" was selected for legal documents
-      let documentTypes = [];
-      if (legalDocs === 'Yes') {
-        documentTypes = Array.from(document.querySelectorAll('input[name="docs"]:checked')).map(x => x.value);
-      }
-
-      // If non_member, collect Block/Lot pairs and validate before submit
-      const nonMemberSection = document.getElementById('nonMemberBlockLotSection');
-      let blockLot = [];
-      if (nonMemberSection && nonMemberSection.style.display !== 'none') {
-        const rows = Array.from(document.querySelectorAll('#pairsContainer .pair-row'));
-        blockLot = rows.map(row => {
-          const blockInput = row.querySelector('input[name="block_no[]"]');
-          const lotInput = row.querySelector('input[name="lot_no[]"]');
-          return { block: blockInput ? blockInput.value.trim() : '', lot: lotInput ? lotInput.value.trim() : '' };
-        }).filter(item => item.block || item.lot);
-        // Validate pairs with backend before actual submit
-        try {
-          const resp = await fetch('/complainant/lot_dispute/validate_pairs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ pairs: blockLot })
-          });
-          const data = await resp.json();
-          if (!resp.ok || !data.success) {
-            let msg = data.message || 'Invalid Block/Lot pairs.';
-            if (data.mismatches && Array.isArray(data.mismatches) && data.mismatches.length > 0) {
-              // Only show the first unique error message (deduplicate)
-              const unique = [...new Set(data.mismatches)];
-              msg = unique[0] || msg;
-            }
-            showErrorPop(msg);
-            return;
-          }
-        } catch (err) {
-          showErrorPop('Could not validate Block/Lot pairs. Please try again.');
-          return;
-        }
-      }
-
-  // Collect checkbox values for question 2
-  const natureChecked = Array.from(document.querySelectorAll('input[name="nature"]:checked')).map(x => x.value);
-
-  // Collect checkbox values for question 4
-  const reasonChecked = Array.from(document.querySelectorAll('input[name="reason"]:checked')).map(x => x.value);
-
-  // Collect checkbox values for question 6
-  const siteResults = Array.from(document.querySelectorAll('input[name="site_result[]"]:checked')).map(x => x.value);
-
-      const fd = new FormData();
-  fd.append('possession', possession);
-  fd.append('dispute_start_date', disputeDate);
-
-  // Q2: append each selected "nature" answer separately
-  natureChecked.forEach(v => fd.append('nature', v));
-
-  // Q4: append each selected "reason" answer separately
-  reasonChecked.forEach(v => fd.append('reason', v));
-
-  // Q5: append each boundary_reported_to[] separately
-  reportedTo.forEach(v => fd.append('boundary_reported_to[]', v));
-
-  // Q6: append each site_result[] separately
-  siteResults.forEach(v => fd.append('site_result[]', v));
-      
-      // Append multiple opposing names
-      opposingNames.forEach(name => {
-        fd.append('opposing_name[]', name.substring(0, 100));
-      });
-      
-      // Append multiple relationships
-      relationships.forEach(rel => {
-        fd.append('relationship_with_person[]', rel.substring(0, 100));
-      });
-      
-      fd.append('claimDocs', legalDocs);
-      fd.append('reside', resideAnswer);
-      
-      // Append document types if any were selected
-      documentTypes.forEach(doc => {
-        fd.append('docs', doc);
-      });
-      // Include free-text description so backend can persist it
-      const descriptionText = (document.getElementById('description')?.value || '').trim();
-      fd.append('description', descriptionText);
-      if (blockLot.length > 0) {
-        fd.append('block_lot', JSON.stringify(blockLot));
-      }
-      if (sigInput && sigInput.files[0]) {
-        fd.append('signature', sigInput.files[0]);
-      }
-
-      // No Area selection; backend derives Area from registration.
-
-      try {
-        const res = await fetch('/complainant/lot_dispute/submit_lot_dispute', {
-          method: 'POST',
-          body: fd,
-          credentials: 'include'
-        });
-
-        if (res.ok) {
-          const data = await res.json().catch(() => ({}));
-          if (data.success) window.location.href = '/complainant/home/dashboard.html';
-          else showErrorPop(data.message || 'Failed to submit.');
-        } else {
-          const data = await res.json().catch(() => ({}));
-          showErrorPop(data.message || 'Error occurred while submitting.');
-        }
-      } catch {
-        showErrorPop('An error occurred while submitting the complaint.');
-      }
-    });
-  })();
+});
 </script>
+
+
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
@@ -663,6 +382,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Multi-add for relationship removed; single input retained.
 });
 </script>
+
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.querySelector('form');
@@ -765,7 +486,98 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
-
 </script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('lotDisputeForm');
+  const submitBtn = document.getElementById('submitBtn');
+  const sigInput = document.getElementById('signatureInput');
+  const sigName = document.getElementById('signatureFileName');
+
+  if (!form || !submitBtn) return;
+
+  // --- Helper to show blue popup errors ---
+  function showErrorPop(msg) {
+    const pop = document.getElementById('errorPop');
+    const popMsg = document.getElementById('errorPopMsg');
+    if (!pop || !popMsg) return;
+    popMsg.textContent = msg;
+    pop.style.display = 'block';
+    pop.style.opacity = '1';
+    setTimeout(() => {
+      pop.style.opacity = '0';
+      setTimeout(() => { pop.style.display = 'none'; }, 400);
+    }, 1000);
+  }
+
+  // --- Enable submit button when signature is uploaded ---
+  if (sigInput) {
+    sigInput.addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+        if (sigName) sigName.textContent = this.files[0].name;
+        submitBtn.style.display = 'inline-block';
+        submitBtn.disabled = false;
+      } else {
+        if (sigName) sigName.textContent = '';
+        submitBtn.style.display = 'none';
+        submitBtn.disabled = true;
+      }
+    });
+  }
+
+  // --- Form submission ---
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+      const fd = new FormData(form);
+
+      // Gather dynamic block/lot pairs for non-members (if any)
+      const pairsContainer = document.getElementById('pairsContainer');
+      if (pairsContainer) {
+        const rows = Array.from(pairsContainer.querySelectorAll('.pair-row'));
+        const blockLotData = rows.map(row => {
+          const block = row.querySelector('input[name="block_no[]"]')?.value.trim() || '';
+          const lot = row.querySelector('input[name="lot_no[]"]')?.value.trim() || '';
+          return { block, lot };
+        }).filter(r => r.block || r.lot);
+        if (blockLotData.length) fd.append('block_lot', JSON.stringify(blockLotData));
+      }
+
+      // Submit via fetch to lot dispute endpoint
+      const res = await fetch('/complainant/lot_dispute/submit_lot_dispute', {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+
+      let data;
+      try { data = await res.json(); } catch { data = {}; }
+
+      if (data.success) {
+        // Success: redirect to dashboard
+        window.location.href = '/complainant/home/dashboard.html';
+      } else {
+        // Failure: show popup or alert
+        if (data.field === 'block_lot' && data.message) {
+          showErrorPop(data.message);
+        } else if (data.errors) {
+          showErrorPop(Array.isArray(data.errors) ? data.errors.join('\n') : data.errors);
+        } else {
+          showErrorPop(data.message || 'Submission failed.');
+        }
+        if (submitBtn) submitBtn.disabled = false;
+      }
+
+    } catch (err) {
+      showErrorPop('An error occurred during submission. Please try again.');
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+});
+</script>
+
 </body>
 </html>

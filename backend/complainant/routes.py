@@ -6,7 +6,7 @@ from backend.database.db import db
 from backend.complainant.lot_dispute import get_form_structure as get_lot_form_structure
 from backend.complainant.boundary_dispute import get_form_structure as get_boundary_form_structure
 from backend.complainant.redirects import complaint_redirect_path
-from backend.database.models import BoundaryDispute
+from backend.database.models import BoundaryDispute, PathwayDispute
 import os, json, time
 
 # -----------------------------
@@ -46,11 +46,17 @@ def get_area_name(area_id):
 # -----------------------------
 @complainant_bp.route("/signatures/<path:filename>")
 def uploaded_signature(filename):
-    try:
-        # Limit to the known upload directory
-        return send_from_directory(UPLOAD_DIR, filename)
-    except Exception:
-        abort(404)
+    # Try both possible upload locations for signatures
+    import os
+    # 1. backend/uploads/signatures
+    main_upload_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "uploads", "signatures"))
+    # 2. backend/complainant/uploads/signatures (legacy or alternate)
+    complainant_upload_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "uploads", "signatures"))
+    for dir_path in [main_upload_dir, complainant_upload_dir]:
+        file_path = os.path.join(dir_path, filename)
+        if os.path.isfile(file_path):
+            return send_from_directory(dir_path, filename)
+    abort(404)
 
 # -----------------------------
 # SIGNUP ROUTE
@@ -349,8 +355,10 @@ def view_complaint(complaint_id):
 
     # Build answers from the correct complaint table
     answers = {}
+
     lot_dispute = None
     boundary_dispute = None
+    pathway_dispute = None
 
     def _parse_list(val):
         try:
@@ -371,19 +379,17 @@ def view_complaint(complaint_id):
 
     print('[DEBUG] complaint.type_of_complaint:', complaint.type_of_complaint)
     if complaint.type_of_complaint == "Lot Dispute":
+        # ...existing Lot Dispute code...
         form_structure = get_lot_form_structure("Lot Dispute")
-        # Load user's saved answers
         lot_dispute = LotDispute.query.filter_by(complaint_id=complaint_id).first()
         if lot_dispute:
-            # q2, q4–q8 can be JSON strings or CSV; normalize to lists
+            # ...existing Lot Dispute answer logic...
             q2_list = _parse_list(getattr(lot_dispute, 'q2', None))
             q4_list = _parse_list(getattr(lot_dispute, 'q4', None))
             q5_list = _parse_list(getattr(lot_dispute, 'q5', None))
             q6_list = _parse_list(getattr(lot_dispute, 'q6', None))
             q7_list = _parse_list(getattr(lot_dispute, 'q7', None))
             q8_list = _parse_list(getattr(lot_dispute, 'q8', None))
-
-            # q9 may be a json string {claim, documents}
             q9_raw = getattr(lot_dispute, 'q9', None)
             q9_data = {"claim": "", "documents": []}
             try:
@@ -395,8 +401,6 @@ def view_complaint(complaint_id):
                         q9_data = {"claim": parsed.get("claim", ""), "documents": parsed.get("documents", [])}
             except Exception:
                 pass
-
-            # q10 may be a json string {reside: Yes/No/Not Sure}
             q10_raw = getattr(lot_dispute, 'q10', None)
             q10_data = {}
             try:
@@ -406,10 +410,7 @@ def view_complaint(complaint_id):
                     q10_data = json.loads(q10_raw)
             except Exception:
                 q10_data = {}
-
-            # q3 is a date
             q3_val = lot_dispute.q3.strftime("%Y-%m-%d") if getattr(lot_dispute, 'q3', None) else ""
-
             answers = {
                 "q1": getattr(lot_dispute, 'q1', '') or '',
                 "q2": q2_list,
@@ -424,20 +425,18 @@ def view_complaint(complaint_id):
                 "description": getattr(lot_dispute, 'description', None) or getattr(complaint, 'description', '') or '',
                 "signature": getattr(lot_dispute, 'signature', None) or getattr(registration, 'signature_path', '') or '',
             }
-
             print("\n[DEBUG] --- Final Data Before Render ---")
             print("[DEBUG] Complaint Type:", complaint.type_of_complaint)
             print("[DEBUG] form_structure length:", len(form_structure))
             print("[DEBUG] form_structure fields:")
             for f in form_structure:
                 print("   ", f.get("name"), "-", f.get("type"))
-
             print("[DEBUG] answers keys:", list(answers.keys()))
             for k, v in answers.items():
                 print(f"   {k}: {v}")
             print("[DEBUG] -----------------------------------\n")
     elif complaint.type_of_complaint == "Boundary Dispute":
-        # Build answers from BoundaryDispute
+        # ...existing Boundary Dispute code...
         bd = BoundaryDispute.query.filter_by(complaint_id=complaint_id).first()
         print('[DEBUG] BoundaryDispute record found:', bool(bd))
         boundary_dispute = bd
@@ -459,7 +458,6 @@ def view_complaint(complaint_id):
                     return []
             def _safe(v):
                 return v or ''
-            # q12 is a list of dicts
             q12_val = []
             try:
                 raw = getattr(bd, 'q12', None)
@@ -469,8 +467,6 @@ def view_complaint(complaint_id):
                     q12_val = json.loads(raw)
             except Exception:
                 q12_val = []
-
-            # Collect all other fields
             answers = {
                 'q1': _json_list(getattr(bd, 'q1', None)),
                 'q2': _safe(getattr(bd, 'q2', None)),
@@ -496,6 +492,58 @@ def view_complaint(complaint_id):
             print("[DEBUG] Complaint Preview Answers:")
             for k, v in answers.items():
                 print(f"  {k}: {v} (type: {type(v)})")
+    elif complaint.type_of_complaint == "Pathway Dispute":
+        # Dedicated block for Pathway Dispute preview
+        from backend.complainant.pathway_dispute import get_form_structure as get_pathway_form_structure
+        from backend.database.models import PathwayDispute
+        form_structure = get_pathway_form_structure("Pathway Dispute")
+        pathway_dispute = PathwayDispute.query.filter_by(complaint_id=complaint_id).first()
+        if pathway_dispute:
+            def _parse_json_list(val):
+                try:
+                    if isinstance(val, list):
+                        return val
+                    if isinstance(val, str):
+                        s = val.strip()
+                        if not s:
+                            return []
+                        return json.loads(s)
+                except Exception:
+                    pass
+                return []
+            def _parse_str(val):
+                if val is None:
+                    return ''
+                if isinstance(val, str):
+                    return val
+                try:
+                    return str(val)
+                except Exception:
+                    return ''
+            q12_val = getattr(pathway_dispute, 'q12', None)
+            print(f"[DEBUG] Pathway Dispute q12 raw value: {q12_val} (type: {type(q12_val)})")
+            answers = {
+                'q1': getattr(pathway_dispute, 'q1', None) or '',
+                'q2': getattr(pathway_dispute, 'q2', None) or '',
+                'q3': getattr(pathway_dispute, 'q3', None) or '',
+                'q4': getattr(pathway_dispute, 'q4', None) or '',
+                'q5': _parse_json_list(getattr(pathway_dispute, 'q5', None)),
+                'q6': getattr(pathway_dispute, 'q6', None) or '',
+                'q7': getattr(pathway_dispute, 'q7', None) or '',
+                'q8': _parse_json_list(getattr(pathway_dispute, 'q8', None)),
+                'q9': _parse_json_list(getattr(pathway_dispute, 'q9', None)),
+                'q10': getattr(pathway_dispute, 'q10', None) or '',
+                'q11': _parse_json_list(getattr(pathway_dispute, 'q11', None)),
+                'q12': _parse_str(q12_val),
+                'description': getattr(pathway_dispute, 'description', None) or getattr(complaint, 'description', '') or '',
+                'signature': getattr(pathway_dispute, 'signature', None) or getattr(registration, 'signature_path', '') or '',
+            }
+            print("[DEBUG] Pathway Dispute Preview Answers:")
+            for k, v in answers.items():
+                print(f"  {k}: {v} (type: {type(v)})")
+        else:
+            answers = {}
+            print("[DEBUG] No PathwayDispute record found for complaint_id", complaint_id)
     else:
         form_structure = []
 
@@ -549,4 +597,5 @@ def view_complaint(complaint_id):
         boundary_dispute=boundary_dispute,
         parent_info=parent_info,
         relationship=relationship,
+        pathway_dispute=pathway_dispute,
     )

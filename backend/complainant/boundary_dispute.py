@@ -141,15 +141,14 @@ def submit_boundary_dispute():
             if not (name and block and lot):
                 failed_entries.append({"entry": entry, "reason": ["Missing required fields"]})
                 continue
-            # Parse name: try to split into first, (optional middle), last
-            name_parts = name.split()
+            # Parse name: try to split into first and last name (ignore middle names/initials)
+            name_parts = [p for p in name.split() if p]
             if len(name_parts) < 2:
                 failed_entries.append({"entry": entry, "reason": ["Name must include at least first and last name"]})
                 continue
-            # Case-insensitive, whitespace-trimmed match for first and last name
+            # Use only first and last name for matching, ignore middle names/initials
             first = name_parts[0].strip().upper()
             last = name_parts[-1].strip().upper()
-            middle = name_parts[1].strip().upper() if len(name_parts) > 2 else None
             try:
                 block_no = int(str(block).strip())
                 lot_no = int(str(lot).strip())
@@ -169,18 +168,15 @@ def submit_boundary_dispute():
             if not ben:
                 failed_entries.append({"entry": entry, "reason": ["No matching beneficiary for block/lot in your HOA"]})
                 continue
-            # Compare first and last name (case-insensitive, whitespace-trimmed, must match exactly)
+            # Compare first and last name (case-insensitive, ignore extra spaces, allow partial match)
             ben_first = (ben.first_name or '').strip().upper()
             ben_last = (ben.last_name or '').strip().upper()
             mismatch = []
-            if ben_first != first:
+            # Allow partial match: form name must be contained in beneficiary name or vice versa
+            if first not in ben_first and ben_first not in first:
                 mismatch.append("First Name")
-            if ben_last != last:
+            if last not in ben_last and ben_last not in last:
                 mismatch.append("Last Name")
-            # Optionally check middle initial
-            if middle:
-                if normalize_mi(ben.middle_initial) != normalize_mi(middle):
-                    mismatch.append("Middle Name")
             # Block Assignment (should always match, but double-check)
             try:
                 benef_block_no = ben.block.block_no if ben.block else None
@@ -442,8 +438,32 @@ def get_boundary_session_data():
     elif reg.category == "non_member":
         from backend.database.models import RegistrationNonMember
         non_member = RegistrationNonMember.query.filter_by(registration_id=reg.registration_id).first()
-        if non_member and hasattr(non_member, "connections") and isinstance(non_member.connections, dict):
-            data["connections"] = non_member.connections
+        if non_member and non_member.connections:
+            connections_val = ""
+            if isinstance(non_member.connections, dict):
+                checkbox_labels = [
+                    "I live on the lot but I am not the official beneficiary",
+                    "I live near the lot and I am affected by the issue",
+                    "I am claiming ownership of the lot",
+                    "I am related to the person currently occupying the lot",
+                    "I was previously assigned to this lot but was replaced or removed"
+                ]
+                display_labels = []
+                for idx, label in enumerate(checkbox_labels, start=1):
+                    key = f"connection_{idx}"
+                    if non_member.connections.get(key):
+                        display_labels.append(label)
+                other = non_member.connections.get("connection_other")
+                if other:
+                    display_labels.append(other)
+                connections_val = ", ".join(display_labels)
+            elif isinstance(non_member.connections, list):
+                connections_val = ", ".join([str(x) for x in non_member.connections if x])
+            elif isinstance(non_member.connections, str):
+                connections_val = non_member.connections
+            else:
+                connections_val = str(non_member.connections)
+            data["connections"] = connections_val
     elif reg.category == "family_of_member":
         from backend.database.models import RegistrationFamOfMember, RegistrationHOAMember
         fam = RegistrationFamOfMember.query.filter_by(registration_id=reg.registration_id).first()
