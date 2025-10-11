@@ -375,14 +375,14 @@ def api_resolved_complaints():
                 if complaint.complaint_stage == 'Resolved':
                     task_description
                 elif complaint.complaint_stage == 'Out of Jurisdiction':
-                    task_description += " (Marked Out of Jurisdiction)"
+                    task_description += " (Out of Jurisdiction)"
             else:
                 # Staff was assigned but hasn't completed yet - show assignment status
                 task_description = f"{complaint.type_of_action} assigned"
                 if complaint.complaint_stage == 'Resolved':
                     task_description
                 elif complaint.complaint_stage == 'Out of Jurisdiction':
-                    task_description += " (Marked Out of Jurisdiction)"
+                    task_description += " (Out of Jurisdiction)"
             
             complaints_data.append({
                 'complaint_id': complaint.complaint_id,

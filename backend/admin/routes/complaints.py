@@ -1784,6 +1784,11 @@ def api_add_action():
                 "location": data.get("location"),
                 "agenda": data.get("agenda")
             }
+        elif action_type == "Out of Jurisdiction":
+            details = {
+                "jurisdiction": data.get("details", {}).get("jurisdiction", ""),
+                "notes": data.get("details", {}).get("notes", "")
+            }
         
         # Use admin-defined deadline from frontend, with fallback defaults only when not provided
         deadline = details.get('deadline') or data.get('deadline')
@@ -1829,12 +1834,19 @@ def api_add_action():
         import time
         time.sleep(0.001)  # 1ms delay to ensure distinct timestamps
 
-        # Update complaint stage
-        update_query = """
-        UPDATE complaints
-        SET complaint_stage = 'Ongoing'
-        WHERE complaint_id = :complaint_id
-        """
+        # Update complaint stage based on action type
+        if action_type.lower() == 'out of jurisdiction':
+            update_query = """
+            UPDATE complaints
+            SET complaint_stage = 'Out of Jurisdiction'
+            WHERE complaint_id = :complaint_id
+            """
+        else:
+            update_query = """
+            UPDATE complaints
+            SET complaint_stage = 'Ongoing'
+            WHERE complaint_id = :complaint_id
+            """
         db.session.execute(text(update_query), {'complaint_id': complaint_id})
 
         db.session.commit()
