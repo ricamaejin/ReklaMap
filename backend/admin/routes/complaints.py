@@ -447,7 +447,7 @@ def get_complaint_data_with_proper_areas(status_filter=None, stage_filter=None, 
             if status_filter == 'valid':
                 where_clauses.append("c.status = 'Valid'")
             elif status_filter == 'invalid':
-                where_clauses.append("c.status = 'Invalid'")
+                where_clauses.append("(c.status = 'Invalid' OR c.complaint_stage = 'Out of Jurisdiction')")
         
         if stage_filter:
             if stage_filter == 'Pending':
@@ -605,7 +605,7 @@ def get_complaint_data(status_filter=None, stage_filter=None, assigned_filter=No
             if status_filter == 'valid':
                 where_clauses.append("c.status = 'Valid'")
             elif status_filter == 'invalid':
-                where_clauses.append("c.status = 'Invalid'")
+                where_clauses.append("(c.status = 'Invalid' OR c.complaint_stage = 'Out of Jurisdiction')")
         
         if stage_filter:
             if stage_filter in ['Pending', 'Ongoing', 'Resolved']:
@@ -676,26 +676,26 @@ def get_complaint_data(status_filter=None, stage_filter=None, assigned_filter=No
             meeting_date = invitation_details.get('meeting_date') or details.get('meeting_date')
             meeting_time = invitation_details.get('meeting_time') or details.get('meeting_time')
             
-        formatted_complaints.append({
-            'complaint_id': complaint.complaint_id,
-            'type_of_complaint': complaint.type_of_complaint,
-            'complainant_name': complaint.complainant_name or 'N/A',
-            'address': formatted_address,
-            'area_name': complaint.area_name or 'N/A',  # ADD THIS LINE - Include area_name in JSON response
-            'priority_level': complaint.priority_level or 'Minor',
-            'status': complaint.status,
-            'complaint_stage': complaint.complaint_stage,
-            'date_received': complaint.date_received.isoformat() if complaint.date_received else '',
-            'description': complaint.description or '',
-            'assigned_to': assigned_to,
-            'action_datetime': action_datetime.isoformat() if action_datetime else None,
-            'latest_action': latest_action,
-            'action_needed': latest_action,  # For backward compatibility
-            # Admin-set deadline information
-            'deadline': details.get('deadline'),
-            'meeting_date': meeting_date,
-            'meeting_time': meeting_time
-        })
+            formatted_complaints.append({
+                'complaint_id': complaint.complaint_id,
+                'type_of_complaint': complaint.type_of_complaint,
+                'complainant_name': complaint.complainant_name or 'N/A',
+                'address': formatted_address,
+                'area_name': complaint.area_name or 'N/A',  # ADD THIS LINE - Include area_name in JSON response
+                'priority_level': complaint.priority_level or 'Minor',
+                'status': complaint.status,
+                'complaint_stage': complaint.complaint_stage,
+                'date_received': complaint.date_received.isoformat() if complaint.date_received else '',
+                'description': complaint.description or '',
+                'assigned_to': assigned_to,
+                'action_datetime': action_datetime.isoformat() if action_datetime else None,
+                'latest_action': latest_action,
+                'action_needed': latest_action,  # For backward compatibility
+                # Admin-set deadline information
+                'deadline': details.get('deadline'),
+                'meeting_date': meeting_date,
+                'meeting_time': meeting_time
+            })
         
         return formatted_complaints
         
@@ -759,16 +759,106 @@ def get_all_complaints():
         #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
         print("[DEBUG] Getting all complaints...")
-        complaints = get_complaint_data_with_proper_areas()  # USING NEW DEBUG FUNCTION
-        print(f"[DEBUG] Found {len(complaints)} complaints")
         
-        response = jsonify(complaints)
+        # FIXED QUERY - Using proper complaint_history joins to get assigned_to, latest_action, and deadline
+        complaints_query = """
+        SELECT 
+            c.complaint_id,
+            c.type_of_complaint,
+            c.priority_level,
+            c.status,
+            c.complaint_stage,
+            c.date_received,
+            c.description,
+            c.complainant_name,
+            c.address,
+            COALESCE(a.area_name, 'N/A') as area_name,
+            ch_latest.assigned_to,
+            ch_latest.action_datetime,
+            ch_latest.type_of_action as latest_action,
+            ch_latest.details as ch_latest_details
+        FROM complaints c
+        LEFT JOIN areas a ON c.area_id = a.area_id
+        LEFT JOIN (
+            SELECT 
+                ch1.complaint_id,
+                ch1.assigned_to,
+                ch1.action_datetime,
+                ch1.type_of_action,
+                ch1.details,
+                ROW_NUMBER() OVER (PARTITION BY ch1.complaint_id ORDER BY ch1.action_datetime DESC) as rn
+            FROM complaint_history ch1
+            WHERE ch1.type_of_action != 'Submitted'
+        ) ch_latest ON c.complaint_id = ch_latest.complaint_id AND ch_latest.rn = 1
+        ORDER BY c.date_received DESC
+        """
+        
+        result = db.session.execute(text(complaints_query))
+        complaints_data = result.fetchall()
+        print(f"[DEBUG] Found {len(complaints_data)} complaints in database")
+        
+        # Format the data with proper complaint_history information
+        formatted_complaints = []
+        for complaint in complaints_data:
+            # For invalid complaints, set assigned_to and action_datetime to None for N/A display
+            if complaint.status == 'Invalid':
+                assigned_to = None
+                action_datetime = None
+                latest_action = 'Invalid'
+                deadline = None
+            else:
+                assigned_to = complaint.assigned_to
+                action_datetime = complaint.action_datetime
+                # Use latest_action from complaint_history, or fallback to complaint_stage
+                latest_action = complaint.latest_action or complaint.complaint_stage or 'Pending'
+                
+                # Extract deadline from complaint_history details if available
+                deadline = None
+                if complaint.ch_latest_details:
+                    try:
+                        if isinstance(complaint.ch_latest_details, str):
+                            details = json.loads(complaint.ch_latest_details)
+                        else:
+                            details = complaint.ch_latest_details
+                        
+                        # Try to get deadline from nested details first, then fallback to root level
+                        if 'details' in details and isinstance(details['details'], dict):
+                            deadline = details['details'].get('deadline')
+                        if not deadline:
+                            deadline = details.get('deadline')
+                    except (json.JSONDecodeError, TypeError):
+                        deadline = None
+            
+            formatted_complaints.append({
+                'complaint_id': complaint.complaint_id,
+                'type_of_complaint': complaint.type_of_complaint,
+                'complainant_name': complaint.complainant_name or 'N/A',
+                'address': complaint.address or 'N/A',
+                'area_name': complaint.area_name or 'N/A',
+                'priority_level': complaint.priority_level or 'Minor',
+                'status': complaint.status,
+                'complaint_stage': complaint.complaint_stage,
+                'date_received': complaint.date_received.isoformat() if complaint.date_received else '',
+                'description': complaint.description or '',
+                'assigned_to': assigned_to,
+                'action_datetime': action_datetime.isoformat() if action_datetime else None,
+                'latest_action': latest_action,
+                'action_needed': latest_action,  # For backward compatibility
+                'deadline': deadline
+            })
+        
+        print(f"[DEBUG] Returning {len(formatted_complaints)} formatted complaints")
+        
+        response = jsonify(formatted_complaints)
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
         return response
     
     except Exception as e:
+        print(f"[DEBUG] Exception in get_all_complaints: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @complaints_bp.route('/api/pending', methods=['GET'])
@@ -798,15 +888,103 @@ def get_ongoing_complaints():
         # if session.get('account') != 1:
         #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
-        complaints = get_complaint_data_with_proper_areas(stage_filter='Ongoing')
+        print("[DEBUG] Getting ongoing complaints...")
         
-        response = jsonify(complaints)
+        # Use the same query as /api/all but filter for Ongoing stage
+        complaints_query = """
+        SELECT 
+            c.complaint_id,
+            c.type_of_complaint,
+            c.priority_level,
+            c.status,
+            c.complaint_stage,
+            c.date_received,
+            c.description,
+            c.complainant_name,
+            c.address,
+            COALESCE(a.area_name, 'N/A') as area_name,
+            ch_latest.assigned_to,
+            ch_latest.action_datetime,
+            ch_latest.type_of_action as latest_action,
+            ch_latest.details as ch_latest_details
+        FROM complaints c
+        LEFT JOIN areas a ON c.area_id = a.area_id
+        LEFT JOIN (
+            SELECT 
+                ch1.complaint_id,
+                ch1.assigned_to,
+                ch1.action_datetime,
+                ch1.type_of_action,
+                ch1.details,
+                ROW_NUMBER() OVER (PARTITION BY ch1.complaint_id ORDER BY ch1.action_datetime DESC) as rn
+            FROM complaint_history ch1
+        ) ch_latest ON c.complaint_id = ch_latest.complaint_id AND ch_latest.rn = 1
+        WHERE c.status = 'Valid' AND c.complaint_stage = 'Ongoing'
+        ORDER BY c.date_received DESC
+        """
+        
+        result = db.session.execute(text(complaints_query))
+        complaints = result.fetchall()
+        
+        formatted_complaints = []
+        for complaint in complaints:
+            # Default values
+            assigned_to = 'N/A'
+            action_datetime = None
+            latest_action = complaint.complaint_stage or 'Pending'
+            
+            # Use data from complaint_history if available
+            if hasattr(complaint, 'assigned_to') and complaint.assigned_to:
+                assigned_to = complaint.assigned_to
+                action_datetime = complaint.action_datetime
+                # Use latest_action from complaint_history, or fallback to complaint_stage
+                latest_action = complaint.latest_action or complaint.complaint_stage or 'Pending'
+                
+                # Extract deadline from complaint_history details if available
+                deadline = None
+                if complaint.ch_latest_details:
+                    try:
+                        if isinstance(complaint.ch_latest_details, str):
+                            details = json.loads(complaint.ch_latest_details)
+                        else:
+                            details = complaint.ch_latest_details
+                        
+                        # Try to get deadline from nested details first, then fallback to root level
+                        if 'details' in details and isinstance(details['details'], dict):
+                            deadline = details['details'].get('deadline')
+                        if not deadline:
+                            deadline = details.get('deadline')
+                    except (json.JSONDecodeError, TypeError):
+                        deadline = None
+            
+            formatted_complaints.append({
+                'complaint_id': complaint.complaint_id,
+                'type_of_complaint': complaint.type_of_complaint,
+                'complainant_name': complaint.complainant_name or 'N/A',
+                'address': complaint.address or 'N/A',
+                'area_name': complaint.area_name or 'N/A',
+                'priority_level': complaint.priority_level or 'Minor',
+                'status': complaint.status,
+                'complaint_stage': complaint.complaint_stage,
+                'date_received': complaint.date_received.isoformat() if complaint.date_received else '',
+                'description': complaint.description or '',
+                'assigned_to': assigned_to,
+                'action_datetime': action_datetime.isoformat() if action_datetime else None,
+                'latest_action': latest_action,
+                'action_needed': latest_action,  # For backward compatibility
+                'deadline': deadline
+            })
+        
+        print(f"[DEBUG] Returning {len(formatted_complaints)} ongoing complaints")
+        
+        response = jsonify(formatted_complaints)
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
         return response
     
     except Exception as e:
+        print(f"[ERROR] Error in get_ongoing_complaints: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @complaints_bp.route('/api/resolved', methods=['GET'])
@@ -885,16 +1063,19 @@ def get_unresolved_complaints():
                 ROW_NUMBER() OVER (PARTITION BY ch1.complaint_id ORDER BY ch1.action_datetime DESC) as rn
             FROM complaint_history ch1
         ) ch_latest ON c.complaint_id = ch_latest.complaint_id AND ch_latest.rn = 1
-        WHERE c.status = 'Valid' 
-        AND c.complaint_id IN (
-            -- Get complaints that have both Inspection and Assessment
-            SELECT complaint_id FROM complaint_history WHERE type_of_action = 'Inspection'
-            INTERSECT
-            SELECT complaint_id FROM complaint_history WHERE type_of_action = 'Assessment'
-        )
-        AND c.complaint_id NOT IN (
-            -- Exclude complaints that have Invitation or Mediation
-            SELECT complaint_id FROM complaint_history WHERE type_of_action IN ('Invitation', 'Mediation')
+        WHERE (
+            (c.status = 'Valid' 
+            AND c.complaint_id IN (
+                -- Get complaints that have both Inspection and Assessment
+                SELECT complaint_id FROM complaint_history WHERE type_of_action = 'Inspection'
+                INTERSECT
+                SELECT complaint_id FROM complaint_history WHERE type_of_action = 'Assessment'
+            )
+            AND c.complaint_id NOT IN (
+                -- Exclude complaints that have Invitation or Mediation
+                SELECT complaint_id FROM complaint_history WHERE type_of_action IN ('Invitation', 'Mediation')
+            ))
+            OR c.complaint_stage = 'Unresolved'
         )
         ORDER BY c.date_received DESC
         """
@@ -940,6 +1121,213 @@ def get_unresolved_complaints():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@complaints_bp.route('/api/debug/complaints', methods=['GET'])
+def debug_complaints():
+    """Debug endpoint to check complaint data in database"""
+    try:
+        # Simple query to count complaints
+        count_query = "SELECT COUNT(*) as total FROM complaints"
+        count_result = db.session.execute(text(count_query))
+        total_complaints = count_result.fetchone().total
+        
+        # Get sample complaint data
+        sample_query = "SELECT complaint_id, type_of_complaint, status, complaint_stage, complainant_name FROM complaints LIMIT 5"
+        sample_result = db.session.execute(text(sample_query))
+        sample_complaints = sample_result.fetchall()
+        
+        # Check areas table
+        areas_query = "SELECT COUNT(*) as total FROM areas"
+        areas_result = db.session.execute(text(areas_query))
+        total_areas = areas_result.fetchone().total
+        
+        return jsonify({
+            'success': True,
+            'total_complaints': total_complaints,
+            'total_areas': total_areas,
+            'sample_complaints': [
+                {
+                    'complaint_id': c.complaint_id,
+                    'type_of_complaint': c.type_of_complaint,
+                    'status': c.status,
+                    'complaint_stage': c.complaint_stage,
+                    'complainant_name': c.complainant_name
+                } for c in sample_complaints
+            ]
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@complaints_bp.route('/api/test/timeline/<int:complaint_id>', methods=['GET'])
+def test_timeline_debug(complaint_id):
+    """Debug timeline functionality to see what's happening"""
+    try:
+        print(f"[TIMELINE DEBUG] Testing timeline for complaint {complaint_id}")
+        
+        # Test if complaint exists
+        complaint_query = "SELECT complaint_id, complainant_name, status FROM complaints WHERE complaint_id = :id"
+        complaint_result = db.session.execute(text(complaint_query), {'id': complaint_id})
+        complaint = complaint_result.fetchone()
+        
+        if not complaint:
+            return jsonify({
+                'success': False,
+                'error': f'Complaint {complaint_id} not found'
+            })
+        
+        # Test if timeline entries exist with detailed debug info
+        timeline_query = """
+        SELECT history_id, type_of_action, assigned_to, action_datetime, details
+        FROM complaint_history 
+        WHERE complaint_id = :id
+        ORDER BY action_datetime DESC
+        """
+        timeline_result = db.session.execute(text(timeline_query), {'id': complaint_id})
+        timeline_entries = timeline_result.fetchall()
+        
+        # Debug the details column specifically
+        detailed_entries = []
+        for t in timeline_entries:
+            entry_debug = {
+                'history_id': t.history_id,
+                'type_of_action': t.type_of_action,
+                'assigned_to': t.assigned_to,
+                'action_datetime': t.action_datetime.isoformat() if t.action_datetime else None,
+                'details_raw': str(t.details) if t.details else None,
+                'details_type': str(type(t.details)),
+                'details_length': len(str(t.details)) if t.details else 0
+            }
+            
+            # Try to parse details to see what's causing the issue
+            if t.details:
+                try:
+                    import json
+                    if isinstance(t.details, str):
+                        parsed = json.loads(t.details)
+                        entry_debug['details_parsed'] = parsed
+                        entry_debug['details_parsed_type'] = str(type(parsed))
+                    else:
+                        entry_debug['details_parsed'] = t.details
+                        entry_debug['details_parsed_type'] = str(type(t.details))
+                except Exception as parse_error:
+                    entry_debug['details_parse_error'] = str(parse_error)
+            
+            detailed_entries.append(entry_debug)
+        
+        return jsonify({
+            'success': True,
+            'complaint': {
+                'complaint_id': complaint.complaint_id,
+                'complainant_name': complaint.complainant_name,
+                'status': complaint.status
+            },
+            'timeline_entries_count': len(timeline_entries),
+            'timeline_entries': detailed_entries
+        })
+        
+    except Exception as e:
+        print(f"[TIMELINE DEBUG] Exception: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@complaints_bp.route('/api/assigned', methods=['GET'])
+def get_assigned_complaints():
+    """Get assigned complaints for admin - used for inbox functionality"""
+    try:
+        # Check if user is admin - TEMPORARILY DISABLED FOR TESTING
+        # if session.get('account') != 1:
+        #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+        print("[DEBUG] Getting assigned complaints...")
+        
+        # Use the same query as /api/all but filter for assigned complaints
+        complaints_query = """
+        SELECT 
+            c.complaint_id,
+            c.type_of_complaint,
+            c.priority_level,
+            c.status,
+            c.complaint_stage,
+            c.date_received,
+            c.description,
+            c.complainant_name,
+            c.address,
+            COALESCE(a.area_name, 'N/A') as area_name,
+            ch_latest.assigned_to,
+            ch_latest.action_datetime,
+            ch_latest.type_of_action as latest_action,
+            ch_latest.details as ch_latest_details
+        FROM complaints c
+        LEFT JOIN areas a ON c.area_id = a.area_id
+        LEFT JOIN (
+            SELECT 
+                ch1.complaint_id,
+                ch1.assigned_to,
+                ch1.action_datetime,
+                ch1.type_of_action,
+                ch1.details,
+                ROW_NUMBER() OVER (PARTITION BY ch1.complaint_id ORDER BY ch1.action_datetime DESC) as rn
+            FROM complaint_history ch1
+        ) ch_latest ON c.complaint_id = ch_latest.complaint_id AND ch_latest.rn = 1
+        WHERE c.status = 'Valid' 
+        AND c.complaint_stage IN ('Pending', 'Ongoing')
+        AND ch_latest.assigned_to IS NOT NULL
+        ORDER BY c.date_received DESC
+        """
+        
+        result = db.session.execute(text(complaints_query))
+        complaints = result.fetchall()
+        
+        formatted_complaints = []
+        for complaint in complaints:
+            # Extract deadline from complaint_history details if available
+            deadline = None
+            if complaint.ch_latest_details:
+                try:
+                    if isinstance(complaint.ch_latest_details, str):
+                        details = json.loads(complaint.ch_latest_details)
+                    else:
+                        details = complaint.ch_latest_details
+                    
+                    # Try to get deadline from nested details first, then fallback to root level
+                    if 'details' in details and isinstance(details['details'], dict):
+                        deadline = details['details'].get('deadline')
+                    if not deadline:
+                        deadline = details.get('deadline')
+                except (json.JSONDecodeError, TypeError):
+                    deadline = None
+            
+            formatted_complaints.append({
+                'complaint_id': complaint.complaint_id,
+                'type_of_complaint': complaint.type_of_complaint,
+                'complainant_name': complaint.complainant_name or 'N/A',
+                'address': complaint.address or 'N/A',
+                'area_name': complaint.area_name or 'N/A',
+                'priority_level': complaint.priority_level or 'Minor',
+                'status': complaint.status,
+                'complaint_stage': complaint.complaint_stage,
+                'date_received': complaint.date_received.isoformat() if complaint.date_received else '',
+                'description': complaint.description or '',
+                'assigned_to': complaint.assigned_to,
+                'action_datetime': complaint.action_datetime.isoformat() if complaint.action_datetime else None,
+                'latest_action': complaint.latest_action or complaint.complaint_stage or 'Pending',
+                'action_needed': complaint.latest_action or complaint.complaint_stage or 'Pending',
+                'deadline': deadline
+            })
+        
+        print(f"[DEBUG] Returning {len(formatted_complaints)} assigned complaints")
+        
+        response = jsonify(formatted_complaints)
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+    
+    except Exception as e:
+        print(f"[ERROR] Error in get_assigned_complaints: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @complaints_bp.route('/api/<int:complaint_id>/action', methods=['POST'])
 def handle_complaint_action(complaint_id):
     """Handle admin actions on complaints"""
@@ -981,6 +1369,11 @@ def handle_complaint_action(complaint_id):
             new_stage = 'Ongoing'
         elif 'resolved' in action_type.lower():
             new_stage = 'Resolved'
+        elif action_type.lower() == 'out of jurisdiction':
+            new_stage = 'Out of Jurisdiction'
+            # Also update status to Invalid when marked as Out of Jurisdiction
+            update_status_query = "UPDATE complaints SET status = 'Invalid' WHERE complaint_id = :complaint_id"
+            db.session.execute(text(update_status_query), {'complaint_id': complaint_id})
         # Note: Assessment actions no longer automatically mark complaint as Resolved
         # Only the admin "Resolved" button should move complaints to resolved status
         
@@ -1037,6 +1430,49 @@ def resolve_complaint(complaint_id):
         return jsonify({
             'success': True,
             'message': 'Complaint resolved successfully'
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@complaints_bp.route('/api/<int:complaint_id>/unresolve', methods=['POST'])
+def unresolve_complaint(complaint_id):
+    """Mark a complaint as unresolved"""
+    try:
+        # Check if user is admin
+        if session.get('account_type') != 1:
+            return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+        admin_name = session.get('admin_name')
+        
+        # Update complaint stage to unresolved
+        update_query = "UPDATE complaints SET complaint_stage = 'Unresolved' WHERE complaint_id = :complaint_id"
+        db.session.execute(text(update_query), {'complaint_id': complaint_id})
+        
+        # Insert history record with correct column names
+        unresolve_details = {
+            'description': f'Complaint marked as unresolved by {admin_name}',
+            'created_by': admin_name,
+            'unresolve_datetime': datetime.now().isoformat()
+        }
+        
+        insert_query = """
+        INSERT INTO complaint_history (complaint_id, type_of_action, assigned_to, details, action_datetime)
+        VALUES (:complaint_id, 'Unresolved', :assigned_to, :details, NOW())
+        """
+        
+        db.session.execute(text(insert_query), {
+            'complaint_id': complaint_id,
+            'assigned_to': admin_name,
+            'details': json.dumps(unresolve_details)
+        })
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Complaint marked as unresolved successfully'
         })
     
     except Exception as e:
@@ -1936,32 +2372,32 @@ def debug_staff_data():
 
 @complaints_bp.route('/staff/api/complaints/resolved', methods=['GET'])
 def get_staff_resolved_complaints():
-    """Get complaints resolved by the current staff member"""
+    """Get complaints where staff members have been assigned tasks - visible regardless of admin resolution"""
     try:
         # Get current staff name from session - try multiple session keys for compatibility
         staff_name = session.get('name') or session.get('admin_name')
-        print(f"[STAFF RESOLVED] Session staff name: {staff_name}")
-        print(f"[STAFF RESOLVED] Session keys available: {list(session.keys())}")
         
-        # For debugging - also try to get any staff completions
-        debug_query = """
-        SELECT DISTINCT assigned_to, type_of_action, complaint_id
-        FROM complaint_history 
-        WHERE type_of_action IN ('Inspection done', 'Sent Invitation')
-        ORDER BY action_datetime DESC LIMIT 10
-        """
-        debug_result = db.session.execute(text(debug_query))
-        debug_completions = debug_result.fetchall()
-        print(f"[STAFF RESOLVED] Recent completions: {[dict(row._mapping) for row in debug_completions]}")
-        
+        # For debugging/demo purposes, if no session, use known staff names
         if not staff_name:
-            # Try to use any staff name that has completed tasks for debugging
-            if debug_completions:
-                staff_name = debug_completions[0].assigned_to
-                print(f"[STAFF RESOLVED] Using fallback staff name: {staff_name}")
+            # Check what staff assignments exist and use one of them
+            staff_check_query = """
+            SELECT DISTINCT assigned_to, COUNT(*) as task_count
+            FROM complaint_history 
+            WHERE assigned_to IS NOT NULL AND assigned_to != ''
+            GROUP BY assigned_to
+            ORDER BY task_count DESC
+            """
+            staff_result = db.session.execute(text(staff_check_query))
+            staff_list = staff_result.fetchall()
+            
+            if staff_list:
+                # Use the staff member with the most assignments for demo
+                staff_name = staff_list[0].assigned_to
             else:
-                return jsonify({'success': False, 'message': 'Staff name not found in session and no completed tasks found'}), 401
+                return jsonify({'success': True, 'complaints': [], 'debug': 'No staff assignments found in database'})
         
+        # Query to get all complaints where this staff member was assigned tasks
+        # This should show their work regardless of whether admin marked complaint as resolved
         query = """
         SELECT DISTINCT
             c.complaint_id,
@@ -1976,20 +2412,15 @@ def get_staff_resolved_complaints():
             COALESCE(r.lot_no, 0) as lot_no,
             COALESCE(r.block_no, 0) as block_no,
             COALESCE(a.area_name, 'N/A') as area_name,
-            ch.action_datetime as completion_date,
-            CASE 
-                WHEN c.complaint_stage = 'Resolved' THEN 
-                    CONCAT(ch.type_of_action, ' completed by ', ch.assigned_to, ' - Now Resolved by Admin')
-                ELSE 
-                    CONCAT(ch.type_of_action, ' completed by ', ch.assigned_to) 
-            END as resolution_action
+            ch.action_datetime as task_date,
+            ch.type_of_action
         FROM complaint_history ch
         JOIN complaints c ON ch.complaint_id = c.complaint_id
         LEFT JOIN registration r ON c.registration_id = r.registration_id
         LEFT JOIN areas a ON c.area_id = a.area_id
         WHERE ch.assigned_to = :staff_name
-        AND ch.type_of_action IN ('Inspection done', 'Sent Invitation')
-        AND c.status = 'Valid'
+        AND ch.assigned_to IS NOT NULL 
+        AND ch.assigned_to != ''
         ORDER BY ch.action_datetime DESC
         """
         
@@ -2008,8 +2439,12 @@ def get_staff_resolved_complaints():
                     complaint.block_no
                 )
             
-            # For resolved complaints, use the action_datetime for date_resolved
-            action_datetime = complaint.completion_date
+            # Show what task was assigned to this staff member
+            task_description = f"{complaint.type_of_action} assigned to {staff_name}"
+            if complaint.complaint_stage == 'Resolved':
+                task_description += " (Complaint later resolved by admin)"
+            elif complaint.complaint_stage == 'Out of Jurisdiction':
+                task_description += " (Complaint marked out of jurisdiction)"
             
             formatted_complaints.append({
                 'complaint_id': complaint.complaint_id,
@@ -2019,14 +2454,57 @@ def get_staff_resolved_complaints():
                 'address': formatted_address,
                 'priority_level': complaint.priority_level or 'Minor',
                 'status': complaint.status,
-                'complaint_stage': complaint.complaint_stage,  # Include complaint_stage for frontend
+                'complaint_stage': complaint.complaint_stage,  
                 'date_received': complaint.date_received.isoformat() if complaint.date_received else '',
-                'action_datetime': action_datetime.isoformat() if action_datetime else None,  # For date formatting
-                'resolution_action': complaint.resolution_action or 'Task Completed',
-                'action_needed': complaint.resolution_action or 'Task Completed'  # For backward compatibility
+                'action_datetime': complaint.task_date.isoformat() if complaint.task_date else None,
+                'resolution_action': task_description,
+                'action_needed': complaint.type_of_action or 'Task Assigned'
             })
         
-        return jsonify({'success': True, 'complaints': formatted_complaints})
+        return jsonify({
+            'success': True, 
+            'complaints': formatted_complaints, 
+            'debug_staff_name': staff_name, 
+            'total_tasks': len(formatted_complaints),
+            'query_result_count': len(complaints)
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e), 'error_type': type(e).__name__}), 500
+
+@complaints_bp.route('/staff/api/debug/assignments', methods=['GET'])
+def debug_staff_assignments():
+    """Debug endpoint to see what staff assignments exist"""
+    try:
+        # Simple query to see all staff assignments
+        query = """
+        SELECT 
+            assigned_to, 
+            type_of_action, 
+            complaint_id, 
+            action_datetime
+        FROM complaint_history 
+        WHERE assigned_to IS NOT NULL AND assigned_to != ''
+        ORDER BY action_datetime DESC
+        LIMIT 10
+        """
+        result = db.session.execute(text(query))
+        assignments = result.fetchall()
+        
+        formatted_assignments = []
+        for assignment in assignments:
+            formatted_assignments.append({
+                'assigned_to': assignment.assigned_to,
+                'type_of_action': assignment.type_of_action,
+                'complaint_id': assignment.complaint_id,
+                'action_datetime': assignment.action_datetime.isoformat() if assignment.action_datetime else None
+            })
+        
+        return jsonify({
+            'success': True,
+            'assignments': formatted_assignments,
+            'total': len(formatted_assignments)
+        })
         
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
