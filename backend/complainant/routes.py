@@ -355,8 +355,10 @@ def view_complaint(complaint_id):
 
     # Build answers from the correct complaint table
     answers = {}
+
     lot_dispute = None
     boundary_dispute = None
+    pathway_dispute = None
 
     def _parse_list(val):
         try:
@@ -595,4 +597,5 @@ def view_complaint(complaint_id):
         boundary_dispute=boundary_dispute,
         parent_info=parent_info,
         relationship=relationship,
+        pathway_dispute=pathway_dispute,
     )
