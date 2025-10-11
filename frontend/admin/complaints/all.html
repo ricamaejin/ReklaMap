@@ -154,7 +154,7 @@
     <a href="pending.html">Received</a>
     <a href="ongoing.html">On Going</a>
     <a href="resolved.html">Resolved</a>
-    <a href="invalid.html">Invalid</a>
+    <a href="invalid.html">Out of Jurisdiction</a>
     <a href="unresolved.html">Unresolved</a>
   </div>
 
@@ -287,13 +287,13 @@
           window.location.href = `/admin/complaints/${detailsPage}?id=${complaint.complaint_id}&referrer=all.html`;
         });
         
-        // Calculate status with deadline countdown using enhanced deadline logic
+        // Calculate status with deadline countdown - using EXACT same logic as index.html adminGetDeadlineDate
         const calculateStatusWithDeadline = (complaint) => {
           if (complaint.status === 'Invalid') return '<em>N/A</em>';
-          if (complaint.complaint_stage === 'Pending' || !complaint.latest_action) return '<em>Received</em>';
           if (complaint.complaint_stage === 'Resolved') return 'Resolved';
+          if (complaint.complaint_stage === 'Pending' || !complaint.latest_action) return '<em>Received</em>';
           
-          // For ongoing complaints, calculate deadline based on action type
+          // For ongoing complaints, calculate deadline using index.html logic
           if (!complaint.action_datetime) return complaint.complaint_stage || 'Ongoing';
           
           const actionDate = new Date(complaint.action_datetime);
@@ -307,7 +307,7 @@
             adminDeadline = new Date(complaint.inspection_deadline);
           }
           
-          // Get meeting datetime from invitation action in complaint history
+          // Get meeting datetime from invitation action
           let meetingDateTime = null;
           if (complaint.meeting_datetime) {
             meetingDateTime = new Date(complaint.meeting_datetime);
@@ -315,10 +315,9 @@
             meetingDateTime = new Date(`${complaint.meeting_date}T${complaint.meeting_time}`);
           }
           
-          let deadline;
-          let status = complaint.complaint_stage || 'Ongoing';
+          // Calculate deadline based on action type (EXACT same logic as index.html)
+          let deadline = null;
           
-          // Calculate deadline based on action type (matching the new deadline logic)
           if (actionType.includes('inspection') && !actionType.includes('done')) {
             deadline = adminDeadline || new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
           } else if (actionType.includes('inspection done')) {
@@ -333,20 +332,25 @@
             const baseDate = meetingDateTime || actionDate;
             deadline = new Date(baseDate.getTime() + (3 * 24 * 60 * 60 * 1000));
           } else if (actionType.includes('assessment')) {
-            return status; // No countdown for assessment, just show "Mark as Resolved"
+            // Assessment has no deadline - ready for resolution
+            return 'Assessment Complete';
           } else {
             deadline = new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
           }
           
+          // If no deadline calculated, return stage
+          if (!deadline) return complaint.complaint_stage || 'Ongoing';
+          
           const now = new Date();
           
-          // Normalize dates to compare only the date part (ignore time) - same logic as assigned.html
+          // Normalize dates to compare only the date part (ignore time) - same logic as index.html
           const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
           const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate(), 0, 0, 0, 0);
           
           const timeDiff = deadlineDate.getTime() - today.getTime();
           const daysDiff = Math.round(timeDiff / (1000 * 3600 * 24));
           
+          let status = complaint.complaint_stage || 'Ongoing';
           let countdown = '';
           
           if (daysDiff < 0) {
@@ -845,92 +849,164 @@
       });
 
       try {
-        const res = await fetch(`/admin/complaints/api/all?_=${Date.now()}`);
-        const data = await res.json();
-        const complaints = Array.isArray(data) ? data : data.complaints || [];
+        // Use EXACT same logic as index.html - fetch from multiple endpoints and use the same helper functions
+        const urls = [
+          `/admin/complaints/api/assigned?_=${Date.now()}`,
+          `/admin/complaints/api/ongoing?_=${Date.now()}`,
+          `/admin/complaints/api/all?_=${Date.now()}`
+        ];
+        let adminAssignedCache = [];
+        let loaded = false;
 
-        const now = new Date();
-        const dueSoonItems = [];
+        // Try each endpoint until we get data
+        for (const url of urls) {
+          try {
+            const res = await fetch(url);
+            if (!res.ok) continue;
+            const data = await res.json();
+            const list = Array.isArray(data) 
+              ? data 
+              : (data.success && data.complaints) 
+                ? data.complaints 
+                : [];
 
-        complaints.forEach(c => {
-          // Only show deadlines for Pending or Ongoing complaints (same filtering as index.html)
-          if (c.complaint_stage === 'Resolved') return;
-          if ((c.status || '').toLowerCase().includes('invalid')) return;
-          if ((c.status || '').toLowerCase().includes('resolved')) return;
+            if (list.length) {
+              adminAssignedCache = list;
+              loaded = true;
+              break;
+            }
+          } catch (_) { /* try next */ }
+        }
+
+        // Fallback: also try staff view if admin endpoints empty
+        if (!loaded) {
+          try {
+            const res = await fetch(`/staff/api/complaints/assigned?_=${Date.now()}`);
+            if (res.ok) {
+              const data = await res.json();
+              adminAssignedCache = Array.isArray(data.complaints) ? data.complaints : [];
+            }
+          } catch (_) {
+            adminAssignedCache = [];
+          }
+        }
+
+        // Use EXACT same helper functions as index.html
+        function normalizeComplaint(raw) {
+          return {
+            complaint_id: raw.complaint_id || raw.id || raw.complaintId,
+            complaint_stage: raw.complaint_stage || raw.stage || raw.status || '',
+            status: raw.status || '',
+            latest_action: raw.latest_action || raw.action_type || raw.action || raw.action_needed || '',
+            action_datetime: raw.action_datetime || raw.last_action_datetime || raw.updated_at || raw.actionDateTime || '',
+            date_received: raw.date_received || raw.submitted_at || raw.created_at || raw.createdAt || '',
+            complainant: raw.complainant_name || raw.complainant || raw.fullname || '',
+            complainant_name: raw.complainant_name || raw.complainant || raw.fullname || '',
+            area_name: raw.area_name || raw.area || raw.areaName || '',
+            type_of_complaint: raw.type_of_complaint || raw.complaint_type || raw.complaintType || '',
+            deadline: raw.deadline || raw.action_deadline || raw.deadline_at || raw.due_date || raw.due_at || ''
+          };
+        }
+
+        function adminGetDeadlineDate(complaint) {
+          if (!complaint) return null;
+
+          // Only show deadlines for Pending or Ongoing complaints
+          if (complaint.complaint_stage === 'Resolved') return null;
+          if ((complaint.status || '').toLowerCase().includes('invalid')) return null;
+          if ((complaint.status || '').toLowerCase().includes('resolved')) return null;
 
           // Filter to only Pending or Ongoing complaints
-          if (c.complaint_stage !== 'Pending' && c.complaint_stage !== 'Ongoing') return;
-          
-          let deadline = null;
-          
+          if (complaint.complaint_stage !== 'Pending' && complaint.complaint_stage !== 'Ongoing') return null;
+
           // For Pending complaints
-          if (c.complaint_stage === 'Pending' || !c.latest_action) {
-            if (c.date_received) {
-              const submittedDate = new Date(c.date_received);
-              // 6 days after submission (same as Deadline column logic)
-              deadline = new Date(submittedDate.getTime() + 6 * 24 * 60 * 60 * 1000);
-            }
-          } else {
-            // For Ongoing complaints - use same logic as Deadline column
-            if (!c.action_datetime) return;
-            const actionDate = new Date(c.action_datetime);
-            const actionType = (c.latest_action || '').toLowerCase();
-
-            // Get admin-set deadline for inspection
-            let adminDeadline = null;
-            if (c.admin_deadline) {
-              adminDeadline = new Date(c.admin_deadline);
-            } else if (c.inspection_deadline) {
-              adminDeadline = new Date(c.inspection_deadline);
-            }
-
-            // Get meeting datetime from invitation action
-            let meetingDateTime = null;
-            if (c.meeting_datetime) {
-              meetingDateTime = new Date(c.meeting_datetime);
-            } else if (c.meeting_date && c.meeting_time) {
-              meetingDateTime = new Date(`${c.meeting_date}T${c.meeting_time}`);
-            }
-
-            // Calculate deadline based on action type (same as Deadline column)
-            if (actionType.includes('inspection') && !actionType.includes('done')) {
-              deadline = adminDeadline || new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
-            } else if (actionType.includes('inspection done')) {
-              deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
-            } else if (actionType.includes('send invitation') || (actionType.includes('invitation') && !actionType.includes('sent') && !actionType.includes('accepted'))) {
-              deadline = new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
-            } else if (actionType.includes('sent invitation')) {
-              deadline = new Date(actionDate.getTime() + (20 * 24 * 60 * 60 * 1000));
-            } else if (actionType.includes('accepted invitation')) {
-              deadline = meetingDateTime || actionDate;
-            } else if (actionType.includes('mediation')) {
-              const baseDate = meetingDateTime || actionDate;
-              deadline = new Date(baseDate.getTime() + (3 * 24 * 60 * 60 * 1000));
-            } else if (actionType.includes('assessment')) {
-              return; // Assessment has no deadline
-            } else {
-              deadline = new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
-            }
+          if (complaint.complaint_stage === 'Pending' || !complaint.latest_action) {
+            const submittedDate = new Date(complaint.date_received);
+            if (isNaN(submittedDate.getTime())) return null;
+            // 6 days after submission (same as Deadline column logic)
+            return new Date(submittedDate.getTime() + 6 * 24 * 60 * 60 * 1000);
           }
+
+          // For Ongoing complaints - use same logic as Deadline column
+          if (!complaint.action_datetime) return null;
+          const actionDate = new Date(complaint.action_datetime);
+          if (isNaN(actionDate.getTime())) return null;
+
+          const actionType = (complaint.latest_action || '').toLowerCase();
+
+          // Get admin-set deadline for inspection
+          let adminDeadline = null;
+          if (complaint.admin_deadline) {
+            adminDeadline = new Date(complaint.admin_deadline);
+          } else if (complaint.inspection_deadline) {
+            adminDeadline = new Date(complaint.inspection_deadline);
+          }
+
+          // Get meeting datetime from invitation action
+          let meetingDateTime = null;
+          if (complaint.meeting_datetime) {
+            meetingDateTime = new Date(complaint.meeting_datetime);
+          } else if (complaint.meeting_date && complaint.meeting_time) {
+            meetingDateTime = new Date(`${complaint.meeting_date}T${complaint.meeting_time}`);
+          }
+
+          // Calculate deadline based on action type (same as Deadline column)
+          if (actionType.includes('inspection') && !actionType.includes('done')) {
+            return adminDeadline || new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+          } else if (actionType.includes('inspection done')) {
+            return new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+          } else if (actionType.includes('send invitation') || (actionType.includes('invitation') && !actionType.includes('sent') && !actionType.includes('accepted'))) {
+            return new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
+          } else if (actionType.includes('sent invitation')) {
+            return new Date(actionDate.getTime() + (20 * 24 * 60 * 60 * 1000));
+          } else if (actionType.includes('accepted invitation')) {
+            return meetingDateTime || actionDate;
+          } else if (actionType.includes('mediation')) {
+            const baseDate = meetingDateTime || actionDate;
+            return new Date(baseDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+          } else if (actionType.includes('assessment')) {
+            return null; // Assessment has no deadline
+          } else {
+            return new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
+          }
+        }
+
+        function adminGetDaysLeft(deadline) {
+          if (!deadline) return null;
+          const now = new Date();
           
-          if (!deadline) return;
-          
-          // Use normalized date calculation for consistency with assigned.html and all.html
+          // Normalize dates to compare only the date part (ignore time) - consistent with assigned.html and all.html
           const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
           const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate(), 0, 0, 0, 0);
           
           const timeDiff = deadlineDate.getTime() - today.getTime();
-          const diffDays = Math.round(timeDiff / (1000 * 60 * 60 * 24));
-          
-          // Include if overdue (diffDays < 0) or due soon (<=3 days) - matching index.html threshold
-          if (diffDays <= 3) {
-            const isPending = (c.complaint_stage === 'Pending') || !c.latest_action;
-            dueSoonItems.push({ ...c, diffDays, deadline, isPending });
-          }
-        });
-        
-        // Sort: overdue first, then soonest due (same as index.html)
-        dueSoonItems.sort((a, b) => a.diffDays - b.diffDays);
+          return Math.round(timeDiff / (1000 * 60 * 60 * 24));
+        }
+
+        function adminBuildDueSoonItems(complaints) {
+          const items = [];
+          complaints.forEach(raw => {
+            const c = normalizeComplaint(raw);
+            const deadline = adminGetDeadlineDate(c);
+            if (!deadline) return;
+
+            const daysLeft = adminGetDaysLeft(deadline);
+            if (daysLeft === null) return;
+
+            // Include if overdue (daysLeft < 0) or due soon (<=3 days)
+            if (daysLeft <= 3) {
+              const isPending = (c.complaint_stage === 'Pending') || !c.latest_action;
+              items.push({ complaint: c, deadline, daysLeft, isPending });
+            }
+          });
+
+          // Sort: overdue first, then soonest due
+          items.sort((a, b) => a.daysLeft - b.daysLeft);
+          return items;
+        }
+
+        // Build due soon items using exact same logic as index.html
+        const dueSoonItems = adminBuildDueSoonItems(adminAssignedCache);
 
         const totalCount = dueSoonItems.length;
         notifCount.textContent = totalCount > 0 ? totalCount : "0";
@@ -938,7 +1014,7 @@
 
         inboxList.innerHTML = "";
         if (totalCount === 0) {
-          inboxList.innerHTML = `<p style="margin: 0; font-size: 14px; color: #666;">No due complaints.</p>`;
+          inboxList.innerHTML = `<p style="margin: 0; font-size: 14px; color: #666;">No tasks due soon.</p>`;
           return;
         }
 
@@ -965,19 +1041,19 @@
         // Render all due soon items with consistent labeling logic
         dueSoonItems.forEach(c => {
           let color, label;
-          if (c.diffDays < 0) {
-            const daysLate = Math.abs(c.diffDays);
+          if (c.daysLeft < 0) {
+            const daysLate = Math.abs(c.daysLeft);
             color = "red";
             label = `Overdue (${daysLate} day${daysLate !== 1 ? "s" : ""} late)`;
-          } else if (c.diffDays === 0) {
+          } else if (c.daysLeft === 0) {
             color = "orange";
             label = "Due Today";
           } else {
             color = "green";
-            label = `Ongoing (${c.diffDays} day${c.diffDays !== 1 ? "s" : ""} left)`;
+            label = `Ongoing (${c.daysLeft} day${c.daysLeft !== 1 ? "s" : ""} left)`;
           }
 
-          inboxList.innerHTML += buildEntry(color, label, c.deadline, c);
+          inboxList.innerHTML += buildEntry(color, label, c.deadline, c.complaint);
         });
 
       } catch (err) {

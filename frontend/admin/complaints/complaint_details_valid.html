@@ -1666,7 +1666,13 @@
     
     // Show edit button only if this entry was created by current user role (admin)
     // For admin view, show edit button for admin-created actions
-    if (currentRole === 'admin' && ['inspection', 'send invitation', 'mediation', 'assessment'].includes(actionType.toLowerCase())) {
+    const editableActionTypes = ['inspection', 'send invitation', 'mediation', 'assessment'];
+    const actionTypeLower = actionType.toLowerCase();
+    const isEditableAction = editableActionTypes.some(type => 
+      actionTypeLower.includes(type) || type.includes(actionTypeLower)
+    );
+    
+    if (currentRole === 'admin' && isEditableAction) {
       editButton.style.display = 'inline-block';
     } else {
       editButton.style.display = 'none';
