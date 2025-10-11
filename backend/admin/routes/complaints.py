@@ -1468,12 +1468,33 @@ def api_action_autofill(complaint_id):
     - Invitation: 'to', 'agenda', 'location'
     - Inspection: 'location', 'assigned_personnel', 'block_no', 'lot_no'
     """
+    import json
+
+    def safe_parse_name_field(value):
+        """Handle names that might be JSON arrays, dicts, or quoted strings with escapes."""
+        if not value:
+            return ""
+        try:
+            # Clean surrounding quotes and escaped characters
+            s = str(value).strip()
+            if s.startswith('"') and s.endswith('"'):
+                s = s[1:-1]
+            s = s.replace('\\"', '"').replace("\\'", "'")
+
+            parsed = json.loads(s)
+            if isinstance(parsed, list):
+                return ", ".join(str(v).strip() for v in parsed if v)
+            elif isinstance(parsed, dict):
+                return ", ".join(str(v).strip() for v in parsed.values() if v)
+            elif isinstance(parsed, str):
+                return parsed.strip()
+            return str(parsed)
+        except Exception:
+            # If not valid JSON, just return cleaned string
+            return str(value).replace("[", "").replace("]", "").replace('"', "").strip()
+
     try:
         # Get complaint info
-        # Join using the complaint.registration_id and complaint.area_id which match the
-        # database models (Registration.registration_id and Areas.area_id). Previous
-        # joins attempted to use r.area_id/r.block_id which don't exist on the
-        # registration table in this schema and caused OperationalError (unknown column).
         complaint = db.session.execute(
             text("""
             SELECT c.complaint_id,
@@ -1499,32 +1520,28 @@ def api_action_autofill(complaint_id):
         complaint_type = complaint.type_of_complaint.lower().replace(" ", "_")
         autofill_data = {
             "agenda": complaint.type_of_complaint,
-            "location": "2nd FLR. USAD-PHASELAD OFFICE, BARANGAY MAIN"  # default location for invitation
+            "location": "2nd FLR. USAD-PHASELAD OFFICE, BAYANIHAN BUILDING BARANGAY MAIN"
         }
 
-        # Default 'to' is complainant name
+        # Default complainant name
         complainant_name = f"{complaint.first_name} {complaint.middle_name or ''} {complaint.last_name} {complaint.suffix or ''}".strip()
         autofill_data["to"] = complainant_name
 
-        # Additional tables based on complaint type
+        # === OVERLAPPING ===
         if complaint_type == "overlapping":
             overlapping = db.session.execute(
-                text("SELECT q1, q8 FROM overlapping WHERE complaint_id=:id"), {"id": complaint_id}
+                text("SELECT q1, q8 FROM overlapping WHERE complaint_id=:id"),
+                {"id": complaint_id}
             ).fetchone()
+
             if overlapping:
-                # overlapping.q1 often contains a JSON-encoded block/lot structure.
-                # Do NOT append that JSON blob to the 'to' field (which should be names).
-                # Keep 'to' as complainant and the other party (q8) only.
-                other_party = overlapping.q8 if hasattr(overlapping, 'q8') and overlapping.q8 else ''
+                other_party = safe_parse_name_field(getattr(overlapping, "q8", ""))
                 autofill_data["to"] = f"{complainant_name}{', ' + other_party if other_party else ''}"
 
-                # Try to parse overlapping.q1 into structured data on the server so the
-                # frontend doesn't have to guess encoding/escaping rules.
                 parsed_q1 = None
                 try:
                     raw = overlapping.q1
                     if isinstance(raw, str):
-                        # Remove surrounding quotes if accidentally double-encoded
                         s = raw.strip()
                         if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
                             s = s[1:-1]
@@ -1534,70 +1551,100 @@ def api_action_autofill(complaint_id):
                 except Exception:
                     parsed_q1 = None
 
-                # Build a human-friendly inspection location.
-                inspection_block = None
-                inspection_lot = None
+                inspection_block = complaint.block_no
+                inspection_lot = complaint.lot_no
                 if parsed_q1:
-                    # parsed_q1 may be a list of objects or a single object
-                    if isinstance(parsed_q1, list) and len(parsed_q1) > 0 and isinstance(parsed_q1[0], dict):
-                        inspection_block = parsed_q1[0].get('block')
-                        inspection_lot = parsed_q1[0].get('lot')
+                    if isinstance(parsed_q1, list) and parsed_q1 and isinstance(parsed_q1[0], dict):
+                        inspection_block = parsed_q1[0].get("block", inspection_block)
+                        inspection_lot = parsed_q1[0].get("lot", inspection_lot)
                     elif isinstance(parsed_q1, dict):
-                        inspection_block = parsed_q1.get('block')
-                        inspection_lot = parsed_q1.get('lot')
+                        inspection_block = parsed_q1.get("block", inspection_block)
+                        inspection_lot = parsed_q1.get("lot", inspection_lot)
 
-                # If parsing did not yield block/lot, fall back to complaint's block/lot
-                inspection_block = inspection_block or complaint.block_no
-                inspection_lot = inspection_lot or complaint.lot_no
+                inspection_hoa = complaint.area_name or ""
+                inspection_pretty = ", ".join(
+                    part for part in [inspection_hoa, f"Block {inspection_block}" if inspection_block else "", f"Lot {inspection_lot}" if inspection_lot else ""] if part
+                ) or "Barangay Main Office"
 
-                # HOA / area name
-                inspection_hoa = complaint.area_name or ''
+                autofill_data.update({
+                    "inspection_location_raw": overlapping.q1,
+                    "inspection_location_pretty": inspection_pretty,
+                    "inspection_assigned_personnel": "Alberto Nonato Jr.",
+                    "block_no": complaint.block_no,
+                    "lot_no": complaint.lot_no
+                })
 
-                # Human-friendly string
-                inspection_pretty_parts = []
-                if inspection_hoa:
-                    inspection_pretty_parts.append(inspection_hoa)
-                if inspection_block:
-                    inspection_pretty_parts.append(f"Block {inspection_block}")
-                if inspection_lot:
-                    inspection_pretty_parts.append(f"Lot {inspection_lot}")
-                inspection_pretty = ", ".join(inspection_pretty_parts)
-
-                # Return structured and pretty values
-                autofill_data["inspection_location_raw"] = overlapping.q1
-                autofill_data["inspection_location_parsed"] = {
-                    'block': inspection_block,
-                    'lot': inspection_lot,
-                    'hoa': inspection_hoa,
-                    'raw_parsed': parsed_q1
-                }
-                autofill_data["inspection_location_pretty"] = inspection_pretty
-                # This person is the suggested inspector for inspections only.
-                autofill_data["inspection_assigned_personnel"] = "Alberto Nonato Jr."
-                autofill_data["block_no"] = complaint.block_no
-                autofill_data["lot_no"] = complaint.lot_no
-
+        # === LOT DISPUTE ===
         elif complaint_type == "lot_dispute":
             lot_dispute = db.session.execute(
-                text("SELECT q7 FROM lot_dispute WHERE complaint_id=:id"), {"id": complaint_id}
+                text("SELECT q7 FROM lot_dispute WHERE complaint_id=:id"),
+                {"id": complaint_id}
             ).fetchone()
-            if lot_dispute:
-                autofill_data["to"] = f"{complainant_name}, {lot_dispute.q7}"
 
+            if lot_dispute:
+                other_party = safe_parse_name_field(getattr(lot_dispute, "q7", ""))
+                autofill_data["to"] = f"{complainant_name}{', ' + other_party if other_party else ''}"
+                autofill_data["inspection_assigned_personnel"] = "Alberto Nonato Jr."
+
+        # === UNAUTHORIZED OCCUPATION ===
         elif complaint_type == "unauthorized_occupation":
             unauthorized = db.session.execute(
-                text("SELECT q2 FROM unauthorized_occupation WHERE complaint_id=:id"), {"id": complaint_id}
+                text("SELECT q2 FROM unauthorized_occupation WHERE complaint_id=:id"),
+                {"id": complaint_id}
             ).fetchone()
-            if unauthorized:
-                autofill_data["to"] = f"{complainant_name}, {unauthorized.q2}"
 
-        # Pathway Dispute and Boundary Dispute use only complainant name, already set
+            if unauthorized:
+                other_party = safe_parse_name_field(getattr(unauthorized, "q2", ""))
+                autofill_data["to"] = f"{complainant_name}{', ' + other_party if other_party else ''}"
+                autofill_data["inspection_assigned_personnel"] = "Alberto Nonato Jr."
+
+        # === GENERAL FALLBACK: LOCATION BUILDER ===
+        if "inspection_location_pretty" not in autofill_data:
+            location_parts = []
+            if complaint.area_name:
+                location_parts.append(complaint.area_name)
+            if complaint.block_no:
+                location_parts.append(f"Block {complaint.block_no}")
+            if complaint.lot_no:
+                location_parts.append(f"Lot {complaint.lot_no}")
+            autofill_data["inspection_location_pretty"] = ", ".join(location_parts) or "Barangay Main Office"
+
+        # Ensure assigned personnel always defaults
+        autofill_data.setdefault("inspection_assigned_personnel", "Alberto Nonato Jr.")
 
         return jsonify(autofill_data)
 
     except Exception as e:
-        print("Error fetching autofill data:", e)
+        print("Autofill error:", str(e))
         return jsonify({"error": str(e)}), 500
+
+
+    
+def safe_parse_name_field(value):
+    """
+    Safely parse fields that may be JSON arrays or quoted strings, e.g.
+    '["Jaime Aglugub", "Rafael Perez"]' → 'Jaime Aglugub, Rafael Perez'
+    """
+    if not value:
+        return ""
+    try:
+        s = value.strip()
+        # Remove extra quotes if double-encoded
+        if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
+            s = s[1:-1]
+        # Try to parse as JSON
+        parsed = json.loads(s)
+        if isinstance(parsed, list):
+            return ", ".join(str(v).strip() for v in parsed if v)
+        elif isinstance(parsed, dict):
+            # Just return all dict values joined, if accidentally stored that way
+            return ", ".join(str(v).strip() for v in parsed.values() if v)
+        else:
+            return str(parsed)
+    except Exception:
+        # If it's not valid JSON, just return it cleaned up
+        return str(value).strip()
+
 
 # Staff API Routes
 @complaints_bp.route('/staff/api/stats', methods=['GET'])

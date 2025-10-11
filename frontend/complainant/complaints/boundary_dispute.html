@@ -62,6 +62,22 @@
 
       <!-- Section 1 -->
       <div class="section-header">LOT DETAILS AND CLAIM:</div>
+      <!-- Non-member only: Block/Lot pairs involved in the dispute (excluding theirs) -->
+      <div id="nonMemberBlockLotSection" style="display:none; margin-bottom: 18px;">
+        <p style="font-weight:bold;">Please indicate your Block and Lot number.</p>
+        <div class="pairs" id="blockLotPairsContainer" aria-live="polite">
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Block No.</label>
+              <input type="text" name="block_no[]" placeholder="Block No.">
+            </div>
+            <div class="col">
+              <label class="small">Lot No.</label>
+              <input type="text" name="lot_no[]" placeholder="Lot No.">
+            </div>
+          </div>
+        </div>
+      </div>
   <p><strong>1. What is the nature of the boundary issue? </strong> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
   <label><input type="checkbox" name="nature_of_issue" value="Neighbor structure extends beyond line"> A neighbor’s house or structure extends beyond their boundary line</label>
   <label><input type="checkbox" name="nature_of_issue" value="Fence overlaps into my property"> A fence or wall installed by the neighbor overlaps into my property</label>
@@ -415,13 +431,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       let memberWrapper = null;
       if (d.parent_info) {
-        memberWrapper = document.createElement('div');
-        memberWrapper.style.marginTop = '20px';
-        const h3 = document.createElement('h3');
-        h3.textContent = 'HOA Member Information';
-        h3.style.color = '#083048';
-        h3.style.marginBottom = '10px';
-        memberWrapper.appendChild(h3);
+  memberWrapper = document.createElement('div');
+  memberWrapper.style.marginTop = '20px';
+  // Use the same markup and class as other section headers for blue box styling
+  memberWrapper.innerHTML = '<div class="section-header">HOA Member Information</div>';
         const memberPairs = document.createElement('div');
         memberPairs.className = 'pairs';
         const p = d.parent_info;
@@ -594,81 +607,104 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Q12 dynamic row logic for persons involved
 document.addEventListener('DOMContentLoaded', function() {
+  // --- Persons Involved (q12) ---
   const pairsContainer = document.getElementById('pairsContainer');
   const addPairBtn = document.getElementById('addPairBtn');
-  if (!pairsContainer || !addPairBtn) return;
-
-  function getNextIndex() {
-    // Find the highest index currently in use
-    const rows = pairsContainer.querySelectorAll('.pair-row');
-    let maxIdx = -1;
-    rows.forEach(row => {
-      const input = row.querySelector('input[name^="q12["]');
-      if (input) {
-        const match = input.name.match(/^q12\[(\d+)\]/);
-        if (match) {
-          const idx = parseInt(match[1], 10);
-          if (idx > maxIdx) maxIdx = idx;
+  if (pairsContainer && addPairBtn) {
+    function getNextIndex() {
+      // Find the highest index currently in use
+      const rows = pairsContainer.querySelectorAll('.pair-row');
+      let maxIdx = -1;
+      rows.forEach(row => {
+        const input = row.querySelector('input[name^="q12["]');
+        if (input) {
+          const match = input.name.match(/^q12\[(\d+)\]/);
+          if (match) {
+            const idx = parseInt(match[1], 10);
+            if (idx > maxIdx) maxIdx = idx;
+          }
         }
-      }
-    });
-    return maxIdx + 1;
-  }
+      });
+      return maxIdx + 1;
+    }
 
-  function createPairRow(idx) {
-    const row = document.createElement('div');
-    row.className = 'pair-row';
-    row.style.display = 'flex';
-    row.style.gap = '12px';
-    row.style.alignItems = 'center';
-    row.style.marginBottom = '10px';
-    row.innerHTML = `
-      <div style="flex: 1;">
-        <label for="personName_${idx}">Name of Person</label>
-        <input type="text" id="personName_${idx}" name="q12[${idx}][name]" placeholder="Enter name" class="form-control" required />
-      </div>
-      <div style="width: 140px;">
-        <label for="blockNo_${idx}">Block No.</label>
-        <input type="text" id="blockNo_${idx}" name="q12[${idx}][block]" placeholder="Block No." class="form-control" required />
-      </div>
-      <div style="width: 140px;">
-        <label for="lotNo_${idx}">Lot No.</label>
-        <input type="text" id="lotNo_${idx}" name="q12[${idx}][lot]" placeholder="Lot No." class="form-control" required />
-      </div>
-      <button type="button" class="btn remove small" style="margin-top: 24px; color: #999;">Remove</button>
-    `;
-    // Attach remove handler
-    row.querySelector('.remove').addEventListener('click', function() {
-      // Only remove if more than one row remains
-      if (pairsContainer.querySelectorAll('.pair-row').length > 1) {
-        row.remove();
-      } else {
-        showErrorPop('At least one entry is required.');
-      }
-    });
-    return row;
-  }
-
-  // Attach remove handler to initial row
-  const initialRow = pairsContainer.querySelector('.pair-row');
-  if (initialRow) {
-    const removeBtn = initialRow.querySelector('.remove');
-    if (removeBtn) {
-      removeBtn.addEventListener('click', function() {
+    function createPairRow(idx) {
+      const row = document.createElement('div');
+      row.className = 'pair-row';
+      row.style.display = 'flex';
+      row.style.gap = '12px';
+      row.style.alignItems = 'center';
+      row.style.marginBottom = '10px';
+      row.innerHTML = `
+        <div style="flex: 1;">
+          <label for="personName_${idx}">Name of Person</label>
+          <input type="text" id="personName_${idx}" name="q12[${idx}][name]" placeholder="Enter name" class="form-control" required />
+        </div>
+        <div style="width: 140px;">
+          <label for="blockNo_${idx}">Block No.</label>
+          <input type="text" id="blockNo_${idx}" name="q12[${idx}][block]" placeholder="Block No." class="form-control" required />
+        </div>
+        <div style="width: 140px;">
+          <label for="lotNo_${idx}">Lot No.</label>
+          <input type="text" id="lotNo_${idx}" name="q12[${idx}][lot]" placeholder="Lot No." class="form-control" required />
+        </div>
+        <button type="button" class="btn remove small" style="margin-top: 24px; color: #999;">Remove</button>
+      `;
+      // Attach remove handler
+      row.querySelector('.remove').addEventListener('click', function() {
+        // Only remove if more than one row remains
         if (pairsContainer.querySelectorAll('.pair-row').length > 1) {
-          initialRow.remove();
+          row.remove();
         } else {
           showErrorPop('At least one entry is required.');
         }
       });
+      return row;
     }
+
+    // Attach remove handler to initial row
+    const initialRow = pairsContainer.querySelector('.pair-row');
+    if (initialRow) {
+      const removeBtn = initialRow.querySelector('.remove');
+      if (removeBtn) {
+        removeBtn.addEventListener('click', function() {
+          if (pairsContainer.querySelectorAll('.pair-row').length > 1) {
+            initialRow.remove();
+          } else {
+            showErrorPop('At least one entry is required.');
+          }
+        });
+      }
+    }
+
+    addPairBtn.addEventListener('click', function() {
+      const idx = getNextIndex();
+      const newRow = createPairRow(idx);
+      pairsContainer.appendChild(newRow);
+    });
   }
 
-  addPairBtn.addEventListener('click', function() {
-    const idx = getNextIndex();
-    const newRow = createPairRow(idx);
-    pairsContainer.appendChild(newRow);
-  });
+  // --- Relationship dynamic add ---
+  const relationshipContainer = document.getElementById('relationshipContainer');
+  const addRelationshipBtn = document.getElementById('addRelationshipBtn');
+  if (relationshipContainer && addRelationshipBtn) {
+    addRelationshipBtn.addEventListener('click', function() {
+      const relDiv = document.createElement('div');
+      relDiv.className = 'relationship-input';
+      relDiv.style.display = 'flex';
+      relDiv.style.gap = '8px';
+      relDiv.style.alignItems = 'center';
+      relDiv.style.marginBottom = '8px';
+      relDiv.innerHTML = `
+        <input type="text" name="boundary_relationship" placeholder="Specify relationship (neighbor, relative, etc.)" style="flex: 1; margin-left: 15px;">
+        <button type="button" class="btn remove small" style="color: #999;">Remove</button>
+      `;
+      relDiv.querySelector('.remove').addEventListener('click', function() {
+        relDiv.remove();
+      });
+      relationshipContainer.appendChild(relDiv);
+    });
+  }
 });
 </script>
 
@@ -721,6 +757,17 @@ document.addEventListener('DOMContentLoaded', function() {
       showErrorPop('Submission failed. Please try again.');
       if (submitBtn) submitBtn.disabled = false;
     });
+  });
+});
+</script>
+
+<script>
+// Show/hide non-member block/lot section (static, no dynamic rows)
+document.addEventListener('DOMContentLoaded', function() {
+  fetch('/complainant/boundary_dispute/get_boundary_session_data').then(r => r.json()).then(d => {
+    if (d && d.category === 'non_member') {
+      document.getElementById('nonMemberBlockLotSection').style.display = '';
+    }
   });
 });
 </script>

@@ -141,7 +141,7 @@
 
                             {% if parent_info %}
                               <div>
-                                <h3>HOA Member Information</h3>
+                                <div class="section-header">HOA MEMBER INFORMATION</div>
                                 <div class="pairs">
                                   <div class="pair-row">
                                     <div class="col">
@@ -451,18 +451,49 @@
                             {% endif %}
                           {% endif %}
 
-      
-                          <div class="section-header">LOT DETAILS AND CLAIM:</div>
-                          {% if complaint.type_of_complaint == 'Boundary Dispute' %}
-                            {% include 'complaint_details_boundary.html' %}
-                          {% elif complaint.type_of_complaint == 'Lot Dispute' %}
-                            {% include 'complaint_details_lot_dispute.html' %}
-                          {% else %}
-                            {% for field in form_structure %}
-                              {# ...existing code for generic field rendering... #}
-                            {% endfor %}
-                          {% endif %}
-                      </div> <!-- closes .complaint-form -->
+                            <div class="section-header">LOT DETAILS AND CLAIM:</div>
+
+                            {% if complaint.type_of_complaint == 'Boundary Dispute' %}
+                              {% include 'complaint_details_boundary.html' %}
+                            {% elif complaint.type_of_complaint == 'Lot Dispute' %}
+                              {% include 'complaint_details_lot_dispute.html' %}
+                            {% else %}
+                              {% for field in form_structure %}
+                                {% if field.type == 'textarea' %}
+                                  <p><strong>{{ field.label }}</strong></p>
+                                  <textarea readonly title="{{ field.label }}" aria-label="{{ field.label }}">{{ answers[field.name] }}</textarea>
+                                {% elif field.type != 'signature' %}
+                                  {# Generic field rendering for all other non-signature types #}
+                                  <p><strong>{{ field.label }}</strong></p>
+                                  <input type="text" value="{{ answers[field.name] }}" readonly title="{{ field.label }}" aria-label="{{ field.label }}">
+                                {% endif %}
+                              {% endfor %}
+                            {% endif %}
+
+                            <!-- Consent Declaration (always before signature) -->
+                            <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
+                            <div class="consent">
+                              By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
+                            </div>
+
+                            <!-- Signature Section (always last) -->
+                            <div class="signature">
+                              {% if complaint.type_of_complaint == 'Boundary Dispute' %}
+                                {% if answers.signature_path %}
+                                  <a href="{{ url_for('complainant.uploaded_signature', filename=answers.signature_path) }}" target="_blank">View Signature</a>
+                                {% else %}
+                                  <p><em>No signature uploaded</em></p>
+                                {% endif %}
+                              {% else %}
+                                {% if answers.signature %}
+                                  <a href="{{ url_for('complainant.uploaded_signature', filename=answers.signature) }}" target="_blank">View Signature</a>
+                                {% else %}
+                                  <p><em>No signature uploaded</em></p>
+                                {% endif %}
+                              {% endif %}
+                            </div>
+
+                            </div> <!-- closes .complaint-form -->
 
                       <!-- Right Panel -->
                       <div class="right-panel">

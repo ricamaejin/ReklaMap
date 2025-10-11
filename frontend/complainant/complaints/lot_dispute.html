@@ -335,11 +335,12 @@
           if (d.parent_info) {
             const wrapper = document.createElement('div');
             wrapper.style.marginTop = '20px';
-            const h3 = document.createElement('h3');
-            h3.textContent = 'HOA Member Information';
-            h3.style.color = '#083048';
-            h3.style.marginBottom = '10px';
-            wrapper.appendChild(h3);
+
+            // Use the same markup and class as other section headers for blue box styling
+            const sectionHeader = document.createElement('div');
+            sectionHeader.className = 'section-header';
+            sectionHeader.textContent = 'HOA MEMBER INFORMATION';
+            wrapper.appendChild(sectionHeader);
 
             const memberPairs = document.createElement('div');
             memberPairs.className = 'pairs';

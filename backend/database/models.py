@@ -182,8 +182,7 @@ class Complaint(db.Model):
     area_id = db.Column(db.Integer, db.ForeignKey('areas.area_id'), nullable=False)
     address = db.Column(db.String(255), nullable=False)
 
-
-    # Relationship to LotDispute (one-to-one)
+    # Relationship to LotDispute
     lot_dispute = db.relationship(
         "LotDispute",
         back_populates="complaint",
@@ -200,6 +199,16 @@ class Complaint(db.Model):
         cascade="all, delete-orphan",
         passive_deletes=True
     )
+
+    # Relationship to PathwayDispute
+    pathway_dispute = db.relationship(
+        "PathwayDispute",
+        back_populates="complaint",
+        uselist=False,
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
 
 
     def __repr__(self):
@@ -337,6 +346,7 @@ class BoundaryDispute(db.Model):
     q14 = db.Column(db.Enum('Yes', 'No', 'Not sure'))  # reside near site
     q15 = db.Column(db.Enum('Yes', 'No'))           # claim docs
     q15_1 = db.Column(db.JSON)                      # claim doc types
+    block_lot = db.Column(db.JSON)                  # non-member block/lot pairs
 
     # Extra details
     description = db.Column(db.Text)                # incident description
@@ -349,5 +359,37 @@ class BoundaryDispute(db.Model):
         passive_deletes=True
     )
 
+
+# -----------------------
+# Pathway Dispute
+# -----------------------
+
+class PathwayDispute(db.Model):
+    __tablename__ = "pathway_dispute"
+
+    pathway_dispute_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    complaint_id = db.Column(db.Integer, db.ForeignKey('complaints.complaint_id', ondelete="CASCADE"), nullable=False)
+    block_lot = db.Column(db.JSON, nullable=True)
+    q1 = db.Column(db.String(200), nullable=True)
+    q2 = db.Column(db.String(200), nullable=True)
+    q3 = db.Column(db.String(80), nullable=True)
+    q4 = db.Column(db.String(80), nullable=True)
+    q5 = db.Column(db.JSON, nullable=True)
+    q6 = db.Column(db.Enum('Yes', 'No', 'Not Sure'), nullable=True)
+    q7 = db.Column(db.String(80), nullable=True)
+    q8 = db.Column(db.JSON, nullable=True)
+    q9 = db.Column(db.JSON, nullable=True)
+    q10 = db.Column(db.String(80), nullable=True)
+    q11 = db.Column(db.JSON, nullable=True)
+    q12 = db.Column(db.Enum('Yes', 'No', 'Not Sure'), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    signature = db.Column(db.String(255), nullable=True)
+
+    # Relationship back to Complaint
+    complaint = db.relationship(
+        "Complaint",
+        back_populates="pathway_dispute",
+        passive_deletes=True
+    )
 
 

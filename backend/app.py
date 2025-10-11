@@ -28,6 +28,8 @@ from backend.complainant.famreg import famreg_bp
 from backend.complainant.lot_dispute import lot_dispute_bp
 # Boundary Dispute blueprint
 from backend.complainant.boundary_dispute import boundary_dispute_bp
+# Pathway Dispute blueprint
+from backend.complainant.pathway_dispute import pathway_dispute_bp
 
 
 # Set static_folder to your frontend directory, static_url_path to ""
@@ -81,8 +83,10 @@ app.register_blueprint(mem_reg_bp)
 app.register_blueprint(complainant_complaints_bp)
 app.register_blueprint(nonmemreg_bp)
 app.register_blueprint(famreg_bp)
+
 app.register_blueprint(lot_dispute_bp)
 app.register_blueprint(boundary_dispute_bp)
+app.register_blueprint(pathway_dispute_bp)
 
 # Register staff and shared blueprints
 app.register_blueprint(staff_bp)
