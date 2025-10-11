@@ -9,6 +9,7 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
 <body>
   <!-- Sidebar -->
@@ -101,20 +102,31 @@
         <textarea id="findings" placeholder="Enter inspection findings..."></textarea>
       </div>
 
-      <div class="form-group">
-        <label id="long">Attach Supporting Documents or Evidence for the Inspection:</label>
-        <div class="file-upload">
-          <input type="file" id="inspectionFile" accept=".pdf,.jpg,.jpeg" multiple hidden />
-          <button type="button" onclick="document.getElementById('inspectionFile').click()" style="align-items: flex-start;">Upload</button>
+      <div class="form-group" style="display:flex; align-items:flex-start; gap:10px;">
+        <label style="flex:0 0 150px; font-weight:bold; margin-top:6px;">
+          Attach Supporting Documents or Evidence for the Inspection:
+        </label>
+
+        <div id="inspectionFileContainer" style="flex:1; display:flex; flex-direction:column; gap:0px;">
+          <!-- First file upload row -->
+          <div class="fileUp-row">
+            <div class="fileUp-top">
+              <input type="text" name="inspectionFileDescription[]" placeholder="File type (e.g. Photo, Report)" required>
+            </div>
+            <div class="fileUp-bottom">
+              <input type="file" name="inspectionFiles[]" id="inspectionFile1" style="display:none;"
+                onchange="var f=this.files.length?this.files[0].name:'';var s=document.getElementById('inspectionFileName1');s.textContent=f;s.title=f;">
+              <button type="button" class="file-upload-btn" onclick="document.getElementById('inspectionFile1').click()">Upload</button>
+              <span class="file-name" id="inspectionFileName1"></span>
+            </div>
+          </div>
         </div>
       </div>
 
+      <!-- Button to add more -->
       <div class="form-group">
-        <label style="flex: 0 0 165px;">Attached Files:</label>
-        <div id="inspectionFilesList" class="attached-files"></div>
+        <button class="form-group-button" type="button" onclick="addInspectionFileUpload()">+ Add Another File</button>
       </div>
-    </div>
-
     <!-- FOOTER -->
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeComplaint()">Cancel</button>
@@ -189,7 +201,13 @@
       console.log('[STAFF DATA] Inspection data received:', result);
       
       // The API returns flattened data for easier access
-      const data = result.success ? result : result;
+      const info = result.data || result;
+
+      console.log('Staff inspection info:', info);
+      console.log('Deadline:', info.deadline);
+      console.log('Location:', info.location);
+      console.log('Inspector:', info.inspector);
+      console.log('Scope:', info.scope);
       
       // Fill readonly fields with data from admin assignment
       const deadlineEl = document.getElementById('staffDeadline');
@@ -197,11 +215,11 @@
       const scopeEl = document.getElementById('staffScope');
       
       if (deadlineEl) {
-        deadlineEl.value = data.deadline || 'No deadline set';
+        deadlineEl.value = info.deadline || 'No deadline set';
       }
       
       if (locationEl) {
-        locationEl.value = data.location || 'No location specified';
+        locationEl.value = info.location || 'No location specified';
       }
       
       if (scopeEl) {
@@ -939,6 +957,35 @@ function showMapError() {
 window.loadComplaintMap = loadComplaintMap;
 window.displayAreaMap = displayAreaMap;
 window.showMapError = showMapError;
+
+let inspectionFileCount = 1;
+function addInspectionFileUpload() {
+  inspectionFileCount++;
+  const container = document.getElementById("inspectionFileContainer");
+  const fileInputId = "inspectionFile" + inspectionFileCount;
+  const fileNameId = "inspectionFileName" + inspectionFileCount;
+
+  const div = document.createElement("div");
+  div.className = "fileUp-row";
+  div.innerHTML = `
+    <div class="fileUp-top">
+      <input type="text" name="inspectionFileDescription[]" placeholder="File type (e.g. Photo, Report)" required>
+      <button type="button" class="remove-btn-wit" onclick="this.closest('.fileUp-row').remove()">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+    <div class="fileUp-bottom">
+      <input type="file" name="inspectionFiles[]" id="${fileInputId}" style="display:none;"
+        onchange="var f=this.files.length?this.files[0].name:'';var s=document.getElementById('${fileNameId}');s.textContent=f;s.title=f;">
+      <button type="button" class="file-upload-btn" onclick="document.getElementById('${fileInputId}').click()">Upload</button>
+      <span class="file-name" id="${fileNameId}"></span>
+    </div>
+  `;
+
+  container.appendChild(div);
+}
+
+
 </script>
 
 </body>
