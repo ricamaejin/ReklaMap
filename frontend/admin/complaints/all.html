@@ -52,6 +52,8 @@
     .complaints-table tbody tr.status-assigned:hover { background-color: #FFC885 !important; }
     .complaints-table tbody tr.status-unresolved { background-color: #D3D3D3 !important; cursor: pointer; }
     .complaints-table tbody tr.status-unresolved:hover { background-color: #C0C0C0 !important; }
+    .complaints-table tbody tr.status-out-of-jurisdiction { background-color: #F6B6B6 !important; cursor: pointer; }
+    .complaints-table tbody tr.status-out-of-jurisdiction:hover { background-color: #F19999 !important; }
     .complaints-table tbody tr:hover { cursor: pointer; }
   </style>
 </head>
@@ -292,7 +294,9 @@
         // Calculate status with deadline countdown - using EXACT same logic as index.html adminGetDeadlineDate
         const calculateStatusWithDeadline = (complaint) => {
           if (complaint.status === 'Invalid') return '<em>N/A</em>';
-          if (complaint.complaint_stage === 'Resolved') return 'Resolved';
+          if (complaint.complaint_stage === 'Resolved') return '';
+          if (complaint.complaint_stage === 'Unresolved') return '';
+          if (complaint.complaint_stage === 'Out of Jurisdiction') return '';
           if (complaint.complaint_stage === 'Pending' || !complaint.latest_action) return '<em>Received</em>';
           
           // For ongoing complaints, calculate deadline using index.html logic
@@ -375,6 +379,10 @@
           assignedToDisplay = '<em>N/A</em>';
           statusDisplay = '<em>N/A</em>';
           actionNeededDisplay = 'Invalid';
+        } else if (complaint.complaint_stage === 'Out of Jurisdiction') {
+          assignedToDisplay = '<em>N/A</em>';
+          statusDisplay = '';
+          actionNeededDisplay = 'Out of Jurisdiction';
         } else if (complaint.complaint_stage === 'Pending' || !complaint.latest_action) {
           assignedToDisplay = 'Pending';
           statusDisplay = '<em>Received</em>';
@@ -427,6 +435,14 @@
             row.style.backgroundColor = '#B5E48C'; // Light green for assessment
             console.log('Applied status-assessment class');
           }
+        } else if (complaint.complaint_stage === 'Out of Jurisdiction') {
+          row.classList.add('status-out-of-jurisdiction');
+          row.style.backgroundColor = '#F6B6B6'; // Same color as invalid.html
+          console.log('Applied status-out-of-jurisdiction class');
+        } else if (complaint.complaint_stage === 'Unresolved') {
+          row.classList.add('status-unresolved');
+          row.style.backgroundColor = '#D3D3D3'; // Light gray for unresolved
+          console.log('Applied status-unresolved class');
         } else if (complaint.assigned_to) {
           row.classList.add('status-assigned');
           row.style.backgroundColor = '#FFD6A5'; // Fallback inline style
@@ -449,6 +465,13 @@
   <script>
     // Enhanced deadline calculation based on specific action types
     function formatDeadline(complaint) {
+      // Check if complaint is in final state - no deadline needed
+      if (complaint.complaint_stage === 'Resolved' || 
+          complaint.complaint_stage === 'Unresolved' || 
+          complaint.complaint_stage === 'Out of Jurisdiction') {
+        return 'Final';
+      }
+      
       if (!complaint.action_datetime) return 'N/A';
       
       const actionType = (complaint.latest_action || complaint.action_needed || '').toLowerCase();

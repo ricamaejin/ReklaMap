@@ -99,6 +99,7 @@
     <table class="complaints-table">
       <thead>
         <tr>
+          <th style="text-align: center;">ID No.</th> <!-- Future format: MMDDYY-ID (e.g., 100825-123) -->
           <th style="text-align: center;">Date Submitted</th>
           <th style="text-align: center;">Complainant</th>
           <th style="text-align: center;">Type of Complaint</th>
@@ -224,7 +225,7 @@
       tbody.innerHTML = '';
       
       if (complaints.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No received complaints</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No pending complaints</td></tr>';
         return;
       }
       
@@ -243,6 +244,7 @@
         const actionNeededDisplay = complaint.latest_action || 'Received';
         
         row.innerHTML = `
+          <td>${complaint.complaint_id}</td>
           <td>${formatDateWithTimestamp(complaint.date_received)}</td>
           <td>${complaint.complainant_name || complaint.complainant || 'N/A'}</td>
           <td>${complaint.type_of_complaint}</td>

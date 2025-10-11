@@ -96,6 +96,7 @@
     <table class="complaints-table">
       <thead>
         <tr>
+          <th style="text-align: center;">ID No.</th> <!-- Just the number from database, future format: RK-2024-001 -->
           <th style="text-align: center;">Date Submitted</th>
           <th style="text-align: center;">Complainant</th>
           <th style="text-align: center;">Type of Complaint</th>
@@ -192,7 +193,7 @@
       tbody.innerHTML = '';
       
       if (complaints.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No resolved complaints</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No resolved complaints</td></tr>';
         return;
       }
       
@@ -205,6 +206,7 @@
         });
         
         row.innerHTML = `
+          <td>${complaint.complaint_id}</td>
           <td>${formatDateWithTimestamp(complaint.date_received)}</td>
           <td>${complaint.complainant_name || complaint.complainant || 'N/A'}</td>
           <td>${complaint.type_of_complaint}</td>
