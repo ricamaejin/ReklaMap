@@ -312,6 +312,20 @@ def submit_boundary_dispute():
         )
 
         db.session.add(boundary_entry)
+        
+        # Create initial timeline entry for "Submitted" status with actual submission time
+        from backend.database.models import ComplaintHistory
+        import json as timeline_json
+        
+        submitted_timeline = ComplaintHistory(
+            complaint_id=new_complaint.complaint_id,
+            type_of_action='Submitted',
+            assigned_to='',
+            details=timeline_json.dumps({'description': 'Submitted a Valid Complaint'}),
+            action_datetime=new_complaint.date_received  # Use actual submission time from complaints table
+        )
+        db.session.add(submitted_timeline)
+        
         db.session.commit()
 
         return jsonify({

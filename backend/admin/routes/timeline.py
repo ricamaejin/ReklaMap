@@ -213,7 +213,7 @@ def get_complaint_timeline(complaint_id):
         print(f'[TIMELINE API] Before filtering: {len(timeline_entries)} entries')
         print(f'[TIMELINE API] Raw entries: {[entry.get("type_of_action") for entry in timeline_entries]}')
         
-        filtered_entries = filter_entries_by_role(timeline_entries, role)
+        filtered_entries = filter_entries_by_role(timeline_entries, role, complaint_id)
         
         print(f'[TIMELINE API] After filtering for {role}: {len(filtered_entries)} entries')
         print(f'[TIMELINE API] Filtered entries: {[entry.get("type_of_action") for entry in filtered_entries]}')
@@ -239,7 +239,7 @@ def get_complaint_timeline(complaint_id):
             'timeline': []
         }), 500
 
-def filter_entries_by_role(entries, role):
+def filter_entries_by_role(entries, role, complaint_id=None):
     """Filter timeline entries based on UPDATED SEQUENTIAL FLOW requirements"""
     
     if role == 'admin':
@@ -280,12 +280,32 @@ def filter_entries_by_role(entries, role):
         # ✅ Assessment → ✅ Resolved
         complainant_entries = []
         
-        # Always include submission as first entry
+        # Get actual submission date from complaints table
+        submission_datetime = ''
+        try:
+            from sqlalchemy import text
+            result = db.session.execute(text("""
+                SELECT date_received 
+                FROM complaints 
+                WHERE complaint_id = :complaint_id
+            """), {'complaint_id': complaint_id})
+            row = result.fetchone()
+            if row and row.date_received:
+                submission_datetime = row.date_received.isoformat()
+            elif entries:
+                # Fallback to first timeline entry if no date_received
+                submission_datetime = entries[0]['action_datetime']
+        except Exception as e:
+            print(f"Error fetching submission date: {e}")
+            # Fallback to first timeline entry
+            submission_datetime = entries[0]['action_datetime'] if entries else ''
+        
+        # Always include submission as first entry with correct date
         submission_entry = {
             'type_of_action': 'Submitted',
             'description': 'Submitted a valid complaint',
             'assigned_to': '',
-            'action_datetime': entries[0]['action_datetime'] if entries else '',
+            'action_datetime': submission_datetime,
             'has_file': False
         }
         complainant_entries.append(submission_entry)

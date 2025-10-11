@@ -1661,9 +1661,10 @@ def get_staff_stats():
 def get_staff_assigned_complaints():
     """Get complaints assigned to the current staff member"""
     try:
-        # Get current staff name from session or use test name for debugging
-        staff_name = session.get('name')
+        # Get current staff name from session - try multiple session keys for compatibility
+        staff_name = session.get('name') or session.get('admin_name')
         print(f"[STAFF ASSIGNED] Session staff name: '{staff_name}'")
+        print(f"[STAFF ASSIGNED] Session keys available: {list(session.keys())}")
         
         if not staff_name:
             # TEMPORARY: Use test staff name for debugging area_name issue
@@ -1821,7 +1822,7 @@ def get_staff_assigned_complaints():
 def debug_staff_data():
     """Debug endpoint to check data relationships"""
     try:
-        staff_name = session.get('name')
+        staff_name = session.get('name') or session.get('admin_name')
         debug_info = {
             'session_name': staff_name,
             'session_all': dict(session),
@@ -1890,9 +1891,10 @@ def debug_staff_data():
 def get_staff_resolved_complaints():
     """Get complaints resolved by the current staff member"""
     try:
-        # Get current staff name from session
-        staff_name = session.get('name')
+        # Get current staff name from session - try multiple session keys for compatibility
+        staff_name = session.get('name') or session.get('admin_name')
         print(f"[STAFF RESOLVED] Session staff name: {staff_name}")
+        print(f"[STAFF RESOLVED] Session keys available: {list(session.keys())}")
         
         # For debugging - also try to get any staff completions
         debug_query = """
