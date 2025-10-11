@@ -953,50 +953,91 @@ i {
 
 .fileUp-row {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;           
-  max-width: 445px;          
-  flex-wrap: nowrap;       
+  flex-direction: column;
+  gap: 0; /* no flex gap */
+  width: 100%;
+  position: relative;
 }
 
-.fileUp-row input[type="text"] {
-  flex: 1;                 
-  min-width: 0;             
-}
-
-.fileUp-row input[type="file"] {
-  flex: 0 0 150px;         
-}
-
-.fileUp-row .remove-btn-wit {
-  flex: 0 0 auto;
-  background: none;
-  border: none;
-  cursor: pointer;
-  margin-left: 6px;
+/* remove ANY built-in space below the top row */
+.fileUp-top {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 0;
+  width: 100%;
+  margin-bottom: 0; /* remove default space */
+  padding-bottom: 0; /* prevent spacing */
 }
 
+/* ensure text input doesn’t add bottom margin */
+.fileUp-row input[type="text"] {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 14px;
+  box-sizing: border-box;
+  margin-bottom: 0; /* 👈 remove bottom gap */
+}
+
+/* Remove (X) button */
 .remove-btn-wit {
   background: transparent;
   border: none;
-  padding: 0;
-  margin: 0;
   cursor: pointer;
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .remove-btn-wit span.material-icons {
-  font-size: 18px;
+  font-size: 20px;
   color: white;
 }
 
 .remove-btn-wit:hover span.material-icons {
-  color: #d00;
+  color: red;
 }
+
+/* Bottom row — upload & filename */
+.fileUp-bottom {
+  display: flex;
+  align-items: center;
+  gap: 0; /* no horizontal gap */
+  margin-top: 0; /* 👈 important: kills top space */
+  padding-top: 0; /* 👈 kills browser default spacing */
+  line-height: 1; /* removes small invisible vertical spacing */
+}
+
+.file-upload-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background: white;
+  color: #0d2fb3;
+  font-weight: bold;
+  cursor: pointer;
+  white-space: nowrap;
+  margin-top: 5px; 
+  margin-left: 15px;
+  margin-bottom: 15px;
+}
+
+.file-upload-btn:hover {
+  background: white;
+  color: #0d2fb3;
+}
+
+.file-name {
+  font-style: italic;
+  font-size: 0.9em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 250px;
+  color: white;
+  margin: 0 0 10px 10px; /* 👈 remove any text margin */
+  padding: 12px;
+}
+
 
 .readonly-input {
   background-color: #f5f5f5;

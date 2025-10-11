@@ -134,7 +134,7 @@
 
           <!-- FIELDS FOR ASSESSMENT -->
           <div class="action-fields" id="actionAssessmentFields" style="display:none; width:100%;">
-            <label style="display:block; margin-bottom:6px; font-weight:bold;">Assessment Notes:<span style="color:red;">*</span></label>
+            <label style="display:block; margin-bottom:6px; font-weight:bold;">Assessment Details:<span style="color:red;">*</span></label>
             <textarea 
               id="assessmentNotes" 
               required 
@@ -178,71 +178,68 @@
             <textarea name="summary" placeholder="Enter mediation summary" required></textarea>
             </div>
             <!-- File uploads -->
-            <div class="form-group">
-              <label>Upload Files:<span style="color:red;">*</span></label>
-              <div id="fileUploadContainer">
+            <div class="form-group" style="display:flex; align-items:flex-start; gap:10px;">
+              <label style="flex:0 0 150px; font-weight:bold; margin-top:6px;">
+                Upload Files:<span style="color:red;">*</span>
+              </label>
+
+              <div id="fileUploadContainer" style="flex:1; display:flex; flex-direction:column; gap:0px;">
+                <!-- First file upload row -->
                 <div class="fileUp-row">
-                  <input type="text" name="fileDescription[]" placeholder="File type (e.g. Proof, Document)" required>
-
-                  <!-- Hidden file input -->
-                  <input type="file" name="mediationFiles[]" class="file-input-small" style="display:none;" id="fileInput1" />
-
-                  <!-- Custom upload button -->
-                  <button type="button" class="upload-btn" onclick="document.getElementById('fileInput1').click()">Upload File</button>
-
-                  <!-- Display selected file name -->
-                  <span id="fileName1" style="margin-left:10px; font-style:italic;"></span>
+                  <div class="fileUp-top">
+                    <input type="text" name="fileDescription[]" placeholder="File type (e.g. Proof, Document)" required >
+                  </div>
+                  <div class="fileUp-bottom">
+                    <input type="file" name="mediationFiles[]" id="fileInput1" style="display:none;"
+                      onchange="var f=this.files.length?this.files[0].name:'';var s=document.getElementById('fileName1');s.textContent=f;s.title=f;">
+                    <button type="button" class="file-upload-btn" onclick="document.getElementById('fileInput1').click()">Upload</button>
+                    <span class="file-name" id="fileName1"></span>
+                  </div>
                 </div>
               </div>
             </div>
-
-
-
-
             <div class="form-group">
               <button class="form-group-button" type="button" onclick="addFileUpload()">+ Add Another File</button>
             </div>
           </div>
-
-          <!-- Out of Jurisdiction -->
-          <div class="action-fields" id="actionOutOfJurisdictionFields" style="display:none; width:100%;">
-            <label style="display:block; font-weight:bold; margin-bottom:6px;">Out of Jurisdiction:<span style="color:red;">*</span></label>
-            <div 
-              class="checkbox-group-compact" 
-              style="display:block; margin-left:15px; margin-top:10px;"
-            >
-              <label class="checkbox-item-compact" style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
-                <input type="radio" name="outOfJurisdiction" value="Barangay" style="width:18px; height:18px; cursor:pointer;"> Barangay
-              </label>
-              <label class="checkbox-item-compact" style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
-                <input type="radio" name="outOfJurisdiction" value="NGC" style="width:18px; height:18px; cursor:pointer;"> NGC
-              </label>
-              <label class="checkbox-item-compact" style="display:flex; align-items:center; gap:6px;">
-                <input type="radio" id="outOthersRadio" name="outOfJurisdiction" value="Others" style="width:18px; height:18px; cursor:pointer;"> Others
-              </label>
-              <input 
-                type="text" 
-                id="outOthersInput" 
-                placeholder="Please specify" 
-                style="display:none; margin-top:5px; margin-left:25px; width:93%; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-size:14px;"
-              />
+            <!-- Out of Jurisdiction -->
+            <div class="action-fields" id="actionOutOfJurisdictionFields" style="display:none; width:100%;">
+              <label style="display:block; font-weight:bold; margin-bottom:6px;">Under the Scope of:<span style="color:red;">*</span></label>
+              <div 
+                class="checkbox-group-compact" 
+                style="display:block; margin-left:15px; margin-top:10px;"
+              >
+                <label class="checkbox-item-compact" style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                  <input type="radio" name="outOfJurisdiction" value="Barangay" style="width:18px; height:18px; cursor:pointer;"> Barangay
+                </label>
+                <label class="checkbox-item-compact" style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                  <input type="radio" name="outOfJurisdiction" value="NGC" style="width:18px; height:18px; cursor:pointer;"> NGC
+                </label>
+                <label class="checkbox-item-compact" style="display:flex; align-items:center; gap:6px;">
+                  <input type="radio" id="outOthersRadio" name="outOfJurisdiction" value="Others" style="width:18px; height:18px; cursor:pointer;"> Others
+                </label>
+                <input 
+                  type="text" 
+                  id="outOthersInput" 
+                  placeholder="Please specify" 
+                  style="display:none; margin-top:5px; margin-left:25px; width:93%; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-size:14px;"
+                />
+              </div>
+            <label style="display:block; margin-bottom:6px; font-weight:bold;">Out of Jurisdiction Remarks:<span style="color:red;">*</span></label>
+                <textarea 
+                  id="outOfJurisdictionNotes" 
+                  required 
+                  style="width:95%; margin:0 auto; display:block; height:120px; box-sizing:border-box; resize:vertical; padding:8px; border:1px solid #ccc; border-radius:6px; font-size:14px;"
+                ></textarea>
             </div>
-          <label style="display:block; margin-bottom:6px; font-weight:bold;">Out of Jurisdiction Notes:<span style="color:red;">*</span></label>
-              <textarea 
-                id="outOfJurisdictionNotes" 
-                required 
-                style="width:95%; margin:0 auto; display:block; height:120px; box-sizing:border-box; resize:vertical; padding:8px; border:1px solid #ccc; border-radius:6px; font-size:14px;"
-              ></textarea>
           </div>
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn-cancel" onclick="(function(){ closeComplaint(); recommendModal.style.display='flex'; })()">Cancel</button>
-          <button id="modalSaveBtn" class="btn-save" onclick="saveAction()">Save</button>
-        </div>
+          <div class="modal-footer">
+            <button class="btn-cancel" onclick="(function(){ closeComplaint(); recommendModal.style.display='flex'; })()">Cancel</button>
+            <button id="modalSaveBtn" class="btn-save" onclick="saveAction()">Save</button>
+          </div>
       </div>
     </div>
-
+</div>
     <!-- ASSIGN MODAL -->
     <div class="modal-overlay" id="assignModal" style="display:none;"> 
       <div class="modal" style="display:flex; flex-direction:column; max-height:80vh;">
@@ -620,7 +617,22 @@
         }
         const fileUploadContainer = document.getElementById('fileUploadContainer');
         if (fileUploadContainer) {
-          fileUploadContainer.innerHTML = `<div class="fileUp-row"><input type="text" name="fileDescription[]" placeholder="File type (e.g. Proof, Document)"><input type="file" name="mediationFiles[]"></div>`;
+          fileUploadContainer.innerHTML = `
+            <div class="fileUp-row">
+              <div class="fileUp-top">
+                <input type="text" name="fileDescription[]" placeholder="File type (e.g. Proof, Document)" required>
+                <button type="button" class="remove-btn-wit" onclick="this.closest('.fileUp-row').remove()">
+                  <span class="material-icons">close</span>
+                </button>
+              </div>
+              <div class="fileUp-bottom">
+                <input type="file" name="mediationFiles[]" id="fileInput1" style="display:none;"
+                  onchange="var f=this.files.length?this.files[0].name:'';var s=document.getElementById('fileName1');s.textContent=f;s.title=f;">
+                <button type="button" class="file-upload-btn" onclick="document.getElementById('fileInput1').click()">Upload</button>
+                <span class="file-name" id="fileName1"></span>
+              </div>
+            </div>
+          `;
         }
         const attachedFilesContainer = document.getElementById('attachedFilesContainer');
         if (attachedFilesContainer) attachedFilesContainer.innerHTML = '';
@@ -693,19 +705,32 @@
     }
 
     // Add new file row
+    let fileCount = 1;
     function addFileUpload() {
+      fileCount++;
       const container = document.getElementById("fileUploadContainer");
+      const fileInputId = "fileInput" + fileCount;
+      const fileNameId = "fileName" + fileCount;
+
       const div = document.createElement("div");
-      div.classList.add("fileUp-row");  
+      div.className = "fileUp-row";
       div.innerHTML = `
-        <input type="text" name="fileDescription[]" placeholder="File type (e.g. Proof, Document)" required>
-        <input type="file" name="mediationFiles[]">
-        <button type="button" class="remove-btn-wit" onclick="this.parentElement.remove()">
-          <span class="material-icons">close</span>
-        </button>      
+        <div class="fileUp-top">
+          <input type="text" name="fileDescription[]" placeholder="File type (e.g. Proof, Document)" required>
+          <button type="button" class="remove-btn-wit" onclick="this.closest('.fileUp-row').remove()">
+            <span class="material-icons">close</span>
+          </button>
+        </div>
+        <div class="fileUp-bottom">
+          <input type="file" name="mediationFiles[]" id="${fileInputId}" style="display:none;"
+            onchange="var f=this.files.length?this.files[0].name:'';var s=document.getElementById('${fileNameId}');s.textContent=f;s.title=f;">
+          <button type="button" class="file-upload-btn" onclick="document.getElementById('${fileInputId}').click()">Upload</button>
+          <span class="file-name" id="${fileNameId}"></span>
+        </div>
       `;
       container.appendChild(div);
     }
+
 
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -925,8 +950,9 @@
       assigned_to: assignedTo,
       action_datetime: new Date().toISOString().slice(0,19).replace("T"," "),
       description: description,
+      details: details,        // ✅ nested details only
     };
-
+    
     console.log("payload to send:", payload);
 
       // Disable the save button to prevent double submissions
