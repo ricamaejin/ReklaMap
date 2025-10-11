@@ -342,6 +342,22 @@
             return [];
         }
 
+        // Format complaint dates consistently
+        function formatComplaintDate(dateString) {
+            try {
+                const date = new Date(dateString);
+                const dateStr = date.toLocaleDateString('en-US', {
+                    month: 'numeric', day: 'numeric', year: 'numeric'
+                });
+                const timeStr = date.toLocaleTimeString('en-US', {
+                    hour: 'numeric', minute: '2-digit', hour12: true
+                });
+                return `${dateStr} | ${timeStr}`;
+            } catch (error) {
+                return dateString;
+            }
+        }
+
         // Render small timeline under a status item
         function renderMiniTimeline(containerEl, entries) {
             if (!containerEl) return;
@@ -357,7 +373,12 @@
             const itemsHtml = recent.map(e => {
                 const type = e.type_of_action || e.action_type || "";
                 const desc = e.description || type;
-                const date = e.action_datetime ? new Date(e.action_datetime).toLocaleDateString('en-US', { month:'short', day:'2-digit' }) : "";
+                const date = e.action_datetime ? (() => {
+                    const d = new Date(e.action_datetime);
+                    const dateStr = d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+                    const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                    return `${dateStr} | ${timeStr}`;
+                })() : "";
                 // color map
                 const t = type.toLowerCase();
                 let color = "#6c757d"; // default gray
@@ -388,6 +409,78 @@
                     ${itemsHtml}
                 </div>
             `);
+        }
+
+        // Map action types to timeline status (matching admin function)
+        function mapActionToTimelineStatus(actionType) {
+            if (!actionType) return 'Unknown';
+            const lower = actionType.toLowerCase();
+            if (lower.includes('submitted')) return 'Submitted';
+            if (lower.includes('inspection') && lower.includes('done')) return 'Inspection Complete';
+            if (lower.includes('inspection')) return 'Inspection';
+            if (lower.includes('send invitation') || lower.includes('sent invitation')) return 'Sent Invitation';
+            if (lower.includes('accepted invitation') || lower.includes('invitation accepted')) return 'Accepted Invitation';
+            if (lower.includes('assessment')) return 'Assessment';
+            if (lower.includes('mediation')) return 'Mediation';
+            if (lower.includes('resolved')) return 'Resolved';
+            return actionType;
+        }
+
+        // Format timeline date (matching admin function style)
+        function formatTimelineDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return '';
+            const dateStr = date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+            const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+            return `${dateStr} | ${timeStr}`;
+        }
+
+        // Get color for timeline status (preserving original color scheme)
+        function getTimelineColor(actionType) {
+            const t = actionType.toLowerCase();
+            if (t.includes("submitted")) return "#17a2b8";
+            if (t.includes("inspection done") || t.includes("inspection complete")) return "#28a745";
+            if (t.includes("inspection")) return "#007bff";
+            if (t.includes("sent invitation") || t.includes("accepted invitation")) return "#28a745";
+            if (t.includes("invitation")) return "#ffc107";
+            if (t.includes("assessment")) return "#6f42c1";
+            if (t.includes("mediation")) return "#8e44ad";
+            if (t.includes("resolved")) return "#20c997";
+            return "#6c757d"; // default gray
+        }
+
+        // Updated renderMiniTimeline using admin layout structure with complainant colors
+        function renderMiniTimelineAdminStyle(containerEl, entries) {
+            if (!containerEl) return;
+            if (!entries || entries.length === 0) {
+                containerEl.insertAdjacentHTML("beforeend", `<div class="timeline-empty" style="margin-top:8px;color:#666;font-style:italic;">No updates yet.</div>`);
+                return;
+            }
+
+            // Sort most-recent first (matching admin pattern)
+            const sorted = entries.slice().sort((a,b) => new Date(b.action_datetime||0) - new Date(a.action_datetime||0));
+
+            // Generate HTML using admin timeline structure but with complainant colors
+            const timelineHTML = sorted.map(entry => {
+                const timelineStatus = mapActionToTimelineStatus(entry.type_of_action || entry.action_type);
+                const dateTime = formatTimelineDate(entry.action_datetime);
+                const description = entry.description || timelineStatus;
+                const color = getTimelineColor(entry.type_of_action || entry.action_type);
+                
+                return `
+                    <div class="timeline-entry" style="padding: 10px 0; border-bottom: 1px solid #eee;">
+                        <h4 style="font-size: 14px; margin: 0 0 3px 0; color: ${color};">${timelineStatus}</h4>
+                        <div style="font-size: 12px; color: #666; margin-bottom: 3px;">${dateTime}</div>
+                        <div style="font-size: 12px; color: #555; line-height: 1.4;">${description}</div>
+                    </div>
+                `;
+            }).join('');
+
+            containerEl.insertAdjacentHTML("beforeend", `
+                <div class="mini-timeline" style="margin-top:10px;padding-top:8px;border-top:1px solid #eee;max-height:220px;overflow:auto;">
+                    ${timelineHTML}
+                </div>`);
         }
         
         try {
@@ -429,10 +522,14 @@
                         statusItem.classList.add("invalid");
                     }
 
+                    // Use date_submitted if available, otherwise fall back to created_at
+                    const submissionDate = latest.date_received || latest.created_at;
+                    const formattedSubmissionDate = formatComplaintDate(submissionDate);
+
                     statusItem.innerHTML = `
                         <span class="dot"></span>
                         <div class="status-text" style="width:100%">
-                            <strong id="headline-${latest.complaint_id}">${latest.created_at} - Submitted a ${latest.status} Complaint</strong><br>
+                            <strong id="headline-${latest.complaint_id}">${formattedSubmissionDate} - Submitted a ${latest.status} Complaint</strong><br>
                             <span>Type: ${latest.type}</span>
                             <div class="stage-pill" style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:12px;background:#eef3ff;color:#3554d1;font-size:11px;vertical-align:middle;" id="stage-${latest.complaint_id}">Loading stage…</div>
                             <div id="mini-timeline-${latest.complaint_id}"></div>
@@ -457,15 +554,23 @@
                     const timeline = await fetchTimeline(latest.complaint_id);
                     // Ensure newest first for both headline and mini timeline
                     let sorted = timeline.slice().sort((a,b) => new Date(b.action_datetime||0) - new Date(a.action_datetime||0));
-                    // Ensure a Submitted entry exists (some DBs may not record it in history)
+                    // Ensure a Submitted entry exists with correct date_received time
                     const hasSubmitted = sorted.some(e => ((e.type_of_action||e.action_type||'').toLowerCase()==='submitted'));
                     if (!hasSubmitted) {
-                        // Use created_at as the submitted date
+                        // Always use date_received from complaints table (the actual submission datetime)
                         let submittedISO = null;
                         try {
-                            const dt = latest.created_at ? new Date(latest.created_at) : null;
-                            if (dt && !isNaN(dt)) submittedISO = dt.toISOString();
-                        } catch {}
+                            // Priority: date_received > date_submitted > created_at
+                            const submissionDate = latest.date_received || latest.date_submitted || latest.created_at;
+                            console.log(`[DASHBOARD] Using submission date for complaint ${latest.complaint_id}:`, submissionDate);
+                            const dt = submissionDate ? new Date(submissionDate) : null;
+                            if (dt && !isNaN(dt.getTime())) {
+                                submittedISO = dt.toISOString();
+                                console.log(`[DASHBOARD] Converted to ISO:`, submittedISO);
+                            }
+                        } catch (e) {
+                            console.error(`[DASHBOARD] Date parsing error:`, e);
+                        }
                         sorted.push({
                             type_of_action: 'Submitted',
                             description: 'Submitted a Valid Complaint',
@@ -473,6 +578,20 @@
                         });
                         // Resort after push
                         sorted = sorted.sort((a,b) => new Date(b.action_datetime||0) - new Date(a.action_datetime||0));
+                    } else {
+                        // If submitted entry exists but has wrong time, update it with date_received
+                        const submittedEntry = sorted.find(e => ((e.type_of_action||e.action_type||'').toLowerCase()==='submitted'));
+                        if (submittedEntry && latest.date_received) {
+                            try {
+                                const correctDate = new Date(latest.date_received);
+                                if (!isNaN(correctDate.getTime())) {
+                                    console.log(`[DASHBOARD] Correcting submitted entry time from ${submittedEntry.action_datetime} to ${latest.date_received}`);
+                                    submittedEntry.action_datetime = correctDate.toISOString();
+                                }
+                            } catch (e) {
+                                console.error(`[DASHBOARD] Error correcting submitted entry time:`, e);
+                            }
+                        }
                     }
                     const stage = deriveStageFromTimeline(sorted);
                     const stageEl = document.getElementById(`stage-${latest.complaint_id}`);
@@ -481,7 +600,15 @@
                     const headlineEl = document.getElementById(`headline-${latest.complaint_id}`);
                     if (headlineEl && sorted.length > 0) {
                         const recent = sorted[0];
-                        const recentDate = recent.action_datetime ? new Date(recent.action_datetime).toLocaleDateString('en-US', { month:'long', day:'2-digit', year:'numeric' }) : latest.created_at;
+                        let recentDate;
+                        if (recent.action_datetime) {
+                            // Use the formatComplaintDate function for consistent formatting
+                            recentDate = formatComplaintDate(recent.action_datetime);
+                        } else {
+                            // Fall back to submission date if no action_datetime
+                            const submissionDate = latest.date_submitted || latest.created_at;
+                            recentDate = formatComplaintDate(submissionDate);
+                        }
                         const recentType = recent.type_of_action || recent.action_type || 'Update';
                         headlineEl.textContent = `${recentDate} - ${recentType}`;
                     }
