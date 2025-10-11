@@ -268,6 +268,8 @@
             if (!Array.isArray(entries) || entries.length === 0) return "Pending";
             const types = new Set(entries.map(e => (e.type_of_action || e.action_type || "").toLowerCase()));
             if (types.has("resolved")) return "Resolved";
+            if (types.has("unresolved")) return "Unresolved";
+            if (types.has("out of jurisdiction")) return "Out of Jurisdiction";
             if (types.has("assessment")) return "Assessment";
             if (types.has("mediation") || types.has("accepted invitation")) return "Mediation";
             if (types.has("sent invitation")) return "Invitation Sent";
@@ -299,7 +301,7 @@
                     })));
                     
                     // Filter to meaningful milestones only (no admin noise)
-                    const meaningfulActions = ['submitted', 'inspection done', 'sent invitation', 'accepted invitation', 'mediation', 'assessment', 'resolved'];
+                    const meaningfulActions = ['submitted', 'inspection', 'inspection done', 'invitation', 'sent invitation', 'accepted invitation', 'mediation', 'assessment', 'resolved', 'unresolved', 'out of jurisdiction'];
                     
                     const filteredEntries = timeline.filter(entry => {
                         const type = (entry.type_of_action || entry.action_type || '').toLowerCase().trim();
@@ -390,6 +392,8 @@
                 else if (t.includes("assessment")) color = "#6f42c1";
                 else if (t.includes("mediation")) color = "#8e44ad";
                 else if (t.includes("resolved")) color = "#20c997";
+                else if (t.includes("unresolved")) color = "#dc3545"; // red for unresolved
+                else if (t.includes("out of jurisdiction")) color = "#fd7e14"; // orange for out of jurisdiction
 
                 return `
                     <div class="mini-timeline-item" style="display:flex;align-items:flex-start;gap:8px;margin:6px 0;">
@@ -447,6 +451,8 @@
             if (t.includes("assessment")) return "#6f42c1";
             if (t.includes("mediation")) return "#8e44ad";
             if (t.includes("resolved")) return "#20c997";
+            if (t.includes("unresolved")) return "#dc3545"; // red for unresolved
+            if (t.includes("out of jurisdiction")) return "#fd7e14"; // orange for out of jurisdiction
             return "#6c757d"; // default gray
         }
 
@@ -487,14 +493,16 @@
             const res = await fetch("/complainant/complaints/submitted");
             const data = await res.json();
             if (data.success && data.complaints.length > 0) {
-                // Filter out resolved complaints from main display
+                // Filter out complaints with final status from main dashboard display
                 const activeComplaints = data.complaints.filter(c => {
-                    // Check if complaint has "Resolved" status or latest_action indicates resolved
-                    const isResolved = c.status === "Resolved" || 
-                                     c.is_resolved === true || 
-                                     c.complaint_stage === "Resolved" ||
-                                     (c.latest_action && c.latest_action.toLowerCase().includes('resolved'));
-                    return !isResolved;
+                    // Check if complaint has final status (Resolved, Unresolved, Out of Jurisdiction) 
+                    const isFinal = c.status === "Resolved" || 
+                                   c.is_resolved === true || 
+                                   c.complaint_stage === "Resolved" ||
+                                   c.complaint_stage === "Unresolved" ||
+                                   c.complaint_stage === "Out of Jurisdiction" ||
+                                   (c.latest_action && c.latest_action.toLowerCase().includes('resolved'));
+                    return !isFinal;
                 });
                 
                 if (activeComplaints.length > 0) {

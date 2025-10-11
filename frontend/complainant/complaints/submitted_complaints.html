@@ -181,20 +181,24 @@ document.addEventListener("DOMContentLoaded", async () => {
       // --- Sort newest → oldest ---
       const sortedComplaints = coalesced.sort((a, b) => parseDateValue(b) - parseDateValue(a));
 
-      // --- Separate active and resolved complaints ---
+      // --- Separate active and resolved/final complaints ---
       const activeComplaints = sortedComplaints.filter(c => {
-        const isResolved = c.status === "Resolved" || 
-                          c.is_resolved === true || 
-                          c.complaint_stage === "Resolved" ||
-                          (c.latest_action && c.latest_action.toLowerCase().includes('resolved'));
-        return !isResolved;
+        const isFinal = c.status === "Resolved" || 
+                       c.is_resolved === true || 
+                       c.complaint_stage === "Resolved" ||
+                       c.complaint_stage === "Unresolved" ||
+                       c.complaint_stage === "Out of Jurisdiction" ||
+                       (c.latest_action && c.latest_action.toLowerCase().includes('resolved'));
+        return !isFinal;
       });
       const resolvedComplaints = sortedComplaints.filter(c => {
-        const isResolved = c.status === "Resolved" || 
-                          c.is_resolved === true || 
-                          c.complaint_stage === "Resolved" ||
-                          (c.latest_action && c.latest_action.toLowerCase().includes('resolved'));
-        return isResolved;
+        const isFinal = c.status === "Resolved" || 
+                       c.is_resolved === true || 
+                       c.complaint_stage === "Resolved" ||
+                       c.complaint_stage === "Unresolved" ||
+                       c.complaint_stage === "Out of Jurisdiction" ||
+                       (c.latest_action && c.latest_action.toLowerCase().includes('resolved'));
+        return isFinal;
       });
 
       // --- Show ONLY the most recent active complaint in left panel ---
@@ -250,10 +254,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   const createdAt = c.created_at ?? "";
   const type = c.type ?? c.type_of_complaint ?? "Complaint";
   const status = (c.status ?? c.state ?? "").toLowerCase(); // normalize for comparison
+  const complaintStage = c.complaint_stage || "";
   const personName = (c.person && c.person.name) || c.q12 || c.person_name || "Unknown";
   const personBlock = (c.person && c.person.block) || (c.property && c.property.block) || c.block || null;
   const personLot = (c.person && c.person.lot) || (c.property && c.property.lot) || c.lot || null;
   const personRole = (c.person && c.person.role) || "";
+
+  // Determine display status - prioritize complaint_stage for final states
+  let displayStatus = status;
+  if (complaintStage === "Resolved") {
+    displayStatus = "Resolved";
+  } else if (complaintStage === "Unresolved") {
+    displayStatus = "Unresolved";
+  } else if (complaintStage === "Out of Jurisdiction") {
+    displayStatus = "Out of Jurisdiction";
+  }
 
   // Format block and lot display
   let blockLotDisplay = "";
@@ -272,8 +287,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (complaintId) card.dataset.id = complaintId;
 
-  // ✅ Add color based on validity
-  if (status === "valid") {
+  // ✅ Add color based on complaint stage or validity
+  if (complaintStage === "Resolved") {
+    card.classList.add("valid"); // Green for resolved
+  } else if (complaintStage === "Unresolved") {
+    card.classList.add("invalid"); // Red for unresolved
+  } else if (complaintStage === "Out of Jurisdiction") {
+    card.classList.add("invalid"); // Red for out of jurisdiction
+  } else if (status === "valid") {
     card.classList.add("valid");
   } else if (status === "invalid") {
     card.classList.add("invalid");
@@ -281,7 +302,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   card.innerHTML = `
     <h4>${escapeHtml(createdAt)} - ${escapeHtml(type)}</h4>
-    <p><strong>Status:</strong> ${escapeHtml(status)}</p>
+    <p><strong>Status:</strong> ${escapeHtml(displayStatus)}</p>
     <div class="person-box">
       <p><strong>Person Involved:</strong></p>
       <p>Name: ${escapeHtml(personName)}</p>

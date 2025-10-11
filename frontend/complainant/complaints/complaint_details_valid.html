@@ -573,8 +573,8 @@
                         })));
                         
                         // For complainant view, we only want to show meaningful progress milestones
-                        // Filter out administrative noise like "Out of Jurisdiction" and incomplete tasks
-                        const meaningfulActions = ['submitted', 'inspection done', 'sent invitation', 'accepted invitation', 'mediation', 'assessment', 'resolved'];
+                        // Include all final states (resolved, unresolved, out of jurisdiction) as meaningful
+                        const meaningfulActions = ['submitted', 'inspection', 'inspection done', 'invitation', 'sent invitation', 'accepted invitation', 'mediation', 'assessment', 'resolved', 'unresolved', 'out of jurisdiction'];
                         
                         const filteredEntries = entries.filter(entry => {
                           const type = (entry.type_of_action || entry.action_type || '').toLowerCase().trim();
@@ -724,6 +724,8 @@
                       const colorFor = (type) => {
                         const t = (type||'').toLowerCase();
                         if (t.includes('resolved')) return '#20c997';
+                        if (t.includes('unresolved')) return '#dc3545'; // red for unresolved
+                        if (t.includes('out of jurisdiction')) return '#fd7e14'; // orange for out of jurisdiction
                         if (t.includes('mediation') || t.includes('accepted invitation')) return '#8e44ad';
                         if (t.includes('assessment')) return '#6f42c1';
                         if (t.includes('sent invitation')) return '#28a745';
