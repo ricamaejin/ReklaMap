@@ -944,18 +944,61 @@ function showMapError() {
 // TIMELINE PREVIEW FUNCTIONALITY FOR STAFF
 // =====================================
 
-// Simple preview function for staff - shows basic details
+// Enhanced preview function for staff - shows detailed modal with edit capability
 async function showTimelinePreview(historyId, actionType) {
   try {
     console.log(`[STAFF TIMELINE PREVIEW] Opening preview for history ID: ${historyId}, action: ${actionType}`);
     
-    // For staff, show a simple alert with the action details
-    // This could be expanded to a full modal if needed
-    showCustomAlert(`Timeline Entry Details:\n\nAction: ${actionType}\nEntry ID: ${historyId}\n\nThis entry shows the completed staff task.`);
+    // Fetch the timeline entry details
+    const response = await fetch(`/admin/complaints/api/timeline_entry/${historyId}`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.message || 'Failed to fetch timeline entry');
+    }
+    
+    const entry = data.entry;
+    
+    // For "Inspection done" actions, allow staff to edit their own completed work
+    if (actionType.toLowerCase().includes('inspection done') || actionType.toLowerCase().includes('inspection')) {
+      // Pre-populate the modal with the saved data and open it in edit mode
+      const details = typeof entry.details === 'string' ? JSON.parse(entry.details) : entry.details;
+      
+      // Populate the inspection modal fields
+      if (details.findings) {
+        const findingsEl = document.getElementById('findings');
+        if (findingsEl) findingsEl.value = details.findings;
+      }
+      
+      if (details.deadline) {
+        const deadlineEl = document.getElementById('staffDeadline');
+        if (deadlineEl) deadlineEl.value = details.deadline;
+      }
+      
+      if (details.location) {
+        const locationEl = document.getElementById('staffLocation');
+        if (locationEl) locationEl.value = details.location;
+      }
+      
+      if (details.scope) {
+        const scopeEl = document.getElementById('staffScope');
+        if (scopeEl) scopeEl.value = details.scope;
+      }
+      
+      // Open the modal for editing
+      openComplaint();
+      
+    } else {
+      // For other actions, show a simple alert
+      showCustomAlert(`Timeline Entry Details:\n\nAction: ${actionType}\nEntry ID: ${historyId}\n\nCompleted by staff.`);
+    }
     
   } catch (error) {
     console.error('[STAFF TIMELINE PREVIEW] Error:', error);
-    showCustomAlert('Error loading timeline entry details.');
+    showCustomAlert('Error loading timeline entry details: ' + error.message);
   }
 }
 

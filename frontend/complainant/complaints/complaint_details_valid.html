@@ -610,21 +610,23 @@
                       }
                     }
 
-                    // Format date for timeline display
+                    // Format date and time for timeline display
                     function formatTimelineDate(dateString) {
                       try {
                         const date = new Date(dateString);
-                        return date.toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'numeric',
-                          day: 'numeric'
+                        const dateStr = date.toLocaleDateString('en-US', {
+                          month: 'numeric', day: 'numeric', year: 'numeric'
                         });
+                        const timeStr = date.toLocaleTimeString('en-US', {
+                          hour: 'numeric', minute: '2-digit', hour12: true
+                        });
+                        return `${dateStr} | ${timeStr}`;
                       } catch (error) {
                         console.error('Error formatting date:', dateString, error);
                         return dateString;
                       }
-                    }
-
+                    }         
+                          
                     // Render timeline entries for complainant view
                     function renderComplainantTimeline(entries, details) {
                       console.log('[COMPLAINANT TIMELINE] renderComplainantTimeline called with entries:', entries);
@@ -709,10 +711,12 @@
                         const color = colorFor(type);
 
                         timelineHTML += `
-                          <div class="timeline-entry" style="border-left:4px solid ${color};">
-                            <span class="bullet" style="background:${color};"></span>
-                            <h4 style="color:${color}; font-weight:600;">${formattedDate} - ${type}${staffName}</h4>
-                            <p>${description}</p>
+                          <div class="timeline-entry" style="border-left:4px solid ${color}; padding: 15px; margin-bottom: 15px; border-radius: 5px; background: #f9f9f9;">
+                            <span class="bullet" style="background:${color}; position: absolute; left: -6px; top: 20px; width: 12px; height: 12px; border-radius: 50%;"></span>
+                            <h4 style="font-size: 16px; margin: 0 0 5px 0; color: ${color};">${type}</h4>
+                            <div style="font-size: 13px; color: #666; margin-bottom: 3px;">${formattedDate}</div>
+                            <div style="font-size: 13px; color: #333; margin-bottom: 5px;">${staffName}</div>
+                            <div style="font-size: 12px; color: #555; line-height: 1.4;">${description}</div>
                           </div>
                         `;
                       });

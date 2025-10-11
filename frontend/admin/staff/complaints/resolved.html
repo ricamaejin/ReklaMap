@@ -88,16 +88,26 @@
     // Load resolved complaints data
     async function loadResolvedComplaints() {
       try {
+        console.log('[STAFF RESOLVED] Loading resolved complaints for staff view...');
         const response = await fetch(`/staff/api/complaints/resolved?_=${Date.now()}`);
         const data = await response.json();
         
+        console.log('[STAFF RESOLVED] API Response:', data);
+        
         if (data.success) {
+          console.log('[STAFF RESOLVED] Found', data.complaints ? data.complaints.length : 0, 'resolved complaints');
           populateTable(data.complaints);
         } else {
           console.error('Failed to load complaints:', data.message || data.error);
+          // Try alternative endpoint or show error message
+          const tbody = document.getElementById('complaints-table-body');
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #d32f2f;">Error loading resolved complaints. Please contact administrator.</td></tr>';
         }
       } catch (error) {
         console.error('Error loading complaints:', error);
+        // Show error in table
+        const tbody = document.getElementById('complaints-table-body');
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #d32f2f;">Network error loading resolved complaints. Please refresh the page.</td></tr>';
       }
     }
 
@@ -142,16 +152,20 @@
 
     // Populate the table with resolved complaint data
     function populateTable(complaints) {
+      console.log('[STAFF RESOLVED] Populating table with complaints:', complaints);
+      
       const tbody = document.getElementById('complaints-table-body');
       tbody.innerHTML = '';
       
-      if (complaints.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No resolved complaints found</td></tr>';
+      if (!complaints || complaints.length === 0) {
+        console.log('[STAFF RESOLVED] No complaints to display');
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No resolved complaints found. Staff tasks may not be properly tracked or have been cleared by admin resolution.</td></tr>';
         // Update resolved count to 0
         document.getElementById('resolved-count').textContent = '0';
         return;
       }
       
+      console.log('[STAFF RESOLVED] Displaying', complaints.length, 'resolved complaints');
       // Update resolved count based on visible complaints in this table
       document.getElementById('resolved-count').textContent = complaints.length;
       

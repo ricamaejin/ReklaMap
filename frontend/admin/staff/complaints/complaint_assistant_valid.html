@@ -1013,18 +1013,66 @@ function showMapError() {
 // TIMELINE PREVIEW FUNCTIONALITY FOR STAFF
 // =====================================
 
-// Simple preview function for staff - shows basic details
+// Enhanced preview function for staff - shows detailed modal with edit capability
 async function showTimelinePreview(historyId, actionType) {
   try {
     console.log(`[STAFF TIMELINE PREVIEW] Opening preview for history ID: ${historyId}, action: ${actionType}`);
     
-    // For staff, show a simple alert with the action details
-    // This could be expanded to a full modal if needed
-    showCustomAlert(`Timeline Entry Details:\n\nAction: ${actionType}\nEntry ID: ${historyId}\n\nThis entry shows the completed staff task.`);
+    // Fetch the timeline entry details
+    const response = await fetch(`/admin/complaints/api/timeline_entry/${historyId}`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.message || 'Failed to fetch timeline entry');
+    }
+    
+    const entry = data.entry;
+    
+    // For "Sent Invitation" actions, allow staff to edit their own completed work
+    if (actionType.toLowerCase().includes('sent invitation') || actionType.toLowerCase().includes('invitation')) {
+      // Pre-populate the modal with the saved data and open it in edit mode
+      const details = typeof entry.details === 'string' ? JSON.parse(entry.details) : entry.details;
+      
+      // Populate the invitation modal fields
+      if (details.invitees) {
+        const inviteesEl = document.getElementById('invitees');
+        if (inviteesEl) inviteesEl.value = details.invitees;
+      }
+      
+      if (details.meeting_date) {
+        const dateEl = document.getElementById('meetingDate');
+        if (dateEl) dateEl.value = details.meeting_date;
+      }
+      
+      if (details.meeting_time) {
+        const timeEl = document.getElementById('meetingTime');
+        if (timeEl) timeEl.value = details.meeting_time;
+      }
+      
+      if (details.venue) {
+        const venueEl = document.getElementById('meetingVenue');
+        if (venueEl) venueEl.value = details.venue;
+      }
+      
+      if (details.agenda) {
+        const agendaEl = document.getElementById('meetingAgenda');
+        if (agendaEl) agendaEl.value = details.agenda;
+      }
+      
+      // Open the modal for editing
+      openComplaint();
+      
+    } else {
+      // For other actions, show a simple alert
+      showCustomAlert(`Timeline Entry Details:\n\nAction: ${actionType}\nEntry ID: ${historyId}\n\nCompleted by staff.`);
+    }
     
   } catch (error) {
     console.error('[STAFF TIMELINE PREVIEW] Error:', error);
-    showCustomAlert('Error loading timeline entry details.');
+    showCustomAlert('Error loading timeline entry details: ' + error.message);
   }
 }
 
