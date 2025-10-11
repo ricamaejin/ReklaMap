@@ -1,11 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <style>
+    /* Grey out autofilled (read-only) complainant detail fields */
+    #complainantDetails .pairs input[readonly] {
+      color: #555 !important; /* grey text */
+      background: #f1f3f5 !important; /* subtle grey background */
+    }
+    #complainantDetails .pairs input[readonly]::placeholder { color: #888; }
+    label.disabled {
+      opacity: 1;
+      color: #555 !important;
+      cursor: not-allowed;
+    }
+    label.disabled input {
+      cursor: not-allowed;
+    }
+  </style>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
+
+  <style>
+    /* Visually gray out disabled checkboxes and their labels */
+    .checkbox-disabled {
+      color: #9c9c9c !important;
+      cursor: not-allowed !important;
+    }
+    input[type="checkbox"]:disabled {
+      background: #eee !important;
+      cursor: not-allowed !important;
+    }
+  </style>
 </head>
 <body>
 
@@ -38,76 +66,7 @@
       </div>
 
       <div class="section-header">COMPLAINANT'S DETAILS:</div>
-        <div class="pairs">
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Full Name:</label>
-              <input type="text" name="full_name" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Date of Birth:</label>
-              <input type="date" name="date_of_birth" readonly 
-              style="margin-top: 6px; margin-left: 13px; padding:7px;border:1px solid #cfdcea;border-radius:3px;font-size:13px;background:white; width: 96%;">
-            </div>
-
-            <div class="col">
-              <label class="small">Sex:</label>
-              <input type="text" name="sex" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Civil Status:</label>
-              <input type="text" name="civil_stat" readonly>
-            </div>
-            <div class="col">
-              <label class="small">Citizenship:</label>
-              <input type="text" name="citizenship" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Current Address:</label>
-              <input type="text" name="cur_add" readonly>
-            </div>
-
-            <div class="col">
-              <label class="small">HOA:</label>
-              <input type="text" name="hoa" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Block Assignment Number:</label>
-              <input type="text" name="blk_num" readonly>
-            </div>
-
-            <div class="col">
-              <label class="small">Lot Assignment Number:</label>
-              <input type="text" name="lot_num" readonly>
-            </div>
-
-            <div class="col">
-              <label class="small">Lot Area Size:</label>
-              <input type="text" name="lot_size" readonly>
-            </div>
-          </div>
-
-          <div class="pair-row">
-            <div class="col">
-              <label class="small">Phone Number:</label>
-              <input type="text" name="phone_number" readonly>
-            </div>
-
-            <div class="col"></div>
-          </div>
-        </div>
+      <div id="complainantDetails"></div>
 
       <!-- Section 1 -->
       <div class="section-header">LOT DETAILS AND CLAIM:</div>
@@ -185,11 +144,35 @@
       <label><input type="radio" name="result"> I was asked to provide more documents</label>
       <label><input type="radio" name="result"> Still under investigation</label>
       <label><input type="radio" name="result"> The issue is still pending or unresolved.</label>
+
+        // --- Autofill Q1: How are you connected to the lot (for non-members, checkboxes) ---
+        if (cat === 'non_member' && d.connections) {
+          // d.connections may be an array or object (array preferred)
+          let checkedValues = Array.isArray(d.connections) ? d.connections : [];
+          if (!Array.isArray(checkedValues) && typeof d.connections === 'object') {
+            checkedValues = Object.keys(d.connections).filter(k => d.connections[k]);
+          }
+          // For each value, check the corresponding checkbox
+          checkedValues.forEach(val => {
+            const selector = `input[name="legal_connection"][value="${val}"]`;
+            const el = document.querySelector(selector);
+            if (el) {
+              el.checked = true;
+            }
+          });
+        } else if (cat !== 'non_member' && d.legal_connection) {
+          // For members/family_of_member, autofill the radio
+          const selector = `input[name="legal_connection"][value="${d.legal_connection}"]`;
+          const el = document.querySelector(selector);
+          if (el) {
+            el.checked = true;
+          }
+        }
       <label><input type="radio" name="result"> No action was taken by the authority.</label>
       <label><input type="radio" name="result" style="margin-bottom: 12px;"> I was told I have no valid claim</label>
 
       <!-- Section 2 -->
-      <p class="section-label">Please describe what happened briefly, including how you found out about the issue.</p>
+      <p class="section-label" style="color: black;">Please describe what happened briefly, including how you found out about the issue.</p>
       <textarea></textarea>
 
       <!-- Section 3 -->
@@ -376,15 +359,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (!noneCheckbox) return;
 
+  // Helper to get the label for a checkbox
+  function getLabelForCheckbox(cb) {
+    // Try to find the parent label
+    if (cb.parentElement && cb.parentElement.tagName.toLowerCase() === 'label') {
+      return cb.parentElement;
+    }
+    // Try to find label[for]
+    const id = cb.id;
+    if (id) {
+      return document.querySelector(`label[for="${id}"]`);
+    }
+    return null;
+  }
+
   // Handle 'None' behavior
   noneCheckbox.addEventListener('change', () => {
     if (noneCheckbox.checked) {
       otherCheckboxes.forEach(cb => {
         cb.checked = false;
         cb.disabled = true;
+        const label = getLabelForCheckbox(cb);
+        if (label) label.classList.add('checkbox-disabled');
       });
     } else {
-      otherCheckboxes.forEach(cb => cb.disabled = false);
+      otherCheckboxes.forEach(cb => {
+        cb.disabled = false;
+        const label = getLabelForCheckbox(cb);
+        if (label) label.classList.remove('checkbox-disabled');
+      });
     }
   });
 
@@ -394,11 +397,212 @@ document.addEventListener('DOMContentLoaded', () => {
       if (cb.checked) {
         noneCheckbox.checked = false;
         noneCheckbox.disabled = false;
+        // Remove disabled style from all labels
+        otherCheckboxes.forEach(other => {
+          const label = getLabelForCheckbox(other);
+          if (label) label.classList.remove('checkbox-disabled');
+        });
       }
     });
   });
+
+  // On load, ensure correct state
+  if (noneCheckbox.checked) {
+    otherCheckboxes.forEach(cb => {
+      cb.disabled = true;
+      const label = getLabelForCheckbox(cb);
+      if (label) label.classList.add('checkbox-disabled');
+    });
+  }
 });
 </script>
+
+<script>
+// --- Complainant Details Section: Dynamic, session-driven (copied from pathway_dispute.html) ---
+document.addEventListener('DOMContentLoaded', async () => {
+  const container = document.getElementById('complainantDetails');
+  if (!container) return;
+
+  // --- Helper functions ---
+  function row1(label, value, type='text') {
+    const r = document.createElement('div');
+    r.className = 'pair-row';
+    r.innerHTML = `<div class="col"><label class="small">${label}</label><input type="${type}" value="${value || ''}" readonly></div>`;
+    return r;
+  }
+  function row2(l1, v1, l2, v2, t1='text', t2='text') {
+    const r = document.createElement('div');
+    r.className = 'pair-row';
+    r.innerHTML = `
+      <div class="col"><label class="small">${l1}</label><input type="${t1}" value="${v1 || ''}" readonly></div>
+      <div class="col"><label class="small">${l2}</label><input type="${t2}" value="${v2 || ''}" readonly></div>`;
+    return r;
+  }
+  function row3(l1, v1, l2, v2, l3, v3) {
+    const r = document.createElement('div');
+    r.className = 'pair-row';
+    r.innerHTML = `
+      <div class="col"><label class="small">${l1}</label><input type="text" value="${v1 || ''}" readonly></div>
+      <div class="col"><label class="small">${l2}</label><input type="text" value="${v2 || ''}" readonly></div>
+      <div class="col"><label class="small">${l3}</label><input type="text" value="${v3 || ''}" readonly></div>`;
+    return r;
+  }
+  function normalizeName(name) {
+    if (!name || typeof name !== 'string') return name || '';
+    return name.replace(/\b([A-Z])\.*\b/g, '$1.');
+  }
+  function createSupportingDocsSection(docs, category) {
+    if (!docs || (!Array.isArray(docs) && typeof docs !== 'object')) return null;
+    const docDiv = document.createElement('div');
+    docDiv.style.margin = '8px 0 16px 0';
+    const labelText = category === 'family_of_member' 
+      ? 'What Supporting Documents does your Family Member have?' 
+      : 'What Supporting Documents do you have?';
+    docDiv.innerHTML = `<label style="font-weight:600; display:block; margin-bottom:2px;">${labelText}</label>`;
+    const docList = [
+      {key: 'title', label: 'Title'},
+      {key: 'contract_to_sell', label: 'Contract to Sell'},
+      {key: 'certificate_of_full_payment', label: 'Certificate of Full Payment'},
+      {key: 'pre_qualification_stub', label: 'Pre-qualification Stub'},
+      {key: 'contract_agreement', label: 'Contract/Agreement'},
+      {key: 'deed_of_sale', label: 'Deed of Sale'}
+    ];
+    let selected = {};
+    if (Array.isArray(docs)) docs.forEach(k => selected[k]=true);
+    else if (typeof docs === 'object') selected = docs;
+    let group = `<div class='checkbox-group' style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px;">`;
+    docList.forEach(doc => {
+      const checked = selected[doc.key] ? 'checked' : '';
+      group += `<label style="white-space:nowrap;"><input type="checkbox" disabled ${checked}> ${doc.label}</label>`;
+    });
+    group += '</div>';
+    docDiv.innerHTML += group;
+    return docDiv;
+  }
+
+  // --- Fetch complainant session data ---
+  try {
+    const res = await fetch('/complainant/unauthorized_occupation/get_unauthorized_occupation_session_data', { credentials: 'same-origin' });
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) return;
+    const d = await res.json();
+    if (!d || d.error) return;
+    const pairs = document.createElement('div');
+    pairs.className = 'pairs';
+    const cat = d.category;
+    // Basic info
+    pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
+    let memberWrapper = null;
+    if (cat === 'family_of_member') {
+      // Format complainant date_of_birth as 'Month Day, Year' if possible
+      let dob = d.date_of_birth;
+      if (dob && typeof dob === 'string' && dob.match(/\d{4}-\d{2}-\d{2}/)) {
+        const dt = new Date(dob);
+        dob = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      } else if (dob && typeof dob === 'string' && dob.match(/\w{3},/)) {
+        // Try to parse RFC date string
+        const dt = new Date(dob);
+        if (!isNaN(dt)) dob = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      }
+      pairs.appendChild(row2('Date of Birth:', dob, 'Age:', d.age));
+      pairs.appendChild(row2('Sex:', d.sex, 'Citizenship:', d.citizenship));
+      pairs.appendChild(row3('Current Address:', d.cur_add, 'Year of Residence:', d.year_of_residence, 'Phone Number:', d.phone_number));
+    } else {
+      // Format complainant date_of_birth as 'Month Day, Year' if possible
+      let dob = d.date_of_birth;
+      if (dob && typeof dob === 'string' && dob.match(/\d{4}-\d{2}-\d{2}/)) {
+        const dt = new Date(dob);
+        dob = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      } else if (dob && typeof dob === 'string' && dob.match(/\w{3},/)) {
+        // Try to parse RFC date string
+        const dt = new Date(dob);
+        if (!isNaN(dt)) dob = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      }
+      pairs.appendChild(row2('Date of Birth:', dob, 'Age:', d.age));
+      pairs.appendChild(row2('Sex:', d.sex, 'Citizenship:', d.citizenship));
+      pairs.appendChild(row3('Current Address:', d.cur_add, 'Year of Residence:', d.year_of_residence, 'Phone Number:', d.phone_number));
+      pairs.appendChild(row1('Area (HOA):', d.hoa || '', 'text'));
+      if (cat === 'hoa_member') {
+        pairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
+      }
+      pairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
+      // Show supporting documents for HOA members only (not non_member)
+      if (cat === 'hoa_member') {
+        const docSection = createSupportingDocsSection(d.supporting_documents, cat);
+        if (docSection) pairs.appendChild(docSection);
+      }
+    }
+    if (cat === 'family_of_member' && d.parent_info) {
+      const wrapper = document.createElement('div');
+      wrapper.style.marginTop = '20px';
+      const sectionHeader = document.createElement('div');
+      sectionHeader.className = 'section-header';
+      sectionHeader.textContent = 'HOA MEMBER INFORMATION';
+      wrapper.appendChild(sectionHeader);
+      const memberPairs = document.createElement('div');
+      memberPairs.className = 'pairs';
+      const p = d.parent_info;
+      memberPairs.appendChild(row1('Full Name:', normalizeName(p.full_name)));
+      // Format parent date_of_birth as 'Month Day, Year' if possible
+      let pdob = p.date_of_birth;
+      if (pdob && typeof pdob === 'string' && pdob.match(/\d{4}-\d{2}-\d{2}/)) {
+        const dt = new Date(pdob);
+        pdob = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      } else if (pdob && typeof pdob === 'string' && pdob.match(/\w{3},/)) {
+        // Try to parse RFC date string
+        const dt = new Date(pdob);
+        if (!isNaN(dt)) pdob = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      }
+      memberPairs.appendChild(row2('Date of Birth:', pdob, 'Age:', p.age));
+      memberPairs.appendChild(row2('Sex:', p.sex, 'Citizenship:', p.citizenship));
+      memberPairs.appendChild(row2('Current Address:', p.current_address, 'Year of Residence:', p.year_of_residence || ''));
+      memberPairs.appendChild(row1('Area (HOA):', p.hoa || '', 'text'));
+      memberPairs.appendChild(row3('Block Assignment:', p.blk_num || '', 'Lot Assignment:', p.lot_num || '', 'Lot Size:', p.lot_size || ''));
+      memberPairs.appendChild(row3('Civil Status:', p.civil_status || '', 'Recipient of Other Housing:', p.recipient_of_other_housing || '', 'Relationship:', d.relationship || ''));
+      // Show supporting documents for family_of_member only at the end of HOA MEMBER INFORMATION
+      const docSection = createSupportingDocsSection(p.supporting_documents, 'family_of_member');
+      if (docSection) memberPairs.appendChild(docSection);
+      wrapper.appendChild(memberPairs);
+      memberWrapper = wrapper;
+    } else if (cat === 'family_of_member' && !d.parent_info) {
+      const warn = document.createElement('div');
+      warn.style.color='red'; warn.style.fontWeight='bold'; warn.style.margin='16px 0';
+      warn.textContent = 'HOA MEMBER INFORMATION is missing (no parent_info in session data).';
+      pairs.appendChild(warn);
+    }
+    container.innerHTML = '';
+    container.appendChild(pairs);
+    if (memberWrapper) container.appendChild(memberWrapper);
+
+    // --- Autofill Q1: How are you connected to the lot (for non-members, checkboxes) ---
+    if (cat === 'non_member' && d.connections) {
+      // d.connections may be an array or object (array preferred)
+      let checkedValues = Array.isArray(d.connections) ? d.connections : [];
+      if (!Array.isArray(checkedValues) && typeof d.connections === 'object') {
+        checkedValues = Object.keys(d.connections).filter(k => d.connections[k]);
+      }
+      // For each value, check the corresponding checkbox
+      checkedValues.forEach(val => {
+        const selector = `input[name="legal_connection"][value="${val}"]`;
+        const el = document.querySelector(selector);
+        if (el) {
+          el.checked = true;
+        }
+      });
+    } else if (cat !== 'non_member' && d.legal_connection) {
+      // For members/family_of_member, autofill the radio
+      const selector = `input[name="legal_connection"][value="${d.legal_connection}"]`;
+      const el = document.querySelector(selector);
+      if (el) {
+        el.checked = true;
+      }
+    }
+  } catch (e) {
+    console.error('Error fetching complainant data:', e);
+  }
+});
+</script>
+
 
 </body>
 </html>
