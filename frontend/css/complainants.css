@@ -859,12 +859,14 @@ i {
   display: flex;
   align-items: flex-start;
   gap: 10px;
+  color: white;
 }
 
 .form-group label {
   flex: 0 0 150px;   /* fixed width for most labels */
   font-weight: bold;
   margin-top: 6px;
+  color: white;
 }
 
 /* for add button */
