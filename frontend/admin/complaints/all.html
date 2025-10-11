@@ -170,7 +170,9 @@
     <div class="table-container">
     <table class="complaints-table">
       <thead>
-        <th class="date-submitted" style="position: relative; text-align: center;">
+        <tr>
+          <th style="text-align: center;">ID No.</th> <!-- Future format: MMDDYY-ID (e.g., 100825-123) -->
+          <th class="date-submitted" style="position: relative; text-align: center;">
           Date Submitted 
           <i class="bi bi-caret-down-fill" id="dateDropdownToggle" 
             style="font-size: 12px; color: gray; cursor: pointer; margin-left: 4px;"></i>
@@ -184,7 +186,7 @@
 
           <th style="text-align: center;">Complainant</th>
           <th class="type-of-complaint" style="position: relative; text-align: center;">
-            Type of Complaint 
+            Complaint Type
             <i class="bi bi-caret-down-fill" id="typeDropdownToggle" 
                style="cursor: pointer; font-size: 12px; margin-left: 5px; color: #666;"></i>
             <div id="typeDropdownMenu" 
@@ -274,7 +276,7 @@
       tbody.innerHTML = '';
       
       if (complaints.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No complaints found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No complaints found</td></tr>';
         return;
       }
       
@@ -301,10 +303,11 @@
           
           // Get admin-set deadline for inspection from complaint history/actions
           let adminDeadline = null;
-          if (complaint.admin_deadline) {
-            adminDeadline = new Date(complaint.admin_deadline);
-          } else if (complaint.inspection_deadline) {
-            adminDeadline = new Date(complaint.inspection_deadline);
+          if (complaint.deadline) {
+            console.log(`Complaint ${complaint.complaint_id}: Using admin deadline ${complaint.deadline}`);
+            adminDeadline = new Date(complaint.deadline);
+          } else {
+            console.log(`Complaint ${complaint.complaint_id}: No admin deadline found`);
           }
           
           // Get meeting datetime from invitation action
@@ -383,6 +386,7 @@
         }
         
         row.innerHTML = `
+          <td>${complaint.complaint_id}</td>
           <td>${formatDateWithTimestamp(complaint.date_received)}</td>
           <td>${complaint.complainant_name || complaint.complainant || 'N/A'}</td>
           <td>${complaint.type_of_complaint}</td>
@@ -452,8 +456,8 @@
       
       // Get admin-set deadline for inspection from complaint history/actions
       let adminDeadline = null;
-      if (complaint.admin_deadline) {
-        adminDeadline = new Date(complaint.admin_deadline);
+      if (complaint.deadline) {
+        adminDeadline = new Date(complaint.deadline);
       }
       
       // Get meeting datetime from invitation action in complaint history
@@ -533,10 +537,34 @@
     }
 
     function calculatePendingDeadline(complaint) {
+      // Use admin-set deadline if available
+      if (complaint.deadline) {
+        const deadlineDate = new Date(complaint.deadline);
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        const normalizedDeadline = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), deadlineDate.getDate(), 0, 0, 0, 0);
+        
+        const timeDiff = normalizedDeadline.getTime() - today.getTime();
+        const daysDiff = Math.round(timeDiff / (1000 * 3600 * 24));
+        
+        const dateStr = deadlineDate.toLocaleDateString();
+
+        if (daysDiff < 0) {
+          return `${dateStr} (Overdue by ${Math.abs(daysDiff)}d)`;
+        } else if (daysDiff === 0) {
+          return `${dateStr} (Due today)`;
+        } else if (daysDiff <= 2) {
+          return `${dateStr} (${daysDiff}d left)`;
+        } else {
+          return `${dateStr} (${daysDiff}d left)`;
+        }
+      }
+      
+      // Fallback to 7 days from submission for pending complaints
       const submittedDate = new Date(complaint.date_received);
       
-      // Calculate the actual deadline date (7 days from submission, but deadline is 6 days after submission date)
-      const deadlineDate = new Date(submittedDate.getTime() + (6 * 24 * 60 * 60 * 1000));
+      // Calculate the actual deadline date (7 days from submission)
+      const deadlineDate = new Date(submittedDate.getTime() + (7 * 24 * 60 * 60 * 1000));
       
       // Normalize dates to compare only the date part (ignore time) - same logic as assigned.html
       const now = new Date();
@@ -800,7 +828,7 @@
         if (visibleCount === 0) {
           const msgRow = document.createElement("tr");
           msgRow.id = "noComplaintsMsg";
-          msgRow.innerHTML = `<td colspan="8" style="text-align:center; color:#888; padding:8px;">No complaints found for this date.</td>`;
+          msgRow.innerHTML = `<td colspan="9" style="text-align:center; color:#888; padding:8px;">No complaints found for this date.</td>`;
           document.querySelector("#complaints-table-body").appendChild(msgRow);
         }
       }
@@ -936,10 +964,11 @@
 
           // Get admin-set deadline for inspection
           let adminDeadline = null;
-          if (complaint.admin_deadline) {
-            adminDeadline = new Date(complaint.admin_deadline);
-          } else if (complaint.inspection_deadline) {
-            adminDeadline = new Date(complaint.inspection_deadline);
+          if (complaint.deadline) {
+            console.log(`[ALL INBOX] Complaint ${complaint.complaint_id}: Using deadline field = "${complaint.deadline}"`);
+            adminDeadline = new Date(complaint.deadline);
+          } else {
+            console.log(`[ALL INBOX] Complaint ${complaint.complaint_id}: No deadline field found, using fallback`);
           }
 
           // Get meeting datetime from invitation action

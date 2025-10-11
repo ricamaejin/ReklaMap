@@ -26,9 +26,20 @@
 
   <!-- User Dropdown -->
   <div class="user-dropdown">
-    Logged in as: <span class="username" id="staff-name"></span>
-    <button class="dropdown-toggle">▼</button>
+    <!-- Clickable inbox bubble (left side) -->
+    <button id="inbox-bubble"
+            class="notif-bubble"
+            style="display:none;"
+            title="Open Inbox"
+            aria-label="Open inbox notifications"
+            type="button">0</button>
+
+    <span class="logged-in-label">Logged in as:</span>
+    <span class="username" id="staff-name"></span>
+
+    <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true">▼</button>
     <div class="dropdown-menu">
+      <a href="#" id="inboxLink">Inbox <span id="inboxMenuCount" class="notif-count">0</span></a>
       <a href="/portal/index.html">Logout</a>
     </div>
   </div>
@@ -67,6 +78,7 @@
     <table class="complaints-table">
       <thead>
         <tr>
+          <th style="text-align: center;">ID No.</th> <!-- Just the number from database, future format: RK-2024-001 -->
           <th style="text-align: center;">Date Submitted</th>
           <th style="text-align: center;">Date Resolved</th>
           <th style="text-align: center;">Complainant</th>
@@ -101,13 +113,13 @@
           console.error('Failed to load complaints:', data.message || data.error);
           // Try alternative endpoint or show error message
           const tbody = document.getElementById('complaints-table-body');
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #d32f2f;">Error loading resolved complaints. Please contact administrator.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #d32f2f;">Error loading resolved complaints. Please contact administrator.</td></tr>';
         }
       } catch (error) {
         console.error('Error loading complaints:', error);
         // Show error in table
         const tbody = document.getElementById('complaints-table-body');
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #d32f2f;">Network error loading resolved complaints. Please refresh the page.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #d32f2f;">Network error loading resolved complaints. Please refresh the page.</td></tr>';
       }
     }
 
@@ -159,7 +171,7 @@
       
       if (!complaints || complaints.length === 0) {
         console.log('[STAFF RESOLVED] No complaints to display');
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No resolved complaints found. Staff tasks may not be properly tracked or have been cleared by admin resolution.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">No resolved complaints found. Staff tasks may not be properly tracked or have been cleared by admin resolution.</td></tr>';
         // Update resolved count to 0
         document.getElementById('resolved-count').textContent = '0';
         return;
@@ -194,6 +206,7 @@
         const dateResolvedFormatted = formatDateResolved(complaint.action_datetime);
         
         row.innerHTML = `
+          <td style="text-align: center;">${complaint.complaint_id}</td>
           <td style="text-align: center;">${dateReceived}</td>
           <td style="text-align: center;">${dateResolvedFormatted}</td>
           <td style="text-align: center;">${complaint.complainant}</td>
@@ -247,6 +260,64 @@
       });
     }
 
+    // Cache resolved complaints for inbox computations
+    let resolvedCache = [];
+    const INBOX_THRESHOLD_DAYS = 3; // Same threshold as assigned.html
+
+    async function openInbox() {
+      // Build list from current cache (though resolved complaints won't have tasks due soon)
+      const listEl = document.getElementById('inboxList');
+      listEl.innerHTML = '<div class="inbox-empty">No tasks due soon.</div>';
+      document.getElementById('inboxModal').style.display = 'flex';
+    }
+
+    function closeInbox() {
+      document.getElementById('inboxModal').style.display = 'none';
+    }
+
+    function updateInboxBadge() {
+      // Resolved complaints don't have tasks due, so always 0
+      const bubble = document.getElementById('inbox-bubble');
+      const menuCount = document.getElementById('inboxMenuCount');
+
+      bubble.textContent = '0';
+      bubble.style.display = 'none';
+      menuCount.textContent = '0';
+      menuCount.style.display = 'none';
+    }
+
+    // Enhance dropdown to open Inbox and make bubble clickable
+    function initInboxDropdown() {
+      const link = document.getElementById('inboxLink');
+      if (link) {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openInbox();
+        });
+      }
+
+      const bubbleBtn = document.getElementById('inbox-bubble');
+      if (bubbleBtn) {
+        bubbleBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openInbox();
+        });
+      }
+
+      const inboxModal = document.getElementById('inboxModal');
+      if (inboxModal) {
+        inboxModal.addEventListener('click', (e) => {
+          if (e.target === inboxModal) closeInbox();
+        });
+      }
+
+      // Update badge initially and every minute
+      updateInboxBadge();
+      setInterval(updateInboxBadge, 60_000);
+    }
+
     // Initialize page
     document.addEventListener('DOMContentLoaded', function() {
       ensureStaffNavigation();
@@ -254,7 +325,12 @@
       loadStats();
       loadStaffName();
       initDropdown();
+      initInboxDropdown();
     });
+
+    // Expose inbox controls if needed elsewhere
+    window.openInbox = openInbox;
+    window.closeInbox = closeInbox;
   </script>
 
   <style>
@@ -266,10 +342,54 @@
       font-size: 14px;
       display: flex;
       align-items: center;
-      gap: 3px;
+      gap: 6px; /* slightly larger gap for bubble */
       font-weight: bold;
       color: #001241;
       margin-bottom: 30px; 
+    }
+
+    /* Clickable notification bubble (button) */
+    .notif-bubble {
+      background: #e53935;
+      color: #fff;
+      border-radius: 12px;
+      padding: 0 8px;
+      font-size: 11px;
+      line-height: 20px;
+      height: 20px;
+      min-width: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      outline: none;
+      margin-right: 6px; /* bubble on the left side of label */
+    }
+    .notif-bubble:focus {
+      box-shadow: 0 0 0 2px rgba(229,57,53,0.25);
+    }
+
+    .dropdown-menu a#inboxLink {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .notif-count {
+      background: #e53935;
+      color: #fff;
+      border-radius: 12px;
+      padding: 0 6px;
+      font-size: 11px;
+      line-height: 18px;
+      height: 18px;
+      min-width: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
     }
 
     .username {
@@ -313,6 +433,92 @@
     .user-dropdown.active .dropdown-menu {
       display: block;
     }
+
+    /* Inbox modal */
+    #inboxModal.modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .inbox-panel {
+      width: 520px;
+      max-width: 95vw;
+      max-height: 80vh;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .inbox-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid #eee;
+      background: #f8f9fa;
+    }
+    .inbox-list {
+      overflow: auto;
+      padding: 8px 0;
+    }
+    .inbox-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f1f1f1;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      cursor: pointer;
+    }
+    .inbox-item:hover {
+      background: #fafafa;
+    }
+    .inbox-pill {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+    }
+    .pill-overdue { background: #d32f2f; }
+    .pill-soon { background: #f57c00; }
+    .pill-ok { background: #43a047; }
+    .inbox-title {
+      font-weight: 700;
+      color: #001241;
+      margin-bottom: 2px;
+    }
+    .inbox-meta {
+      font-size: 12px;
+      color: #555;
+    }
+    .inbox-empty {
+      text-align: center;
+      color: #666;
+      padding: 24px;
+    }
+    .inbox-footer {
+      padding: 10px 16px;
+      border-top: 1px solid #eee;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      background: #f8f9fa;
+    }
+    .btn {
+      border: 1px solid #ccc;
+      background: #fff;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn:hover { background: #f5f5f5; }
     
     /* Uniform table styling with consistent row heights */
     .complaints-table tbody tr {
@@ -335,6 +541,22 @@
     .complaints-table th:nth-child(5), .complaints-table td:nth-child(5) { min-width: 150px; width: 150px; } /* HOA - increased width */
     .complaints-table th:nth-child(6), .complaints-table td:nth-child(6) { min-width: 180px; width: 180px; } /* Address */
   </style>
+
+  <!-- Inbox Modal -->
+  <div class="modal-overlay" id="inboxModal" style="display:none;">
+    <div class="inbox-panel">
+      <div class="inbox-header">
+        <div style="font-weight:700;">Inbox — Tasks Due Soon</div>
+        <button class="btn" onclick="closeInbox()">Close</button>
+      </div>
+      <div id="inboxList" class="inbox-list">
+        <div class="inbox-empty">No tasks due soon.</div>
+      </div>
+      <div class="inbox-footer">
+        <button class="btn" onclick="closeInbox()">OK</button>
+      </div>
+    </div>
+  </div>
 
 </body>
 </html>

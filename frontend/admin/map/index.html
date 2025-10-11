@@ -565,10 +565,11 @@
 
       // Get admin-set deadline for inspection
       let adminDeadline = null;
-      if (complaint.admin_deadline) {
-        adminDeadline = new Date(complaint.admin_deadline);
-      } else if (complaint.inspection_deadline) {
-        adminDeadline = new Date(complaint.inspection_deadline);
+      if (complaint.deadline) {
+        console.log(`[INDEX] Complaint ${complaint.complaint_id}: Using deadline field = "${complaint.deadline}"`);
+        adminDeadline = new Date(complaint.deadline);
+      } else {
+        console.log(`[INDEX] Complaint ${complaint.complaint_id}: No deadline field found, using fallback`);
       }
 
       // Get meeting datetime from invitation action
