@@ -1148,9 +1148,15 @@ function parseLotFromId(id) {
   return null;
 }
 
-// Back arrow functionality
+// Back arrow functionality - go back to where user came from
 function goBack() {
-  window.location.href = '/admin/map/index.html';
+  // Check if there's a previous page in history
+  if (window.history.length > 1) {
+    window.history.back();
+  } else {
+    // Fallback to map index if no history
+    window.location.href = '/admin/map/index.html';
+  }
 }
 
 // Initialize search when page loads

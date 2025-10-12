@@ -76,6 +76,7 @@
     <table class="complaints-table">
       <thead>
         <tr>
+          <th style="text-align: center;">ID No.</th> <!-- Just the number from database, future format: RK-2024-001 -->
           <th style="text-align: center;">Date Submitted</th>
           <th style="text-align: center;">Complainant</th>
           <th style="text-align: center;">Type of Complaint</th>
@@ -395,7 +396,7 @@
       console.log('Populating table with complaints:', complaints);
       
       if (!complaints || complaints.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">No assigned complaints found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">No assigned complaints found</td></tr>';
         // Update assigned count to 0
         document.getElementById('total-assigned').textContent = '0';
         return;
@@ -493,6 +494,7 @@
         });
         
         row.innerHTML = `
+          <td>${complaint.complaint_id}</td>
           <td>${dateReceived}</td>
           <td>${complaint.complainant || 'N/A'}</td>
           <td>${complaint.type_of_complaint || 'N/A'}</td>
@@ -679,7 +681,9 @@
       // Get admin-set deadline for inspection from complaint history/actions
       let adminDeadline = null;
       if (complaint.deadline) {
+        console.log(`[ASSIGNED] Raw deadline value: "${complaint.deadline}", type: ${typeof complaint.deadline}`);
         adminDeadline = new Date(complaint.deadline);
+        console.log(`[ASSIGNED] Parsed adminDeadline: ${adminDeadline}, isValid: ${!isNaN(adminDeadline.getTime())}`);
       }
       
       // Get meeting datetime from invitation action in complaint history
@@ -692,7 +696,10 @@
       
       // Calculate deadline based on action type (matching the new deadline logic)
       if (actionType.includes('inspection') && !actionType.includes('done')) {
+        console.log(`[ASSIGNED] Complaint ${complaint.complaint_id}: deadline field = "${complaint.deadline}", adminDeadline = ${adminDeadline}`);
+        console.log(`[ASSIGNED] adminDeadline debug - isNull: ${adminDeadline === null}, isUndefined: ${adminDeadline === undefined}, value: ${adminDeadline}`);
         deadline = adminDeadline || new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+        console.log(`[ASSIGNED] Final deadline for inspection: ${deadline}`);
       } else if (actionType.includes('inspection done')) {
         deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
       } else if (actionType.includes('send invitation') || (actionType.includes('invitation') && !actionType.includes('sent') && !actionType.includes('accepted'))) {
@@ -713,9 +720,9 @@
       try {
         const now = new Date();
         
-        // Normalize dates to compare only the date part (ignore time)
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
+        // Normalize dates to compare only the date part (ignore time) - set time to midnight
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate(), 0, 0, 0, 0);
         
         const timeDiff = deadlineDate.getTime() - today.getTime();
         const daysDiff = Math.round(timeDiff / (1000 * 3600 * 24));
@@ -746,7 +753,7 @@
     
     // Format status with countdown
     function formatStatusWithCountdown(complaint) {
-      const stage = complaint.complaint_stage || 'Pending';
+      let stage = complaint.complaint_stage || 'Pending';
       const deadlineInfo = calculateDeadlineDisplay(complaint);
       
       console.log('Status formatting debug:', {
@@ -757,22 +764,40 @@
         includesDueToday: deadlineInfo.includes('DUE TODAY')
       });
       
-      // Extract just the countdown part for status display
+      // Extract just the countdown part for status display - match exact formats from all.html
       let countdown = '';
-      if (deadlineInfo.includes('days left')) {
-        countdown = deadlineInfo.match(/(\d+ days left)/)?.[1] || '';
+      let color = 'green';
+      
+      if (deadlineInfo.includes('OVERDUE by')) {
+        // Extract "OVERDUE by X days" -> show status as "Overdue" with "X day/s late" to match all.html format
+        const match = deadlineInfo.match(/OVERDUE by (\d+) days?/);
+        if (match) {
+          const days = parseInt(match[1]);
+          stage = 'Overdue';  // Change status to "Overdue" to match all.html
+          countdown = `${days} day${days > 1 ? '/s' : ''} late`;
+          color = 'red';
+        }
       } else if (deadlineInfo.includes('DUE TODAY')) {
-        countdown = 'DUE TODAY';
-      } else if (deadlineInfo.includes('OVERDUE')) {
-        countdown = deadlineInfo.match(/(OVERDUE by \d+ days)/)?.[1] || '';
+        countdown = 'Due today';
+        color = 'orange';
+      } else if (deadlineInfo.includes('days left')) {
+        const match = deadlineInfo.match(/(\d+) days left/);
+        if (match) {
+          countdown = `${match[1]} day/s left`;
+          color = 'green';
+        }
+      } else if (deadlineInfo.includes('day left')) {
+        const match = deadlineInfo.match(/(\d+) day left/);
+        if (match) {
+          countdown = `${match[1]} day/s left`;
+          color = 'green';
+        }
       }
       
       console.log('Extracted countdown:', countdown);
       
       if (countdown) {
-        const color = countdown.includes('OVERDUE') ? 'red' : 
-                     countdown.includes('DUE TODAY') ? 'orange' : 'green';
-        return `${stage}<br/><small style="color: ${color}; font-weight: bold;">${countdown}</small>`;
+        return `${stage}<br/><small style="color: ${color}; font-weight: bold; font-size: 11px">${countdown}</small>`;
       }
       
       return stage;
@@ -795,14 +820,14 @@
 
     // Cache assigned complaints for inbox computations
     let assignedCache = [];
-    const INBOX_THRESHOLD_DAYS = 3;
+    const INBOX_THRESHOLD_DAYS = 3; // Same threshold as index.html and all.html
 
     // Prefer explicit deadline from backend if available; otherwise derive from action type
     function getDeadlineDate(complaint) {
       const actionType = (complaint.action_needed || complaint.latest_action || '').toLowerCase();
       
-      // Use admin-set deadline for inspections
-      if (actionType.includes('inspection') && complaint.deadline) {
+      // Use admin-set deadline when available (not just for inspections)
+      if (complaint.deadline) {
         const adminDeadline = new Date(complaint.deadline);
         if (!isNaN(adminDeadline.getTime())) return adminDeadline;
       }
@@ -834,8 +859,13 @@
     function getDaysLeft(deadline) {
       if (!deadline) return null;
       const now = new Date();
-      const diff = (deadline - now) / (1000 * 60 * 60 * 24);
-      return Math.floor(diff + 0.9999); // include anything within the next 24h as 1 day
+      
+      // Normalize dates to compare only the date part (ignore time) - consistent with other files
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate(), 0, 0, 0, 0);
+      
+      const timeDiff = deadlineDate.getTime() - today.getTime();
+      return Math.round(timeDiff / (1000 * 60 * 60 * 24));
     }
 
     function buildDueSoonItems(complaints) {

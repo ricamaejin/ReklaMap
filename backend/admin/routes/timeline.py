@@ -180,10 +180,23 @@ def get_complaint_timeline(complaint_id):
                 if entry.details:
                     import json
                     details_dict = json.loads(entry.details) if isinstance(entry.details, str) else entry.details
-                    description = details_dict.get('description', '') or generate_action_description(entry.type_of_action, entry.assigned_to)
+                    
+                    # Handle double-encoded JSON: if details_dict is still a string, parse it again
+                    if isinstance(details_dict, str):
+                        try:
+                            details_dict = json.loads(details_dict)
+                        except json.JSONDecodeError:
+                            # If second parsing fails, treat as plain string
+                            details_dict = {'description': details_dict}
+                    
+                    # Now safely call .get() on the dictionary
+                    if isinstance(details_dict, dict):
+                        description = details_dict.get('description', '') or generate_action_description(entry.type_of_action, entry.assigned_to)
+                    else:
+                        description = generate_action_description(entry.type_of_action, entry.assigned_to)
                 else:
                     description = generate_action_description(entry.type_of_action, entry.assigned_to)
-            except (json.JSONDecodeError, TypeError):
+            except (json.JSONDecodeError, TypeError, AttributeError):
                 description = generate_action_description(entry.type_of_action, entry.assigned_to)
             
             timeline_entry = {
@@ -213,7 +226,7 @@ def get_complaint_timeline(complaint_id):
         print(f'[TIMELINE API] Before filtering: {len(timeline_entries)} entries')
         print(f'[TIMELINE API] Raw entries: {[entry.get("type_of_action") for entry in timeline_entries]}')
         
-        filtered_entries = filter_entries_by_role(timeline_entries, role)
+        filtered_entries = filter_entries_by_role(timeline_entries, role, complaint_id)
         
         print(f'[TIMELINE API] After filtering for {role}: {len(filtered_entries)} entries')
         print(f'[TIMELINE API] Filtered entries: {[entry.get("type_of_action") for entry in filtered_entries]}')
@@ -239,7 +252,7 @@ def get_complaint_timeline(complaint_id):
             'timeline': []
         }), 500
 
-def filter_entries_by_role(entries, role):
+def filter_entries_by_role(entries, role, complaint_id=None):
     """Filter timeline entries based on UPDATED SEQUENTIAL FLOW requirements"""
     
     if role == 'admin':
@@ -275,41 +288,39 @@ def filter_entries_by_role(entries, role):
         return staff_entries
     
     elif role == 'complainant':
-        # COMPLAINANT VIEW: Simplified View - Shows only completed task milestones
-        # ✅ Submitted a valid complaint → ✅ Inspection done → ✅ Invitation Sent → 
-        # ✅ Assessment → ✅ Resolved
+        # COMPLAINANT VIEW: Show same detailed timeline as admin (user requested)
+        # But simplify descriptions to be complainant-friendly
         complainant_entries = []
         
-        # Always include submission as first entry
-        submission_entry = {
-            'type_of_action': 'Submitted',
-            'description': 'Submitted a valid complaint',
-            'assigned_to': '',
-            'action_datetime': entries[0]['action_datetime'] if entries else '',
-            'has_file': False
-        }
-        complainant_entries.append(submission_entry)
-        
-        # Include only completed milestones (complainant-focused)
-        milestone_actions = ['Inspection done', 'Sent Invitation', 'Assessment', 'Resolved']
         for entry in entries:
-            if entry.get('type_of_action') in milestone_actions:
-                # Simplify description for complainant view
-                simplified_entry = entry.copy()
-                action_type = entry['type_of_action']
-                
-                if action_type == 'Inspection done':
-                    simplified_entry['description'] = 'Site inspection completed'
-                elif action_type == 'Sent Invitation':
-                    simplified_entry['description'] = 'Invitation sent to involved parties'
-                elif action_type == 'Assessment':
-                    simplified_entry['description'] = 'Assessment completed'
-                elif action_type == 'Resolved':
-                    simplified_entry['description'] = 'Complaint has been resolved'
-                
-                # Remove staff assignment details for clean complainant view
-                simplified_entry['assigned_to'] = ''
-                complainant_entries.append(simplified_entry)
+            # Create a copy and simplify for complainant view
+            simplified_entry = entry.copy()
+            action_type = entry['type_of_action']
+            
+            # Simplify descriptions for complainant-friendly language
+            if action_type == 'Submitted':
+                simplified_entry['description'] = 'Submitted a valid complaint'
+            elif action_type == 'Inspection':
+                simplified_entry['description'] = f'Site inspection assigned to {entry["assigned_to"]}' if entry.get("assigned_to") else 'Site inspection assigned to staff'
+            elif action_type == 'Inspection done':
+                simplified_entry['description'] = 'Site inspection completed'
+            elif action_type == 'Invitation':
+                simplified_entry['description'] = 'Invitation process assigned to staff'
+            elif action_type == 'Sent Invitation':
+                simplified_entry['description'] = 'Invitation sent to involved parties'
+            elif action_type == 'Accepted Invitation':
+                simplified_entry['description'] = 'Invitation accepted by both parties'
+            elif action_type == 'Mediation':
+                simplified_entry['description'] = 'Mediation has been concluded'
+            elif action_type == 'Assessment':
+                simplified_entry['description'] = 'Assessment completed'
+            elif action_type == 'Resolved':
+                simplified_entry['description'] = 'Complaint has been resolved'
+            else:
+                # Keep original description for any other action types
+                simplified_entry['description'] = entry.get('description', action_type)
+            
+            complainant_entries.append(simplified_entry)
         
         return complainant_entries
     

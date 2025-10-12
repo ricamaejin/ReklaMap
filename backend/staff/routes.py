@@ -125,6 +125,35 @@ def get_staff_complaint_data_with_proper_areas(staff_name=None, stage_filter=Non
                 address_parts.append(f"Lot {int(complaint.lot_no)}")
             formatted_address = ", ".join(address_parts) if address_parts else complaint.address or 'N/A'
             
+            # Extract deadline from complaint_history details JSON (same logic as admin)
+            deadline = None
+            try:
+                deadline_query = """
+                SELECT ch.details 
+                FROM complaint_history ch 
+                WHERE ch.complaint_id = :complaint_id 
+                  AND ch.type_of_action = 'Inspection'
+                  AND ch.details IS NOT NULL 
+                ORDER BY ch.action_datetime DESC 
+                LIMIT 1
+                """
+                deadline_result = db.session.execute(text(deadline_query), {'complaint_id': complaint.complaint_id})
+                deadline_row = deadline_result.fetchone()
+                
+                if deadline_row and deadline_row.details:
+                    import json
+                    try:
+                        # Parse the JSON details
+                        details_data = json.loads(deadline_row.details)
+                        if isinstance(details_data, dict) and 'details' in details_data:
+                            nested_details = details_data['details']
+                            if isinstance(nested_details, dict) and 'deadline' in nested_details:
+                                deadline = nested_details['deadline']
+                    except (json.JSONDecodeError, TypeError, KeyError) as e:
+                        print(f"[STAFF] Error parsing deadline JSON for complaint {complaint.complaint_id}: {e}")
+            except Exception as e:
+                print(f"[STAFF] Error extracting deadline for complaint {complaint.complaint_id}: {e}")
+
             complaints_data.append({
                 'complaint_id': complaint.complaint_id,
                 'date_received': complaint.date_received.isoformat() if complaint.date_received else 'N/A',
@@ -138,7 +167,8 @@ def get_staff_complaint_data_with_proper_areas(staff_name=None, stage_filter=Non
                 'assigned_to': complaint.assigned_to or 'N/A',
                 'latest_action': complaint.latest_action or 'N/A',
                 'action_datetime': complaint.action_datetime.isoformat() if complaint.action_datetime else None,
-                'action_needed': complaint.latest_action or 'Assignment'  # Map latest_action to action_needed
+                'action_needed': complaint.latest_action or 'Assignment',  # Map latest_action to action_needed
+                'deadline': deadline  # Add deadline field from complaint_history details
             })
         
         print(f"[DEBUG STAFF] Found {len(complaints_data)} complaints")
@@ -255,25 +285,125 @@ def api_assigned_complaints():
 
 @staff_bp.route('/api/complaints/resolved')
 def api_resolved_complaints():
-    """API endpoint for resolved complaints data"""
+    """API endpoint for staff task history - shows all tasks assigned regardless of complaint resolution status"""
     # TEMPORARILY DISABLE AUTH FOR DEBUGGING
     # auth_check = require_staff_auth()
     # if auth_check:
     #     return jsonify({'error': 'Unauthorized'}), 401
     
-    staff_name = session.get('admin_name') or "Test Staff"
+    staff_name = session.get('admin_name') or session.get('name')
     print(f"[DEBUG] Staff resolved API called with staff_name: {staff_name}")
     
+    # If no staff name in session, use Alberto Nonato Jr. for testing (we know he has assignments)
+    if not staff_name:
+        staff_name = "Alberto Nonato Jr."
+        print(f"[DEBUG] Using fallback staff name: {staff_name}")
+    
     try:
-        # Use the working query function for resolved complaints
-        complaints_data = get_staff_complaint_data_with_proper_areas(
-            staff_name=staff_name, 
-            stage_filter='Resolved'
+        # Query to get the LATEST action per complaint for this staff member
+        # Prioritizes completion actions (Inspection done, Sent Invitation) over assignment actions
+        query = """
+        WITH staff_latest_actions AS (
+            SELECT 
+                ch.complaint_id,
+                ch.type_of_action,
+                ch.action_datetime,
+                ch.assigned_to,
+                ROW_NUMBER() OVER (
+                    PARTITION BY ch.complaint_id 
+                    ORDER BY 
+                        CASE 
+                            WHEN ch.type_of_action IN ('Inspection done', 'Sent Invitation') THEN 1
+                            WHEN ch.type_of_action IN ('Inspection', 'Invitation') THEN 2
+                            ELSE 3
+                        END ASC,
+                        ch.action_datetime DESC
+                ) as rn
+            FROM complaint_history ch
+            WHERE ch.assigned_to = :staff_name
+            AND ch.assigned_to IS NOT NULL 
+            AND ch.assigned_to != ''
         )
+        SELECT 
+            c.complaint_id,
+            c.type_of_complaint,
+            c.priority_level,
+            c.status,
+            c.complaint_stage,
+            c.date_received,
+            c.description,
+            c.complainant_name,
+            c.address,
+            COALESCE(r.lot_no, 0) as lot_no,
+            COALESCE(r.block_no, 0) as block_no,
+            COALESCE(a.area_name, 'N/A') as area_name,
+            sla.action_datetime as task_date,
+            sla.type_of_action
+        FROM staff_latest_actions sla
+        JOIN complaints c ON sla.complaint_id = c.complaint_id
+        LEFT JOIN registration r ON c.registration_id = r.registration_id
+        LEFT JOIN areas a ON c.area_id = a.area_id
+        WHERE sla.rn = 1
+        ORDER BY sla.action_datetime DESC
+        """
+        
+        result = db.session.execute(text(query), {'staff_name': staff_name})
+        complaints = result.fetchall()
+        
+        print(f"[DEBUG] Query returned {len(complaints)} task records for {staff_name}")
+        
+        complaints_data = []
+        for complaint in complaints:
+            # Use address directly from complaints table if available, otherwise format from components
+            if complaint.address:
+                formatted_address = complaint.address
+            else:
+                # Format address using area_name, lot_no, block_no
+                address_parts = []
+                if complaint.area_name and complaint.area_name != 'N/A':
+                    address_parts.append(complaint.area_name)
+                if complaint.lot_no > 0:
+                    address_parts.append(f"Lot {complaint.lot_no}")
+                if complaint.block_no > 0:
+                    address_parts.append(f"Block {complaint.block_no}")
+                formatted_address = ', '.join(address_parts) if address_parts else 'Address not specified'
+            
+            # Show the latest action taken by staff (completion status if available, otherwise assignment)
+            if complaint.type_of_action in ['Inspection done', 'Sent Invitation']:
+                # Staff completed the task - show completion status
+                task_description = complaint.type_of_action
+                if complaint.complaint_stage == 'Resolved':
+                    task_description
+                elif complaint.complaint_stage == 'Out of Jurisdiction':
+                    task_description += " (Out of Jurisdiction)"
+            else:
+                # Staff was assigned but hasn't completed yet - show assignment status
+                task_description = f"{complaint.type_of_action} assigned"
+                if complaint.complaint_stage == 'Resolved':
+                    task_description
+                elif complaint.complaint_stage == 'Out of Jurisdiction':
+                    task_description += " (Out of Jurisdiction)"
+            
+            complaints_data.append({
+                'complaint_id': complaint.complaint_id,
+                'type_of_complaint': complaint.type_of_complaint,
+                'complainant': complaint.complainant_name or 'N/A',
+                'area_name': complaint.area_name,
+                'address': formatted_address,
+                'priority_level': complaint.priority_level or 'Minor',
+                'status': complaint.status,
+                'complaint_stage': complaint.complaint_stage,
+                'date_received': complaint.date_received.isoformat() if complaint.date_received else '',
+                'action_datetime': complaint.task_date.isoformat() if complaint.task_date else None,
+                'resolution_action': task_description,
+                'action_needed': complaint.type_of_action or 'Task Assigned'
+            })
         
         response = jsonify({
             'success': True,
-            'complaints': complaints_data
+            'complaints': complaints_data,
+            'debug_staff_name': staff_name,
+            'total_tasks': len(complaints_data)
         })
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'

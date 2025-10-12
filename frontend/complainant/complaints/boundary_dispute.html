@@ -321,148 +321,173 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Populate complainant details (structure and layout copied from lot_dispute.html)
 document.addEventListener('DOMContentLoaded', async () => {
+  const form = document.getElementById('BoundaryDisputeForm');
+  const container = document.getElementById('complainantDetails');
+
+  if (!form || !container) return;
+
+  // --- Helper functions ---
+
+  // Helper to format date as 'Month Day, Year'
+  function formatDateMDY(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const opts = { month: 'long', day: 'numeric', year: 'numeric' };
+    return d.toLocaleDateString('en-US', opts);
+  }
+
+  function row1(label, value, type='text', isDate=false) {
+    const displayValue = isDate ? formatDateMDY(value) : value;
+    const r = document.createElement('div');
+    r.className = 'pair-row';
+    r.innerHTML = `<div class="col"><label class="small">${label}</label><input type="${type}" value="${displayValue || ''}" readonly></div>`;
+    return r;
+  }
+
+  function row2(l1, v1, l2, v2, t1='text', t2='text', isDate1=false, isDate2=false) {
+    const displayV1 = isDate1 ? formatDateMDY(v1) : v1;
+    const displayV2 = isDate2 ? formatDateMDY(v2) : v2;
+    const r = document.createElement('div');
+    r.className = 'pair-row';
+    r.innerHTML = `
+      <div class="col"><label class="small">${l1}</label><input type="${t1}" value="${displayV1 || ''}" readonly></div>
+      <div class="col"><label class="small">${l2}</label><input type="${t2}" value="${displayV2 || ''}" readonly></div>`;
+    return r;
+  }
+
+  function row3(l1, v1, l2, v2, l3, v3) {
+    const r = document.createElement('div');
+    r.className = 'pair-row';
+    r.innerHTML = `
+      <div class="col"><label class="small">${l1}</label><input type="text" value="${v1 || ''}" readonly></div>
+      <div class="col"><label class="small">${l2}</label><input type="text" value="${v2 || ''}" readonly></div>
+      <div class="col"><label class="small">${l3}</label><input type="text" value="${v3 || ''}" readonly></div>`;
+    return r;
+  }
+
+  function normalizeName(name) {
+    if (!name || typeof name !== 'string') return name || '';
+    return name.replace(/\b([A-Z])\.*\b/g, '$1.');
+  }
+
+  function createSupportingDocsSection(docs, category) {
+    if (!docs || (!Array.isArray(docs) && typeof docs !== 'object')) return null;
+    const docDiv = document.createElement('div');
+    docDiv.style.margin = '8px 0 16px 0';
+    const labelText = category === 'family_of_member'
+      ? 'What Supporting Documents does your Family Member have?'
+      : 'What Supporting Documents do you have?';
+    docDiv.innerHTML = `<label style="font-weight:600; display:block; margin-bottom:2px;">${labelText}</label>`;
+
+    const docList = [
+      {key: 'title', label: 'Title'},
+      {key: 'contract_to_sell', label: 'Contract to Sell'},
+      {key: 'certificate_of_full_payment', label: 'Certificate of Full Payment'},
+      {key: 'pre_qualification_stub', label: 'Pre-qualification Stub'},
+      {key: 'contract_agreement', label: 'Contract/Agreement'},
+      {key: 'deed_of_sale', label: 'Deed of Sale'}
+    ];
+
+    let selected = {};
+    if (Array.isArray(docs)) docs.forEach(k => selected[k] = true);
+    else if (typeof docs === 'object') selected = docs;
+
+    let group = `<div class='checkbox-group' style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px;">`;
+    docList.forEach(doc => {
+      const checked = selected[doc.key] ? 'checked' : '';
+      group += `<label style="white-space:nowrap;"><input type="checkbox" disabled ${checked}> ${doc.label}</label>`;
+    });
+    group += '</div>';
+    docDiv.innerHTML += group;
+    return docDiv;
+  }
+
+  // --- Fetch complainant session data ---
   try {
-    const res = await fetch('/complainant/boundary_dispute/get_boundary_session_data');
+    const res = await fetch('/complainant/boundary_dispute/get_boundary_session_data', { credentials: 'same-origin' });
     if (!res.ok) return;
     const d = await res.json();
-    const container = document.getElementById('complainantDetails');
-    if (!container || !d || d.error) return;
+    if (!d || d.error) return;
 
     const pairs = document.createElement('div');
     pairs.className = 'pairs';
+    const cat = d.category;
+    let memberWrapper = null;
 
-    // Helper to create supporting documents section (only for hoa_member and family_of_member)
-    // Helper to create supporting documents section (checkbox grid, like lot_dispute.html)
-    function createSupportingDocsSection(docs) {
-      if (!docs) return null;
-      // Define doc options (keys must match backend)
-      const docList = [
-        {key: 'title', label: 'Title'},
-        {key: 'contract_to_sell', label: 'Contract to Sell'},
-        {key: 'certificate_of_full_payment', label: 'Certificate of Full Payment'},
-        {key: 'pre_qualification_stub', label: 'Pre-qualification Stub'},
-        {key: 'contract_agreement', label: 'Contract/Agreement'},
-        {key: 'deed_of_sale', label: 'Deed of Sale'}
-      ];
-      // Determine selected docs (array or object)
-      let selected = {};
-      if (Array.isArray(docs)) {
-        docs.forEach(k => selected[k] = true);
-      } else if (typeof docs === 'object') {
-        selected = docs;
+
+    // Basic info
+    pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
+
+    if (cat === 'family_of_member') {
+      pairs.appendChild(row2('Date of Birth:', d.date_of_birth, 'Age:', d.age, 'text', 'text', true, false));
+      pairs.appendChild(row2('Sex:', d.sex, 'Citizenship:', d.citizenship));
+      pairs.appendChild(row3('Current Address:', d.cur_add, 'Year of Residence:', d.year_of_residence, 'Phone Number:', d.phone_number));
+    } else {
+      pairs.appendChild(row2('Date of Birth:', d.date_of_birth, 'Age:', d.age, 'text', 'text', true, false));
+      pairs.appendChild(row2('Sex:', d.sex, 'Citizenship:', d.citizenship));
+      pairs.appendChild(row3('Current Address:', d.cur_add, 'Year of Residence:', d.year_of_residence, 'Phone Number:', d.phone_number));
+      pairs.appendChild(row1('Area (HOA):', d.hoa || '', 'text'));
+      pairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
+
+      // Supporting documents for HOA members only
+      if (cat === 'hoa_member') {
+        pairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
+        const docSection = createSupportingDocsSection(d.supporting_documents, cat);
+        if (docSection) pairs.appendChild(docSection);
       }
-      // Build the grid
-      const row = document.createElement('div');
-      row.className = 'pair-row';
-      let html = `<div class=\"col\"><label class=\"small\" style=\"font-weight:600; display:block; margin-bottom:2px;\">Supporting Documents:</label>`;
-      html += `<div class='checkbox-group' style=\"display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px;\">`;
-      docList.forEach(doc => {
-        const checked = selected[doc.key] ? 'checked' : '';
-        html += `<label style=\"white-space:nowrap;\"><input type=\"checkbox\" disabled ${checked}> ${doc.label}</label>`;
-      });
-      html += '</div></div>';
-      row.innerHTML = html;
-      return row;
-    }
 
-    function row1(label, value, type = 'text') {
-      const r = document.createElement('div');
-      r.className = 'pair-row';
-      r.innerHTML = `<div class=\"col\"><label class=\"small\">${label}</label><input type=\"${type}\" value=\"${value || ''}\" readonly></div>`;
-      return r;
-    }
-    function row2(l1, v1, l2, v2, t1='text', t2='text') {
-      const r = document.createElement('div');
-      r.className = 'pair-row';
-      r.innerHTML = `
-        <div class=\"col\"><label class=\"small\">${l1}</label><input type=\"${t1}\" value=\"${v1 || ''}\" readonly></div>
-        <div class=\"col\"><label class=\"small\">${l2}</label><input type=\"${t2}\" value=\"${v2 || ''}\" readonly></div>`;
-      return r;
-    }
-    function row3(l1, v1, l2, v2, l3, v3) {
-      const r = document.createElement('div');
-      r.className = 'pair-row';
-      r.innerHTML = `
-        <div class=\"col\"><label class=\"small\">${l1}</label><input type=\"text\" value=\"${v1 || ''}\" readonly></div>
-        <div class=\"col\"><label class=\"small\">${l2}</label><input type=\"text\" value=\"${v2 || ''}\" readonly></div>
-        <div class=\"col\"><label class=\"small\">${l3}</label><input type=\"text\" value=\"${v3 || ''}\" readonly></div>`;
-      return r;
-    }
-
-    // Helper to normalize middle initials to a single trailing period (e.g., "B" or "B.." -> "B.")
-    function normalizeName(name) {
-      if (!name || typeof name !== 'string') return name || '';
-      return name.replace(/\b([A-Z])\.*\b/g, '$1.');
-    }
-
-    // HOA Member
-    if (d.category === 'hoa_member') {
-  pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
-  pairs.appendChild(row2('Date of Birth:', d.date_of_birth, 'Sex:', d.sex, 'date', 'text'));
-  pairs.appendChild(row2('Citizenship:', d.citizenship, 'Age:', d.age));
-  pairs.appendChild(row2('Phone Number:', d.phone_number, 'Year of Residence:', d.year_of_residence));
-  pairs.appendChild(row1('Area (HOA):', d.hoa));
-  pairs.appendChild(row1('Current Address:', d.cur_add));
-  pairs.appendChild(row3('Block:', d.blk_num, 'Lot:', d.lot_num, 'Lot Size:', d.lot_size));
-  pairs.appendChild(row2('Civil Status:', d.civil_status, 'Recipient of other housing programs:', d.recipient_of_other_housing));
-  const docsSection = createSupportingDocsSection(d.supporting_documents);
-  if (docsSection) pairs.appendChild(docsSection);
-    }
-    // Non-member
-    else if (d.category === 'non_member') {
-  pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
-  pairs.appendChild(row2('Date of Birth:', d.date_of_birth, 'Sex:', d.sex, 'date', 'text'));
-  pairs.appendChild(row2('Citizenship:', d.citizenship, 'Age:', d.age));
-  pairs.appendChild(row2('Phone Number:', d.phone_number, 'Year of Residence:', d.year_of_residence));
-  pairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
-  pairs.appendChild(row1('Current Address:', d.cur_add));
-  pairs.appendChild(row1('Area (HOA):', d.hoa || ''));
-    }
-    // Family of member
-    else if (d.category === 'family_of_member') {
-      // --- Updated layout for family_of_member HOA Member Information ---
-      pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
-      pairs.appendChild(row2('Date of Birth:', d.date_of_birth, 'Sex:', d.sex, 'date', 'text'));
-      pairs.appendChild(row2('Citizenship:', d.citizenship, 'Age:', d.age));
-      pairs.appendChild(row2('Phone Number:', d.phone_number, 'Year of Residence:', d.year_of_residence));
-      pairs.appendChild(row2('Relationship:', d.relationship || '', 'Current Address:', d.cur_add));
-
-      let memberWrapper = null;
-      if (d.parent_info) {
-  memberWrapper = document.createElement('div');
-  memberWrapper.style.marginTop = '20px';
-  // Use the same markup and class as other section headers for blue box styling
-  memberWrapper.innerHTML = '<div class="section-header">HOA Member Information</div>';
-        const memberPairs = document.createElement('div');
-        memberPairs.className = 'pairs';
-        const p = d.parent_info;
-        // Full Name (single row)
-        memberPairs.appendChild(row1('Full Name:', normalizeName(p.full_name)));
-        // Date of Birth | Sex
-        memberPairs.appendChild(row2('Date of Birth:', p.date_of_birth, 'Sex:', p.sex, 'date', 'text'));
-        // Citizenship | Age
-        memberPairs.appendChild(row2('Citizenship:', p.citizenship, 'Age:', p.age));
-        // Rest as before
-        memberPairs.appendChild(row1('Area (HOA):', d.hoa || ''));
-        memberPairs.appendChild(row1('Current Address:', p.current_address));
-        memberPairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
-        memberPairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
-        // Insert supporting docs after Civil Status/Recipient row in memberPairs
-        const docSection = createSupportingDocsSection(d.parent_info.supporting_documents);
-        if (docSection) memberPairs.appendChild(docSection);
-        memberWrapper.appendChild(memberPairs);
+      // Connection info for non-members
+      if (cat === 'non_member') {
+        const connRow = document.createElement('div');
+        connRow.className = 'pair-row';
+        connRow.innerHTML = `<div class="col" style="width:100%"><label class="small">How are you connected to the lot you are complaining about?</label><input type="text" value="${d.connections || ''}" readonly></div>`;
+        pairs.appendChild(connRow);
       }
-      container.innerHTML = '';
-      container.appendChild(pairs);
-      if (memberWrapper) container.appendChild(memberWrapper);
-      return;
+    }
+
+    // Family of member parent info
+    if (cat === 'family_of_member' && d.parent_info) {
+      const wrapper = document.createElement('div');
+      wrapper.style.marginTop = '20px';
+      const sectionHeader = document.createElement('div');
+      sectionHeader.className = 'section-header';
+      sectionHeader.textContent = 'HOA MEMBER INFORMATION';
+      wrapper.appendChild(sectionHeader);
+
+      const memberPairs = document.createElement('div');
+      memberPairs.className = 'pairs';
+      const p = d.parent_info;
+
+
+  memberPairs.appendChild(row1('Full Name:', normalizeName(p.full_name)));
+  memberPairs.appendChild(row2('Date of Birth:', p.date_of_birth, 'Age:', p.age, 'text', 'text', true, false));
+  memberPairs.appendChild(row2('Sex:', p.sex, 'Citizenship:', p.citizenship));
+  memberPairs.appendChild(row2('Current Address:', p.current_address, 'Year of Residence:', p.year_of_residence || ''));
+  memberPairs.appendChild(row1('Area (HOA):', p.hoa || '', 'text'));
+  memberPairs.appendChild(row3('Block Assignment:', p.blk_num || '', 'Lot Assignment:', p.lot_num || '', 'Lot Size:', p.lot_size || ''));
+  memberPairs.appendChild(row3('Civil Status:', p.civil_status || '', 'Recipient of Other Housing:', p.recipient_of_other_housing || '', 'Relationship:', d.relationship || ''));
+
+      const docSection = createSupportingDocsSection(p.supporting_documents, 'family_of_member');
+      if (docSection) memberPairs.appendChild(docSection);
+
+      wrapper.appendChild(memberPairs);
+      memberWrapper = wrapper;
+    } else if (cat === 'family_of_member' && !d.parent_info) {
+      const warn = document.createElement('div');
+      warn.style.color='red'; warn.style.fontWeight='bold'; warn.style.margin='16px 0';
+      warn.textContent = 'HOA MEMBER INFORMATION is missing (no parent_info in session data).';
+      pairs.appendChild(warn);
     }
 
     container.innerHTML = '';
     container.appendChild(pairs);
-  } catch (e) {}
+    if (memberWrapper) container.appendChild(memberWrapper);
+
+  } catch (e) {
+    console.error('Error fetching complainant data:', e);
+  }
 });
 
 // Q6/Q7/Q9 exclusive checkbox logic and disabled label styling

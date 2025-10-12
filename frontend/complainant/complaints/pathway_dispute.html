@@ -1,6 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <style>
+    /* Grey out autofilled (read-only) complainant detail fields */
+    #complainantDetails .pairs input[readonly] {
+      color: #555 !important; /* grey text */
+      background: #f1f3f5 !important; /* subtle grey background */
+    }
+    #complainantDetails .pairs input[readonly]::placeholder { color: #888; }
+    label.disabled {
+      opacity: 1;
+      color: #555 !important;
+      cursor: not-allowed;
+    }
+    label.disabled input {
+      cursor: not-allowed;
+    }
+  </style>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" href="/images/logo.png">
@@ -43,90 +59,116 @@
 
         <!-- Section 1 -->
         <div class="section-header">LOT DETAILS AND CLAIM:</div>
+      <!-- Non-member only: Block/Lot pairs involved in the dispute (excluding theirs) -->
+      <div id="nonMemberBlockLotSection" style="display:none; margin-bottom: 18px;">
+        <p style="font-weight:bold;">Please indicate your Block and Lot number.</p>
+        <div class="pairs" id="blockLotPairsContainer" aria-live="polite">
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Block No.</label>
+              <input type="text" name="block_no[]" placeholder="Block No.">
+            </div>
+            <div class="col">
+              <label class="small">Lot No.</label>
+              <input type="text" name="lot_no[]" placeholder="Lot No.">
+            </div>
+          </div>
+        </div>
+      </div>
+        <!-- 1. Type of pathway -->
         <p style="font-weight: bold;">1. What type of pathway is being encroached upon?</p>
-        <label><input type="radio" name="possession"> Public sidewalk (pedestrian path)</label>
-        <label><input type="radio" name="possession"> Common path/alley used by residents</label>
-        <label><input type="radio" name="possession"> Government-declared easement or right-of-way</label>
-        <label><input type="radio" name="possession" style="margin-bottom: 12px;"> Path used for access to utilities (water lines, drainage, etc.)</label>
+        <label><input type="radio" name="q1" value="Public sidewalk (pedestrian path)"> Public sidewalk (pedestrian path)</label>
+        <label><input type="radio" name="q1" value="Common path/alley used by residents"> Common path/alley used by residents</label>
+        <label><input type="radio" name="q1" value="Government-declared easement or right-of-way"> Government-declared easement or right-of-way</label>
+        <label><input type="radio" name="q1" value="Path used for access to utilities (water lines, drainage, etc.)" style="margin-bottom: 12px;"> Path used for access to utilities</label>
 
-
+        <!-- 2. Nature of encroachment -->
         <p style="font-weight: bold;">2. What is the nature of the encroachment?</p>
-        <label><input type="radio" name="nature"> A permanent structure (e.g., house extension, wall) was built on the path</label>
-        <label><input type="radio" name="nature"> A fence or gate blocks pedestrian access</label>
-        <label><input type="radio" name="nature"> A store or business has occupied the pathway</label>
-        <label><input type="radio" name="nature"> Temporary materials (e.g., chairs, tables, stalls) regularly block the path</label>
-        <label><input type="radio" name="nature"> Vehicle/s parked long-term on the path or right-of-way</label>
-        <label><input type="radio" name="nature" style="margin-bottom: 12px;"> Construction debris or materials are placed on the path</label>
+        <label><input type="radio" name="q2" value="Permanent structure"> A permanent structure (e.g., house extension, wall) was built on the path</label>
+        <label><input type="radio" name="q2" value="Fence or gate"> A fence or gate blocks pedestrian access</label>
+        <label><input type="radio" name="q2" value="Store or business"> A store or business has occupied the pathway</label>
+        <label><input type="radio" name="q2" value="Temporary blockage"> Temporary materials (e.g., chairs, tables, stalls) regularly block the path</label>
+        <label><input type="radio" name="q2" value="Parked vehicle"> Vehicle/s parked long-term on the path or right-of-way</label>
+        <label><input type="radio" name="q2" value="Debris or materials" style="margin-bottom: 12px;"> Construction debris or materials are placed on the path</label>
 
+        <!-- 3. Duration of obstruction -->
         <p style="font-weight: bold;">3. How long has the pathway been obstructed or encroached?</p>
-        <label><input type="radio" name="conflict"> Less than 1 month</label>
-        <label><input type="radio" name="conflict"> 1-6 months</label>
-        <label><input type="radio" name="conflict"> More than 6 months</label>
-        <label><input type="radio" name="conflict" style="margin-bottom: 12px;"> Not sure</label>
+        <label><input type="radio" name="q3" value="Less than 1 month"> Less than 1 month</label>
+        <label><input type="radio" name="q3" value="1-6 months"> 1-6 months</label>
+        <label><input type="radio" name="q3" value="More than 6 months"> More than 6 months</label>
+        <label><input type="radio" name="q3" value="Not sure" style="margin-bottom: 12px;"> Not sure</label>
 
+        <!-- 4. Obstruction still present -->
         <p style="font-weight: bold;">4. Is the obstruction still present at the time of filing this complaint?</p>
-        <label><input type="radio" name="obstruction_present"> Yes – fully blocked</label>
-        <label><input type="radio" name="obstruction_present"> Yes – partially blocked</label>
-        <label><input type="radio" name="obstruction_present"> No – it was removed but may return</label>
-        <label><input type="radio" name="obstruction_present"> No</label>
-        <label><input type="radio" name="obstruction_present" style="margin-bottom: 12px;"> Not sure</label>
+        <label><input type="radio" name="q4" value="Yes – fully blocked"> Yes – fully blocked</label>
+        <label><input type="radio" name="q4" value="Yes – partially blocked"> Yes – partially blocked</label>
+        <label><input type="radio" name="q4" value="No – removed but may return"> No – it was removed but may return</label>
+        <label><input type="radio" name="q4" value="No"> No</label>
+        <label><input type="radio" name="q4" value="Not sure" style="margin-bottom: 12px;"> Not sure</label>
 
+        <!-- 5. How it affects access -->
         <p style="font-weight: bold;">5. How has this encroachment affected your access or mobility? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
-        <label><input type="checkbox"> I can no longer pass through the area</label>
-        <label><input type="checkbox"> The path has become unsafe or too narrow</label>
-        <label><input type="checkbox"> Children, elderly, or PWDs cannot safely use the path</label>
-        <label><input type="checkbox"> The obstruction forces people to walk on the road</label>
-        <label><input type="checkbox" style="margin-bottom: 12px;"> Emergency vehicles or services are affected</label>
+        <label><input type="checkbox" name="q5" value="Cannot pass"> I can no longer pass through the area</label>
+        <label><input type="checkbox" name="q5" value="Unsafe or narrow"> The path has become unsafe or too narrow</label>
+        <label><input type="checkbox" name="q5" value="Children or elderly affected"> Children, elderly, or PWDs cannot safely use the path</label>
+        <label><input type="checkbox" name="q5" value="Forced to walk on road"> The obstruction forces people to walk on the road</label>
+        <label><input type="checkbox" name="q5" value="Emergency affected" style="margin-bottom: 12px;"> Emergency vehicles or services are affected</label>
 
+        <!-- 6. Other residents concerned -->
         <p style="font-weight: bold;">6. Have other residents or the barangay raised similar concerns?</p>
-        <label><input type="radio" name="residents_concerned"> Yes</label>
-        <label><input type="radio" name="residents_concerned"> No</label>
-        <label><input type="radio" name="residents_concerned" style="margin-bottom: 12px;"> Not sure</label>
+        <label><input type="radio" name="q6" value="Yes"> Yes</label>
+        <label><input type="radio" name="q6" value="No"> No</label>
+        <label><input type="radio" name="q6" value="Not sure" style="margin-bottom: 12px;"> Not sure</label>
 
+        <!-- 7. Encroaching party informed -->
         <p style="font-weight: bold;">7. Has the encroaching party been informed or warned by anyone?</p>
-        <label><input type="radio" name="party_informed"> Yes – by me</label>
-        <label><input type="radio" name="party_informed"> Yes – by barangay officials</label>
-        <label><input type="radio" name="party_informed"> No</label>
-        <label><input type="radio" name="party_informed" style="margin-bottom: 12px;"> Not sure</label>
+        <label><input type="radio" name="q7" value="Yes – by me"> Yes – by me</label>
+        <label><input type="radio" name="q7" value="Yes – by barangay officials"> Yes – by barangay officials</label>
+        <label><input type="radio" name="q7" value="No"> No</label>
+        <label><input type="radio" name="q7" value="Not sure" style="margin-bottom: 12px;"> Not sure</label>
 
-        <p><strong>8. Has the dispute led to any of the following? </strong><i style="font-size: 14px; font-weight: normal; color: grey;"> (Check all that apply)</i></p>
-        <label><input type="checkbox"> Threats or harassment</label>
-        <label><input type="checkbox"> Physical altercation</label>
-        <label><input type="checkbox"> Demolition or forced entry</label>
-        <label><input type="checkbox"> Property damage</label>
-        <label><input type="checkbox" style="margin-bottom: 12px;" value="None"> None</label>
+        <!-- 8. Dispute led to issues -->
+        <p style="font-weight: bold;">8. Has the dispute led to any of the following? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+        <label><input type="checkbox" name="q8" value="Threats or harassment"> Threats or harassment</label>
+        <label><input type="checkbox" name="q8" value="Physical altercation"> Physical altercation</label>
+        <label><input type="checkbox" name="q8" value="Demolition or forced entry"> Demolition or forced entry</label>
+        <label><input type="checkbox" name="q8" value="Property damage"> Property damage</label>
+        <label><input type="checkbox" name="q8" value="None" style="margin-bottom: 12px;"> None</label>
 
-        <label><strong>9. Have you reported this boundary issue to any office or authority?</strong><i style="font-size: 14px; font-weight: normal; color: grey;"> (Check all that apply)</i></label>
-        <label><input type="checkbox" name="boundary_reported_to[]" value="Barangay"> Barangay</label>
-        <label><input type="checkbox" name="boundary_reported_to[]" value="HOA"> HOA</label>
-        <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> NGC</label>
-        <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> USAD - PHASELAD</label>
-        <label><input type="checkbox" name="boundary_reported_to[]" value="none"> None</label>
+        <!-- 9. Reported to authority -->
+        <p style="font-weight: bold;">9. Have you reported this boundary issue to any office or authority? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+        <label><input type="checkbox" name="q9" value="Barangay"> Barangay</label>
+        <label><input type="checkbox" name="q9" value="HOA"> HOA</label>
+        <label><input type="checkbox" name="q9" value="NGC"> NGC</label>
+        <label><input type="checkbox" name="q9" value="USAD - PHASELAD"> USAD - PHASELAD</label>
+        <label><input type="checkbox" name="q9" value="None"> None</label>
 
+        <!-- 10. Site inspection -->
+        <p style="font-weight: bold;">10. Was there any site inspection or verification conducted?</p>
+        <label><input type="radio" name="q10" value="Yes - Barangay"> Yes – by Barangay</label>
+        <label><input type="radio" name="q10" value="Yes - HOA"> Yes – by HOA</label>
+        <label><input type="radio" name="q10" value="Yes - NGC"> Yes – by NGC</label>
+        <label><input type="radio" name="q10" value="Yes - USAD - PHASELAD"> Yes – by USAD - PHASELAD</label>
+        <label><input type="radio" name="q10" value="No"> No</label>
+        <label><input type="radio" name="q10" value="Not sure"> Not sure</label>
 
-        <label><strong>10. Was there any site inspection or verification conducted?</strong></label>
-        <label><input type="radio" name="site_inspection" value="Yes - Barangay" required> Yes – by Barangay</label>
-        <label><input type="radio" name="site_inspection" value="Yes - HOA"> Yes – by HOA</label>
-        <label><input type="radio" name="site_inspection" value="Yes - NGC"> Yes – by NGC</label>
-        <label><input type="radio" name="site_inspection" value="Yes - NGC"> Yes – by USAD - PHASELAD</label>
-        <label><input type="radio" name="site_inspection" value="No"> No</label>
-        <label><input type="radio" name="site_inspection" value="Not sure"> Not sure</label>
+        <!-- 11. Result of inspection -->
+        <p style="font-weight: bold;">11. What was the result of the report or inspection? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
+        <label><input type="checkbox" name="q11" value="Advised to adjust or vacate"> The other party was advised to adjust or vacate</label>
+        <label><input type="checkbox" name="q11" value="Asked to provide more documents"> I was advised to provide more documents</label>
+        <label><input type="checkbox" name="q11" value="Still under investigation"> The issue is still under investigation</label>
+        <label><input type="checkbox" name="q11" value="No action taken"> No action was taken</label>
+        <label><input type="checkbox" name="q11" value="Not applicable"> Not applicable / No inspection yet</label>
 
-        <label><strong>11. What was the result of the report or inspection?</strong><i style="font-size: 14px; font-weight: normal; color: grey;"> (Check all that apply)</i></label>
-        <label><input type="checkbox" name="site_result[]" value="Advised to adjust or vacate"> The other party was advised to adjust or vacate</label>
-        <label><input type="checkbox" name="site_result[]" value="Asked to provide more documents"> I was advised to provide more documents</label>
-        <label><input type="checkbox" name="site_result[]" value="Still under investigation"> The issue is still under investigation</label>
-        <label><input type="checkbox" name="site_result[]" value="No action taken"> No action was taken</label>
-        <label><input type="checkbox" name="site_result[]" value="Not applicable"> Not applicable / No inspection yet</label>
-
+        <!-- 12. Ongoing development -->
         <p style="font-weight: bold;">12. Is there an ongoing development or government housing project in the area?</p>
-        <label><input type="radio" name="ongoing_development"> Yes</label>
-        <label><input type="radio" name="ongoing_development"> No</label>
-        <label><input type="radio" name="ongoing_development" style="margin-bottom: 12px;"> Not sure</label>
+        <label><input type="radio" name="q12" value="Yes"> Yes</label>
+        <label><input type="radio" name="q12" value="No"> No</label>
+        <label><input type="radio" name="q12" value="Not sure" style="margin-bottom: 12px;"> Not Sure</label>
 
         <!-- Section 2 -->
         <p class="section-label" style="color: black;">Please describe what happened briefly, including how you found out about the issue.</p>
-        <textarea></textarea>
+        <textarea name="description"></textarea>
 
         <!-- Section 3 -->
         <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
@@ -135,26 +177,38 @@
         </div>
 
         <div class="signature">
-          <input type="file" id="signatureInput" accept="image/*" style="display:none;" />
+          <input type="file" id="signatureInput" name="signature_path" accept="image/*" style="display:none;" />
           <button type="button" class="upload-btn" onclick="document.getElementById('signatureInput').click()">Upload Signature</button>
           <span id="signatureFileName" style="margin-left:10px;  font-style:italic;"></span>
+          <button type="submit" id="submitBtn" class="btn" style="display:none; margin-top:12px;">Submit Complaint</button>
+        </div>
+
+        <!-- Blue popup for error messages (matches mem-reg.html style) -->
+        <div id="errorPop" 
+          style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);z-index:999;background:#e3f2fd;color:#083048;width:max-content;padding:16px 28px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.12);font-weight:500;min-width:220px;max-width:340px;transition:opacity .2s;">
+          <span id="errorPopMsg"></span>
         </div>
       </form>
     </div>
   </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', async () => {
-  try {
-    const res = await fetch('/complainant/pathway_dispute/get_pathway_session_data', { credentials: 'same-origin' });
-    const contentType = res.headers.get('content-type') || '';
-    if (!contentType.includes('application/json')) return;
-    const d = await res.json();
+// Show/hide non-member block/lot section (no dynamic rows)
+document.addEventListener('DOMContentLoaded', function() {
+  fetch('/complainant/pathway_dispute/get_pathway_session_data').then(r => r.json()).then(d => {
+    if (d && d.category === 'non_member') {
+      document.getElementById('nonMemberBlockLotSection').style.display = '';
+    }
+  });
+});
+  document.addEventListener('DOMContentLoaded', async () => {
+    const form = document.getElementById('BoundaryDisputeForm');
     const container = document.getElementById('complainantDetails');
-    if (!container || !d || d.error) return;
+
+    if (!form || !container) return;
 
     // --- Helper functions ---
-    function row1(label, value, type = 'text') {
+    function row1(label, value, type='text') {
       const r = document.createElement('div');
       r.className = 'pair-row';
       r.innerHTML = `<div class="col"><label class="small">${label}</label><input type="${type}" value="${value || ''}" readonly></div>`;
@@ -176,8 +230,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       r.innerHTML = `
         <div class="col"><label class="small">${l1}</label><input type="text" value="${v1 || ''}" readonly></div>
         <div class="col"><label class="small">${l2}</label><input type="text" value="${v2 || ''}" readonly></div>
-        <div class="col"><label class="small">${l3}</label><input type="text" value="${v3 || ''}" readonly></div>
-      `;
+        <div class="col"><label class="small">${l3}</label><input type="text" value="${v3 || ''}" readonly></div>`;
       return r;
     }
 
@@ -186,100 +239,320 @@ document.addEventListener('DOMContentLoaded', async () => {
       return name.replace(/\b([A-Z])\.*\b/g, '$1.');
     }
 
-    function createSupportingDocsSection() {
-      if ((d.category === 'hoa_member' || d.category === 'family_of_member') && d.supporting_documents) {
-        const docDiv = document.createElement('div');
-        docDiv.style.margin = '8px 0 16px 0';
-        let labelText = 'What Supporting Documents do you have?';
-        if (d.category === 'family_of_member') {
-          labelText = 'What Supporting Documents does your Family Member have?';
-        }
-        docDiv.innerHTML = `<label style="font-weight:600; display:block; margin-bottom:2px;">${labelText}</label>`;
+    function createSupportingDocsSection(docs, category) {
+      if (!docs || (!Array.isArray(docs) && typeof docs !== 'object')) return null;
+      const docDiv = document.createElement('div');
+      docDiv.style.margin = '8px 0 16px 0';
+      const labelText = category === 'family_of_member' 
+        ? 'What Supporting Documents does your Family Member have?' 
+        : 'What Supporting Documents do you have?';
+      docDiv.innerHTML = `<label style="font-weight:600; display:block; margin-bottom:2px;">${labelText}</label>`;
 
-        const docList = [
-          {key: 'title', label: 'Title'},
-          {key: 'contract_to_sell', label: 'Contract to Sell'},
-          {key: 'certificate_of_full_payment', label: 'Certificate of Full Payment'},
-          {key: 'pre_qualification_stub', label: 'Pre-qualification Stub'},
-          {key: 'contract_agreement', label: 'Contract/Agreement'},
-          {key: 'deed_of_sale', label: 'Deed of Sale'}
-        ];
+      const docList = [
+        {key: 'title', label: 'Title'},
+        {key: 'contract_to_sell', label: 'Contract to Sell'},
+        {key: 'certificate_of_full_payment', label: 'Certificate of Full Payment'},
+        {key: 'pre_qualification_stub', label: 'Pre-qualification Stub'},
+        {key: 'contract_agreement', label: 'Contract/Agreement'},
+        {key: 'deed_of_sale', label: 'Deed of Sale'}
+      ];
 
-        let selected = {};
-        if (Array.isArray(d.supporting_documents)) {
-          d.supporting_documents.forEach(k => selected[k] = true);
-        } else if (typeof d.supporting_documents === 'object') {
-          selected = d.supporting_documents;
-        }
+      let selected = {};
+      if (Array.isArray(docs)) docs.forEach(k => selected[k]=true);
+      else if (typeof docs === 'object') selected = docs;
 
-        let group = `<div class='checkbox-group' style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px;">`;
-        docList.forEach(doc => {
-          const checked = selected[doc.key] ? 'checked' : '';
-          group += `<label style="white-space:nowrap;"><input type="checkbox" disabled ${checked}> ${doc.label}</label>`;
-        });
-        group += '</div>';
-        docDiv.innerHTML += group;
-        return docDiv;
-      }
-      return null;
+      let group = `<div class='checkbox-group' style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px;">`;
+      docList.forEach(doc => {
+        const checked = selected[doc.key] ? 'checked' : '';
+        group += `<label style="white-space:nowrap;"><input type="checkbox" disabled ${checked}> ${doc.label}</label>`;
+      });
+      group += '</div>';
+      docDiv.innerHTML += group;
+      return docDiv;
     }
 
-    // --- Render the complainant details ---
-    const pairs = document.createElement('div');
-    pairs.className = 'pairs';
+    // --- Fetch complainant session data ---
+    try {
 
-    const cat = d.category;
+      const res = await fetch('/complainant/pathway_dispute/get_pathway_session_data', { credentials: 'same-origin' });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) return;
+      const d = await res.json();
+      console.log('DEBUG session data:', d);
 
-    // --- Always show name, DOB, Sex, Citizenship, Age, Phone, Year of Residence ---
-    pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
-    pairs.appendChild(row2('Date of Birth:', d.date_of_birth, 'Sex:', d.sex, 'date', 'text'));
-    pairs.appendChild(row2('Citizenship:', d.citizenship, 'Age:', d.age));
-    pairs.appendChild(row2('Phone Number:', d.phone_number, 'Year of Residence:', d.year_of_residence));
+      if (!d || d.error) return;
 
-    if (cat === 'family_of_member') {
-      pairs.appendChild(row2('Relationship:', d.relationship || '', 'Current Address:', d.cur_add));
-      const docSection = createSupportingDocsSection();
-      if (docSection) pairs.appendChild(docSection);
-    } else if (cat === 'non_member' || cat === 'hoa_member') {
-      pairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
-      pairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
-      pairs.appendChild(row1('Current Address:', d.cur_add));
-      // Area (HOA) autofill fix: always use d.hoa, fallback to empty string
-      let hoaValue = '';
-      if (typeof d.hoa === 'string' && d.hoa.trim()) {
-        hoaValue = d.hoa;
-      } else if (typeof d.hoa === 'number') {
-        hoaValue = String(d.hoa);
+      const pairs = document.createElement('div');
+      pairs.className = 'pairs';
+      const cat = d.category;
+
+      // Basic info
+      pairs.appendChild(row1('Full Name:', normalizeName(d.full_name)));
+
+      let memberWrapper = null;
+
+      if (cat === 'family_of_member') {
+        // Format complainant date_of_birth as 'Month Day, Year' if possible
+        let dob = d.date_of_birth;
+        if (dob && typeof dob === 'string' && dob.match(/\d{4}-\d{2}-\d{2}/)) {
+          const dt = new Date(dob);
+          dob = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        } else if (dob && typeof dob === 'string' && dob.match(/\w{3},/)) {
+          // Try to parse RFC date string
+          const dt = new Date(dob);
+          if (!isNaN(dt)) dob = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+        pairs.appendChild(row2('Date of Birth:', dob, 'Age:', d.age));
+        pairs.appendChild(row2('Sex:', d.sex, 'Citizenship:', d.citizenship));
+        pairs.appendChild(row3('Current Address:', d.cur_add, 'Year of Residence:', d.year_of_residence, 'Phone Number:', d.phone_number));
+      } else {
+        // Format complainant date_of_birth as 'Month Day, Year' if possible
+        let dob = d.date_of_birth;
+        if (dob && typeof dob === 'string' && dob.match(/\d{4}-\d{2}-\d{2}/)) {
+          const dt = new Date(dob);
+          dob = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        } else if (dob && typeof dob === 'string' && dob.match(/\w{3},/)) {
+          // Try to parse RFC date string
+          const dt = new Date(dob);
+          if (!isNaN(dt)) dob = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+        pairs.appendChild(row2('Date of Birth:', dob, 'Age:', d.age));
+        pairs.appendChild(row2('Sex:', d.sex, 'Citizenship:', d.citizenship));
+        pairs.appendChild(row3('Current Address:', d.cur_add, 'Year of Residence:', d.year_of_residence, 'Phone Number:', d.phone_number));
+        pairs.appendChild(row1('Area (HOA):', d.hoa || '', 'text'));
+        if (cat === 'hoa_member') {
+          pairs.appendChild(row3('Block Assignment:', d.blk_num || '', 'Lot Assignment:', d.lot_num || '', 'Lot Size:', d.lot_size || ''));
+        }
+        pairs.appendChild(row2('Civil Status:', d.civil_status || '', 'Recipient of Other Housing:', d.recipient_of_other_housing || ''));
+        // Show supporting documents for HOA members only (not non_member)
+        if (cat === 'hoa_member') {
+          const docSection = createSupportingDocsSection(d.supporting_documents, cat);
+          if (docSection) pairs.appendChild(docSection);
+        }
+        // Add connection to lot field for non-HOA members
+        if (cat === 'non_member') {
+          const connRow = document.createElement('div');
+          connRow.className = 'pair-row';
+          connRow.innerHTML = `<div class="col" style="width:100%"><label class="small">How are you connected to the lot you are complaining about?</label><input type="text" value="${d.connections || ''}" readonly></div>`;
+          pairs.appendChild(connRow);
+        }
       }
-      pairs.appendChild(row1('Area (HOA):', hoaValue, 'text'));
-      const docSection = createSupportingDocsSection();
-      if (docSection) pairs.appendChild(docSection);
-    } else {
-      pairs.appendChild(row1('Current Address:', d.cur_add));
-    }
 
-    container.innerHTML = '';
-    container.appendChild(pairs);
+      if (cat === 'family_of_member' && d.parent_info) {
+    const wrapper = document.createElement('div');
+    wrapper.style.marginTop = '20px';
+    const sectionHeader = document.createElement('div');
+    sectionHeader.className = 'section-header';
+    sectionHeader.textContent = 'HOA MEMBER INFORMATION';
+    wrapper.appendChild(sectionHeader);
 
-  } catch (e) {
-    console.error(e);
+    const memberPairs = document.createElement('div');
+    memberPairs.className = 'pairs';
+    const p = d.parent_info;
+
+  memberPairs.appendChild(row1('Full Name:', normalizeName(p.full_name)));
+  // Format parent date_of_birth as 'Month Day, Year' if possible
+  let pdob = p.date_of_birth;
+  if (pdob && typeof pdob === 'string' && pdob.match(/\d{4}-\d{2}-\d{2}/)) {
+    const dt = new Date(pdob);
+    pdob = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  } else if (pdob && typeof pdob === 'string' && pdob.match(/\w{3},/)) {
+    // Try to parse RFC date string
+    const dt = new Date(pdob);
+    if (!isNaN(dt)) pdob = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   }
-});
-</script>
+  memberPairs.appendChild(row2('Date of Birth:', pdob, 'Age:', p.age));
+  memberPairs.appendChild(row2('Sex:', p.sex, 'Citizenship:', p.citizenship));
+  memberPairs.appendChild(row2('Current Address:', p.current_address, 'Year of Residence:', p.year_of_residence || ''));
+  memberPairs.appendChild(row1('Area (HOA):', p.hoa || '', 'text'));
+  memberPairs.appendChild(row3('Block Assignment:', p.blk_num || '', 'Lot Assignment:', p.lot_num || '', 'Lot Size:', p.lot_size || ''));
+  memberPairs.appendChild(row3('Civil Status:', p.civil_status || '', 'Recipient of Other Housing:', p.recipient_of_other_housing || '', 'Relationship:', d.relationship || ''));
+
+   // Show supporting documents for family_of_member only at the end of HOA MEMBER INFORMATION
+   const docSection = createSupportingDocsSection(p.supporting_documents, 'family_of_member');
+   if (docSection) memberPairs.appendChild(docSection);
+
+    wrapper.appendChild(memberPairs);
+    memberWrapper = wrapper;
+      } else if (cat === 'family_of_member' && !d.parent_info) {
+        const warn = document.createElement('div');
+        warn.style.color='red'; warn.style.fontWeight='bold'; warn.style.margin='16px 0';
+        warn.textContent = 'HOA MEMBER INFORMATION is missing (no parent_info in session data).';
+        pairs.appendChild(warn);
+      }
+
+      container.innerHTML = '';
+      container.appendChild(pairs);
+      if (memberWrapper) container.appendChild(memberWrapper);
+
+    } catch (e) {
+      console.error('Error fetching complainant data:', e);
+    }
+
+    // --- Signature upload ---
+    const signatureInput = document.getElementById('signatureInput');
+    const signatureFileName = document.getElementById('signatureFileName');
+    signatureInput.addEventListener('change', () => {
+      signatureFileName.textContent = signatureInput.files[0]?.name || '';
+    });
+
+    // --- Exclusive 'None' / 'Not applicable' logic (per group) ---
+    function setupExclusiveNone(checkboxes, exclusiveValue) {
+      if (!checkboxes || !checkboxes.length) return;
+      const exclusive = Array.from(checkboxes).find(cb => (cb.value||'').toLowerCase() === exclusiveValue);
+      const others = Array.from(checkboxes).filter(cb => cb !== exclusive);
+      if (!exclusive) return;
+
+      // Helper: add or remove 'disabled' class to label and grey out text
+      function setLabelDisabled(cb, disabled) {
+        const label = cb.closest('label');
+        if (label) {
+          if (disabled) label.classList.add('disabled');
+          else label.classList.remove('disabled');
+        }
+      }
+
+      exclusive.addEventListener('change', () => {
+        if (exclusive.checked) {
+          others.forEach(cb => {
+            cb.checked = false;
+            cb.disabled = true;
+            setLabelDisabled(cb, true);
+          });
+        } else {
+          others.forEach(cb => {
+            cb.disabled = false;
+            setLabelDisabled(cb, false);
+          });
+        }
+      });
+
+      others.forEach(cb => {
+        cb.addEventListener('change', () => {
+          if (cb.checked) {
+            exclusive.checked = false;
+            exclusive.disabled = false;
+            setLabelDisabled(exclusive, false);
+          }
+        });
+      });
+    }
+
+    // Q8: Has the dispute led to any of the following? (Check all that apply)
+    // These checkboxes do NOT have a name, so select by label text and group
+    (function() {
+      // Find the Q8 label
+      const q8Label = Array.from(form.querySelectorAll('p')).find(p => p.textContent.trim().startsWith('8. Has the dispute led'));
+      if (q8Label) {
+        // Get all checkboxes until the next <label> with a <strong> or <p> (next question)
+        let checkboxes = [];
+        let el = q8Label.nextElementSibling;
+        while (el && el.tagName === 'LABEL' && !el.querySelector('strong') && !el.querySelector('p')) {
+          const cb = el.querySelector('input[type="checkbox"]');
+          if (cb) checkboxes.push(cb);
+          el = el.nextElementSibling;
+        }
+        setupExclusiveNone(checkboxes, 'none');
+      }
+    })();
+
+  // Q9: Reported to authority (None is exclusive)
+  setupExclusiveNone(form.querySelectorAll('input[name="q9"]'), 'none');
+  // Q11: Result of inspection (Not applicable is exclusive)
+  setupExclusiveNone(form.querySelectorAll('input[name="q11"]'), 'not applicable');
+  });
+  </script>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function() {
   const form = document.getElementById('BoundaryDisputeForm');
-  if (!form) return;
+  const submitBtn = document.getElementById('submitBtn');
+  const sigInput = document.getElementById('signatureInput');
+  const sigName = document.getElementById('signatureFileName');
 
-  // --- small CSS hint for disabled labels (visual cue) ---
-  const style = document.createElement('style');
-  style.textContent = `
-    label.disabled { opacity: 0.6; }
-    label.disabled input { cursor: not-allowed; }
-  `;
-  document.head.appendChild(style);
+  if (!form || !submitBtn) return;
+
+  // --- Helper to show blue popup errors ---
+  function showErrorPop(msg) {
+    const pop = document.getElementById('errorPop');
+    const popMsg = document.getElementById('errorPopMsg');
+    if (!pop || !popMsg) return;
+    popMsg.textContent = msg;
+    pop.style.display = 'block';
+    pop.style.opacity = '1';
+    setTimeout(() => {
+      pop.style.opacity = '0';
+      setTimeout(() => { pop.style.display = 'none'; }, 400);
+    }, 1000);
+  }
+
+  // --- Enable submit button when signature is uploaded ---
+  if (sigInput) {
+    sigInput.addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+        if (sigName) sigName.textContent = this.files[0].name;
+        submitBtn.style.display = 'inline-block';
+        submitBtn.disabled = false;
+      } else {
+        if (sigName) sigName.textContent = '';
+        submitBtn.style.display = 'none';
+        submitBtn.disabled = true;
+      }
+    });
+  }
+
+  // --- Form submission ---
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+      const fd = new FormData(form);
+
+      // Gather dynamic block/lot pairs for non-members (if any)
+      const pairsContainer = document.getElementById('pairsContainer');
+      if (pairsContainer) {
+        const rows = Array.from(pairsContainer.querySelectorAll('.pair-row'));
+        const blockLotData = rows.map(row => {
+          const block = row.querySelector('input[name="block_no[]"]')?.value.trim() || '';
+          const lot = row.querySelector('input[name="lot_no[]"]')?.value.trim() || '';
+          return { block, lot };
+        }).filter(r => r.block || r.lot);
+        if (blockLotData.length) fd.append('block_lot', JSON.stringify(blockLotData));
+      }
+
+      // Submit via fetch to pathway dispute endpoint
+      const res = await fetch('/complainant/pathway_dispute/submit_pathway_dispute', {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+
+      let data;
+      try { data = await res.json(); } catch { data = {}; }
+
+      if (data.success) {
+        // Success: redirect to dashboard
+        window.location.href = '/complainant/home/dashboard.html';
+      } else {
+        // Failure: show popup or alert
+        if (data.field === 'block_lot' && data.message) {
+          showErrorPop(data.message);
+        } else if (data.errors) {
+          showErrorPop(Array.isArray(data.errors) ? data.errors.join('\n') : data.errors);
+        } else {
+          showErrorPop(data.message || 'Submission failed.');
+        }
+        if (submitBtn) submitBtn.disabled = false;
+      }
+
+    } catch (err) {
+      showErrorPop('An error occurred during submission. Please try again.');
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
 });
 </script>
+
 </body>
 </html>

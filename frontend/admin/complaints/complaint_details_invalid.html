@@ -6,6 +6,66 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
+  <style>
+    /* Read-only styles for final complaint states */
+    /* Hide only Resolve/Unresolve buttons */
+    .readonly-mode .resolved-btn,
+    .readonly-mode .unresolve-btn,
+    .readonly-mode .modal-buttons .resolved-btn,
+    .readonly-mode .modal-buttons .unresolve-btn,
+    .readonly-mode button[onclick*="showResolveModal"],
+    .readonly-mode button[onclick*="showUnresolvedModal"] {
+      display: none !important;
+    }
+    
+    /* Disable other action buttons but keep them visible */
+    .readonly-mode button:not(.back-arrow):not(.resolved-btn):not(.unresolve-btn):not(.file-btn) {
+      opacity: 0.5 !important;
+      pointer-events: none !important;
+      cursor: not-allowed !important;
+    }
+    
+    .readonly-mode .timeline .file-btn {
+      display: inline-block !important; /* Keep file buttons visible and functional */
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    
+    .readonly-mode .timeline-entry {
+      pointer-events: none;
+    }
+    
+    .readonly-mode-banner {
+      background: linear-gradient(135deg, #f39c12, #e74c3c);
+      color: white;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      text-align: center;
+      font-weight: bold;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .readonly-mode-banner.resolved {
+      background: linear-gradient(135deg, #27ae60, #2ecc71);
+    }
+    
+    .readonly-mode-banner.unresolved {
+      background: linear-gradient(135deg, #e74c3c, #c0392b);
+    }
+    
+    .readonly-mode-banner.out-of-jurisdiction {
+      background: linear-gradient(135deg, #f39c12, #d68910);
+    }
+    
+    .readonly-value {
+      background: #f3f3f3;
+      color: #888;
+      border-radius: 4px;
+      padding: 4px 8px;
+      display: inline-block;
+    }
+  </style>
 </head>
 <body>
   <!-- Sidebar -->
@@ -28,7 +88,7 @@
       <div class="header-content">
         <div class="header-left">
           <button class="back-arrow" onclick="goBack()" title="Back to Complaints">←</button>
-          <h1>Complaint</h1>
+          <h1>Complaint (Out of Jurisdiction)</h1>
         </div>
       </div>
     </header>
@@ -36,32 +96,222 @@
     <div class="complaint-layout" style="margin-top: 30px;">
       <!-- Complaint Form Placeholder -->
       <!-- TODO BACKEND: Populate complaint-form div with complaint details from DB -->
-      <div class="complaint-form">Complaint form data will load here...</div>
+      <div class="complaint-form" id="complaintDetails">Loading complaint details...</div>
 
       <!-- Right Panel -->
       <div class="right-panel">
-
-        <!-- TODO BACKEND: Replace static timeline entries with timeline data from DB -->
-        <div class="timeline">
-          <div class="timeline-entry">
-            <h4>6/19/2025 - Send Invitation 
-              <button class="file-btn" data-pdf="sample.pdf"></button> 
-              <span>Josie Rosal</span>
-            </h4>
-            <p>An invitation has been sent...</p>
+        <div class="map-card" id="mapCard">
+          <div id="mapLoading" style="text-align: center; padding: 20px; color: #666;">Loading map...</div>
+          <div id="mapContent" style="display: none;">
+            <h4 id="areaTitle">Area Map</h4>
+            <div id="svgContainer" style="width: 100%; height: 300px; overflow: hidden; border: 2px solid #ddd; border-radius: 8px; position: relative;"></div>
           </div>
-          <div class="timeline-entry">
-            <h4>6/13/2025 - Assessment <span>Josie Rosal</span></h4>
-            <p>Upon inspection, the staff verified the complaint’s validity...</p>
+          <div id="mapError" style="display: none; text-align: center; padding: 20px; color: #999;">
+            <p>Map not available</p>
           </div>
         </div>
-        <a href="/admin/complaints/all.html">
-            <button class="resolved-btn">Close</button>
+
+        <!-- Dynamic Timeline Component -->
+        <div class="timeline" id="complaintTimeline">
+          <div class="timeline-loading" id="timelineLoading" style="text-align: center; padding: 20px; color: #666;">
+            Loading timeline...
+          </div>
+        </div>
+        
+        <a href="/admin/complaints/invalid.html">
+          <button class="resolved-btn">Close</button>
         </a>
       </div>
     </div>
 
   <script>
+  // Get complaint ID from URL
+  function getComplaintIdFromURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('id');
+  }
+
+  // Load complaint details and timeline
+  async function loadComplaintData() {
+    const complaintId = getComplaintIdFromURL();
+    if (!complaintId) {
+      document.getElementById('complaintDetails').innerHTML = 'Error: No complaint ID provided';
+      return;
+    }
+
+    try {
+      // Load complaint details (use the same endpoint as valid complaints)
+      const detailsResponse = await fetch(`/admin/complaints/api/complaint/${complaintId}`);
+      const detailsData = await detailsResponse.json();
+      
+      if (detailsData.success && detailsData.complaint) {
+        displayComplaintDetails(detailsData.complaint);
+        // Check if complaint is in final state and apply read-only mode
+        checkAndApplyReadOnlyMode(detailsData.complaint);
+      }
+
+      // Load timeline
+      const timelineResponse = await fetch(`/admin/complaints/api/timeline/${complaintId}?role=admin`);
+      const timelineData = await timelineResponse.json();
+      
+      if (timelineData.success && timelineData.timeline) {
+        displayTimeline(timelineData.timeline);
+      }
+
+      // Load area map if area data is available
+      if (detailsData.success && detailsData.complaint) {
+        loadAreaMap(detailsData.complaint);
+      }
+      
+    } catch (error) {
+      console.error('Error loading complaint data:', error);
+      document.getElementById('complaintDetails').innerHTML = 'Error loading complaint details';
+      document.getElementById('complaintTimeline').innerHTML = 'Error loading timeline';
+    }
+  }
+
+  // Display complaint details in read-only format (matching admin complaint structure for resolved complaints)
+  function displayComplaintDetails(complaint) {
+    const container = document.getElementById('complaintDetails');
+    
+    // Use simple text display matching the admin resolved complaint format
+    container.innerHTML = `Complaint form data will load here...`;
+  }
+
+  // Display timeline entries
+  function displayTimeline(timeline) {
+    const container = document.getElementById('complaintTimeline');
+    
+    if (!timeline || timeline.length === 0) {
+      container.innerHTML = '<p>No timeline entries available</p>';
+      return;
+    }
+
+    const timelineHtml = timeline.map(entry => {
+      const date = entry.action_datetime ? new Date(entry.action_datetime).toLocaleDateString() : 'Unknown date';
+      const action = entry.type_of_action || 'Unknown action';
+      const assignedTo = entry.assigned_to ? ` - ${entry.assigned_to}` : '';
+      const description = entry.description || `${action} action performed`;
+      
+      return `
+        <div class="timeline-entry">
+          <h4>${date} - ${action}${assignedTo}</h4>
+          <p>${description}</p>
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = timelineHtml;
+  }
+
+  // Load area map (matching admin format)
+  function loadAreaMap(complaint) {
+    const mapLoading = document.getElementById('mapLoading');
+    const mapContent = document.getElementById('mapContent');
+    const mapError = document.getElementById('mapError');
+    
+    if (mapLoading) mapLoading.style.display = 'none';
+    
+    if (!complaint.area_name) {
+      if (mapError) {
+        mapError.style.display = 'block';
+        mapError.innerHTML = '<p>Map not available</p>';
+      }
+      return;
+    }
+    
+    if (mapContent) {
+      mapContent.style.display = 'block';
+      const areaTitle = document.getElementById('areaTitle');
+      if (areaTitle) {
+        areaTitle.textContent = `${complaint.area_name} Area Map`;
+      }
+    }
+  }
+
+  // Check complaint stage and apply read-only mode for final states (copied from admin complaint_details_valid.html)
+  function checkAndApplyReadOnlyMode(complaint) {
+    const finalStates = ['Resolved', 'Unresolved', 'Out of Jurisdiction'];
+    const complaintStage = complaint.complaint_stage;
+    
+    if (!finalStates.includes(complaintStage)) {
+      return; // Not a final state, keep normal functionality
+    }
+    
+    // Apply read-only mode
+    document.body.classList.add('readonly-mode');
+    
+    // Create and insert banner
+    const banner = document.createElement('div');
+    banner.className = `readonly-mode-banner ${complaintStage.toLowerCase().replace(' ', '-')}`;
+    
+    let bannerText = '';
+    switch (complaintStage) {
+      case 'Resolved':
+        bannerText = '✅ This complaint has been resolved by admin. No further actions are available.';
+        break;
+      case 'Unresolved':
+        bannerText = '❌ This complaint has been marked as unresolved by admin. No further actions are available.';
+        break;
+      case 'Out of Jurisdiction':
+        bannerText = '⚠️ This complaint has been marked as out of jurisdiction. No further actions are available.';
+        break;
+    }
+    
+    banner.innerHTML = bannerText;
+    
+    // Insert banner at the top of main content
+    const mainContent = document.querySelector('.main-content');
+    const header = mainContent.querySelector('.header');
+    if (header && header.nextElementSibling) {
+      header.parentNode.insertBefore(banner, header.nextElementSibling);
+    } else {
+      mainContent.insertBefore(banner, mainContent.firstChild);
+    }
+    
+    // Hide only Resolve/Unresolve buttons
+    const buttonsToHide = [
+      '.resolved-btn',
+      '.unresolve-btn',
+      'button[onclick*="showResolveModal"]',
+      'button[onclick*="showUnresolvedModal"]'
+    ];
+    
+    buttonsToHide.forEach(selector => {
+      document.querySelectorAll(selector).forEach(btn => {
+        btn.style.display = 'none';
+      });
+    });
+    
+    // Disable other action buttons but keep them visible
+    const buttonsToDisable = [
+      'button[onclick*="showAssignModal"]',
+      'button[onclick*="acceptInvitationModal"]',
+      '.modal-buttons button:not(.cancel-btn):not(.resolved-btn):not(.unresolve-btn)'
+    ];
+    
+    buttonsToDisable.forEach(selector => {
+      document.querySelectorAll(selector).forEach(btn => {
+        btn.style.opacity = '0.5';
+        btn.style.pointerEvents = 'none';
+        btn.style.cursor = 'not-allowed';
+        btn.disabled = true;
+      });
+    });
+    
+    // Disable timeline interactions except file viewing
+    document.querySelectorAll('.timeline-entry').forEach(entry => {
+      entry.style.pointerEvents = 'none';
+      entry.style.opacity = '0.8';
+      
+      // Re-enable file buttons
+      entry.querySelectorAll('.file-btn').forEach(fileBtn => {
+        fileBtn.style.pointerEvents = 'auto';
+        fileBtn.style.opacity = '1';
+      });
+    });
+  }
+
   // Back arrow functionality
   function goBack() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -70,18 +320,16 @@
     if (referrer) {
       // Check if referrer is a valid complaint page
       const validPages = ['all', 'pending', 'ongoing', 'resolved', 'invalid', 'assigned'];
-      if (validPages.includes(referrer)) {
-        window.location.href = `/admin/complaints/${referrer}.html`;
+      if (validPages.some(page => referrer.includes(page))) {
+        window.location.href = `/admin/complaints/${referrer}`;
       } else {
-        window.location.href = '/admin/complaints/all.html';
+        window.location.href = '/admin/complaints/invalid.html';
       }
     } else {
-      // Try to go back in browser history, or fallback to all complaints
-      if (document.referrer && document.referrer.includes('/admin/complaints/')) {
-        window.history.back();
-      } else {
-        window.location.href = '/admin/complaints/all.html';
-      }
+      window.location.href = '/admin/complaints/invalid.html';
     }
   }
+
+  // Initialize page
+  document.addEventListener('DOMContentLoaded', loadComplaintData);
   </script>

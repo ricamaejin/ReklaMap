@@ -89,7 +89,7 @@
       <a href="pending.html">Received</a>
       <a href="ongoing.html">On Going</a>
       <a href="resolved.html">Resolved</a>
-      <a href="invalid.html" class="active">Invalid</a>
+      <a href="invalid.html" class="active">Out of Jurisdiction</a>
       <a href="unresolved.html">Unresolved</a>
     </div>
 
@@ -98,6 +98,7 @@
     <table class="complaints-table">
       <thead>
         <tr>
+          <th style="text-align: center;">ID No.</th> <!-- Just the number from database, future format: RK-2024-001 -->
           <th style="text-align: center;">Date Submitted</th>
           <th style="text-align: center;">Complainant</th>
           <th style="text-align: center;">Type of Complaint</th>
@@ -192,7 +193,7 @@
       tbody.innerHTML = '';
       
       if (complaints.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No invalid complaints</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No invalid complaints</td></tr>';
         return;
       }
       
@@ -201,16 +202,17 @@
         row.style.cursor = 'pointer';
         
         row.addEventListener('click', () => {
-          window.location.href = `/admin/complaints/complaint_details_invalid.html?id=${complaint.complaint_id}&referrer=invalid.html`;
+          window.location.href = `/admin/complaints/complaint_details_valid.html?id=${complaint.complaint_id}&referrer=invalid.html`;
         });
         
         row.innerHTML = `
+          <td>${complaint.complaint_id}</td>
           <td>${formatDateWithTimestamp(complaint.date_received)}</td>
           <td>${complaint.complainant_name || 'N/A'}</td>
           <td>${complaint.type_of_complaint}</td>
           <td>${complaint.area_name || 'N/A'}</td>
           <td>${complaint.address || 'N/A'}</td>
-          <td>Invalid</td>
+          <td>Out of Jurisdiction</td>
           <td><button class="priority-${complaint.priority_level.toLowerCase()}">${complaint.priority_level}</button></td>
         `;
         

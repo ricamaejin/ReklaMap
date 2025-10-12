@@ -96,7 +96,7 @@
       <a href="pending.html">Received</a>
       <a href="ongoing.html" class="active">On Going</a>
       <a href="resolved.html">Resolved</a>
-      <a href="invalid.html">Invalid</a>
+      <a href="invalid.html">Out of Jurisdiction</a>
       <a href="unresolved.html">Unresolved</a>
     </div>
 
@@ -105,6 +105,7 @@
     <table class="complaints-table">
       <thead>
         <tr>
+          <th style="text-align: center;">ID No.</th> <!-- Future format: MMDDYY-ID (e.g., 100825-123) -->
           <th style="text-align: center;">Date Submitted</th>
           <th style="text-align: center;">Complainant</th>
           <th style="text-align: center;">Type of Complaint</th>
@@ -212,7 +213,7 @@
       
       if (!complaints || complaints.length === 0) {
         console.log('No complaints to display');
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No ongoing complaints</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No ongoing complaints</td></tr>';
         return;
       }
       
@@ -235,7 +236,7 @@
           const actionType = (complaint.latest_action || complaint.action_needed || '').toLowerCase();
           const actionDate = new Date(complaint.action_datetime);
           
-          // Get admin-set deadline for inspection from complaint history/actions
+          // Get admin-set deadline for inspection from complaint history/actions - use the deadline from API
           let adminDeadline = null;
           if (complaint.deadline) {
             adminDeadline = new Date(complaint.deadline);
@@ -249,12 +250,15 @@
           
           if (actionType.includes('inspection') && !actionType.includes('done')) {
             // Inspection → Use admin-set deadline
+            console.log(`[ONGOING] Complaint ${complaint.complaint_id}: deadline field = "${complaint.deadline}", adminDeadline = ${adminDeadline}`);
             if (adminDeadline) {
               const dateStr = adminDeadline.toLocaleDateString();
               const timeStr = actionDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+              console.log(`[ONGOING] Using admin deadline: ${dateStr}`);
               return `${dateStr}<br/>${timeStr}`;
             }
             // Fallback to 3 days if no admin deadline set
+            console.log(`[ONGOING] No admin deadline, using 3-day fallback`);
             const deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
             const dateStr = deadline.toLocaleDateString();
             const timeStr = actionDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -299,6 +303,7 @@
         };
         
         row.innerHTML = `
+          <td>${complaint.complaint_id}</td>
           <td>${formatDateWithTimestamp(complaint.date_received)}</td>
           <td>${complaint.complainant_name || complaint.complainant || 'N/A'}</td>
           <td>${complaint.type_of_complaint}</td>
