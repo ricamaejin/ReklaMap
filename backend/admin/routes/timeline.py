@@ -12,9 +12,9 @@ def generate_action_description(action_type, assigned_to, role='admin'):
         'Inspection done': f'Site inspection completed by {assigned_to}' if assigned_to else 'Site inspection completed by staff',
         'Invitation': f'Send Invitation task assigned to {assigned_to}' if assigned_to else 'Send Invitation task assigned to staff', 
         'Sent Invitation': f'Invitation sent by {assigned_to}' if assigned_to else 'Invitation sent to involved parties by staff',
-        'Accepted Invitation': f'Invitation sent by both parties (ready for mediation)' if assigned_to else 'Invitation sent to involved parties by staff',
+        'Accepted Invitation': f'Invite accepted by both parties (ready for mediation)' if assigned_to else 'Invitation sent to involved parties by staff',
         'Mediation': 'Mediation has been concluded (proceed to assessment)',
-        'Assessment': f'Assessment completed by {assigned_to} (ready to mark as resolved)',
+        'Assessment': f'Assessment completed (ready to mark as resolved)',
         'Resolved': 'Complaint resolved and moved to resolved view'
     }
     
