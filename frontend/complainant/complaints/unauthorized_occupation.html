@@ -53,6 +53,7 @@
   <!-- Main Form -->
   <div class="main">
     <div class="form-container">
+      <form method="post" enctype="multipart/form-data" autocomplete="off">
       <h1 style="text-decoration: underline;">COMPLAINT FORM <br> UNAUTHORIZED OCCUPATION</h1>
       <div class="instructions">
         <p><strong>INSTRUCTION</strong></p>
@@ -68,8 +69,26 @@
       <div class="section-header">COMPLAINANT'S DETAILS:</div>
       <div id="complainantDetails"></div>
 
+
       <!-- Section 1 -->
       <div class="section-header">LOT DETAILS AND CLAIM:</div>
+
+      <!-- Non-member only: Block/Lot pairs involved in the dispute (excluding theirs) -->
+      <div id="nonMemberBlockLotSection" style="display:none; margin-bottom: 18px;">
+        <p style="font-weight:bold;">Please indicate your Block and Lot number.</p>
+        <div class="pairs" id="blockLotPairsContainer" aria-live="polite">
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Block No.</label>
+              <input type="text" name="block_no[]" placeholder="Block No.">
+            </div>
+            <div class="col">
+              <label class="small">Lot No.</label>
+              <input type="text" name="lot_no[]" placeholder="Lot No.">
+            </div>
+          </div>
+        </div>
+      </div>
 
       <p style="font-weight: bold;">1. What is your legal connection to this property?</p>
       <label><input type="radio" name="legal_connection" value="beneficiary"> I am an awarded beneficiary.</label>
@@ -86,9 +105,9 @@
         </div>
       </div>
       <button type="button" class="btn add small" id="addPersonBtn" style="margin-left: 15px; margin-bottom: 12px;">+ Add another person</button>
-
+  
       <p style="font-weight: bold;">3.  When did you first notice the unauthorized occupation?</p>
-      <input style="width: 20%; padding: 8px;  margin-left: 15px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;" type="date">
+      <input style="width: 20%; padding: 8px;  margin-left: 15px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;" type="date" name="noticed_date">
 
       <p style="font-weight: bold;">4. What activities are being done on the property? <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></p>
       <label><input type="checkbox" name="activities" value="living"> Living/residing on the lot</label>
@@ -114,22 +133,23 @@
       <label><input type="radio" name="occupant_claim" value="unknown"> I don't know / I haven't asked.</label>
 
       <p style="font-weight: bold;">6. Have you tried to resolve this directly with the occupant?</p>
+
       <label><input type="radio" name="approach" value="yes" id="approachYes"> Yes, I have spoken with them</label>
-      <div id="approachYesDetails" style="display: none; margin-left: 22px;">
-        <p style="font-weight: bold; margin-left: 15px;">What was their response?</p>
-        <label><input type="radio" name="approachDetails" style="margin-left: 33px;"> They admitted they have no documents</label>
-        <label><input type="radio" name="approachDetails" style="margin-left: 33px;"> They refused to leave the lot</label>
-        <label><input type="radio" name="approachDetails" style="margin-left: 33px;"> They claim they are the real owner</label>
-        <label><input type="radio" name="approachDetails" style="margin-left: 33px;"> They ignored me</label>
-        <label><input type="radio" name="approachDetails" style="margin-left: 33px;"> They became hostile or aggressive</label>
-      </div>
+        <div id="approachYesDetails" style="display: none; margin-left: 22px;">
+          <p>If yes, what was their response?</p>
+          <label><input type="radio" name="approach_details" value="no_docs"> They admitted they have no documents</label>
+          <label><input type="radio" name="approach_details" value="refused_leave"> They refused to leave the lot</label>
+          <label><input type="radio" name="approach_details" value="claim_owner"> They claim they are the real owner</label>
+          <label><input type="radio" name="approach_details" value="ignored"> They ignored me</label>
+          <label><input type="radio" name="approach_details" value="hostile"> They became hostile or aggressive</label>
+        </div>
 
       <label><input type="radio" name="approach" value="no" id="approachNo"> No</label>
       <div id="approachNoDetails" style="display: none; margin-left: 22px;">
         <p style="font-weight: bold; margin-left: 15px;">Why not?</p>
-        <label><input type="radio" name="approachNoDetails" style="margin-left: 33px;"> I was advised not to confront them</label>
-        <label><input type="radio" name="approachNoDetails" style="margin-left: 33px;"> I do not know them personally</label>
-        <label><input type="radio" name="approachNoDetails" style="margin-left: 33px;"> I am not currently living in the area</label>
+        <label><input type="radio" name="approachNoDetails" value="advised_not" style="margin-left: 33px;"> I was advised not to confront them</label>
+        <label><input type="radio" name="approachNoDetails" value="dont_know" style="margin-left: 33px;"> I do not know them personally</label>
+        <label><input type="radio" name="approachNoDetails" value="not_residing" style="margin-left: 33px;"> I am not currently living in the area</label>
       </div>
 
       <label><strong>7. Have you reported this boundary issue to any office or authority?</strong> <i style="font-size: 14px; font-weight: normal; color: grey;">(Check all that apply)</i></label>
@@ -138,43 +158,18 @@
       <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> NGC</label>
       <label><input type="checkbox" name="boundary_reported_to[]" value="NGC"> USAD - PHASELAD</label>
       <label><input type="checkbox" name="boundary_reported_to[]" value="none"> None</label>
-
-      <p style="font-weight: bold;">8. What was the result of that report?</p>
-      <label><input type="radio" name="result"> The occupant was formally asked to leave</label>
-      <label><input type="radio" name="result"> I was asked to provide more documents</label>
-      <label><input type="radio" name="result"> Still under investigation</label>
-      <label><input type="radio" name="result"> The issue is still pending or unresolved.</label>
-
-        // --- Autofill Q1: How are you connected to the lot (for non-members, checkboxes) ---
-        if (cat === 'non_member' && d.connections) {
-          // d.connections may be an array or object (array preferred)
-          let checkedValues = Array.isArray(d.connections) ? d.connections : [];
-          if (!Array.isArray(checkedValues) && typeof d.connections === 'object') {
-            checkedValues = Object.keys(d.connections).filter(k => d.connections[k]);
-          }
-          // For each value, check the corresponding checkbox
-          checkedValues.forEach(val => {
-            const selector = `input[name="legal_connection"][value="${val}"]`;
-            const el = document.querySelector(selector);
-            if (el) {
-              el.checked = true;
-            }
-          });
-        } else if (cat !== 'non_member' && d.legal_connection) {
-          // For members/family_of_member, autofill the radio
-          const selector = `input[name="legal_connection"][value="${d.legal_connection}"]`;
-          const el = document.querySelector(selector);
-          if (el) {
-            el.checked = true;
-          }
-        }
-      <label><input type="radio" name="result"> No action was taken by the authority.</label>
-      <label><input type="radio" name="result" style="margin-bottom: 12px;"> I was told I have no valid claim</label>
+  <p style="font-weight: bold;">8. What was the result of that report?</p>
+  <label><input type="radio" name="result" value="asked_to_leave"> The occupant was formally asked to leave</label>
+  <label><input type="radio" name="result" value="provide_docs"> I was asked to provide more documents</label>
+  <label><input type="radio" name="result" value="investigation"> Still under investigation</label>
+  <label><input type="radio" name="result" value="pending"> The issue is still pending or unresolved.</label>
+  <label><input type="radio" name="result" value="no_action"> No action was taken by the authority.</label>
+  <label><input type="radio" name="result" value="no_valid_claim" style="margin-bottom: 12px;"> I was told I have no valid claim</label>
 
       <!-- Section 2 -->
       <p class="section-label" style="color: black;">Please describe what happened briefly, including how you found out about the issue.</p>
-      <textarea></textarea>
-
+      <textarea name="description"></textarea>
+      
       <!-- Section 3 -->
       <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
       <div class="consent">
@@ -182,13 +177,38 @@
       </div>
 
       <div class="signature">
-        <input type="file" id="signatureInput" accept="image/*" style="display:none;" />
-        <button type="button" class="upload-btn" onclick="document.getElementById('signatureInput').click()">Upload Signature</button>
-        <span id="signatureFileName" style="margin-left:10px;  font-style:italic;"></span>
+          <input type="file" id="signatureInput" name="signature" accept="image/*" style="display:none;" />
+          <button type="button" class="upload-btn" onclick="document.getElementById('signatureInput').click()">Upload Signature</button>
+          <span id="signatureFileName" style="margin-left:10px;  font-style:italic;"></span>
+        <button type="submit" id="submitBtn" class="btn" style="display:none; margin-top:12px;" disabled>Submit Complaint</button>
       </div>
+
+
+      <!-- Blue popup for error messages -->
+        <div id="errorPop" 
+          style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);z-index:999;background:#e3f2fd;color:#083048;width:max-content;padding:16px 28px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.12);font-weight:500;min-width:220px;max-width:340px;transition:opacity .2s;">
+          <span id="errorPopMsg"></span>
+        </div>
+      </form>
     </div>
   </div>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  fetch('/complainant/unauthorized_occupation/get_unauthorized_occupation_session_data', { credentials: 'same-origin' })
+    .then(r => {
+      if (!r.ok) throw new Error('Failed to fetch session data');
+      return r.json();
+    })
+    .then(d => {
+      console.log('Session category:', d.category); // ✅ Debug check
+      if (d && d.category === 'non_member') {
+        document.getElementById('nonMemberBlockLotSection').style.display = '';
+      }
+    })
+    .catch(err => console.error('Error showing non-member section:', err));
+});
+</script>
 
 <script>
 function toggleSection(radioId, detailsId) {
@@ -347,6 +367,7 @@ toggleDetailsByRadioValue("occupant_claim", "docs", "reasonDetails");
 // fix No. 9: show previous complaint reference only when "Yes" is selected
 toggleDetailsByRadioValue("previous_complaint", "yes", "prevComplaintDetails");
 </script>
+
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -573,36 +594,164 @@ document.addEventListener('DOMContentLoaded', async () => {
     container.innerHTML = '';
     container.appendChild(pairs);
     if (memberWrapper) container.appendChild(memberWrapper);
-
-    // --- Autofill Q1: How are you connected to the lot (for non-members, checkboxes) ---
-    if (cat === 'non_member' && d.connections) {
-      // d.connections may be an array or object (array preferred)
-      let checkedValues = Array.isArray(d.connections) ? d.connections : [];
-      if (!Array.isArray(checkedValues) && typeof d.connections === 'object') {
-        checkedValues = Object.keys(d.connections).filter(k => d.connections[k]);
-      }
-      // For each value, check the corresponding checkbox
-      checkedValues.forEach(val => {
-        const selector = `input[name="legal_connection"][value="${val}"]`;
-        const el = document.querySelector(selector);
-        if (el) {
-          el.checked = true;
-        }
-      });
-    } else if (cat !== 'non_member' && d.legal_connection) {
-      // For members/family_of_member, autofill the radio
-      const selector = `input[name="legal_connection"][value="${d.legal_connection}"]`;
-      const el = document.querySelector(selector);
-      if (el) {
-        el.checked = true;
-      }
-    }
   } catch (e) {
     console.error('Error fetching complainant data:', e);
   }
 });
 </script>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const submitBtn = document.getElementById('submitBtn');
+  const sigInput = document.getElementById('signatureInput');
+  const sigName = document.getElementById('signatureFileName');
 
+  // --- Enable submit button when signature is uploaded ---
+  if (sigInput && submitBtn) {
+    sigInput.addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+        if (sigName) sigName.textContent = this.files[0].name;
+        submitBtn.style.display = 'inline-block';
+        submitBtn.disabled = false;
+      } else {
+        if (sigName) sigName.textContent = '';
+        submitBtn.style.display = 'none';
+        submitBtn.disabled = true;
+      }
+    });
+    // On load, hide button
+    submitBtn.style.display = 'none';
+    submitBtn.disabled = true;
+  }
+});
+</script>
+
+<script>
+// AJAX form submission for unauthorized occupation
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.querySelector('.form-container form') || document.querySelector('form');
+  const submitBtn = document.getElementById('submitBtn');
+  if (!form || !submitBtn) return;
+
+  // Helper to show blue popup errors
+  function showErrorPop(msg) {
+    const pop = document.getElementById('errorPop');
+    const popMsg = document.getElementById('errorPopMsg');
+    if (!pop || !popMsg) return;
+    popMsg.textContent = msg;
+    pop.style.display = 'block';
+    pop.style.opacity = '1';
+    setTimeout(() => {
+      pop.style.opacity = '0';
+      setTimeout(() => { pop.style.display = 'none'; }, 400);
+    }, 1000);
+  }
+
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    submitBtn.disabled = true;
+    try {
+      const fd = new FormData(form);
+
+      // Q1: legal_connection (radio or checkboxes)
+      const legalConnectionRadios = form.querySelectorAll('input[name="legal_connection"]');
+      if (legalConnectionRadios.length) {
+        if (legalConnectionRadios[0].type === 'checkbox') {
+          // If checkboxes, collect all checked
+          const checked = Array.from(legalConnectionRadios).filter(cb => cb.checked).map(cb => cb.value);
+          fd.set('legal_connection', JSON.stringify(checked));
+        } else {
+          // If radio, just set value
+          const checked = Array.from(legalConnectionRadios).find(r => r.checked);
+          if (checked) fd.set('legal_connection', checked.value);
+        }
+      }
+
+      // Q2: involved_persons (multiple text fields)
+      const personInputs = form.querySelectorAll('input[name="involved_person_name[]"]');
+      if (personInputs.length) {
+        const names = Array.from(personInputs).map(i => i.value.trim()).filter(Boolean);
+        fd.set('involved_persons', JSON.stringify(names));
+      }
+
+      // Q4: activities (checkboxes)
+      const activityCheckboxes = form.querySelectorAll('input[name="activities"]');
+      if (activityCheckboxes.length) {
+        const checked = Array.from(activityCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+        fd.set('activities', JSON.stringify(checked));
+      }
+
+      // Q5a: occupant_documents (checkboxes)
+      const docCheckboxes = form.querySelectorAll('input[name="occupant_documents[]"]');
+      if (docCheckboxes.length) {
+        const checked = Array.from(docCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+        fd.set('occupant_documents', JSON.stringify(checked));
+      }
+
+      // Q6a: approachDetails/approachNoDetails (radio)
+      const approachDetails = form.querySelectorAll('input[name="approachDetails"]');
+      if (approachDetails.length) {
+        const checked = Array.from(approachDetails).find(r => r.checked);
+        if (checked) fd.set('approach_details', JSON.stringify([checked.value]));
+      }
+      const approachNoDetails = form.querySelectorAll('input[name="approachNoDetails"]');
+      if (approachNoDetails.length) {
+        const checked = Array.from(approachNoDetails).find(r => r.checked);
+        if (checked) fd.set('approach_details', JSON.stringify([checked.value]));
+      }
+
+      // Q7: boundary_reported_to (checkboxes)
+      const boundaryCheckboxes = form.querySelectorAll('input[name="boundary_reported_to[]"]');
+      if (boundaryCheckboxes.length) {
+        const checked = Array.from(boundaryCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+        fd.set('boundary_reported_to', JSON.stringify(checked));
+      }
+
+      // Q8: result (radio)
+      const resultRadios = form.querySelectorAll('input[name="result"]');
+      if (resultRadios.length) {
+        const checked = Array.from(resultRadios).find(r => r.checked);
+        if (checked) fd.set('result', checked.value);
+      }
+
+      // Block/Lot pairs for non-members
+      const pairsContainer = document.getElementById('blockLotPairsContainer');
+      if (pairsContainer) {
+        const rows = Array.from(pairsContainer.querySelectorAll('.pair-row'));
+        const blockLotData = rows.map(row => {
+          const block = row.querySelector('input[name="block_no[]"]')?.value.trim() || '';
+          const lot = row.querySelector('input[name="lot_no[]"]')?.value.trim() || '';
+          return { block, lot };
+        }).filter(r => r.block || r.lot);
+        if (blockLotData.length) fd.set('block_lot', JSON.stringify(blockLotData));
+      }
+
+      // Submit via fetch to unauthorized occupation endpoint
+      const res = await fetch('/complainant/unauthorized_occupation/submit_unauthorized_occupation', {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      let data;
+      try { data = await res.json(); } catch { data = {}; }
+      if (res.ok && data.success) {
+        window.location.href = '/complainant/home/dashboard.html';
+      } else {
+        if (data.errors) {
+          showErrorPop(Array.isArray(data.errors) ? data.errors.join('\n') : data.errors);
+        } else if (data.message) {
+          showErrorPop(data.message);
+        } else {
+          showErrorPop('Submission failed.');
+        }
+        submitBtn.disabled = false;
+      }
+    } catch (err) {
+      showErrorPop('An error occurred during submission. Please try again.');
+      submitBtn.disabled = false;
+    }
+  });
+});
+</script>
 </body>
 </html>

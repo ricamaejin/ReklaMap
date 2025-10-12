@@ -338,28 +338,27 @@ def view_complaint(complaint_id):
     if not registration or registration.user_id != user_id:
         return abort(403)
 
-    # Attach supporting documents (if any) to the registration object for template access
+    # Attach supporting documents (if any) to the registration object
     try:
         hoa_member = RegistrationHOAMember.query.filter_by(registration_id=registration.registration_id).first()
         if hoa_member and getattr(hoa_member, 'supporting_documents', None):
-            # Dynamically attach to the model instance for template convenience
             setattr(registration, 'supporting_documents', hoa_member.supporting_documents)
         else:
-            # Ensure attribute exists to simplify template conditionals
             if not hasattr(registration, 'supporting_documents'):
                 setattr(registration, 'supporting_documents', None)
     except Exception:
-        # On any lookup error, keep a safe default
         if not hasattr(registration, 'supporting_documents'):
             setattr(registration, 'supporting_documents', None)
 
-    # Build answers from the correct complaint table
+    # Initialize
     answers = {}
-
     lot_dispute = None
     boundary_dispute = None
     pathway_dispute = None
+    form_structure = []
 
+    # Helper functions
+    import json
     def _parse_list(val):
         try:
             if isinstance(val, list):
@@ -377,19 +376,53 @@ def view_complaint(complaint_id):
             pass
         return []
 
+    def _parse_json_list(val):
+        try:
+            if isinstance(val, list):
+                return val
+            if isinstance(val, str):
+                s = val.strip()
+                if not s:
+                    return []
+                return json.loads(s)
+        except Exception as e:
+            print('[DEBUG] _parse_json_list error:', e, 'val:', val)
+        return []
+
+    def _parse_str(val):
+        if val is None:
+            return ''
+        if isinstance(val, str):
+            return val
+        try:
+            return str(val)
+        except Exception:
+            return ''
+
+    def _parse_date(val):
+        if not val:
+            return ''
+        try:
+            return val.strftime('%Y-%m-%d')
+        except Exception:
+            return str(val)
+
     print('[DEBUG] complaint.type_of_complaint:', complaint.type_of_complaint)
+
+    # -----------------------------
+    # Lot Dispute
+    # -----------------------------
     if complaint.type_of_complaint == "Lot Dispute":
-        # ...existing Lot Dispute code...
         form_structure = get_lot_form_structure("Lot Dispute")
         lot_dispute = LotDispute.query.filter_by(complaint_id=complaint_id).first()
         if lot_dispute:
-            # ...existing Lot Dispute answer logic...
             q2_list = _parse_list(getattr(lot_dispute, 'q2', None))
             q4_list = _parse_list(getattr(lot_dispute, 'q4', None))
             q5_list = _parse_list(getattr(lot_dispute, 'q5', None))
             q6_list = _parse_list(getattr(lot_dispute, 'q6', None))
             q7_list = _parse_list(getattr(lot_dispute, 'q7', None))
             q8_list = _parse_list(getattr(lot_dispute, 'q8', None))
+            # q9
             q9_raw = getattr(lot_dispute, 'q9', None)
             q9_data = {"claim": "", "documents": []}
             try:
@@ -401,6 +434,7 @@ def view_complaint(complaint_id):
                         q9_data = {"claim": parsed.get("claim", ""), "documents": parsed.get("documents", [])}
             except Exception:
                 pass
+            # q10
             q10_raw = getattr(lot_dispute, 'q10', None)
             q10_data = {}
             try:
@@ -410,6 +444,7 @@ def view_complaint(complaint_id):
                     q10_data = json.loads(q10_raw)
             except Exception:
                 q10_data = {}
+
             q3_val = lot_dispute.q3.strftime("%Y-%m-%d") if getattr(lot_dispute, 'q3', None) else ""
             answers = {
                 "q1": getattr(lot_dispute, 'q1', '') or '',
@@ -425,24 +460,15 @@ def view_complaint(complaint_id):
                 "description": getattr(lot_dispute, 'description', None) or getattr(complaint, 'description', '') or '',
                 "signature": getattr(lot_dispute, 'signature', None) or getattr(registration, 'signature_path', '') or '',
             }
-            print("\n[DEBUG] --- Final Data Before Render ---")
-            print("[DEBUG] Complaint Type:", complaint.type_of_complaint)
-            print("[DEBUG] form_structure length:", len(form_structure))
-            print("[DEBUG] form_structure fields:")
-            for f in form_structure:
-                print("   ", f.get("name"), "-", f.get("type"))
-            print("[DEBUG] answers keys:", list(answers.keys()))
-            for k, v in answers.items():
-                print(f"   {k}: {v}")
-            print("[DEBUG] -----------------------------------\n")
+
+    # -----------------------------
+    # Boundary Dispute
+    # -----------------------------
     elif complaint.type_of_complaint == "Boundary Dispute":
-        # ...existing Boundary Dispute code...
-        bd = BoundaryDispute.query.filter_by(complaint_id=complaint_id).first()
-        print('[DEBUG] BoundaryDispute record found:', bool(bd))
-        boundary_dispute = bd
+        boundary_dispute = BoundaryDispute.query.filter_by(complaint_id=complaint_id).first()
         form_structure = get_boundary_form_structure("Boundary Dispute")
+        bd = boundary_dispute
         if bd:
-            print('[DEBUG] Building answers dict for Boundary Dispute')
             def _json_list(v):
                 try:
                     if isinstance(v, list):
@@ -456,8 +482,8 @@ def view_complaint(complaint_id):
                     return []
                 except Exception:
                     return []
-            def _safe(v):
-                return v or ''
+
+            _safe = lambda v: v or ''
             q12_val = []
             try:
                 raw = getattr(bd, 'q12', None)
@@ -467,6 +493,7 @@ def view_complaint(complaint_id):
                     q12_val = json.loads(raw)
             except Exception:
                 q12_val = []
+
             answers = {
                 'q1': _json_list(getattr(bd, 'q1', None)),
                 'q2': _safe(getattr(bd, 'q2', None)),
@@ -489,39 +516,17 @@ def view_complaint(complaint_id):
                 'description': _safe(getattr(bd, 'description', None)),
                 'signature_path': _safe(getattr(bd, 'signature_path', None)),
             }
-            print("[DEBUG] Complaint Preview Answers:")
-            for k, v in answers.items():
-                print(f"  {k}: {v} (type: {type(v)})")
+
+    # -----------------------------
+    # Pathway Dispute
+    # -----------------------------
     elif complaint.type_of_complaint == "Pathway Dispute":
-        # Dedicated block for Pathway Dispute preview
         from backend.complainant.pathway_dispute import get_form_structure as get_pathway_form_structure
         from backend.database.models import PathwayDispute
         form_structure = get_pathway_form_structure("Pathway Dispute")
         pathway_dispute = PathwayDispute.query.filter_by(complaint_id=complaint_id).first()
         if pathway_dispute:
-            def _parse_json_list(val):
-                try:
-                    if isinstance(val, list):
-                        return val
-                    if isinstance(val, str):
-                        s = val.strip()
-                        if not s:
-                            return []
-                        return json.loads(s)
-                except Exception:
-                    pass
-                return []
-            def _parse_str(val):
-                if val is None:
-                    return ''
-                if isinstance(val, str):
-                    return val
-                try:
-                    return str(val)
-                except Exception:
-                    return ''
             q12_val = getattr(pathway_dispute, 'q12', None)
-            print(f"[DEBUG] Pathway Dispute q12 raw value: {q12_val} (type: {type(q12_val)})")
             answers = {
                 'q1': getattr(pathway_dispute, 'q1', None) or '',
                 'q2': getattr(pathway_dispute, 'q2', None) or '',
@@ -538,16 +543,55 @@ def view_complaint(complaint_id):
                 'description': getattr(pathway_dispute, 'description', None) or getattr(complaint, 'description', '') or '',
                 'signature': getattr(pathway_dispute, 'signature', None) or getattr(registration, 'signature_path', '') or '',
             }
-            print("[DEBUG] Pathway Dispute Preview Answers:")
+        else:
+            answers = {}
+            print("[DEBUG] No PathwayDispute record found for complaint_id", complaint_id)
+
+    # -----------------------------
+    # Unauthorized Occupation
+    # -----------------------------
+    elif complaint.type_of_complaint == "Unauthorized Occupation":
+        from backend.complainant.unauthorized_occupation import get_form_structure as get_unauth_form_structure
+        from backend.database.models import UnauthorizedOccupation
+
+        form_structure = get_unauth_form_structure()
+        unauthorized_occupation = UnauthorizedOccupation.query.filter_by(complaint_id=complaint_id).first()
+
+        if unauthorized_occupation:
+            q6a_val = getattr(unauthorized_occupation, 'q6a', None)
+            q8_val = getattr(unauthorized_occupation, 'q8', None)
+
+            answers = {
+                'block_lot': _parse_json_list(getattr(unauthorized_occupation, 'block_lot', None)),
+                'q1': getattr(unauthorized_occupation, 'q1', None) or '',
+                'q2': _parse_json_list(getattr(unauthorized_occupation, 'q2', None)),
+                'q3': _parse_date(getattr(unauthorized_occupation, 'q3', None)),
+                'q4': _parse_json_list(getattr(unauthorized_occupation, 'q4', None)),
+                'q5': getattr(unauthorized_occupation, 'q5', None) or '',
+                'q5a': _parse_json_list(getattr(unauthorized_occupation, 'q5a', None)),
+                'q6': getattr(unauthorized_occupation, 'q6', None) or '',
+                'q6a': q6a_val or '',
+                'q7': _parse_json_list(getattr(unauthorized_occupation, 'q7', None)),
+                'q8': q8_val or '',
+                'description': getattr(unauthorized_occupation, 'description', None) or getattr(complaint, 'description', '') or '',
+                'signature': getattr(unauthorized_occupation, 'signature', None) or getattr(registration, 'signature_path', '') or '',
+            }
+            print("[DEBUG] Unauthorized Occupation Preview Answers:")
             for k, v in answers.items():
                 print(f"  {k}: {v} (type: {type(v)})")
         else:
             answers = {}
-            print("[DEBUG] No PathwayDispute record found for complaint_id", complaint_id)
+            print("[DEBUG] No UnauthorizedOccupation record found for complaint_id", complaint_id)
+
+    # -----------------------------
+    # Fallback if complaint type unknown
+    # -----------------------------
     else:
         form_structure = []
 
-    # For family_of_member, include parent details and relationship for header section
+    # -----------------------------
+    # Family of member info
+    # -----------------------------
     parent_info = None
     relationship = None
     try:
@@ -555,8 +599,7 @@ def view_complaint(complaint_id):
             fam = RegistrationFamOfMember.query.filter_by(registration_id=registration.registration_id).first()
             if fam:
                 relationship = fam.relationship
-                def _safe(v):
-                    return str(v).strip() if v else ""
+                _safe = lambda v: str(v).strip() if v else ""
                 parts = [_safe(fam.first_name), _safe(fam.middle_name), _safe(fam.last_name), _safe(fam.suffix)]
                 sd = getattr(fam, 'supporting_documents', {}) or {}
                 hoa_raw = sd.get('hoa')
@@ -573,7 +616,6 @@ def view_complaint(complaint_id):
                     "phone_number": fam.phone_number,
                     "year_of_residence": fam.year_of_residence,
                     "supporting_documents": getattr(fam, 'supporting_documents', None),
-                    # Additional mapped fields for templates
                     "hoa": get_area_name(hoa_raw) if hoa_raw else "",
                     "block_no": sd.get('block_assignment') or "",
                     "lot_no": sd.get('lot_assignment') or "",
@@ -585,6 +627,9 @@ def view_complaint(complaint_id):
     except Exception:
         pass
 
+    # -----------------------------
+    # Render template
+    # -----------------------------
     template_name = "complaint_details_valid.html" if complaint.status == "Valid" else "complaint_details_invalid.html"
     return render_template(
         template_name,
@@ -599,3 +644,4 @@ def view_complaint(complaint_id):
         relationship=relationship,
         pathway_dispute=pathway_dispute,
     )
+
