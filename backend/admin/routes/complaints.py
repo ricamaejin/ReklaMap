@@ -1529,8 +1529,10 @@ def get_ongoing_complaints():
                 # Use latest_action from complaint_history, or fallback to complaint_stage
                 latest_action = complaint.latest_action or complaint.complaint_stage or 'Pending'
                 
-                # Extract deadline from complaint_history details if available
+                # Extract deadline, meeting_date, and meeting_time from complaint_history details if available
                 deadline = None
+                meeting_date = None
+                meeting_time = None
                 if complaint.ch_latest_details:
                     try:
                         if isinstance(complaint.ch_latest_details, str):
@@ -1538,13 +1540,31 @@ def get_ongoing_complaints():
                         else:
                             details = complaint.ch_latest_details
                         
+                        print(f"[ONGOING] 📊 Processing complaint {complaint.complaint_id} details: {details}")
+                        
                         # Try to get deadline from nested details first, then fallback to root level
                         if 'details' in details and isinstance(details['details'], dict):
                             deadline = details['details'].get('deadline')
+                            meeting_date = details['details'].get('meeting_date')
+                            meeting_time = details['details'].get('meeting_time')
                         if not deadline:
                             deadline = details.get('deadline')
-                    except (json.JSONDecodeError, TypeError):
+                        if not meeting_date:
+                            meeting_date = details.get('meeting_date')
+                        if not meeting_time:
+                            meeting_time = details.get('meeting_time')
+                            
+                        print(f"[ONGOING] 📊 Extracted data for complaint {complaint.complaint_id}:")
+                        print(f"[ONGOING] 📊   - deadline: {deadline}")
+                        print(f"[ONGOING] 📊   - meeting_date: {meeting_date}")
+                        print(f"[ONGOING] 📊   - meeting_time: {meeting_time}")
+                        print(f"[ONGOING] 📊   - latest_action: {latest_action}")
+                            
+                    except (json.JSONDecodeError, TypeError) as e:
+                        print(f"[ONGOING] ❌ Error parsing details for complaint {complaint.complaint_id}: {e}")
                         deadline = None
+                        meeting_date = None
+                        meeting_time = None
             
             formatted_complaints.append({
                 'complaint_id': complaint.complaint_id,
@@ -1561,7 +1581,9 @@ def get_ongoing_complaints():
                 'action_datetime': action_datetime.isoformat() if action_datetime else None,
                 'latest_action': latest_action,
                 'action_needed': latest_action,  # For backward compatibility
-                'deadline': deadline
+                'deadline': deadline,
+                'meeting_date': meeting_date,
+                'meeting_time': meeting_time
             })
         
         print(f"[DEBUG] Returning {len(formatted_complaints)} ongoing complaints")
@@ -2913,6 +2935,140 @@ def get_staff_assigned_complaints():
             if not area_display or area_display == 'N/A':
                 area_display = f"area_id:{complaint.area_id}" if hasattr(complaint, 'area_id') else 'No Area Data'
             
+            # Extract deadline, meeting_date, and meeting_time from complaint_history details JSON
+            deadline = None
+            meeting_date = None
+            meeting_time = None
+            print(f"[STAFF ASSIGNED] 🔍 Extracting deadline for complaint {complaint.complaint_id}")
+            try:
+                # First try to get deadline from Inspection action (for inspection tasks)
+                deadline_query = """
+                SELECT details, type_of_action, action_datetime
+                FROM complaint_history 
+                WHERE complaint_id = :complaint_id 
+                AND type_of_action IN ('Inspection', 'Invitation')
+                AND details IS NOT NULL 
+                ORDER BY action_datetime DESC 
+                LIMIT 1
+                """
+                deadline_result = db.session.execute(text(deadline_query), {'complaint_id': complaint.complaint_id})
+                deadline_row = deadline_result.fetchone()
+                print(f"[STAFF ASSIGNED] 🔍 Query result for complaint {complaint.complaint_id}: found_row={deadline_row is not None}")
+                
+                # Special debugging for complaint 272
+                if complaint.complaint_id == 272:
+                    print(f"[STAFF ASSIGNED] 🎯 COMPLAINT 272 BACKEND DEBUG:")
+                    print(f"[STAFF ASSIGNED] 🎯 Running query: {deadline_query}")
+                    print(f"[STAFF ASSIGNED] 🎯 Query params: complaint_id={complaint.complaint_id}")
+                    
+                    # Check ALL complaint_history records for this complaint
+                    all_history_query = """
+                    SELECT complaint_id, type_of_action, details, action_datetime
+                    FROM complaint_history 
+                    WHERE complaint_id = :complaint_id 
+                    ORDER BY action_datetime DESC
+                    """
+                    all_history_result = db.session.execute(text(all_history_query), {'complaint_id': complaint.complaint_id})
+                    all_history_rows = all_history_result.fetchall()
+                    print(f"[STAFF ASSIGNED] 🎯 ALL history records for complaint 272: {len(all_history_rows)} records found")
+                    
+                    for i, hist_row in enumerate(all_history_rows):
+                        print(f"[STAFF ASSIGNED] 🎯   Record {i+1}: type={hist_row.type_of_action}, datetime={hist_row.action_datetime}, has_details={hist_row.details is not None}")
+                        if hist_row.details:
+                            print(f"[STAFF ASSIGNED] 🎯   Details: {hist_row.details}")
+                
+                if deadline_row and deadline_row.details:
+                    print(f"[STAFF ASSIGNED] 🔍 Raw details for complaint {complaint.complaint_id}: {deadline_row.details}")
+                    print(f"[STAFF ASSIGNED] 🔍 Details type: {type(deadline_row.details)}")
+                    print(f"[STAFF ASSIGNED] 🔍 Action type: {deadline_row.type_of_action}")
+                    
+                    # Special debugging for complaint 272
+                    if complaint.complaint_id == 272:
+                        print(f"[STAFF ASSIGNED] 🎯 COMPLAINT 272 - Found details!")
+                        print(f"[STAFF ASSIGNED] 🎯   - Action type: {deadline_row.type_of_action}")
+                        print(f"[STAFF ASSIGNED] 🎯   - Raw details: {deadline_row.details}")
+                        print(f"[STAFF ASSIGNED] 🎯   - Details length: {len(str(deadline_row.details)) if deadline_row.details else 0}")
+                    
+                    try:
+                        # Handle both string and dict details
+                        if isinstance(deadline_row.details, str):
+                            details_data = json.loads(deadline_row.details)
+                        else:
+                            details_data = deadline_row.details
+                            
+                        print(f"[STAFF ASSIGNED] 🔍 Parsed details data: {details_data}")
+                        print(f"[STAFF ASSIGNED] 🔍 Parsed details type: {type(details_data)}")
+                        
+                        # Special debugging for complaint 272
+                        if complaint.complaint_id == 272:
+                            print(f"[STAFF ASSIGNED] 🎯 COMPLAINT 272 - Parsed details successfully!")
+                            print(f"[STAFF ASSIGNED] 🎯   - Details keys: {list(details_data.keys()) if isinstance(details_data, dict) else 'Not a dict'}")
+                            print(f"[STAFF ASSIGNED] 🎯   - Looking for 'deadline' key...")
+                        
+                        # Try to get deadline from nested details first, then fallback to root level
+                        if isinstance(details_data, dict):
+                            if 'details' in details_data and isinstance(details_data['details'], dict):
+                                nested_details = details_data['details']
+                                if 'deadline' in nested_details:
+                                    deadline = nested_details['deadline']
+                                    print(f"[STAFF ASSIGNED] ✅ Found deadline in nested details: {deadline}")
+                                if 'meeting_date' in nested_details:
+                                    meeting_date = nested_details['meeting_date']
+                                    print(f"[STAFF ASSIGNED] ✅ Found meeting_date in nested details: {meeting_date}")
+                                if 'meeting_time' in nested_details:
+                                    meeting_time = nested_details['meeting_time']
+                                    print(f"[STAFF ASSIGNED] ✅ Found meeting_time in nested details: {meeting_time}")
+                            
+                            # Fallback to root level - CHECK HERE FOR COMPLAINT 272
+                            if not deadline and 'deadline' in details_data:
+                                deadline = details_data['deadline']
+                                print(f"[STAFF ASSIGNED] ✅ Found deadline in root: {deadline}")
+                                
+                                # Special success for complaint 272
+                                if complaint.complaint_id == 272:
+                                    print(f"[STAFF ASSIGNED] 🎯 COMPLAINT 272 SUCCESS! Found deadline: {deadline}")
+                                    
+                            if not meeting_date and 'meeting_date' in details_data:
+                                meeting_date = details_data['meeting_date']
+                                print(f"[STAFF ASSIGNED] ✅ Found meeting_date in root: {meeting_date}")
+                            if not meeting_time and 'meeting_time' in details_data:
+                                meeting_time = details_data['meeting_time']
+                                print(f"[STAFF ASSIGNED] ✅ Found meeting_time in root: {meeting_time}")
+                                
+                            if not deadline and not meeting_date and not meeting_time:
+                                print(f"[STAFF ASSIGNED] ❌ No deadline or meeting fields found in details")
+                                
+                                # Special failure for complaint 272
+                                if complaint.complaint_id == 272:
+                                    print(f"[STAFF ASSIGNED] 🎯 COMPLAINT 272 FAILURE - No deadline found in details!")
+                                    print(f"[STAFF ASSIGNED] 🎯   - Available keys in details: {list(details_data.keys())}")
+                                    print(f"[STAFF ASSIGNED] 🎯   - Full details object: {details_data}")
+                        else:
+                            print(f"[STAFF ASSIGNED] ❌ Details data is not a dictionary: {type(details_data)}")
+                    except json.JSONDecodeError as e:
+                        print(f"[STAFF ASSIGNED] ❌ Error parsing deadline JSON for complaint {complaint.complaint_id}: {e}")
+                        
+                        # Special error for complaint 272
+                        if complaint.complaint_id == 272:
+                            print(f"[STAFF ASSIGNED] 🎯 COMPLAINT 272 JSON ERROR!")
+                            print(f"[STAFF ASSIGNED] 🎯   - Raw details that failed to parse: {deadline_row.details}")
+                            print(f"[STAFF ASSIGNED] 🎯   - Error: {e}")
+                else:
+                    print(f"[STAFF ASSIGNED] ❌ No details found for complaint {complaint.complaint_id}")
+                    
+                    # Special check for complaint 272
+                    if complaint.complaint_id == 272:
+                        print(f"[STAFF ASSIGNED] 🎯 COMPLAINT 272 - NO DETAILS FOUND!")
+                        print(f"[STAFF ASSIGNED] 🎯   - deadline_row: {deadline_row}")
+                        print(f"[STAFF ASSIGNED] 🎯   - deadline_row.details: {deadline_row.details if deadline_row else 'No row'}")
+            except Exception as e:
+                print(f"[STAFF ASSIGNED] ❌ Error extracting deadline for complaint {complaint.complaint_id}: {e}")
+            
+            print(f"[STAFF ASSIGNED] 🎯 Final extracted data for complaint {complaint.complaint_id}:")
+            print(f"[STAFF ASSIGNED] 🎯   - deadline: {deadline}")
+            print(f"[STAFF ASSIGNED] 🎯   - meeting_date: {meeting_date}")
+            print(f"[STAFF ASSIGNED] 🎯   - meeting_time: {meeting_time}")
+            
             formatted_complaints.append({
                 'complaint_id': complaint.complaint_id,
                 'type_of_complaint': complaint.type_of_complaint,
@@ -2926,6 +3082,9 @@ def get_staff_assigned_complaints():
                 'assigned_to': complaint.assigned_to,
                 'action_datetime': complaint.action_datetime.isoformat() if complaint.action_datetime else None,
                 'action_needed': complaint.latest_action or 'Pending',
+                'deadline': deadline,  # Add deadline field from complaint_history details
+                'meeting_date': meeting_date,  # Add meeting_date from complaint_history details
+                'meeting_time': meeting_time,  # Add meeting_time from complaint_history details
                 # Debug info
                 'debug_area_id': complaint.area_id,
                 'debug_raw_area_name': complaint.area_name

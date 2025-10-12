@@ -616,10 +616,27 @@
           const description = entry.description || type;
           const color = colorFor(type);
 
+          // Check for file attachments - only show for 'sent invitation' in complainant view
+          let fileIcon = '';
+          if ((type || '').toLowerCase().includes('sent invitation')) {
+            const files = getFilesFromEntry(entry);
+            if (files.length > 0) {
+              const fileCount = files.length > 1 ? ` (${files.length})` : '';
+              fileIcon = `
+                <span class="file-icon" title="View attachments${fileCount}" 
+                      onclick="showComplainantFilePreview(${JSON.stringify(files).replace(/"/g, '&quot;')}, '${type}')"
+                      style="cursor: pointer; margin-left: 8px; font-size: 12px; color: #007bff;">
+                  📎${fileCount}
+                </span>`;
+            }
+          }
+
                         timelineHTML += `
                           <div class="timeline-entry" style="border-left:4px solid ${color}; padding: 15px; margin-bottom: 15px; border-radius: 5px; background: #f9f9f9;">
                             <span class="bullet" style="background:${color}; position: absolute; left: -6px; top: 20px; width: 12px; height: 12px; border-radius: 50%;"></span>
-                            <h4 style="font-size: 16px; margin: 0 0 5px 0; color: ${color};">${type}</h4>
+                            <h4 style="font-size: 16px; margin: 0 0 5px 0; color: ${color};">
+                              ${type}${fileIcon}
+                            </h4>
                             <div style="font-size: 13px; color: #666; margin-bottom: 3px;">${formattedDate}</div>
                             <div style="font-size: 13px; color: #333; margin-bottom: 5px;">${staffName}</div>
                             <div style="font-size: 12px; color: #555; line-height: 1.4;">${description}</div>
@@ -662,6 +679,94 @@
           });
         });
       }
+
+      // Extract files from timeline entry details
+      function getFilesFromEntry(entry) {
+        try {
+          if (entry.details && typeof entry.details === 'object') {
+            return entry.details.files || [];
+          }
+          if (entry.details && typeof entry.details === 'string') {
+            const parsed = JSON.parse(entry.details);
+            return parsed.files || [];
+          }
+          return [];
+        } catch (error) {
+          console.error('Error parsing entry details for files:', error);
+          return [];
+        }
+      }
+
+      // Show file preview modal for complainants
+      function showComplainantFilePreview(files, actionType) {
+        if (!files || files.length === 0) {
+          alert('No files available for this entry.');
+          return;
+        }
+
+        // Create simple modal for complainant file preview
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+          position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+          background: rgba(0,0,0,0.5); display: flex; align-items: center; 
+          justify-content: center; z-index: 10000;
+        `;
+
+        const content = document.createElement('div');
+        content.style.cssText = `
+          background: white; padding: 20px; border-radius: 8px; 
+          max-width: 500px; width: 90%; max-height: 70vh; overflow-y: auto;
+        `;
+
+        let fileListHTML = `
+          <h3>Attachments for ${actionType}</h3>
+          <div style="margin-bottom: 15px;">
+        `;
+
+        files.forEach((file, index) => {
+          const fileName = file.filename || file.name || `File ${index + 1}`;
+          const fileType = file.type || 'document';
+          fileListHTML += `
+            <div style="padding: 10px; border: 1px solid #ddd; margin: 5px 0; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+              <span>📄 ${fileName} (${fileType})</span>
+              <button onclick="downloadComplainantFile('${fileName}')" 
+                      style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">
+                Download
+              </button>
+            </div>
+          `;
+        });
+
+        fileListHTML += `
+          </div>
+          <button onclick="this.closest('.file-preview-modal').remove()" 
+                  style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+            Close
+          </button>
+        `;
+
+        content.innerHTML = fileListHTML;
+        modal.className = 'file-preview-modal';
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        // Close on background click
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) modal.remove();
+        });
+      }
+
+      // Download file for complainants
+      function downloadComplainantFile(filename) {
+        // TODO: Implement proper file serving endpoint
+        const fileUrl = `/files/complaints/${filename}`; // Placeholder URL
+        window.open(fileUrl, '_blank');
+      }
+
+      // Make functions globally available
+      window.getFilesFromEntry = getFilesFromEntry;
+      window.showComplainantFilePreview = showComplainantFilePreview;
+      window.downloadComplainantFile = downloadComplainantFile;
 
       // Initialize timeline on page load
       document.addEventListener('DOMContentLoaded', function() {

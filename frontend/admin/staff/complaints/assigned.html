@@ -573,8 +573,37 @@
       
       // Get admin-set deadline for inspection from complaint history/actions
       let adminDeadline = null;
+      console.log(`[DEADLINE COLUMN] 🔍 Processing complaint ${complaint.complaint_id} for deadline column`);
+      console.log(`[DEADLINE COLUMN] 🔍 Available fields: ${Object.keys(complaint).join(', ')}`);
+      console.log(`[DEADLINE COLUMN] 🔍 complaint.deadline: "${complaint.deadline}"`);
+      console.log(`[DEADLINE COLUMN] 🔍 complaint.inspection_deadline: "${complaint.inspection_deadline}"`);
+      
       if (complaint.deadline) {
         adminDeadline = new Date(complaint.deadline);
+        console.log(`[DEADLINE COLUMN] ✅ Found deadline field: "${complaint.deadline}"`);
+        console.log(`[DEADLINE COLUMN] ✅ Parsed adminDeadline: ${adminDeadline}, isValid: ${!isNaN(adminDeadline.getTime())}`);
+        
+        // Special debug for complaint 272
+        if (complaint.complaint_id == 272) {
+          console.log(`[DEADLINE COLUMN] 🎯 COMPLAINT 272 DEADLINE COLUMN DEBUG:`);
+          console.log(`[DEADLINE COLUMN] 🎯   - Raw deadline field: "${complaint.deadline}"`);
+          console.log(`[DEADLINE COLUMN] 🎯   - Parsed adminDeadline: ${adminDeadline}`);
+          console.log(`[DEADLINE COLUMN] 🎯   - Expected: Mon Oct 07 2025`);
+        }
+      } else if (complaint.inspection_deadline) {
+        adminDeadline = new Date(complaint.inspection_deadline);
+        console.log(`[DEADLINE COLUMN] ✅ Found inspection_deadline: "${complaint.inspection_deadline}"`);
+        console.log(`[DEADLINE COLUMN] ✅ Parsed adminDeadline: ${adminDeadline}, isValid: ${!isNaN(adminDeadline.getTime())}`);
+      } else {
+        console.log(`[DEADLINE COLUMN] ❌ NO DEADLINE FIELD FOUND - will use 3-day fallback`);
+        
+        // Special debug for complaint 272 if no deadline found
+        if (complaint.complaint_id == 272) {
+          console.log(`[DEADLINE COLUMN] 🚨 COMPLAINT 272 - NO DEADLINE FOUND IN DEADLINE COLUMN!`);
+          console.log(`[DEADLINE COLUMN] 🚨   - Available fields: ${Object.keys(complaint).join(', ')}`);
+          console.log(`[DEADLINE COLUMN] 🚨   - complaint.deadline: ${complaint.deadline}`);
+          console.log(`[DEADLINE COLUMN] 🚨   - Full complaint object:`, complaint);
+        }
       }
       
       // Get meeting datetime from invitation action in complaint history
@@ -585,12 +614,37 @@
 
       if (actionType.includes('inspection') && !actionType.includes('done')) {
         // Inspection → Deadline = 'Deadline' date set by admin + time when Inspection action was saved
-        if (adminDeadline) {
+        console.log(`[DEADLINE COLUMN] 🔍 INSPECTION LOGIC - Complaint ${complaint.complaint_id}`);
+        console.log(`[DEADLINE COLUMN] 🔍 adminDeadline = ${adminDeadline} (isNull: ${adminDeadline === null})`);
+        console.log(`[DEADLINE COLUMN] 🔍 adminDeadline valid: ${adminDeadline && !isNaN(adminDeadline.getTime())}`);
+        console.log(`[DEADLINE COLUMN] 🔍 actionDate = ${actionDate}`);
+        
+        if (adminDeadline && !isNaN(adminDeadline.getTime())) {
           const dateStr = adminDeadline.toLocaleDateString();
           const timeStr = actionDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          console.log(`[DEADLINE COLUMN] ✅ USING ADMIN DEADLINE: ${adminDeadline} → Display: ${dateStr}`);
+          
+          // Special success debug for complaint 272
+          if (complaint.complaint_id == 272) {
+            console.log(`[DEADLINE COLUMN] 🎉 COMPLAINT 272 SUCCESS: Using admin deadline in DEADLINE COLUMN`);
+            console.log(`[DEADLINE COLUMN] 🎉   - Admin deadline: ${adminDeadline}`);
+            console.log(`[DEADLINE COLUMN] 🎉   - Display format: ${dateStr}<br/>${timeStr}`);
+            console.log(`[DEADLINE COLUMN] 🎉   - Should show: Oct 7, 2025`);
+          }
+          
           return `${dateStr}<br/>${timeStr}`;
         }
         // Fallback to 3 days if no admin deadline set
+        console.log(`[DEADLINE COLUMN] ⚠️ USING 3-DAY FALLBACK in deadline column`);
+        
+        // Special failure debug for complaint 272
+        if (complaint.complaint_id == 272) {
+          console.log(`[DEADLINE COLUMN] 🚨 COMPLAINT 272 ERROR: Using 3-day fallback in DEADLINE COLUMN!`);
+          console.log(`[DEADLINE COLUMN] 🚨   - adminDeadline value: ${adminDeadline}`);
+          console.log(`[DEADLINE COLUMN] 🚨   - adminDeadline valid: ${adminDeadline && !isNaN(adminDeadline.getTime())}`);
+          console.log(`[DEADLINE COLUMN] 🚨   - This should show Oct 7, 2025 not 3 days!`);
+        }
+        
         const deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
         const dateStr = deadline.toLocaleDateString();
         const timeStr = actionDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -680,10 +734,39 @@
       
       // Get admin-set deadline for inspection from complaint history/actions
       let adminDeadline = null;
+      console.log(`[ASSIGNED] ====== DEBUGGING COMPLAINT ${complaint.complaint_id} ======`);
+      console.log(`[ASSIGNED] Full complaint object:`, complaint);
+      console.log(`[ASSIGNED] Action type: "${complaint.action_needed || complaint.latest_action}"`);
+      console.log(`[ASSIGNED] Available fields:`, Object.keys(complaint));
+      console.log(`[ASSIGNED] complaint.deadline:`, complaint.deadline);
+      console.log(`[ASSIGNED] complaint.inspection_deadline:`, complaint.inspection_deadline);
+      
       if (complaint.deadline) {
-        console.log(`[ASSIGNED] Raw deadline value: "${complaint.deadline}", type: ${typeof complaint.deadline}`);
+        console.log(`[ASSIGNED] ✅ Found deadline field: "${complaint.deadline}", type: ${typeof complaint.deadline}`);
         adminDeadline = new Date(complaint.deadline);
-        console.log(`[ASSIGNED] Parsed adminDeadline: ${adminDeadline}, isValid: ${!isNaN(adminDeadline.getTime())}`);
+        console.log(`[ASSIGNED] ✅ Parsed adminDeadline: ${adminDeadline}, isValid: ${!isNaN(adminDeadline.getTime())}`);
+        
+        // Special debug for complaint 272
+        if (complaint.complaint_id == 272) {
+          console.log(`[ASSIGNED] 🎯 COMPLAINT 272 DEBUG:`);
+          console.log(`[ASSIGNED] 🎯   - Raw deadline field: "${complaint.deadline}"`);
+          console.log(`[ASSIGNED] 🎯   - Parsed adminDeadline: ${adminDeadline}`);
+          console.log(`[ASSIGNED] 🎯   - Expected: Mon Oct 07 2025`);
+        }
+      } else if (complaint.inspection_deadline) {
+        console.log(`[ASSIGNED] ✅ Found inspection_deadline: "${complaint.inspection_deadline}"`);
+        adminDeadline = new Date(complaint.inspection_deadline);
+        console.log(`[ASSIGNED] ✅ Parsed inspection_deadline: ${adminDeadline}, isValid: ${!isNaN(adminDeadline.getTime())}`);
+      } else {
+        console.log(`[ASSIGNED] ❌ NO DEADLINE FIELD FOUND - will use 3-day fallback`);
+        
+        // Special debug for complaint 272 if no deadline found
+        if (complaint.complaint_id == 272) {
+          console.log(`[ASSIGNED] 🚨 COMPLAINT 272 - NO DEADLINE FOUND!`);
+          console.log(`[ASSIGNED] 🚨   - Available fields: ${Object.keys(complaint).join(', ')}`);
+          console.log(`[ASSIGNED] 🚨   - complaint.deadline: ${complaint.deadline}`);
+          console.log(`[ASSIGNED] 🚨   - Full complaint object:`, complaint);
+        }
       }
       
       // Get meeting datetime from invitation action in complaint history
@@ -696,10 +779,30 @@
       
       // Calculate deadline based on action type (matching the new deadline logic)
       if (actionType.includes('inspection') && !actionType.includes('done')) {
-        console.log(`[ASSIGNED] Complaint ${complaint.complaint_id}: deadline field = "${complaint.deadline}", adminDeadline = ${adminDeadline}`);
-        console.log(`[ASSIGNED] adminDeadline debug - isNull: ${adminDeadline === null}, isUndefined: ${adminDeadline === undefined}, value: ${adminDeadline}`);
-        deadline = adminDeadline || new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
-        console.log(`[ASSIGNED] Final deadline for inspection: ${deadline}`);
+        console.log(`[ASSIGNED] 🔍 INSPECTION LOGIC - Complaint ${complaint.complaint_id}`);
+        console.log(`[ASSIGNED] 🔍 adminDeadline = ${adminDeadline} (isNull: ${adminDeadline === null})`);
+        console.log(`[ASSIGNED] 🔍 actionDate = ${actionDate}`);
+        
+        if (adminDeadline && !isNaN(adminDeadline.getTime())) {
+          deadline = adminDeadline;
+          console.log(`[ASSIGNED] ✅ USING ADMIN DEADLINE: ${deadline}`);
+          
+          // Special success debug for complaint 272
+          if (complaint.complaint_id == 272) {
+            console.log(`[ASSIGNED] 🎉 COMPLAINT 272 SUCCESS: Using admin deadline ${deadline}`);
+            console.log(`[ASSIGNED] 🎉   - Should display: Mon Oct 07 2025`);
+          }
+        } else {
+          deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+          console.log(`[ASSIGNED] ⚠️ USING 3-DAY FALLBACK: ${deadline}`);
+          
+          // Special failure debug for complaint 272
+          if (complaint.complaint_id == 272) {
+            console.log(`[ASSIGNED] 🚨 COMPLAINT 272 ERROR: Using 3-day fallback instead of admin deadline!`);
+            console.log(`[ASSIGNED] 🚨   - adminDeadline value: ${adminDeadline}`);
+            console.log(`[ASSIGNED] 🚨   - adminDeadline valid: ${adminDeadline && !isNaN(adminDeadline.getTime())}`);
+          }
+        }
       } else if (actionType.includes('inspection done')) {
         deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
       } else if (actionType.includes('send invitation') || (actionType.includes('invitation') && !actionType.includes('sent') && !actionType.includes('accepted'))) {
@@ -830,6 +933,9 @@
       if (complaint.deadline) {
         const adminDeadline = new Date(complaint.deadline);
         if (!isNaN(adminDeadline.getTime())) return adminDeadline;
+      } else if (complaint.inspection_deadline) {
+        const inspectionDeadline = new Date(complaint.inspection_deadline);
+        if (!isNaN(inspectionDeadline.getTime())) return inspectionDeadline;
       }
       
       // Use meeting date/time for accepted invitations

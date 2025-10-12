@@ -494,10 +494,18 @@ if (saveBtn) {
 // Complaint then transitions to appear under resolved.html for staff view
 async function resolveTask() {
   const findings = document.getElementById("findings").value.trim();
-  const files = Array.from(document.getElementById("inspectionFile").files);
+  
+  // Collect all file inputs (inspectionFile1, inspectionFile2, etc.)
+  const allFiles = [];
+  const fileInputs = document.querySelectorAll('input[name="inspectionFiles[]"]');
+  fileInputs.forEach(input => {
+    if (input.files && input.files.length > 0) {
+      allFiles.push(...Array.from(input.files));
+    }
+  });
 
   // Validation checks
-  if (!findings && files.length === 0) {
+  if (!findings && allFiles.length === 0) {
       showCustomAlert("Please input inspection findings and attach the supporting documents/evidence of the inspection first.");
       return;
     }
@@ -505,7 +513,7 @@ async function resolveTask() {
       showCustomAlert("Please input inspection findings first.");
       return;
     }
-    if (files.length === 0) {
+    if (allFiles.length === 0) {
       showCustomAlert("Please attach the supporting documents or evidence of the inspection first.");
       return;
     }
@@ -525,7 +533,7 @@ async function resolveTask() {
         complaint_id: complaintId,
         action_type: 'Inspection done',
         description: findings,
-        files: files.map(f => f.name),
+        files: allFiles.map(f => f.name),
         staff_account_type: currentStaffAccount, // admin.account == 2
         completed_by_staff: true, // Flag to mark this as staff completion
         task_type: 'inspection' // Specify this is inspection completion
@@ -809,6 +817,12 @@ function renderTimeline(entries) {
         `<button class="file-btn" data-pdf="${entry.file_path || '#'}" onclick="openTimelineFile('${entry.file_path || '#'}')" style="background: #4CAF50; color: white; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-left: 10px;">📄 File</button>` : 
         '';
       
+      // Check for file attachments in entry details and generate file icon if needed
+      const files = getStaffFilesFromEntry(entry);
+      const fileIcon = files && files.length > 0 ? 
+        ` <span onclick="showStaffFilePreview(${JSON.stringify(files).replace(/"/g, '&quot;')}, '${timelineStatus}', '${entry.history_id}')" style="cursor: pointer; color: #007bff; margin-left: 8px;" title="View attachments (${files.length} file${files.length !== 1 ? 's' : ''})">📎${files.length > 1 ? files.length : ''}</span>` : 
+        '';
+      
       // Determine if this entry should be clickable for preview (only staff-completed actions)
       const isPreviewable = ['Inspection done'].includes(timelineStatus);
       const clickableClass = isPreviewable ? 'timeline-clickable' : '';
@@ -816,7 +830,7 @@ function renderTimeline(entries) {
       
       return `
         <div class="timeline-entry ${clickableClass}" data-status="${timelineStatus.toLowerCase().replace(/\s+/g, '-')}" ${clickHandler} style="${isPreviewable ? 'cursor: pointer;' : ''}">
-          <h4 style="font-size: 16px; margin: 0 0 5px 0;">${timelineStatus}</h4>
+          <h4 style="font-size: 16px; margin: 0 0 5px 0;">${timelineStatus}${fileIcon}</h4>
           <div style="font-size: 13px; color: #666; margin-bottom: 3px;">${dateTime}</div>
           <div style="font-size: 13px; color: #333; margin-bottom: 5px;">${assignedTo}${fileButton}</div>
           <div style="font-size: 12px; color: #555; line-height: 1.4;">${description}</div>
@@ -1152,6 +1166,116 @@ function addInspectionFileUpload() {
 
   container.appendChild(div);
 }
+
+  // Extract files from timeline entry details for staff view
+  function getStaffFilesFromEntry(entry) {
+    try {
+      if (entry.details && typeof entry.details === 'object') {
+        return entry.details.files || [];
+      }
+      if (entry.details && typeof entry.details === 'string') {
+        const parsed = JSON.parse(entry.details);
+        return parsed.files || [];
+      }
+      return [];
+    } catch (error) {
+      console.error('Error parsing entry details for files:', error);
+      return [];
+    }
+  }
+
+  // Show file preview modal for staff
+  function showStaffFilePreview(files, actionType, historyId) {
+    if (!files || files.length === 0) {
+      alert('No files available for this entry.');
+      return;
+    }
+
+    // Create modal for staff file preview
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+      background: rgba(0,0,0,0.5); display: flex; align-items: center; 
+      justify-content: center; z-index: 10000;
+    `;
+
+    const content = document.createElement('div');
+    content.style.cssText = `
+      background: white; padding: 30px; border-radius: 8px; 
+      max-width: 500px; width: 90%; max-height: 70vh; overflow-y: auto;
+    `;
+
+    let fileListHTML = `
+      <h3>Attachments for ${actionType}</h3>
+      <div style="margin-bottom: 20px;">
+    `;
+
+    files.forEach((file, index) => {
+      const fileName = file.filename || file.name || `File ${index + 1}`;
+      const fileType = file.type || 'document';
+      fileListHTML += `
+        <div style="padding: 15px; border: 1px solid #ddd; margin: 10px 0; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-weight: 500;">📄 ${fileName}</div>
+            <div style="font-size: 12px; color: #666; margin-top: 2px;">Type: ${fileType}</div>
+          </div>
+          <div>
+            <button onclick="previewStaffFile('${fileName}')" 
+                    style="background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; margin-right: 5px;">
+              Preview
+            </button>
+            <button onclick="downloadStaffFile('${fileName}')" 
+                    style="background: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer;">
+              Download
+            </button>
+          </div>
+        </div>
+      `;
+    });
+
+    fileListHTML += `
+      </div>
+      <div style="text-align: right;">
+        <button onclick="this.closest('.staff-file-preview-modal').remove()" 
+                style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+          Close
+        </button>
+      </div>
+    `;
+
+    content.innerHTML = fileListHTML;
+    modal.className = 'staff-file-preview-modal';
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+
+    // Close on background click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+  }
+
+  // Preview file for staff
+  function previewStaffFile(filename) {
+    // TODO: Implement proper file preview (PDF viewer, image preview, etc.)
+    const fileUrl = `/files/complaints/${filename}`; // Placeholder URL
+    window.open(fileUrl, '_blank');
+  }
+
+  // Download file for staff
+  function downloadStaffFile(filename) {
+    // TODO: Implement proper file serving endpoint
+    const fileUrl = `/files/complaints/${filename}`; // Placeholder URL
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.download = filename;
+    link.click();
+  }
+
+// Make functions globally available
+window.getStaffFilesFromEntry = getStaffFilesFromEntry;
+window.showStaffFilePreview = showStaffFilePreview;
+window.previewStaffFile = previewStaffFile;
+window.downloadStaffFile = downloadStaffFile;
 
 
 </script>
