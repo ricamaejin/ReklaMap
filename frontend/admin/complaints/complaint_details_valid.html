@@ -202,7 +202,12 @@
 
         <!-- Recommendation Description -->
         <!-- TODO BACKEND: Replace static description from backend -->
-        <textarea style="margin-left: 0px;">Based on system analysis, we recommend the following action:</textarea>
+        <textarea style="width: 100%; height: 200px; text-align: justify; padding: 20px 30px; box-sizing: border-box;">Based on system analysis, we recommend the following action: 
+  
+  - Assign an Inspection to the assigned personnel (Alberto Nonato Jr.). The inspection should cover safety, affected lots, and measurement of lots.
+  
+  - Notify all relevant parties about the inspection details and ensure their availability.
+        </textarea>
 
         <div class="modal-footer">
           <button class="btn-save" onclick="proceedToAssign()">Assign</button>
@@ -1349,10 +1354,26 @@
         `<button class="file-btn" data-pdf="${entry.file_path || '#'}" onclick="openTimelineFile('${entry.file_path || '#'}')" style="background: #4CAF50; color: white; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-left: 10px;">📄 File</button>` : 
         '';
 
-      // Check for file attachments in details JSON and show file icon
+      // Check for file attachments from staff uploads (specifically for "Inspection done" and "Sent Invitation")
       let fileIcon = '';
       const actionType = (entry.type_of_action || '').toLowerCase();
-      if (['inspection', 'mediation', 'invitation', 'assessment'].some(type => actionType.includes(type))) {
+      
+      // For "Inspection done" and "Sent Invitation" - check for attached_files from staff
+      if (actionType === 'inspection done' || actionType === 'sent invitation') {
+        const attachedFiles = (entry.details && entry.details.attached_files) ? entry.details.attached_files : [];
+        if (attachedFiles.length > 0) {
+          const fileCount = attachedFiles.length > 1 ? ` (${attachedFiles.length})` : '';
+          fileIcon = `
+            <span class="staff-file-icon" title="View staff uploads${fileCount}" 
+                  onclick="viewStaffFiles(${JSON.stringify(attachedFiles).replace(/"/g, '&quot;')}, '${entry.type_of_action}', ${entry.history_id})"
+                  style="cursor: pointer; margin-left: 8px; padding: 2px 4px; background: #007bff; color: white; border-radius: 3px; font-size: 11px; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">
+              📎${fileCount}
+            </span>`;
+        }
+      }
+      
+      // For other action types - keep existing file preview logic
+      if (!fileIcon && ['inspection', 'mediation', 'invitation', 'assessment'].some(type => actionType.includes(type))) {
         const files = getAdminFilesFromEntry(entry);
         if (files.length > 0) {
           const fileCount = files.length > 1 ? ` (${files.length})` : '';
@@ -1387,9 +1408,10 @@
       const clickHandler = isPreviewable ? `onclick="showTimelinePreview('${entry.history_id}', '${entry.type_of_action}')"` : '';
       
       return `
-        <div class="timeline-entry ${clickableClass}" data-status="${timelineStatus.toLowerCase().replace(/\s+/g, '-')}" ${clickHandler} style="${isPreviewable ? 'cursor: pointer;' : ''}">
-          <h4 style="font-size: 16px; margin: 0 0 5px 0;">
-            ${timelineStatus}${fileIcon}
+        <div class="timeline-entry ${clickableClass}" data-status="${timelineStatus.toLowerCase().replace(/\s+/g, '-')}" ${clickHandler} style="position: relative; ${isPreviewable ? 'cursor: pointer;' : ''}">
+          <div style="position: absolute; top: 5px; right: 10px;">${fileIcon}</div>
+          <h4 style="font-size: 16px; margin: 0 0 5px 0; padding-right: 40px;">
+            ${timelineStatus}
           </h4>
           <div style="font-size: 13px; color: #666; margin-bottom: 3px;">${dateTime}</div>
           <div style="font-size: 13px; color: #333; margin-bottom: 5px;">${assignedTo}${fileButton}${acceptInvitationButton}</div>
@@ -1408,8 +1430,45 @@
   function filterEntriesByRole(entries, role) {
     switch (role) {
       case 'admin':
-        // Admin sees all entries
-        return entries;
+        // Admin sees all entries, but ensure "Submitted" entry exists
+        let adminEntries = [...entries];
+        
+        // Check if there's already a "Submitted" entry
+        const hasSubmitted = adminEntries.some(entry => 
+          (entry.type_of_action || '').toLowerCase().includes('submitted'));
+        
+        if (!hasSubmitted) {
+          // Add a "Submitted" entry with complaint submission date
+          // Get the earliest action date as fallback, or use a date before all existing entries
+          let submissionDate = new Date().toISOString();
+          
+          if (adminEntries.length > 0) {
+            // Find the earliest existing action date and subtract a day
+            const earliestDate = adminEntries
+              .map(entry => new Date(entry.action_datetime || new Date()))
+              .sort((a, b) => a - b)[0];
+            
+            // Set submission date to 1 day before the earliest action
+            const submissionTimestamp = new Date(earliestDate.getTime() - (24 * 60 * 60 * 1000));
+            submissionDate = submissionTimestamp.toISOString();
+          }
+          
+          adminEntries.push({
+            history_id: 'generated-submitted',
+            type_of_action: 'Submitted',
+            assigned_to: '',
+            description: 'Submitted a Valid Complaint',
+            action_datetime: submissionDate,
+            details: {},
+            has_file: false,
+            file_path: null,
+            file_name: null,
+            admin_account_type: 1,
+            completed_by_staff: false
+          });
+        }
+        
+        return adminEntries;
         
       case 'staff':
         // Staff sees their assignments and completions, plus completion message
@@ -2101,6 +2160,8 @@
     try {
       if (entry.details) {
         details = typeof entry.details === 'string' ? JSON.parse(entry.details) : entry.details;
+        console.log(`[PREVIEW DEBUG] ${actionType} details:`, details);
+        console.log(`[PREVIEW DEBUG] ${actionType} entry:`, entry);
       }
     } catch (e) {
       console.error('Error parsing entry details:', e);
@@ -2121,6 +2182,9 @@
         break;
       case 'assessment':
         previewHTML = generateAssessmentPreview(details, entry);
+        break;
+      case 'out of jurisdiction':
+        previewHTML = generateOutOfJurisdictionPreview(details, entry);
         break;
       default:
         previewHTML = generateGenericPreview(details, entry);
@@ -2143,95 +2207,250 @@
     }
   }
 
-  // Generate inspection preview HTML
+  // Generate inspection preview HTML - matches exact original form layout
   function generateInspectionPreview(details, entry) {
+    const formatDate = (dateStr) => {
+      if (!dateStr) return 'Not specified';
+      try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      } catch (e) {
+        return dateStr;
+      }
+    };
+
+    const formatScope = (scope) => {
+      if (!scope || (Array.isArray(scope) && scope.length === 0)) return 'Not specified';
+      if (Array.isArray(scope)) {
+        return scope.map(s => {
+          switch(s) {
+            case 'safety': return 'Safety';
+            case 'affected_lots': return 'Affected lot/s';
+            case 'measurement': return 'Measurement of lot/s';
+            case 'relation_owner': return 'Relation to the lot owner (if non-HOA)';
+            default: return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ');
+          }
+        }).join(', ');
+      }
+      return scope.toString();
+    };
+
     return `
       <div style="padding: 15px;">
+        <!-- Assigned Personnel -->
         <div class="form-group">
           <label><strong>Assigned Personnel:</strong></label>
           <div class="readonly-field">${entry.assigned_to || 'Not specified'}</div>
         </div>
         
+        <!-- Location of Inspection -->
         <div class="form-group">
-          <label><strong>Deadline:</strong></label>
-          <div class="readonly-field">${details.deadline || 'Not specified'}</div>
-        </div>
-        
-        <div class="form-group">
-          <label><strong>Location:</strong></label>
+          <label><strong>Location of Inspection:</strong></label>
           <div class="readonly-field">${details.location || 'Not specified'}</div>
         </div>
         
+        <hr style="margin: 10px 0;">
+        
+        <!-- Deadline -->
         <div class="form-group">
-          <label><strong>Scope of Work:</strong></label>
-          <div class="readonly-field">
-            ${details.scope ? (Array.isArray(details.scope) ? details.scope.join(', ') : details.scope) : 'Not specified'}
-          </div>
+          <label><strong>Deadline:</strong></label>
+          <div class="readonly-field">${formatDate(details.deadline)}</div>
         </div>
         
+        <!-- Scope of Inspection -->
         <div class="form-group">
-          <label><strong>Description:</strong></label>
-          <div class="readonly-field">${details.description || entry.description || 'No description provided'}</div>
+          <label><strong>Scope of Inspection:</strong></label>
+          <div class="readonly-field">${formatScope(details.scope)}</div>
         </div>
+        
+        ${details.description ? `
+        <div class="form-group">
+          <label><strong>Additional Notes:</strong></label>
+          <div class="readonly-field">${details.description}</div>
+        </div>
+        ` : ''}
         
         ${generateFileAttachments(details)}
       </div>
     `;
   }
 
-  // Generate invitation preview HTML
+  // Generate invitation preview HTML - matches exact original form layout
   function generateInvitationPreview(details, entry) {
+    const formatDate = (dateStr) => {
+      if (!dateStr) return 'Not specified';
+      try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      } catch (e) {
+        return dateStr;
+      }
+    };
+
+    const formatTime = (timeStr) => {
+      if (!timeStr) return 'Not specified';
+      try {
+        // Handle both time-only and full datetime formats
+        if (timeStr.includes('T') || timeStr.includes(' ')) {
+          const date = new Date(timeStr);
+          return date.toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit',
+            hour12: true 
+          });
+        } else {
+          // Time-only format (HH:MM or HH:MM:SS)
+          const [hours, minutes] = timeStr.split(':');
+          const date = new Date();
+          date.setHours(parseInt(hours), parseInt(minutes), 0);
+          return date.toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit',
+            hour12: true 
+          });
+        }
+      } catch (e) {
+        return timeStr;
+      }
+    };
+
     return `
       <div style="padding: 15px;">
+        <!-- To -->
         <div class="form-group">
-          <label><strong>Assigned Personnel:</strong></label>
-          <div class="readonly-field">${entry.assigned_to || 'Not specified'}</div>
-        </div>
-        
-        <div class="form-group">
-          <label><strong>Invited Individuals:</strong></label>
+          <label><strong>To:</strong></label>
           <div class="readonly-field">
-            ${details.individuals ? (Array.isArray(details.individuals) ? details.individuals.join(', ') : details.individuals) : 'Not specified'}
+            ${details.to ? (Array.isArray(details.to) ? details.to.join(', ') : details.to) : (details.individuals || 'Not specified')}
           </div>
         </div>
-        
+
+        <!-- Location -->
         <div class="form-group">
-          <label><strong>Meeting Date:</strong></label>
-          <div class="readonly-field">${details.meeting_date || 'Not specified'}</div>
+          <label><strong>Location:</strong></label>
+          <div class="readonly-field">${details.location || details.venue || 'Not specified'}</div>
         </div>
         
-        <div class="form-group">
-          <label><strong>Meeting Time:</strong></label>
-          <div class="readonly-field">${details.meeting_time || 'Not specified'}</div>
-        </div>
-        
-        <div class="form-group">
-          <label><strong>Venue:</strong></label>
-          <div class="readonly-field">${details.venue || 'Not specified'}</div>
-        </div>
-        
+        <!-- Agenda -->
         <div class="form-group">
           <label><strong>Agenda:</strong></label>
           <div class="readonly-field">${details.agenda || 'Not specified'}</div>
         </div>
         
+        <hr style="margin: 10px 0;">
+
+        <!-- Date of Meeting -->
         <div class="form-group">
-          <label><strong>Description:</strong></label>
-          <div class="readonly-field">${details.description || entry.description || 'No description provided'}</div>
+          <label><strong>Date of Meeting:</strong></label>
+          <div class="readonly-field">${formatDate(details.meeting_date)}</div>
         </div>
+        
+        <!-- Time of Meeting -->
+        <div class="form-group">
+          <label><strong>Time of Meeting:</strong></label>
+          <div class="readonly-field">${formatTime(details.meeting_time)}</div>
+        </div>
+
+        <!-- Assigned Personnel -->
+        <div class="form-group">
+          <label><strong>Assigned Personnel:</strong></label>
+          <div class="readonly-field">${entry.assigned_to || 'Not specified'}</div>
+        </div>
+        
+        ${details.description ? `
+        <div class="form-group">
+          <label><strong>Additional Notes:</strong></label>
+          <div class="readonly-field">${details.description}</div>
+        </div>
+        ` : ''}
         
         ${generateFileAttachments(details)}
       </div>
     `;
   }
 
-  // Generate mediation preview HTML
+  // Generate mediation preview HTML - matches exact original form layout
   function generateMediationPreview(details, entry) {
     return `
       <div style="padding: 15px;">
+        <!-- Assigned Personnel -->
         <div class="form-group">
-          <label><strong>Mediation Details:</strong></label>
-          <div class="readonly-field">${details.description || entry.description || 'No details provided'}</div>
+          <label><strong>Assigned Personnel:</strong></label>
+          <div class="readonly-field">${entry.assigned_to || 'Not specified'}</div>
+        </div>
+        
+        <!-- Parties Involved -->
+        <div class="form-group">
+          <label><strong>Parties Involved:</strong></label>
+          <div class="readonly-field">
+            ${details.parties_involved ? (Array.isArray(details.parties_involved) ? details.parties_involved.join(', ') : details.parties_involved) : 'Not specified'}
+          </div>
+        </div>
+        
+        <hr style="margin: 10px 0;">
+        
+        <!-- Agenda -->
+        <div class="form-group">
+          <label><strong>Agenda:</strong></label>
+          <div class="readonly-field">${details.agenda || 'Not specified'}</div>
+        </div>
+        
+        <!-- Advisors/Witnesses -->
+        <div class="form-group">
+          <label><strong>Advisors / Witnesses:</strong></label>
+          <div class="readonly-field">
+            ${details.advisors ? (Array.isArray(details.advisors) ? details.advisors.join(', ') : details.advisors) : 
+              (details.witnesses ? (Array.isArray(details.witnesses) ? details.witnesses.join(', ') : details.witnesses) : 'Not specified')}
+          </div>
+        </div>
+        
+        <!-- Summary -->
+        <div class="form-group">
+          <label><strong>Summary:</strong></label>
+          <div class="readonly-field">${details.summary || details.description || 'No summary provided'}</div>
+        </div>
+        
+        <!-- File uploads -->
+        ${details.files && details.files.length > 0 ? `
+        <div class="form-group">
+          <label><strong>Uploaded Files:</strong></label>
+          <div class="readonly-field">
+            ${details.files.map((file, index) => `
+              <div style="margin-bottom: 5px;">
+                <strong>${file.description || 'File ' + (index + 1)}:</strong> ${file.name || 'Uploaded file'}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        ` : ''}
+        
+        ${generateFileAttachments(details)}
+      </div>
+    `;
+  }
+
+  // Generate assessment preview HTML - matches exact original form layout
+  function generateAssessmentPreview(details, entry) {
+    return `
+      <div style="padding: 15px;">
+        <!-- Assessment Details -->
+        <div class="form-group">
+          <label><strong>Assessment Details:</strong></label>
+          <div class="readonly-field" style="white-space: pre-wrap; max-height: 120px; overflow-y: auto; border: 1px solid #ccc; padding: 8px; border-radius: 6px; background-color: #f9f9f9;">
+            ${details.assessment_details || details.description || details.notes || entry.description || 'No assessment details provided'}
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label><strong>Assessed By:</strong></label>
+          <div class="readonly-field">${entry.assigned_to || details.assessed_by || 'Admin'}</div>
         </div>
         
         <div class="form-group">
@@ -2244,17 +2463,33 @@
     `;
   }
 
-  // Generate assessment preview HTML
-  function generateAssessmentPreview(details, entry) {
+  // Generate out of jurisdiction preview HTML - matches exact original form layout
+  function generateOutOfJurisdictionPreview(details, entry) {
     return `
       <div style="padding: 15px;">
+        <!-- Under the Scope of -->
         <div class="form-group">
-          <label><strong>Assessment Details:</strong></label>
-          <div class="readonly-field">${details.description || entry.description || 'No assessment details provided'}</div>
+          <label><strong>Under the Scope of:</strong></label>
+          <div class="readonly-field">${details.scope || details.outOfJurisdiction || 'Not specified'}</div>
+        </div>
+        
+        ${details.others_specify ? `
+        <div class="form-group">
+          <label><strong>Others (Specified):</strong></label>
+          <div class="readonly-field">${details.others_specify}</div>
+        </div>
+        ` : ''}
+        
+        <!-- Out of Jurisdiction Remarks -->
+        <div class="form-group">
+          <label><strong>Out of Jurisdiction Remarks:</strong></label>
+          <div class="readonly-field" style="white-space: pre-wrap; max-height: 120px; overflow-y: auto; border: 1px solid #ccc; padding: 8px; border-radius: 6px; background-color: #f9f9f9;">
+            ${details.remarks || details.description || entry.description || 'No remarks provided'}
+          </div>
         </div>
         
         <div class="form-group">
-          <label><strong>Assessed By:</strong></label>
+          <label><strong>Processed By:</strong></label>
           <div class="readonly-field">${entry.assigned_to || 'Admin'}</div>
         </div>
         
@@ -2748,6 +2983,104 @@
     link.click();
   }
 
+  // View staff uploaded files (for "Inspection done" and "Sent Invitation" entries)
+  function viewStaffFiles(attachedFiles, actionType, historyId) {
+    if (!attachedFiles || attachedFiles.length === 0) {
+      showCustomAlert('No files available for this entry.');
+      return;
+    }
+
+    // Create enhanced modal for staff file preview with view/download capabilities
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+      background: rgba(0,0,0,0.8); display: flex; align-items: center; 
+      justify-content: center; z-index: 10000;
+    `;
+
+    const content = document.createElement('div');
+    content.style.cssText = `
+      background: white; border-radius: 8px; padding: 20px; 
+      max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;
+    `;
+
+    let fileListHTML = `
+      <h3 style="margin: 0 0 15px 0; color: #333;">Staff Uploaded Files - ${actionType}</h3>
+      <div style="margin-bottom: 20px;">
+    `;
+
+    attachedFiles.forEach((fileName, index) => {
+      // Create file URL (adjust path as needed for your file serving setup)
+      const fileUrl = `/uploads/staff/${fileName}`;
+      const fileExt = fileName.split('.').pop().toLowerCase();
+      const isImage = ['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(fileExt);
+      const isPDF = fileExt === 'pdf';
+      
+      fileListHTML += `
+        <div style="border: 1px solid #ddd; border-radius: 6px; padding: 10px; margin-bottom: 10px; background: #f9f9f9;">
+          <div style="display: flex; justify-content: between; align-items: center;">
+            <div style="flex: 1;">
+              <strong>${fileName}</strong>
+              <div style="font-size: 12px; color: #666; margin-top: 2px;">
+                ${isImage ? '📷 Image' : isPDF ? '📄 PDF Document' : '📁 File'}
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              ${isImage || isPDF ? `
+                <button onclick="viewStaffFile('${fileUrl}', '${fileName}')" 
+                        style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                  👁️ View
+                </button>
+              ` : ''}
+              <button onclick="downloadStaffFile('${fileUrl}', '${fileName}')" 
+                      style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                💾 Download
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    fileListHTML += `
+      </div>
+      <div style="text-align: center;">
+        <button onclick="this.closest('.staff-files-modal').remove()" 
+                style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+          Close
+        </button>
+      </div>
+    `;
+
+    content.innerHTML = fileListHTML;
+    modal.className = 'staff-files-modal';
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+
+    // Close on background click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+  }
+
+  // View individual staff file
+  function viewStaffFile(fileUrl, fileName) {
+    // For remote devices, we'll open in new tab which should work for most file types
+    window.open(fileUrl, '_blank', 'noopener,noreferrer');
+  }
+
+  // Download staff file
+  function downloadStaffFile(fileUrl, fileName) {
+    // Create temporary link for download
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.download = fileName;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   // Make functions globally available
   window.showTimelinePreview = showTimelinePreview;
   window.closeTimelinePreview = closeTimelinePreview;
@@ -2758,6 +3091,9 @@
   window.showAdminFilePreview = showAdminFilePreview;
   window.previewAdminFile = previewAdminFile;
   window.downloadAdminFile = downloadAdminFile;
+  window.viewStaffFiles = viewStaffFiles;
+  window.viewStaffFile = viewStaffFile;
+  window.downloadStaffFile = downloadStaffFile;
   </script>
 </body>
 </html>

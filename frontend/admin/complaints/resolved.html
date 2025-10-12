@@ -31,8 +31,10 @@
     .complaints-table th:nth-child(3), .complaints-table td:nth-child(3) { min-width: 150px; width: 150px; } /* Complainant */
     .complaints-table th:nth-child(5), .complaints-table td:nth-child(5) { min-width: 150px; width: 150px; } /* HOA - increased width */
     .complaints-table th:nth-child(6), .complaints-table td:nth-child(6) { min-width: 180px; width: 180px; } /* Address */
-    .complaints-table tbody tr:hover { background-color: #f8f9fa; cursor: pointer; }
-    /* Resolved complaints styling - default background */
+    .complaints-table tbody tr:hover { background-color: #7DDBA8; cursor: pointer; }
+    /* Resolved complaints styling */
+    .complaints-table tbody tr.status-resolved { background-color: #9FE2BF !important; cursor: pointer; }
+    .complaints-table tbody tr.status-resolved:hover { background-color: #7DDBA8 !important; }
   </style>
 </head>
 <body>
@@ -218,7 +220,7 @@
         
         // Add status-based styling AFTER setting innerHTML
         row.classList.add('status-resolved');
-        row.style.backgroundColor = '#C4E1C4'; // Fallback inline style
+        row.style.backgroundColor = '#9FE2BF'; // Updated green color
         
         tbody.appendChild(row);
       });

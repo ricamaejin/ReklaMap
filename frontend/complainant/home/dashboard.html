@@ -562,15 +562,43 @@
                     const timeline = await fetchTimeline(latest.complaint_id);
                     // Ensure newest first for both headline and mini timeline
                     let sorted = timeline.slice().sort((a,b) => new Date(b.action_datetime||0) - new Date(a.action_datetime||0));
+                    // Debug: Log complaint data for time investigation
+                    console.log(`[DASHBOARD] Complaint ${latest.complaint_id} (${latest.type}) time data:`, {
+                        date_received: latest.date_received,
+                        date_received_parsed: latest.date_received ? new Date(latest.date_received) : null,
+                        date_submitted: latest.date_submitted, 
+                        created_at: latest.created_at,
+                        created_at_parsed: latest.created_at ? new Date(latest.created_at) : null,
+                        created_at_ts: latest.created_at_ts,
+                        created_at_ts_parsed: latest.created_at_ts ? new Date(latest.created_at_ts) : null,
+                        type: latest.type
+                    });
+                    
                     // Ensure a Submitted entry exists with correct date_received time
                     const hasSubmitted = sorted.some(e => ((e.type_of_action||e.action_type||'').toLowerCase()==='submitted'));
                     if (!hasSubmitted) {
                         // Always use date_received from complaints table (the actual submission datetime)
                         let submittedISO = null;
                         try {
-                            // Priority: date_received > date_submitted > created_at
-                            const submissionDate = latest.date_received || latest.date_submitted || latest.created_at;
-                            console.log(`[DASHBOARD] Using submission date for complaint ${latest.complaint_id}:`, submissionDate);
+                            // Priority: date_received > created_at_ts > date_submitted > created_at (string)
+                            let submissionDate = null;
+                            
+                            if (latest.date_received) {
+                                submissionDate = latest.date_received;
+                                console.log(`[DASHBOARD] Using date_received for complaint ${latest.complaint_id}:`, submissionDate);
+                            } else if (latest.created_at_ts) {
+                                // Use created_at_ts (timestamp) which has full datetime
+                                submissionDate = new Date(latest.created_at_ts);
+                                console.log(`[DASHBOARD] Using created_at_ts for complaint ${latest.complaint_id}:`, submissionDate);
+                            } else if (latest.date_submitted) {
+                                submissionDate = latest.date_submitted;
+                                console.log(`[DASHBOARD] Using date_submitted for complaint ${latest.complaint_id}:`, submissionDate);
+                            } else if (latest.created_at) {
+                                submissionDate = latest.created_at;
+                                console.log(`[DASHBOARD] Using created_at (fallback) for complaint ${latest.complaint_id}:`, submissionDate);
+                            }
+                            
+                            // Check if we have a valid date
                             const dt = submissionDate ? new Date(submissionDate) : null;
                             if (dt && !isNaN(dt.getTime())) {
                                 submittedISO = dt.toISOString();

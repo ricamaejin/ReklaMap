@@ -40,16 +40,16 @@
     .complaints-table tbody tr.status-pending:hover { background-color: #FFD980 !important; }
     .complaints-table tbody tr.status-inspection { background-color: #A7D8F2 !important; cursor: pointer; }
     .complaints-table tbody tr.status-inspection:hover { background-color: #85C7ED !important; }
-    .complaints-table tbody tr.status-invitation { background-color: #9FE2BF !important; cursor: pointer; }
-    .complaints-table tbody tr.status-invitation:hover { background-color: #7DDBA8 !important; }
+    .complaints-table tbody tr.status-invitation { background-color: #a6a5ff !important; cursor: pointer; }
+    .complaints-table tbody tr.status-invitation:hover { background-color: #8D8CFF !important; }
     .complaints-table tbody tr.status-mediation { background-color: #C9B6E4 !important; cursor: pointer; }
     .complaints-table tbody tr.status-mediation:hover { background-color: #B8A1D9 !important; }
     .complaints-table tbody tr.status-assessment { background-color: #B5E48C !important; cursor: pointer; }
     .complaints-table tbody tr.status-assessment:hover { background-color: #A0DB70 !important; }
     .complaints-table tbody tr.status-invalid { background-color: #F6B6B6 !important; cursor: pointer; }
     .complaints-table tbody tr.status-invalid:hover { background-color: #F19999 !important; }
-    .complaints-table tbody tr.status-assigned { background-color: #FFD6A5 !important; cursor: pointer; }
-    .complaints-table tbody tr.status-assigned:hover { background-color: #FFC885 !important; }
+    .complaints-table tbody tr.status-assigned { background-color: #9FE2BF !important; cursor: pointer; }
+    .complaints-table tbody tr.status-assigned:hover { background-color: #7DDBA8 !important; }
     .complaints-table tbody tr.status-unresolved { background-color: #D3D3D3 !important; cursor: pointer; }
     .complaints-table tbody tr.status-unresolved:hover { background-color: #C0C0C0 !important; }
     .complaints-table tbody tr.status-out-of-jurisdiction { background-color: #F6B6B6 !important; cursor: pointer; }
@@ -316,10 +316,38 @@
           
           // Get meeting datetime from invitation action
           let meetingDateTime = null;
-          if (complaint.meeting_datetime) {
+          if (complaint.meeting_datetime && complaint.meeting_datetime !== 'null' && complaint.meeting_datetime !== null) {
             meetingDateTime = new Date(complaint.meeting_datetime);
-          } else if (complaint.meeting_date && complaint.meeting_time) {
+            console.log(`[STATUS] Complaint ${complaint.complaint_id}: using meeting_datetime = ${meetingDateTime}`);
+          } else if (complaint.meeting_date && complaint.meeting_time && 
+                     complaint.meeting_date !== 'null' && complaint.meeting_date !== null &&
+                     complaint.meeting_time !== 'null' && complaint.meeting_time !== null) {
             meetingDateTime = new Date(`${complaint.meeting_date}T${complaint.meeting_time}`);
+            console.log(`[STATUS] Complaint ${complaint.complaint_id}: constructed meetingDateTime from date+time = ${meetingDateTime}`);
+          } else {
+            console.log(`[STATUS] Complaint ${complaint.complaint_id}: no meeting data found in top-level fields`);
+            console.log(`[STATUS] Available fields:`, {
+              meeting_datetime: complaint.meeting_datetime,
+              meeting_date: complaint.meeting_date,
+              meeting_time: complaint.meeting_time
+            });
+            console.log(`[STATUS] Full complaint object keys:`, Object.keys(complaint));
+            console.log(`[STATUS] Details field:`, complaint.details);
+            console.log(`[STATUS] complaint_history field:`, complaint.complaint_history);
+            
+            // Check if there are nested details that might contain meeting info
+            if (complaint.details) {
+              console.log(`[STATUS] Found details field:`, complaint.details);
+              try {
+                const detailsObj = typeof complaint.details === 'string' ? JSON.parse(complaint.details) : complaint.details;
+                if (detailsObj.meeting_date && detailsObj.meeting_time) {
+                  meetingDateTime = new Date(`${detailsObj.meeting_date}T${detailsObj.meeting_time}`);
+                  console.log(`[STATUS] Found meeting data in details: ${meetingDateTime}`);
+                }
+              } catch (e) {
+                console.log(`[STATUS] Error parsing details:`, e);
+              }
+            }
           }
           
           // Calculate deadline based on action type (EXACT same logic as index.html)
@@ -334,7 +362,14 @@
           } else if (actionType.includes('sent invitation')) {
             deadline = new Date(actionDate.getTime() + (20 * 24 * 60 * 60 * 1000));
           } else if (actionType.includes('accepted invitation')) {
-            deadline = meetingDateTime || actionDate;
+            // For accepted invitation, ONLY use meeting_date from invitation details
+            if (meetingDateTime && !isNaN(meetingDateTime.getTime())) {
+              deadline = meetingDateTime;
+              console.log(`[STATUS] Complaint ${complaint.complaint_id}: using meeting deadline = ${deadline}`);
+            } else {
+              console.warn(`[STATUS] Complaint ${complaint.complaint_id}: no valid meeting_date for accepted invitation`);
+              return 'Missing meeting date';
+            }
           } else if (actionType.includes('mediation')) {
             const baseDate = meetingDateTime || actionDate;
             deadline = new Date(baseDate.getTime() + (3 * 24 * 60 * 60 * 1000));
@@ -536,13 +571,14 @@
       }
       
       else if (actionType.includes('accepted invitation')) {
-        // Accepted Invitation → Date/Time of Meeting from Invitation modal + "(Mediation day)"
-        if (meetingDateTime) {
+        // Accepted Invitation → Use meeting_date from Invitation details as the deadline
+        if (meetingDateTime && !isNaN(meetingDateTime.getTime())) {
           const dateStr = meetingDateTime.toLocaleDateString();
           const timeStr = meetingDateTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
           return `${dateStr} | ${timeStr}<br/>(Mediation day)`;
         }
-        // Fallback if no meeting datetime
+        // Fallback if no meeting datetime available
+        console.warn(`No meeting_date found for complaint ${complaint.complaint_id} with accepted invitation`);
         const dateStr = actionDate.toLocaleDateString();
         return `${dateStr}<br/>(Mediation day)`;
       }

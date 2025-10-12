@@ -35,8 +35,8 @@
     /* Status-based row colors - higher specificity */
     .complaints-table tbody tr.status-inspection { background-color: #A7D8F2 !important; cursor: pointer; }
     .complaints-table tbody tr.status-inspection:hover { background-color: #85C7ED !important; }
-    .complaints-table tbody tr.status-invitation { background-color: #9FE2BF !important; cursor: pointer; }
-    .complaints-table tbody tr.status-invitation:hover { background-color: #7DDBA8 !important; }
+    .complaints-table tbody tr.status-invitation { background-color: #a6a5ff !important; cursor: pointer; }
+    .complaints-table tbody tr.status-invitation:hover { background-color: #8D8CFF !important; }
     .complaints-table tbody tr.status-mediation { background-color: #C9B6E4 !important; cursor: pointer; }
     .complaints-table tbody tr.status-mediation:hover { background-color: #B8A1D9 !important; }
     .complaints-table tbody tr.status-assessment { background-color: #B5E48C !important; cursor: pointer; }
@@ -253,13 +253,36 @@
           console.log(`[ONGOING] 📅 Meeting data check for complaint ${complaint.complaint_id}:`);
           console.log(`[ONGOING] 📅   - meeting_date: "${complaint.meeting_date}"`);
           console.log(`[ONGOING] 📅   - meeting_time: "${complaint.meeting_time}"`);
+          console.log(`[ONGOING] 📅   - meeting_datetime: "${complaint.meeting_datetime}"`);
+          console.log(`[ONGOING] 📅   - Full complaint object keys:`, Object.keys(complaint));
+          console.log(`[ONGOING] 📅   - Details field:`, complaint.details);
+          console.log(`[ONGOING] 📅   - complaint_history field:`, complaint.complaint_history);
           
-          if (complaint.meeting_date && complaint.meeting_time) {
+          if (complaint.meeting_datetime && complaint.meeting_datetime !== 'null' && complaint.meeting_datetime !== null) {
+            meetingDateTime = new Date(complaint.meeting_datetime);
+            console.log(`[ONGOING] 📅   - Using meeting_datetime: ${meetingDateTime}`);
+          } else if (complaint.meeting_date && complaint.meeting_time && 
+                     complaint.meeting_date !== 'null' && complaint.meeting_date !== null &&
+                     complaint.meeting_time !== 'null' && complaint.meeting_time !== null) {
             meetingDateTime = new Date(`${complaint.meeting_date}T${complaint.meeting_time}`);
             console.log(`[ONGOING] 📅   - constructed meetingDateTime: ${meetingDateTime}`);
             console.log(`[ONGOING] 📅   - meetingDateTime valid: ${!isNaN(meetingDateTime.getTime())}`);
           } else {
-            console.log(`[ONGOING] 📅   - No meeting data available`);
+            console.log(`[ONGOING] 📅   - No meeting data available in top-level fields`);
+            
+            // Check if there are nested details that might contain meeting info
+            if (complaint.details) {
+              console.log(`[ONGOING] 📅   - Found details field:`, complaint.details);
+              try {
+                const detailsObj = typeof complaint.details === 'string' ? JSON.parse(complaint.details) : complaint.details;
+                if (detailsObj.meeting_date && detailsObj.meeting_time) {
+                  meetingDateTime = new Date(`${detailsObj.meeting_date}T${detailsObj.meeting_time}`);
+                  console.log(`[ONGOING] 📅   - Found meeting data in details: ${meetingDateTime}`);
+                }
+              } catch (e) {
+                console.log(`[ONGOING] 📅   - Error parsing details:`, e);
+              }
+            }
           }
           
           if (actionType.includes('inspection') && !actionType.includes('done')) {
@@ -280,7 +303,7 @@
           }
           
           else if (actionType.includes('accepted invitation')) {
-            // Accepted Invitation → Show meeting date/time with "(Mediation day)"
+            // Accepted Invitation → Use meeting_date from Invitation details as the deadline
             console.log(`[ONGOING] 🤝 ACCEPTED INVITATION - Complaint ${complaint.complaint_id}`);
             console.log(`[ONGOING] 🤝   - meetingDateTime: ${meetingDateTime}`);
             console.log(`[ONGOING] 🤝   - actionDate: ${actionDate}`);
@@ -291,10 +314,9 @@
               console.log(`[ONGOING] 🤝   - Using meeting date/time: ${dateStr} ${timeStr}`);
               return `${dateStr} | ${timeStr}<br/>(Mediation day)`;
             }
-            // Fallback if no meeting datetime
-            console.log(`[ONGOING] 🤝   - No valid meeting date, using action date fallback`);
-            const dateStr = actionDate.toLocaleDateString();
-            return `${dateStr}<br/>(Mediation day)`;
+            // No fallback - if no meeting date available, show error
+            console.warn(`[ONGOING] 🤝   - No meeting_date found for complaint ${complaint.complaint_id} with accepted invitation`);
+            return `<span style="color: red;">Missing meeting date</span>`;
           }
           
           else if (actionType.includes('mediation')) {
