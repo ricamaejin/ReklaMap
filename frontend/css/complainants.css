@@ -900,19 +900,28 @@ i {
   margin-top: 15px;
 }
 
-.checkbox-group-compact .checkbox-item-compact {
-  display: flex;
-  align-items: center;
-  gap: 6px; 
-  margin: 0; 
-  white-space: nowrap; 
-}
-
-.checkbox-group-compact input[type="checkbox"],
 .checkbox-group-compact input[type="radio"] {
   width: 18px;
   height: 18px;
   cursor: pointer;
+}
+
+
+#assignModal .checkbox-group-compact .checkbox-item-compact,
+#modal .checkbox-group-compact .checkbox-item-compact {
+  display: flex;         
+  align-items: center;   
+  gap: 8px;               
+  margin-bottom: 6px;     
+  line-height: 1;         
+}
+
+#assignModal .checkbox-group-compact .checkbox-item-compact input[type="checkbox"],
+#modal .checkbox-group-compact .checkbox-item-compact input[type="checkbox"] {
+  margin: 0;
+  vertical-align: middle;
+  width: 18px;
+  height: 18px;
 }
 
 .checkbox-group-compact {     
@@ -2005,4 +2014,10 @@ input[type="date"] {
   min-width: 220px;
   max-width: 340px;
   transition: opacity .2s;
+}
+
+#modal .modal label,
+#assignModal .modal label,
+#timelinePreviewModal .modal label {
+  font-weight: bold;
 }
