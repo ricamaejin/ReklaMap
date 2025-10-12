@@ -462,7 +462,8 @@ if (saveBtn) {
 // When staff clicks Update: last timeline status changes to "Sent Invitation"
 // Complaint then transitions to appear under resolved.html for staff view
 async function resolveTask() {
-  const files = Array.from(document.getElementById("inspectionFile").files);
+  const fileElement = document.getElementById("inspectionFile");
+  const files = fileElement ? Array.from(fileElement.files) : [];
 
   // Validation check - must attach Notice of Meeting
   if (files.length === 0) {

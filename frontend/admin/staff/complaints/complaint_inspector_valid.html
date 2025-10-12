@@ -419,10 +419,18 @@ if (saveBtn) {
 // Complaint then transitions to appear under resolved.html for staff view
 async function resolveTask() {
   const findings = document.getElementById("findings").value.trim();
-  const files = Array.from(document.getElementById("inspectionFile").files);
+  
+  // Collect all file inputs (inspectionFile1, inspectionFile2, etc.)
+  const allFiles = [];
+  const fileInputs = document.querySelectorAll('input[name="inspectionFiles[]"]');
+  fileInputs.forEach(input => {
+    if (input.files && input.files.length > 0) {
+      allFiles.push(...Array.from(input.files));
+    }
+  });
 
   // Validation checks
-  if (!findings && files.length === 0) {
+  if (!findings && allFiles.length === 0) {
       showCustomAlert("Please input inspection findings and attach the supporting documents/evidence of the inspection first.");
       return;
     }
@@ -430,7 +438,7 @@ async function resolveTask() {
       showCustomAlert("Please input inspection findings first.");
       return;
     }
-    if (files.length === 0) {
+    if (allFiles.length === 0) {
       showCustomAlert("Please attach the supporting documents or evidence of the inspection first.");
       return;
     }
@@ -450,7 +458,7 @@ async function resolveTask() {
         complaint_id: complaintId,
         action_type: 'Inspection done',
         description: findings,
-        files: files.map(f => f.name),
+        files: allFiles.map(f => f.name),
         staff_account_type: currentStaffAccount, // admin.account == 2
         completed_by_staff: true, // Flag to mark this as staff completion
         task_type: 'inspection' // Specify this is inspection completion

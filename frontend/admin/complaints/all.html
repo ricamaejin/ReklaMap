@@ -381,8 +381,16 @@
           actionNeededDisplay = 'Invalid';
         } else if (complaint.complaint_stage === 'Out of Jurisdiction') {
           assignedToDisplay = '<em>N/A</em>';
-          statusDisplay = '';
+          statusDisplay = 'Out of Jurisdiction';
           actionNeededDisplay = 'Out of Jurisdiction';
+        } else if (complaint.complaint_stage === 'Unresolved') {
+          assignedToDisplay = complaint.assigned_to || 'N/A';
+          statusDisplay = 'Unresolved';
+          actionNeededDisplay = complaint.latest_action || 'Unresolved';
+        } else if (complaint.complaint_stage === 'Resolved') {
+          assignedToDisplay = complaint.assigned_to || 'N/A';
+          statusDisplay = 'Resolved';
+          actionNeededDisplay = complaint.latest_action || 'Resolved';
         } else if (complaint.complaint_stage === 'Pending' || !complaint.latest_action) {
           assignedToDisplay = 'Pending';
           statusDisplay = '<em>Received</em>';

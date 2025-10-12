@@ -111,13 +111,13 @@
           populateTable(data.complaints);
         } else {
           console.error('Failed to load complaints:', data.message || data.error);
-          // Try alternative endpoint or show error message
+          showErrorModal('Error loading resolved complaints. Please contact administrator.');
           const tbody = document.getElementById('complaints-table-body');
           tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #d32f2f;">Error loading resolved complaints. Please contact administrator.</td></tr>';
         }
       } catch (error) {
         console.error('Error loading complaints:', error);
-        // Show error in table
+        showErrorModal('Network error loading resolved complaints. Please refresh the page.');
         const tbody = document.getElementById('complaints-table-body');
         tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #d32f2f;">Network error loading resolved complaints. Please refresh the page.</td></tr>';
       }
@@ -328,6 +328,20 @@
       initInboxDropdown();
     });
 
+    // Error modal functions
+    function showErrorModal(message) {
+      document.getElementById("errorMessage").textContent = message;
+      document.getElementById("errorModal").style.display = "flex";
+    }
+
+    function closeErrorModal() {
+      document.getElementById("errorModal").style.display = "none";
+    }
+
+    // Expose functions globally
+    window.showErrorModal = showErrorModal;
+    window.closeErrorModal = closeErrorModal;
+
     // Expose inbox controls if needed elsewhere
     window.openInbox = openInbox;
     window.closeInbox = closeInbox;
@@ -520,6 +534,58 @@
     }
     .btn:hover { background: #f5f5f5; }
     
+    /* Warning Modal Styles */
+    .warning-modal {
+      background: white;
+      padding: 0;
+      border-radius: 10px;
+      width: 400px;
+      max-width: 90%;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      border: 2px solid #ff6b35;
+      overflow: hidden;
+    }
+    
+    .warning-header {
+      background: #ff6b35;
+      color: white;
+      padding: 15px 20px;
+      font-weight: bold;
+      font-size: 16px;
+      text-align: center;
+      margin: 0;
+    }
+    
+    .warning-body {
+      padding: 20px;
+    }
+    
+    .warning-text p {
+      margin: 0;
+      color: #333;
+      line-height: 1.5;
+    }
+    
+    .warning-footer {
+      padding: 15px 20px;
+      text-align: right;
+      border-top: 1px solid #eee;
+    }
+    
+    .warning-footer button {
+      background: #ff6b35;
+      color: white;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    
+    .warning-footer button:hover {
+      background: #e55a2b;
+    }
+    
     /* Uniform table styling with consistent row heights */
     .complaints-table tbody tr {
       min-height: 70px;
@@ -554,6 +620,21 @@
       </div>
       <div class="inbox-footer">
         <button class="btn" onclick="closeInbox()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error/Warning Modal -->
+  <div class="modal-overlay" id="errorModal" style="display: none;">
+    <div class="warning-modal">
+      <div class="warning-header">⚠️ WARNING MESSAGE</div>
+      <div class="warning-body">
+        <div class="warning-text">
+          <p id="errorMessage"></p>
+        </div>
+      </div>
+      <div class="warning-footer">
+        <button onclick="closeErrorModal()">OK</button>
       </div>
     </div>
   </div>

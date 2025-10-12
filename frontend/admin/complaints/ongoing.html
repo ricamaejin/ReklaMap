@@ -236,6 +236,12 @@
           const actionType = (complaint.latest_action || complaint.action_needed || '').toLowerCase();
           const actionDate = new Date(complaint.action_datetime);
           
+          console.log(`[ONGOING] 🔍 DEBUGGING Complaint ${complaint.complaint_id}`);
+          console.log(`[ONGOING] 🔍 Raw actionType: "${complaint.latest_action || complaint.action_needed}"`);
+          console.log(`[ONGOING] 🔍 Lowercase actionType: "${actionType}"`);
+          console.log(`[ONGOING] 🔍 Action date: ${actionDate}`);
+          console.log(`[ONGOING] 🔍 Complaint object:`, complaint);
+          
           // Get admin-set deadline for inspection from complaint history/actions - use the deadline from API
           let adminDeadline = null;
           if (complaint.deadline) {
@@ -244,8 +250,16 @@
           
           // Get meeting datetime from invitation action in complaint history
           let meetingDateTime = null;
+          console.log(`[ONGOING] 📅 Meeting data check for complaint ${complaint.complaint_id}:`);
+          console.log(`[ONGOING] 📅   - meeting_date: "${complaint.meeting_date}"`);
+          console.log(`[ONGOING] 📅   - meeting_time: "${complaint.meeting_time}"`);
+          
           if (complaint.meeting_date && complaint.meeting_time) {
             meetingDateTime = new Date(`${complaint.meeting_date}T${complaint.meeting_time}`);
+            console.log(`[ONGOING] 📅   - constructed meetingDateTime: ${meetingDateTime}`);
+            console.log(`[ONGOING] 📅   - meetingDateTime valid: ${!isNaN(meetingDateTime.getTime())}`);
+          } else {
+            console.log(`[ONGOING] 📅   - No meeting data available`);
           }
           
           if (actionType.includes('inspection') && !actionType.includes('done')) {
@@ -267,12 +281,18 @@
           
           else if (actionType.includes('accepted invitation')) {
             // Accepted Invitation → Show meeting date/time with "(Mediation day)"
-            if (meetingDateTime) {
+            console.log(`[ONGOING] 🤝 ACCEPTED INVITATION - Complaint ${complaint.complaint_id}`);
+            console.log(`[ONGOING] 🤝   - meetingDateTime: ${meetingDateTime}`);
+            console.log(`[ONGOING] 🤝   - actionDate: ${actionDate}`);
+            
+            if (meetingDateTime && !isNaN(meetingDateTime.getTime())) {
               const dateStr = meetingDateTime.toLocaleDateString();
               const timeStr = meetingDateTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+              console.log(`[ONGOING] 🤝   - Using meeting date/time: ${dateStr} ${timeStr}`);
               return `${dateStr} | ${timeStr}<br/>(Mediation day)`;
             }
             // Fallback if no meeting datetime
+            console.log(`[ONGOING] 🤝   - No valid meeting date, using action date fallback`);
             const dateStr = actionDate.toLocaleDateString();
             return `${dateStr}<br/>(Mediation day)`;
           }
@@ -290,16 +310,35 @@
             return `<em>Mark as Resolved</em>`;
           }
           
-          // Default logic for other action types
-          let daysToAdd = 1;
-          if (actionType.includes('invitation')) {
-            daysToAdd = 1;
+          // Handle different invitation types - CRITICAL FIX for 'sent invitation' showing wrong deadline
+          else if (actionType.includes('sent invitation')) {
+            // Sent Invitation → 20 days from action_datetime
+            console.log(`[ONGOING] 📧 SENT INVITATION - Complaint ${complaint.complaint_id}`);
+            const deadline = new Date(actionDate.getTime() + (20 * 24 * 60 * 60 * 1000));
+            const dateStr = deadline.toLocaleDateString();
+            const timeStr = actionDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            console.log(`[ONGOING] 📧 Using 20-day deadline: ${dateStr}`);
+            return `${dateStr}<br/>${timeStr}`;
           }
           
-          const deadline = new Date(actionDate.getTime() + (daysToAdd * 24 * 60 * 60 * 1000));
-          const dateStr = deadline.toLocaleDateString();
-          const timeStr = deadline.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-          return `${dateStr}<br/>${timeStr}`;
+          else if (actionType.includes('send invitation') || actionType.includes('invitation')) {
+            // Send Invitation (not sent yet) → 1 day
+            console.log(`[ONGOING] 📤 SEND INVITATION - Complaint ${complaint.complaint_id}`);
+            const deadline = new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
+            const dateStr = deadline.toLocaleDateString();
+            const timeStr = actionDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            console.log(`[ONGOING] 📤 Using 1-day deadline: ${dateStr}`);
+            return `${dateStr}<br/>${timeStr}`;
+          }
+          
+          // Default fallback for other action types
+          else {
+            console.log(`[ONGOING] ❓ UNKNOWN ACTION TYPE - Complaint ${complaint.complaint_id}: "${actionType}"`);
+            const deadline = new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
+            const dateStr = deadline.toLocaleDateString();
+            const timeStr = deadline.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            return `${dateStr}<br/>${timeStr}`;
+          }
         };
         
         row.innerHTML = `
