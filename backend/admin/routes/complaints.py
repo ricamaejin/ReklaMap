@@ -760,7 +760,7 @@ def get_all_complaints():
         
         print("[DEBUG] Getting all complaints...")
         
-        # FIXED QUERY - Using proper complaint_history joins to get assigned_to, latest_action, and deadline
+        # FIXED QUERY - Using proper complaint_history joins to get assigned_to, latest_action, deadline, and meeting data
         complaints_query = """
         SELECT 
             c.complaint_id,
@@ -776,7 +776,8 @@ def get_all_complaints():
             ch_latest.assigned_to,
             ch_latest.action_datetime,
             ch_latest.type_of_action as latest_action,
-            ch_latest.details as ch_latest_details
+            ch_latest.details as ch_latest_details,
+            ch_invitation.details as invitation_details
         FROM complaints c
         LEFT JOIN areas a ON c.area_id = a.area_id
         LEFT JOIN (
@@ -790,6 +791,14 @@ def get_all_complaints():
             FROM complaint_history ch1
             WHERE ch1.type_of_action != 'Submitted'
         ) ch_latest ON c.complaint_id = ch_latest.complaint_id AND ch_latest.rn = 1
+        LEFT JOIN (
+            SELECT 
+                ch2.complaint_id,
+                ch2.details,
+                ROW_NUMBER() OVER (PARTITION BY ch2.complaint_id ORDER BY ch2.action_datetime DESC) as rn
+            FROM complaint_history ch2
+            WHERE ch2.type_of_action = 'Invitation'
+        ) ch_invitation ON c.complaint_id = ch_invitation.complaint_id AND ch_invitation.rn = 1
         ORDER BY c.date_received DESC
         """
         
@@ -806,28 +815,46 @@ def get_all_complaints():
                 action_datetime = None
                 latest_action = 'Invalid'
                 deadline = None
+                meeting_date = None
+                meeting_time = None
             else:
                 assigned_to = complaint.assigned_to
                 action_datetime = complaint.action_datetime
                 # Use latest_action from complaint_history, or fallback to complaint_stage
                 latest_action = complaint.latest_action or complaint.complaint_stage or 'Pending'
                 
-                # Extract deadline from complaint_history details if available
-                deadline = None
+                # Parse latest action details
+                details = {}
                 if complaint.ch_latest_details:
                     try:
                         if isinstance(complaint.ch_latest_details, str):
                             details = json.loads(complaint.ch_latest_details)
                         else:
                             details = complaint.ch_latest_details
-                        
-                        # Try to get deadline from nested details first, then fallback to root level
-                        if 'details' in details and isinstance(details['details'], dict):
-                            deadline = details['details'].get('deadline')
-                        if not deadline:
-                            deadline = details.get('deadline')
                     except (json.JSONDecodeError, TypeError):
-                        deadline = None
+                        details = {}
+                
+                # Parse invitation details for meeting info
+                invitation_details = {}
+                if hasattr(complaint, 'invitation_details') and complaint.invitation_details:
+                    try:
+                        if isinstance(complaint.invitation_details, str):
+                            invitation_details = json.loads(complaint.invitation_details)
+                        else:
+                            invitation_details = complaint.invitation_details
+                    except (json.JSONDecodeError, TypeError):
+                        invitation_details = {}
+                
+                # For "Accepted Invitation", prefer meeting details from invitation_details
+                meeting_date = invitation_details.get('meeting_date') or details.get('meeting_date')
+                meeting_time = invitation_details.get('meeting_time') or details.get('meeting_time')
+                
+                # Extract deadline from latest action details
+                deadline = None
+                if 'details' in details and isinstance(details['details'], dict):
+                    deadline = details['details'].get('deadline')
+                if not deadline:
+                    deadline = details.get('deadline')
             
             formatted_complaints.append({
                 'complaint_id': complaint.complaint_id,
@@ -844,7 +871,9 @@ def get_all_complaints():
                 'action_datetime': action_datetime.isoformat() if action_datetime else None,
                 'latest_action': latest_action,
                 'action_needed': latest_action,  # For backward compatibility
-                'deadline': deadline
+                'deadline': deadline,
+                'meeting_date': meeting_date,
+                'meeting_time': meeting_time
             })
         
         print(f"[DEBUG] Returning {len(formatted_complaints)} formatted complaints")
@@ -890,7 +919,7 @@ def get_ongoing_complaints():
         
         print("[DEBUG] Getting ongoing complaints...")
         
-        # Use the same query as /api/all but filter for Ongoing stage
+        # Use enhanced query with invitation details for meeting data
         complaints_query = """
         SELECT 
             c.complaint_id,
@@ -906,7 +935,8 @@ def get_ongoing_complaints():
             ch_latest.assigned_to,
             ch_latest.action_datetime,
             ch_latest.type_of_action as latest_action,
-            ch_latest.details as ch_latest_details
+            ch_latest.details as ch_latest_details,
+            ch_invitation.details as invitation_details
         FROM complaints c
         LEFT JOIN areas a ON c.area_id = a.area_id
         LEFT JOIN (
@@ -919,6 +949,14 @@ def get_ongoing_complaints():
                 ROW_NUMBER() OVER (PARTITION BY ch1.complaint_id ORDER BY ch1.action_datetime DESC) as rn
             FROM complaint_history ch1
         ) ch_latest ON c.complaint_id = ch_latest.complaint_id AND ch_latest.rn = 1
+        LEFT JOIN (
+            SELECT 
+                ch2.complaint_id,
+                ch2.details,
+                ROW_NUMBER() OVER (PARTITION BY ch2.complaint_id ORDER BY ch2.action_datetime DESC) as rn
+            FROM complaint_history ch2
+            WHERE ch2.type_of_action = 'Invitation'
+        ) ch_invitation ON c.complaint_id = ch_invitation.complaint_id AND ch_invitation.rn = 1
         WHERE c.status = 'Valid' AND c.complaint_stage = 'Ongoing'
         ORDER BY c.date_received DESC
         """
@@ -939,43 +977,42 @@ def get_ongoing_complaints():
                 action_datetime = complaint.action_datetime
                 # Use latest_action from complaint_history, or fallback to complaint_stage
                 latest_action = complaint.latest_action or complaint.complaint_stage or 'Pending'
-                
-                # Extract deadline, meeting_date, and meeting_time from complaint_history details if available
-                deadline = None
-                meeting_date = None
-                meeting_time = None
-                if complaint.ch_latest_details:
-                    try:
-                        if isinstance(complaint.ch_latest_details, str):
-                            details = json.loads(complaint.ch_latest_details)
-                        else:
-                            details = complaint.ch_latest_details
-                        
-                        print(f"[ONGOING] 📊 Processing complaint {complaint.complaint_id} details: {details}")
-                        
-                        # Try to get deadline from nested details first, then fallback to root level
-                        if 'details' in details and isinstance(details['details'], dict):
-                            deadline = details['details'].get('deadline')
-                            meeting_date = details['details'].get('meeting_date')
-                            meeting_time = details['details'].get('meeting_time')
-                        if not deadline:
-                            deadline = details.get('deadline')
-                        if not meeting_date:
-                            meeting_date = details.get('meeting_date')
-                        if not meeting_time:
-                            meeting_time = details.get('meeting_time')
-                            
-                        print(f"[ONGOING] 📊 Extracted data for complaint {complaint.complaint_id}:")
-                        print(f"[ONGOING] 📊   - deadline: {deadline}")
-                        print(f"[ONGOING] 📊   - meeting_date: {meeting_date}")
-                        print(f"[ONGOING] 📊   - meeting_time: {meeting_time}")
-                        print(f"[ONGOING] 📊   - latest_action: {latest_action}")
-                            
-                    except (json.JSONDecodeError, TypeError) as e:
-                        print(f"[ONGOING] ❌ Error parsing details for complaint {complaint.complaint_id}: {e}")
-                        deadline = None
-                        meeting_date = None
-                        meeting_time = None
+            
+            # Parse latest action details
+            details = {}
+            if hasattr(complaint, 'ch_latest_details') and complaint.ch_latest_details:
+                try:
+                    if isinstance(complaint.ch_latest_details, str):
+                        details = json.loads(complaint.ch_latest_details)
+                    else:
+                        details = complaint.ch_latest_details
+                except (json.JSONDecodeError, TypeError) as e:
+                    print(f"[ONGOING] ❌ Error parsing latest details for complaint {complaint.complaint_id}: {e}")
+                    details = {}
+            
+            # Parse invitation details for meeting info
+            invitation_details = {}
+            if hasattr(complaint, 'invitation_details') and complaint.invitation_details:
+                try:
+                    if isinstance(complaint.invitation_details, str):
+                        invitation_details = json.loads(complaint.invitation_details)
+                    else:
+                        invitation_details = complaint.invitation_details
+                    print(f"[ONGOING] 📊 Found invitation details for complaint {complaint.complaint_id}: {invitation_details}")
+                except (json.JSONDecodeError, TypeError) as e:
+                    print(f"[ONGOING] ❌ Error parsing invitation details for complaint {complaint.complaint_id}: {e}")
+                    invitation_details = {}
+            
+            # For "Accepted Invitation", prefer meeting details from invitation_details
+            meeting_date = invitation_details.get('meeting_date') or details.get('meeting_date')
+            meeting_time = invitation_details.get('meeting_time') or details.get('meeting_time')
+            deadline = details.get('deadline')
+            
+            print(f"[ONGOING] 📊 Final extracted data for complaint {complaint.complaint_id}:")
+            print(f"[ONGOING] 📊   - deadline: {deadline}")
+            print(f"[ONGOING] 📊   - meeting_date: {meeting_date} (from {'invitation' if invitation_details.get('meeting_date') else 'latest'})")
+            print(f"[ONGOING] 📊   - meeting_time: {meeting_time} (from {'invitation' if invitation_details.get('meeting_time') else 'latest'})")
+            print(f"[ONGOING] 📊   - latest_action: {latest_action}")
             
             formatted_complaints.append({
                 'complaint_id': complaint.complaint_id,
@@ -1263,7 +1300,7 @@ def get_assigned_complaints():
         
         print("[DEBUG] Getting assigned complaints...")
         
-        # Use the same query as /api/all but filter for assigned complaints
+        # Use enhanced query with invitation details for meeting data
         complaints_query = """
         SELECT 
             c.complaint_id,
@@ -1279,7 +1316,8 @@ def get_assigned_complaints():
             ch_latest.assigned_to,
             ch_latest.action_datetime,
             ch_latest.type_of_action as latest_action,
-            ch_latest.details as ch_latest_details
+            ch_latest.details as ch_latest_details,
+            ch_invitation.details as invitation_details
         FROM complaints c
         LEFT JOIN areas a ON c.area_id = a.area_id
         LEFT JOIN (
@@ -1292,6 +1330,14 @@ def get_assigned_complaints():
                 ROW_NUMBER() OVER (PARTITION BY ch1.complaint_id ORDER BY ch1.action_datetime DESC) as rn
             FROM complaint_history ch1
         ) ch_latest ON c.complaint_id = ch_latest.complaint_id AND ch_latest.rn = 1
+        LEFT JOIN (
+            SELECT 
+                ch2.complaint_id,
+                ch2.details,
+                ROW_NUMBER() OVER (PARTITION BY ch2.complaint_id ORDER BY ch2.action_datetime DESC) as rn
+            FROM complaint_history ch2
+            WHERE ch2.type_of_action = 'Invitation'
+        ) ch_invitation ON c.complaint_id = ch_invitation.complaint_id AND ch_invitation.rn = 1
         WHERE c.status = 'Valid' 
         AND c.complaint_stage IN ('Pending', 'Ongoing')
         AND ch_latest.assigned_to IS NOT NULL
@@ -1303,22 +1349,38 @@ def get_assigned_complaints():
         
         formatted_complaints = []
         for complaint in complaints:
-            # Extract deadline from complaint_history details if available
-            deadline = None
+            # Parse latest action details
+            details = {}
             if complaint.ch_latest_details:
                 try:
                     if isinstance(complaint.ch_latest_details, str):
                         details = json.loads(complaint.ch_latest_details)
                     else:
                         details = complaint.ch_latest_details
-                    
-                    # Try to get deadline from nested details first, then fallback to root level
-                    if 'details' in details and isinstance(details['details'], dict):
-                        deadline = details['details'].get('deadline')
-                    if not deadline:
-                        deadline = details.get('deadline')
                 except (json.JSONDecodeError, TypeError):
-                    deadline = None
+                    details = {}
+            
+            # Parse invitation details for meeting info
+            invitation_details = {}
+            if hasattr(complaint, 'invitation_details') and complaint.invitation_details:
+                try:
+                    if isinstance(complaint.invitation_details, str):
+                        invitation_details = json.loads(complaint.invitation_details)
+                    else:
+                        invitation_details = complaint.invitation_details
+                except (json.JSONDecodeError, TypeError):
+                    invitation_details = {}
+            
+            # For "Accepted Invitation", prefer meeting details from invitation_details
+            meeting_date = invitation_details.get('meeting_date') or details.get('meeting_date')
+            meeting_time = invitation_details.get('meeting_time') or details.get('meeting_time')
+            
+            # Extract deadline from latest action details
+            deadline = None
+            if 'details' in details and isinstance(details['details'], dict):
+                deadline = details['details'].get('deadline')
+            if not deadline:
+                deadline = details.get('deadline')
             
             formatted_complaints.append({
                 'complaint_id': complaint.complaint_id,
@@ -1335,7 +1397,9 @@ def get_assigned_complaints():
                 'action_datetime': complaint.action_datetime.isoformat() if complaint.action_datetime else None,
                 'latest_action': complaint.latest_action or complaint.complaint_stage or 'Pending',
                 'action_needed': complaint.latest_action or complaint.complaint_stage or 'Pending',
-                'deadline': deadline
+                'deadline': deadline,
+                'meeting_date': meeting_date,
+                'meeting_time': meeting_time
             })
         
         print(f"[DEBUG] Returning {len(formatted_complaints)} assigned complaints")
@@ -1813,6 +1877,7 @@ def api_add_action():
                     "location": incoming_details.get("location"),
                     "agenda": incoming_details.get("agenda")
                 }
+                print(f"[INVITATION DEBUG] Using nested details: {details}")
             else:
                 details = {
                     "to": data.get("to"),
@@ -1821,6 +1886,8 @@ def api_add_action():
                     "location": data.get("location"),
                     "agenda": data.get("agenda")
                 }
+                print(f"[INVITATION DEBUG] Using flattened keys: {details}")
+                print(f"[INVITATION DEBUG] Raw data keys: {list(data.keys())}")
         elif action_type == "Out of Jurisdiction":
             details = {
                 "jurisdiction": data.get("details", {}).get("jurisdiction", ""),
@@ -1858,6 +1925,8 @@ def api_add_action():
                 details[key] = value
         
         details_json = json.dumps(details)
+        print(f"[INVITATION DEBUG] Final details before save: {details}")
+        print(f"[INVITATION DEBUG] Final details JSON: {details_json}")
         
         # Insert into complaint_history
         insert_query = """

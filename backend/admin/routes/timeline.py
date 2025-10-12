@@ -199,6 +199,29 @@ def get_complaint_timeline(complaint_id):
             except (json.JSONDecodeError, TypeError, AttributeError):
                 description = generate_action_description(entry.type_of_action, entry.assigned_to)
             
+            # Parse the actual details from the database entry
+            parsed_details = {}
+            if entry.details:
+                try:
+                    if isinstance(entry.details, str):
+                        parsed_details = json.loads(entry.details)
+                    else:
+                        parsed_details = entry.details
+                    
+                    # Handle double-encoded JSON
+                    if isinstance(parsed_details, str):
+                        try:
+                            parsed_details = json.loads(parsed_details)
+                        except json.JSONDecodeError:
+                            parsed_details = {'description': parsed_details}
+                    
+                    # Ensure it's a dictionary
+                    if not isinstance(parsed_details, dict):
+                        parsed_details = {}
+                        
+                except (json.JSONDecodeError, TypeError):
+                    parsed_details = {}
+            
             timeline_entry = {
                 'history_id': entry.history_id,
                 'complaint_id': entry.complaint_id,
@@ -206,7 +229,7 @@ def get_complaint_timeline(complaint_id):
                 'assigned_to': entry.assigned_to,
                 'description': description,
                 'action_datetime': entry.action_datetime.isoformat() if entry.action_datetime else '',
-                'details': {},
+                'details': parsed_details,  # ✅ Now using actual details from database
                 'has_file': bool(entry.has_file),
                 'file_path': entry.file_path,
                 'file_name': entry.file_name,

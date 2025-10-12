@@ -125,7 +125,7 @@ def get_staff_complaint_data_with_proper_areas(staff_name=None, stage_filter=Non
                 address_parts.append(f"Lot {int(complaint.lot_no)}")
             formatted_address = ", ".join(address_parts) if address_parts else complaint.address or 'N/A'
             
-            # Extract deadline from complaint_history details JSON (same logic as admin)
+            # Extract deadline from complaint_history details JSON
             deadline = None
             try:
                 deadline_query = """
@@ -143,14 +143,16 @@ def get_staff_complaint_data_with_proper_areas(staff_name=None, stage_filter=Non
                 if deadline_row and deadline_row.details:
                     import json
                     try:
-                        # Parse the JSON details
+                        # Parse the JSON details - direct structure like {"deadline": "2025-10-07", "inspector": "..."}
                         details_data = json.loads(deadline_row.details)
-                        if isinstance(details_data, dict) and 'details' in details_data:
-                            nested_details = details_data['details']
-                            if isinstance(nested_details, dict) and 'deadline' in nested_details:
-                                deadline = nested_details['deadline']
+                        if isinstance(details_data, dict) and 'deadline' in details_data:
+                            deadline = details_data['deadline']
+                            print(f"[STAFF] Found deadline for complaint {complaint.complaint_id}: {deadline}")
+                        else:
+                            print(f"[STAFF] No deadline field in details for complaint {complaint.complaint_id}: {details_data}")
                     except (json.JSONDecodeError, TypeError, KeyError) as e:
                         print(f"[STAFF] Error parsing deadline JSON for complaint {complaint.complaint_id}: {e}")
+                        print(f"[STAFF] Raw details content: {deadline_row.details}")
             except Exception as e:
                 print(f"[STAFF] Error extracting deadline for complaint {complaint.complaint_id}: {e}")
 
