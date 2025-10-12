@@ -932,26 +932,38 @@
         description = "Inspection scheduled";
       }
       else if (actionType === "Invitation") {
+        // Collect all "to[]" inputs inside #invTo
+        const toInputs = document.querySelectorAll("#invTo input[name='to[]']");
+        const toList = Array.from(toInputs)
+          .map(i => i.value.trim())
+          .filter(Boolean);
+
         details = {
-          to: document.querySelector("#invTo")?.value || "",
+          to: toList.join(", "), // join into a comma-separated string
           meeting_date: document.querySelector("#invDate")?.value || "",
           meeting_time: document.querySelector("#invTime")?.value || "",
           location: document.querySelector("#invLocation")?.value || "",
           agenda: document.querySelector("#invAgenda")?.value || ""
         };
-        description = "Invitation scheduled"; // generic description
+
+        description = `Invitation scheduled for ${toList.join(", ")}`;
       }
 
 
+
+
     // Create final payload
-    const payload = {
+    // Flatten details into the top-level payload so backend receives flattened keys
+    const payload = Object.assign({
       complaint_id: complaintId,
       action_type: actionType,
       assigned_to: assignedTo,
       action_datetime: new Date().toISOString().slice(0,19).replace("T"," "),
-      description: description,
-      details: details,        // ✅ nested details only
-    };
+      description: description
+    }, details || {});
+
+    // Remove nested `details` to avoid duplication — backend expects flattened keys
+    // (example flattened keys: deadline, inspector, location, scope, to, meeting_date, meeting_time, agenda, files)
     
     console.log("payload to send:", payload);
 

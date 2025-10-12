@@ -69,7 +69,7 @@
     <!-- HEADER -->
     <div class="modal-top">
       <div class="left-content">
-        <strong>Assigned To: Alberto Nonato Jr.</strong>
+        <strong id="assignedTo">Assigned To: Alberto Nonato Jr.</strong>
         <h2 class="modal-title">Inspection</h2>
       </div>
       <div id="datetime">
@@ -200,37 +200,45 @@
       const result = await response.json();
       console.log('[STAFF DATA] Inspection data received:', result);
       
-      // The API returns flattened data for easier access
-      const info = result.data || result;
+      // Prefer structured `data` property when present
+      const info = result && result.data ? result.data : result;
 
       console.log('Staff inspection info:', info);
-      console.log('Deadline:', info.deadline);
-      console.log('Location:', info.location);
-      console.log('Inspector:', info.inspector);
-      console.log('Scope:', info.scope);
-      
+      console.log('Deadline:', info && info.deadline);
+      console.log('Location:', info && info.location);
+      console.log('Inspector:', info && (info.inspector || info.assigned_to));
+      console.log('Scope:', info && info.scope);
+
       // Fill readonly fields with data from admin assignment
       const deadlineEl = document.getElementById('staffDeadline');
       const locationEl = document.getElementById('staffLocation');
       const scopeEl = document.getElementById('staffScope');
-      
+      const assignedToEl = document.getElementById('assignedTo');
+
       if (deadlineEl) {
-        deadlineEl.value = info.deadline || 'No deadline set';
+        deadlineEl.value = (info && info.deadline) ? info.deadline : 'No deadline set';
       }
-      
+
       if (locationEl) {
-        locationEl.value = info.location || 'No location specified';
+        locationEl.value = (info && info.location) ? info.location : 'No location specified';
       }
-      
+
       if (scopeEl) {
         // Convert scope array to readable text
-        if (data.scope && Array.isArray(data.scope) && data.scope.length > 0) {
-          scopeEl.value = data.scope.join(', ');
-        } else if (data.scope && typeof data.scope === 'string') {
-          scopeEl.value = data.scope;
+        const scopeVal = info && info.scope;
+        if (Array.isArray(scopeVal) && scopeVal.length > 0) {
+          scopeEl.value = scopeVal.join(', ');
+        } else if (typeof scopeVal === 'string' && scopeVal.length > 0) {
+          scopeEl.value = scopeVal;
         } else {
           scopeEl.value = 'No scope specified';
         }
+      }
+
+      // Update assigned inspector text if element exists
+      if (assignedToEl) {
+        const inspectorName = (info && (info.inspector || info.assigned_to)) || 'Not assigned';
+        assignedToEl.textContent = `Assigned To: ${inspectorName}`;
       }
       
     } catch (error) {
@@ -478,7 +486,7 @@ function getComplaintIdFromURL() {
   const id = urlParams.get('id');
   console.log('URL parameters:', window.location.search);
   console.log('Extracted complaint ID:', id);
-  return id || '1';
+  return id || null;
 }
 
 // Back button functionality
