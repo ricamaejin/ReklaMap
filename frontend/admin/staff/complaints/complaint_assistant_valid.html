@@ -35,7 +35,7 @@
     </header>
 
     <div class="complaint-layout" style="margin-top: 30px;">
-      <div class="complaint-form">Complaint form data will load here...</div>
+      <div class="complaint-form" id="complaintFormContainer">Loading complaint form...</div>
 
       <!-- Right Panel -->
       <div class="right-panel">
@@ -156,6 +156,43 @@
   const previewSection = document.getElementById("inspectionFilesPreview");
   const filesList = document.getElementById("inspectionFilesList");
   let interval = null;
+
+  // Staff: Load complaint form preview
+  document.addEventListener('DOMContentLoaded', async function () {
+    const params = new URLSearchParams(window.location.search);
+    const complaintId = params.get('id');
+    const container = document.getElementById('complaintFormContainer');
+    if (!container) {
+      console.warn('[Staff Preview] Container #complaintFormContainer not found');
+      return;
+    }
+    if (!complaintId) {
+      container.textContent = 'No complaint selected.';
+      console.warn('[Staff Preview] Missing ?id= param in URL');
+      return;
+    }
+    try {
+      console.log(`[Staff Preview] Fetching complaint form for ID ${complaintId} ...`);
+      const res = await fetch(`/admin/complaints/api/complaint_form_preview/${complaintId}`, { credentials: 'same-origin' });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.error(`[Staff Preview] Failed to load form: HTTP ${res.status} ${res.statusText}`, text?.slice(0, 500));
+        container.textContent = `Failed to load complaint form (HTTP ${res.status}).`;
+        return;
+      }
+      const html = await res.text();
+      if (!html || !html.trim()) {
+        console.warn('[Staff Preview] Empty HTML received for form preview');
+        container.textContent = 'No form data available.';
+        return;
+      }
+      container.outerHTML = html;
+      console.log('[Staff Preview] Complaint form injected successfully');
+    } catch (e) {
+      if (container) container.textContent = 'Error loading complaint form.';
+      console.error('[Staff Preview] Exception while loading complaint form preview:', e);
+    }
+  });
 
   // Update date & time inside Action modal
   function updateComplaintDateTime() {

@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, session, render_template, send_from_directory, current_app, abort, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from backend.database.models import User, Registration, Complaint, LotDispute, BoundaryDispute, RegistrationFamOfMember, RegistrationHOAMember
+from backend.database.models import User, Registration, Complaint, LotDispute, BoundaryDispute, RegistrationFamOfMember, RegistrationHOAMember, RegistrationNonMember
 from backend.database.db import db
 from backend.complainant.lot_dispute import get_form_structure as get_lot_form_structure
 from backend.complainant.boundary_dispute import get_form_structure as get_boundary_form_structure
@@ -585,6 +585,66 @@ def view_complaint(complaint_id):
     except Exception:
         pass
 
+    # Non-member connections aggregation for display
+    non_member_connections = None
+    non_member_connections_list = None
+    try:
+        cat = (registration.category or '').strip().lower()
+        if cat == 'non_member':
+            reg_non_member = RegistrationNonMember.query.filter_by(registration_id=registration.registration_id).first()
+            labels = [
+                "I live on the lot but I am not the official beneficiary",
+                "I live near the lot and I am affected by the issue",
+                "I am claiming ownership of the lot",
+                "I am related to the person currently occupying the lot",
+                "I was previously assigned to this lot but was replaced or removed",
+            ]
+            display = []
+            conn = getattr(reg_non_member, 'connections', None) if reg_non_member else None
+            if isinstance(conn, dict):
+                for idx, label in enumerate(labels, start=1):
+                    v = conn.get(f'connection_{idx}')
+                    if v in (True, 1, '1', 'true', 'True', 'yes', 'on'):
+                        display.append(label)
+                other = conn.get('connection_other')
+                if other:
+                    other_s = str(other).strip()
+                    if other_s:
+                        display.append(other_s)
+            elif isinstance(conn, list):
+                display = [str(x).strip() for x in conn if str(x).strip()]
+            elif isinstance(conn, str):
+                s = conn.strip()
+                if s:
+                    # If it's a JSON array string, parse it
+                    if s.startswith('[') and s.endswith(']'):
+                        try:
+                            arr = json.loads(s)
+                            if isinstance(arr, list):
+                                display = [str(x).strip() for x in arr if str(x).strip()]
+                            else:
+                                display = [s]
+                        except Exception:
+                            # Fallback: split by comma
+                            display = [p.strip() for p in s.split(',') if p.strip()]
+                    else:
+                        # Try comma-separated string
+                        if ',' in s:
+                            display = [p.strip() for p in s.split(',') if p.strip()]
+                        else:
+                            display = [s]
+            elif conn is not None:
+                s = str(conn).strip()
+                if s:
+                    display = [s]
+
+            non_member_connections_list = display
+            non_member_connections = ", ".join(display) if display else ""
+    except Exception as e:
+        print('[WARN] Failed to compute non_member connections:', e)
+        non_member_connections = None
+        non_member_connections_list = None
+
     template_name = "complaint_details_valid.html" if complaint.status == "Valid" else "complaint_details_invalid.html"
     return render_template(
         template_name,
@@ -598,4 +658,6 @@ def view_complaint(complaint_id):
         parent_info=parent_info,
         relationship=relationship,
         pathway_dispute=pathway_dispute,
+        non_member_connections=non_member_connections,
+        non_member_connections_list=non_member_connections_list,
     )

@@ -163,7 +163,7 @@
   <div style="display: flex; align-items: center; gap: 10px;">
     <input type="month" id="reportMonthPicker" style="padding: 6px; border-radius: 4px;">
     <button id="generateReportBtn" class="btn btn-danger">
-      <i class="bi bi-file-earmark-pdf"></i> Generate PDF
+      <i class="bi bi-file-earmark-pdf"></i> Generate Report
     </button>
   </div>
 </div>
@@ -658,31 +658,146 @@
         doc.setFontSize(10);
         doc.text(`Generated on: ${formattedDate}, ${formattedTime}`, 14, 22);
 
+        // Fetch narrative summary for the selected month/year
+        let narrative = '';
+        try {
+          const params = new URLSearchParams();
+          params.append('year', String(year));
+          params.append('month', String(month));
+          const res = await fetch(`/admin/complaints/api/report_summary?${params.toString()}`);
+          if (res.ok) {
+            const payload = await res.json();
+            if (payload && payload.success && payload.narrative) {
+              narrative = payload.narrative;
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to load report summary narrative', e);
+        }
+
+        // Prepare helpers for PDF-friendly formatting
+        const sanitizeForPdf = (s) => (s || '')
+          .replace(/<br\s*\/?>/gi, ' ')
+          .replace(/<[^>]+>/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        const getMeetingDateTime = (c) => {
+          if (c.meeting_datetime) return new Date(c.meeting_datetime);
+          if (c.meeting_date && c.meeting_time) return new Date(`${c.meeting_date}T${c.meeting_time}`);
+          return null;
+        };
+        // Only consider explicit deadlines for PDF (no automatic fallbacks):
+        // - Inspection: use admin-set deadline only
+        // - Accepted invitation: use meeting date/time
+        // - Mediation: optional derived from meeting date (+3 days) if you want, else comment out
+        const explicitDeadlineForPdf = (c) => {
+          if (!c || c.status === 'Invalid') return null;
+          // Prefer explicit admin-set deadline when available
+          if (c.deadline) {
+            try {
+              let d = new Date(c.deadline);
+              if (isNaN(d.getTime())) d = new Date(`${c.deadline}T00:00:00`);
+              if (!isNaN(d.getTime())) return d;
+            } catch (e) { /* ignore */ }
+          }
+          // Otherwise show explicit meeting schedule if present
+          const meetingDT = getMeetingDateTime(c);
+          if (meetingDT) return meetingDT;
+          return null;
+        };
+
         // Prepare table data using your deadline functions
+        const formatDateOnly = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const formatTimeOnly = (d) => d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        const computeStatusForPdf = (c) => {
+          if (!c) return 'N/A';
+          // Unresolved markers
+          if (
+            c.action_needed === 'Unresolved' ||
+            c.latest_action === 'Unresolved' ||
+            c.complaint_stage === 'Unresolved' ||
+            c.is_unresolved
+          ) return 'Unresolved';
+          // Invalid maps to Out of Jurisdiction in report wording
+          if (c.status === 'Invalid') return 'Out of Jurisdiction';
+          if (c.complaint_stage === 'Resolved' || c.is_resolved) return 'Resolved';
+          if (c.complaint_stage === 'Pending' || !c.latest_action) return 'Received';
+          return 'Ongoing';
+        };
+
         const tableData = filteredComplaints.map(c => {
           let deadlineText = "N/A";
-          if (c.status === "Pending" || c.status === "Received") {
-            deadlineText = calculatePendingDeadline(c);
-          } else if (c.status !== "Invalid" && c.action_datetime) {
-            deadlineText = formatDeadline(c);
+          i// Use only explicit deadlines; avoid automatic fallbacks
+          const explicitDeadline = explicitDeadlineForPdf(c);
+          if (explicitDeadline) {
+            const d = explicitDeadline;
+            const dateStr = formatDateOnly(d);
+            // Compute due annotation
+            const msPerDay = 24*60*60*1000;
+            const daysDiff = Math.ceil((d.getTime() - new Date().getTime()) / msPerDay);
+            let dueAnnot = '';
+            if (daysDiff < 0) {
+              dueAnnot = `(Overdue by ${Math.abs(daysDiff)} day/s)`;
+            } else if (daysDiff === 0) {
+              dueAnnot = `(Due today)`;
+            } else {
+              dueAnnot = `(${daysDiff} day/s left)`;
+            }
+            // Date on first line, due annotation on second line
+            deadlineText = `${dateStr}\n${dueAnnot}`;
+          }
+
+          // If explicit deadline exists, only annotate deadline text with (Due today)
+          const now = new Date();
+          const deadlineDate = explicitDeadline;
+          // no additional annotation here; already included above
+
+          const statusDisplay = computeStatusForPdf(c);
+
+          deadlineText = sanitizeForPdf(deadlineText);
+
+          // Date Submitted: date on first line, time on second line
+          let dateSubmittedCell = "N/A";
+          if (c.date_received) {
+            const dr = new Date(c.date_received);
+            const ds = formatDateOnly(dr);
+            const ts = formatTimeOnly(dr);
+            dateSubmittedCell = `${ds}\n${ts}`;
           }
 
           return [
-            c.date_received || "N/A",
+            String(c.complaint_id || "N/A"),
+            dateSubmittedCell,
             c.complainant_name || c.complainant || "N/A",
             c.type_of_complaint || "N/A",
             c.area_name || "N/A",
             c.assigned_to || "N/A",
-            c.status || "N/A",
+            statusDisplay || "N/A",
             deadlineText,
             c.latest_action || c.action_needed || "N/A",
             c.priority_level || "Minor"
           ];
         });
 
+        // Draw narrative block if present
+        let startY = 28;
+        if (narrative) {
+          doc.setFontSize(11);
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const marginX = 14;
+          const maxWidth = pageWidth - marginX * 2;
+          const lines = doc.splitTextToSize(narrative, maxWidth);
+          const lineHeight = 12; // approximate line height for font size 11
+          const narrativeTop = 28;
+          doc.text(lines, marginX, narrativeTop);
+          startY = narrativeTop + lines.length * lineHeight + 8;
+        }
+        
         // Generate PDF Table
         doc.autoTable({
           head: [[
+            "ID",
             "Date Submitted",
             "Complainant",
             "Type of Complaint",
@@ -694,7 +809,7 @@
             "Priority Level"
           ]],
           body: tableData,
-          startY: 28,
+          startY,
           theme: "grid",
           headStyles: {
             fillColor: [26, 51, 160],

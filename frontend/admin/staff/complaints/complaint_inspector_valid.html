@@ -161,6 +161,43 @@
   const filesList = document.getElementById("inspectionFilesList");
   let interval = null;
 
+  // Staff (Inspector): Load complaint form preview
+  document.addEventListener('DOMContentLoaded', async function () {
+    const params = new URLSearchParams(window.location.search);
+    const complaintId = params.get('id');
+    const container = document.getElementById('complaintFormContainer');
+    if (!container) {
+      console.warn('[Staff Inspector Preview] Container #complaintFormContainer not found');
+      return;
+    }
+    if (!complaintId) {
+      container.textContent = 'No complaint selected.';
+      console.warn('[Staff Inspector Preview] Missing ?id= param in URL');
+      return;
+    }
+    try {
+      console.log(`[Staff Inspector Preview] Fetching complaint form for ID ${complaintId} ...`);
+      const res = await fetch(`/admin/complaints/api/complaint_form_preview/${complaintId}`, { credentials: 'same-origin' });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.error(`[Staff Inspector Preview] Failed to load form: HTTP ${res.status} ${res.statusText}`, text?.slice(0, 500));
+        container.textContent = `Failed to load complaint form (HTTP ${res.status}).`;
+        return;
+      }
+      const html = await res.text();
+      if (!html || !html.trim()) {
+        console.warn('[Staff Inspector Preview] Empty HTML received for form preview');
+        container.textContent = 'No form data available.';
+        return;
+      }
+      container.outerHTML = html;
+      console.log('[Staff Inspector Preview] Complaint form injected successfully');
+    } catch (e) {
+      if (container) container.textContent = 'Error loading complaint form.';
+      console.error('[Staff Inspector Preview] Exception while loading complaint form preview:', e);
+    }
+  });
+
   // Update date & time inside Action modal
   function updateComplaintDateTime() {
     const now = new Date();

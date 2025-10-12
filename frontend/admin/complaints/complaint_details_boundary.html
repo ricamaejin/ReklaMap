@@ -1,0 +1,299 @@
+{# --- complaint_details_boundary.html --- #}
+{# --- Dynamic Boundary Dispute Preview Partial --- #}
+
+{# --- complaint_details_boundary.html --- #}
+{# --- Dynamic Boundary Dispute Preview Partial --- #}
+
+{% if registration and registration.category == 'non_member' %}
+  {% set block_lots = [] %}
+  {% if complaint and complaint.boundary_dispute %}
+    {# handle both list or JSON string forms #}
+    {% if complaint.boundary_dispute.block_lot is string %}
+      {% if complaint.boundary_dispute.block_lot.strip().startswith('[') %}
+        {% set block_lots = complaint.boundary_dispute.block_lot | from_json %}
+      {% endif %}
+    {% elif complaint.boundary_dispute.block_lot is iterable and complaint.boundary_dispute.block_lot|length > 0 %}
+      {% set block_lots = complaint.boundary_dispute.block_lot %}
+    {% endif %}
+  {% endif %}
+
+  {% if block_lots and block_lots|length > 0 %}
+    <div id="nonMemberBlockLotSection">
+      <p>Please indicate your Block and Lot number.</p>
+      <div class="pairs" id="pairsContainer" aria-live="polite">
+        {% for pair in block_lots %}
+          {% set block = pair.block if pair.block is defined else pair['block'] if pair['block'] is defined else '' %}
+          {% set lot = pair.lot if pair.lot is defined else pair['lot'] if pair['lot'] is defined else '' %}
+          {% if block or lot %}
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Block No.</label>
+              <input type="text" value="{{ block }}" readonly placeholder="Block No.">
+            </div>
+            <div class="col">
+              <label class="small">Lot No.</label>
+              <input type="text" value="{{ lot }}" readonly placeholder="Lot No.">
+            </div>
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  {% else %}
+    <div class="readonly-value" style="margin-bottom: 12px;">No Block/Lot information provided.</div>
+  {% endif %}
+{% endif %}
+
+
+{% for field in form_structure %}
+  {# RADIO FIELD #}
+  {% if field.type == 'radio' and field.name not in ['q14','q15'] %}
+    <p>{{ field.label|safe }}</p>
+    <div class="radio-group">
+      {% set selected = (answers[field.name]|string|trim|lower) if field.name in answers else '' %}
+      {% for val, label in field.options %}
+        {% set normalized_val = val|string|trim|lower %}
+        {% set normalized_label = label|string|trim|lower %}
+        {% set checked = (selected == normalized_val or selected == normalized_label) %}
+        <label class="option">
+          <input type="radio" name="{{ field.name }}" value="{{ val }}" disabled {% if checked %}checked{% endif %}>
+          {{ label }}
+        </label>
+      {% endfor %}
+    </div>
+
+    {# Conditional sub-questions #}
+    {% if field.conditional is defined and field.conditional.trigger_value is defined and field.conditional.additional_fields is defined %}
+      {% set trigger = field.conditional.trigger_value|string|trim|lower %}
+      {% if selected == trigger %}
+        <div style="margin-left: 32px;">
+        {% for subfield in field.conditional.additional_fields %}
+          {% if subfield.type == 'date' %}
+            <p>{{ subfield.label }}</p>
+            <input type="date" value="{{ answers[subfield.name] }}" disabled style="max-width: 580px; width: 100%; box-sizing: border-box; background: #f3f3f3; color: #555; border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; font-size: 15px; line-height: 1.4;">
+          {% elif subfield.type == 'text' %}
+            <p>{{ subfield.label }}</p>
+            <input type="text" value="{{ answers[subfield.name] }}" disabled>
+          {% elif subfield.type == 'checkbox' %}
+            <p>{{ subfield.label|safe }}</p>
+
+            {# --- Safe parsing for sub-checkboxes --- #}
+            {% set raw_val = answers.get(subfield.name, []) %}
+            {% set selected_sub = [] %}
+            {% if raw_val is string %}
+              {% if raw_val.strip().startswith('[') and raw_val.strip().endswith(']') %}
+                {% set selected_sub = raw_val|from_json %}
+              {% elif ',' in raw_val %}
+                {% set selected_sub = raw_val|replace(' ', '')|split(',') %}
+              {% elif raw_val %}
+                {% set selected_sub = [raw_val] %}
+              {% endif %}
+            {% elif raw_val is iterable and raw_val is not mapping %}
+              {% set selected_sub = raw_val %}
+            {% elif raw_val is not none %}
+              {% set selected_sub = [raw_val] %}
+            {% endif %}
+
+            <div class="checkbox-group">
+              {% for val, label in subfield.options %}
+                {% set normalized_val = val|string|trim|lower %}
+                {% set checked_ns = namespace(value=false) %}
+                {% for sel in selected_sub %}
+                  {% set sel_normalized = sel|string|trim|lower %}
+                  {% if sel_normalized == normalized_val %}
+                    {% set checked_ns.value = true %}
+                  {% endif %}
+                {% endfor %}
+                <label class="option">
+                  <input type="checkbox" name="{{ subfield.name }}" value="{{ val }}" disabled {% if checked_ns.value %}checked{% endif %}>
+                  {{ label }}
+                </label>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endfor %}
+        </div>
+      {% endif %}
+    {% endif %}
+  {% endif %}
+
+  {# CHECKBOX FIELD #}
+  {% if field.type == 'checkbox' %}
+    <p>{{ field.label|safe }}</p>
+
+    {# --- Safe JSON/list parsing --- #}
+    {% set raw_val = answers.get(field.name, []) %}
+    {% set selected = [] %}
+    {% if raw_val is string %}
+      {% if raw_val.strip().startswith('[') and raw_val.strip().endswith(']') %}
+        {% set selected = raw_val|from_json %}
+      {% elif ',' in raw_val %}
+        {% set selected = raw_val|replace(' ', '')|split(',') %}
+      {% elif raw_val %}
+        {% set selected = [raw_val] %}
+      {% endif %}
+    {% elif raw_val is iterable and raw_val is not mapping %}
+      {% set selected = raw_val %}
+    {% elif raw_val is not none %}
+      {% set selected = [raw_val] %}
+    {% endif %}
+
+    <div class="checkbox-group">
+      {% for val, label in field.options %}
+        {% set normalized_val = val|string|trim|lower %}
+        {% set checked_ns = namespace(value=false) %}
+        {% for sel in selected %}
+          {% set sel_normalized = sel|string|trim|lower %}
+          {% if sel_normalized == normalized_val %}
+            {% set checked_ns.value = true %}
+          {% endif %}
+        {% endfor %}
+        <label class="option">
+          <input type="checkbox" name="{{ field.name }}" value="{{ val }}" disabled {% if checked_ns.value %}checked{% endif %}>
+          {{ label }}
+        </label>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {# --- After Q11, insert PERSONS INVOLVED DETAILS section and renumber q12-q15 as 1-4 --- #}
+  {% if field.name == 'q11' %}
+    <div class="section-header">PERSONS INVOLVED DETAILS</div>
+    {% for pfield in form_structure if pfield.name in ['q12','q13','q14','q15'] %}
+      {% if pfield.name == 'q12' %}
+        <p>1. Who are the persons and specific block and lot numbers involved in the boundary dispute? <i style="font-size: 14px; font-weight: normal; color: grey;">(Excluding yours)</i></p>
+        {# Robustly parse q12 answers as a list of dicts #}
+        {% set raw_q12 = answers.get(pfield.name, []) %}
+        {% set table = [] %}
+        {% if raw_q12 is string %}
+          {% if raw_q12.strip().startswith('[') and raw_q12.strip().endswith(']') %}
+            {% set table = raw_q12|from_json %}
+          {% elif raw_q12.strip() %}
+            {% set table = [raw_q12|from_json] if raw_q12.strip().startswith('{') else [] %}
+          {% endif %}
+        {% elif raw_q12 is iterable and raw_q12 is not mapping %}
+          {% set table = raw_q12 %}
+        {% elif raw_q12 is mapping %}
+          {% set table = [raw_q12] %}
+        {% endif %}
+        {% set valid_rows = table if table and table|length > 0 and (table[0]['name'] or table[0]['block'] or table[0]['lot']) else [] %}
+        {% if valid_rows and valid_rows|length > 0 %}
+          {% for row in valid_rows %}
+            <div class="pair-row" style="display: flex; gap: 14px; align-items: flex-end; margin-bottom: 10px;">
+              <div style="flex-basis: 345px; min-width: 220px; max-width: 420px; flex-shrink: 1;">
+                <label style="font-size: 13px; color: #444; margin-bottom: 2px; display: block; margin-left: 15px;">Name of Person</label>
+                <input type="text" value="{{ row['name'] or row['Name'] or '' }}" readonly style="background: #f3f3f3; color: #555; border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; width: 100%; font-size: 15px; line-height: 1.4; box-sizing: border-box; margin-left: 15px;">
+              </div>
+              <div style="width: 120px; min-width: 100px;">
+                <label style="font-size: 13px; color: #444; margin-bottom: 2px; display: block;">Block No.</label>
+                <input type="text" value="{{ row['block'] or row['Block'] or '' }}" readonly style="background: #f3f3f3; color: #555; border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; width: 100%; font-size: 15px; line-height: 1.4; box-sizing: border-box;">
+              </div>
+              <div style="width: 120px; min-width: 100px;">
+                <label style="font-size: 13px; color: #444; margin-bottom: 2px; display: block;">Lot No.</label>
+                <input type="text" value="{{ row['lot'] or row['Lot'] or '' }}" readonly style="background: #f3f3f3; color: #555; border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; width: 100%; font-size: 15px; line-height: 1.4; box-sizing: border-box;">
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="readonly-value">N/A</div>
+        {% endif %}
+      {% elif pfield.name == 'q13' %}
+        <p>2. Relationship with the person involved</p>
+        {% set multi_val = answers[pfield.name] if pfield.name in answers else [] %}
+        {% if multi_val is string %}
+            {% set multi = multi_val|from_json %}
+        {% else %}
+            {% set multi = multi_val %}
+        {% endif %}
+        {% if multi and multi|length > 0 %}
+          <div>
+            {% for item in multi %}
+              <div style="margin-bottom: 8px;">
+                <input type="text" value="{{ item }}" readonly 
+                  style="background: #f3f3f3; color: #555; border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; width: 100%; max-width: 614px; font-size: 15px; line-height: 1.4; display: block; box-sizing: border-box;">
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="readonly-value">N/A</div>
+        {% endif %}
+      {% elif pfield.name == 'q14' %}
+        <p>3. Do they reside on or near the disputed boundary?</p>
+        <div class="radio-group">
+          {% set selected = (answers[pfield.name]|string|trim|lower) if pfield.name in answers else '' %}
+          {% for val, label in pfield.options %}
+            {% set normalized_val = val|string|trim|lower %}
+            {% set normalized_label = label|string|trim|lower %}
+            {% set checked = (selected == normalized_val or selected == normalized_label) %}
+            <label class="option">
+              <input type="radio" name="{{ pfield.name }}" value="{{ val }}" disabled {% if checked %}checked{% endif %}>
+              {{ label }}
+            </label>
+          {% endfor %}
+        </div>
+      {% elif pfield.name == 'q15' %}
+        <p>4. Do they claim to have legal or assignment documents?</p>
+        <div class="radio-group">
+          {% set selected = (answers[pfield.name]|string|trim|lower) if pfield.name in answers else '' %}
+          {% for val, label in pfield.options %}
+            {% set normalized_val = val|string|trim|lower %}
+            {% set normalized_label = label|string|trim|lower %}
+            {% set checked = (selected == normalized_val or selected == normalized_label) %}
+            <label class="option">
+              <input type="radio" name="{{ pfield.name }}" value="{{ val }}" disabled {% if checked %}checked{% endif %}>
+              {{ label }}
+            </label>
+          {% endfor %}
+        </div>
+        {% if pfield.conditional is defined and pfield.conditional.trigger_value is defined and pfield.conditional.additional_fields is defined %}
+          {% set trigger = pfield.conditional.trigger_value|string|trim|lower %}
+          {% if selected == trigger %}
+            {% for subfield in pfield.conditional.additional_fields %}
+              <div style="margin-left: 32px;">
+                <p>{{ subfield.label }}</p>
+                {% set raw_val = answers.get(subfield.name, []) %}
+                {% set selected_sub = [] %}
+                {% if raw_val is string %}
+                  {% if raw_val.strip().startswith('[') and raw_val.strip().endswith(']') %}
+                    {% set selected_sub = raw_val|from_json %}
+                  {% elif ',' in raw_val %}
+                    {% set selected_sub = raw_val|replace(' ', '')|split(',') %}
+                  {% elif raw_val %}
+                    {% set selected_sub = [raw_val] %}
+                  {% endif %}
+                {% elif raw_val is iterable and raw_val is not mapping %}
+                  {% set selected_sub = raw_val %}
+                {% elif raw_val is not none %}
+                  {% set selected_sub = [raw_val] %}
+                {% endif %}
+                <div class="checkbox-group">
+                  {% for val, label in subfield.options %}
+                    {% set normalized_val = val|string|trim|lower %}
+                    {% set checked_ns = namespace(value=false) %}
+                    {% for sel in selected_sub %}
+                      {% set sel_normalized = sel|string|trim|lower %}
+                      {% if sel_normalized == normalized_val %}
+                        {% set checked_ns.value = true %}
+                      {% endif %}
+                    {% endfor %}
+                    <label class="option">
+                      <input type="checkbox" name="{{ subfield.name }}" value="{{ val }}" disabled {% if checked_ns.value %}checked{% endif %}>
+                      {{ label }}
+                    </label>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+{% endfor %}
+
+{# --- FINAL DESCRIPTION --- #}
+<p class="section-label" style="color: black; font-weight: normal;">
+  Please describe what happened briefly, including how you found out about the issue.
+</p>
+<textarea readonly>{{ answers.get('description', '') }}</textarea>
+
