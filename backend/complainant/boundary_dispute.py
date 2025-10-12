@@ -390,6 +390,27 @@ def get_boundary_session_data():
             pass
         return ""
 
+    # Helper: resolve hoa value (id or name) to the canonical area_name when possible
+    def resolve_hoa_name(hoa_val):
+        if not hoa_val:
+            return ""
+        try:
+            aid = int(hoa_val)
+            from backend.database.models import Area
+            area = Area.query.get(aid)
+            if area:
+                return area.area_name
+        except Exception:
+            pass
+        try:
+            from backend.database.models import Area
+            a = Area.query.filter_by(area_name=str(hoa_val)).first()
+            if a:
+                return a.area_name
+        except Exception:
+            pass
+        return str(hoa_val)
+
     if reg.category == "non_member":
         area_name = resolve_area_name(getattr(reg, "block_no", None), getattr(reg, "lot_no", None))
         if area_name:
@@ -519,6 +540,22 @@ def get_boundary_session_data():
                     "recipient_of_other_housing": "",
                     "supporting_documents": fam.supporting_documents if hasattr(fam, "supporting_documents") else None,
                 }
+
+    # Ensure returned hoa is an area name when possible
+    try:
+        if data.get('hoa'):
+            data['hoa'] = resolve_hoa_name(data['hoa'])
+    except Exception:
+        pass
+
+    # Normalize parent_info.hoa to area name if present
+    try:
+        if data.get('parent_info') and isinstance(data['parent_info'], dict):
+            p_h = data['parent_info'].get('hoa')
+            if p_h:
+                data['parent_info']['hoa'] = resolve_hoa_name(p_h)
+    except Exception:
+        pass
 
     return jsonify(data)
 
