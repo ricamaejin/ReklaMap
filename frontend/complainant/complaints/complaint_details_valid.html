@@ -229,13 +229,15 @@
 
                   <div class="pair-row">
                     <div class="col" >
-                    <label class="small">How are you connected to the lot you are complaining about?</label>
-                    {% if non_member_connections_list and non_member_connections_list|length > 0 %}
-                      {% for item in non_member_connections_list %}
-                        <input type="text" value="{{ item }}" readonly style="margin-bottom:6px; width: 98.2%;">
-                      {% endfor %}
-                    {% else %}
-                      <input type="text" value="{{ non_member_connections or '' }}" readonly>
+                    {% if complaint and (complaint.type_of_complaint|string|lower).strip() != 'unauthorized occupation' %}
+                      <label class="small">How are you connected to the lot you are complaining about?</label>
+                      {% if non_member_connections_list and non_member_connections_list|length > 0 %}
+                        {% for item in non_member_connections_list %}
+                          <input type="text" value="{{ item }}" readonly style="margin-bottom:6px; width: 98.2%;">
+                        {% endfor %}
+                      {% else %}
+                        <input type="text" value="{{ non_member_connections or '' }}" readonly>
+                      {% endif %}
                     {% endif %}
                   </div>
               </div>

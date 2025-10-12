@@ -4,38 +4,194 @@
 {# --- Block/Lot Section for Non-members --- #}
 {% if registration and registration.category == 'non_member' %}
     {% set block_lots = [] %}
-    {% if unauthorized_occupation and unauthorized_occupation.block_lot %}
-        {% if unauthorized_occupation.block_lot is string and unauthorized_occupation.block_lot.strip().startswith('[') %}
-            {% set block_lots = unauthorized_occupation.block_lot | from_json %}
-        {% elif unauthorized_occupation.block_lot is iterable %}
-            {% set block_lots = unauthorized_occupation.block_lot %}
+
+    {# Try multiple places/types for stored block/lot data in order of likelihood #}
+    {% set candidate = None %}
+
+    {# 1) top-level field on unauthorized_occupation (common) #}
+    {% if unauthorized_occupation is defined and unauthorized_occupation.block_lot is defined and unauthorized_occupation.block_lot %}
+        {% set candidate = unauthorized_occupation.block_lot %}
+    {% endif %}
+
+    {# 2) responses inside unauthorized_occupation (some records) #}
+    {% if not candidate and unauthorized_occupation is defined and unauthorized_occupation.responses is defined and unauthorized_occupation.responses.block_lot is defined and unauthorized_occupation.responses.block_lot %}
+        {% set candidate = unauthorized_occupation.responses.block_lot %}
+    {% endif %}
+
+    {# 3) fallback to resp (answers mapping) fields like block_lot or block/lot pair #}
+    {% if not candidate %}
+        {% if resp and resp.block_lot is defined and resp.block_lot %}
+            {% set candidate = resp.block_lot %}
+        {% elif resp and (resp.block is defined or resp.lot is defined) %}
+            {% set candidate = {'block': (resp.block if resp.block is defined else ''), 'lot': (resp.lot if resp.lot is defined else '')} %}
         {% endif %}
     {% endif %}
 
-    <div id="nonMemberBlockLotSection" style="margin-bottom:18px;">
-        <p>Please indicate your Block and Lot number.</p>
-        <div class="pairs">
-            {% if block_lots and block_lots|length > 0 %}
-                {% for pair in block_lots %}
-                    {% set block = pair.block if pair.block is defined else pair['block'] if 'block' in pair else '' %}
-                    {% set lot = pair.lot if pair.lot is defined else pair['lot'] if 'lot' in pair else '' %}
-                    <div class="pair-row" style="display:flex; gap:10px; margin-bottom:6px;">
-                        <div class="col">
-                            <label class="small">Block No.</label>
-                            <input type="text" value="{{ block }}" readonly placeholder="Block No.">
-                        </div>
-                        <div class="col">
-                            <label class="small">Lot No.</label>
-                            <input type="text" value="{{ lot }}" readonly placeholder="Lot No.">
-                        </div>
-                    </div>
-                {% endfor %}
-            {% else %}
-                <div class="readonly-value" style="margin-bottom:12px;">No Block/Lot information provided.</div>
+    {# Normalize candidate into block_lots list. Accept JSON list, JSON object, or iterable of pairs #}
+    {% if candidate is string %}
+        {% set s = candidate.strip() %}
+        {% if s.startswith('[') %}
+            {% set block_lots = s | from_json %}
+        {% elif s.startswith('{') %}
+            {% set parsed = s | from_json %}
+            {% if parsed is mapping %}
+                {% set block_lots = [parsed] %}
             {% endif %}
+        {% elif ',' in s %}
+            {# simple comma-separated block,lot stored as string e.g. "1,2" #}
+            {% set parts = s.split(',') %}
+            {% set b = parts[0].strip() if parts|length > 0 else '' %}
+            {% set l = parts[1].strip() if parts|length > 1 else '' %}
+            {% set block_lots = [{'block': b, 'lot': l}] %}
+        {% endif %}
+    {% elif candidate is mapping %}
+        {% set block_lots = [candidate] %}
+    {% elif candidate is iterable and candidate|length > 0 %}
+        {% set block_lots = candidate %}
+    {% endif %}
+
+    {# If still empty, try to build from separate fields like block/lot or block_no/lot_no from several places #}
+    {% if not block_lots or block_lots|length == 0 %}
+        {% set single = {} %}
+        {# unauthorized_occupation.block / .lot #}
+        {% if unauthorized_occupation is defined and (unauthorized_occupation.block is defined or unauthorized_occupation.lot is defined) %}
+            {% set single = {'block': (unauthorized_occupation.block if unauthorized_occupation.block is defined else ''), 'lot': (unauthorized_occupation.lot if unauthorized_occupation.lot is defined else '')} %}
+        {% endif %}
+        {# responses inside unauthorized_occupation #}
+        {% if (not single or not single.block and not single.lot) and unauthorized_occupation is defined and unauthorized_occupation.responses is defined %}
+            {% set single = {
+                'block': (
+                    (unauthorized_occupation.responses.get('block', '')) if unauthorized_occupation.responses is mapping
+                    else (unauthorized_occupation.responses.block if unauthorized_occupation.responses.block is defined else '')
+                ),
+                'lot': (
+                    (unauthorized_occupation.responses.get('lot', '')) if unauthorized_occupation.responses is mapping
+                    else (unauthorized_occupation.responses.lot if unauthorized_occupation.responses.lot is defined else '')
+                )
+            } %}
+            {# try block_no/lot_no keys too #}
+            {% if (not single.block and not single.lot) %}
+                {% set single = {
+                    'block': (
+                        (unauthorized_occupation.responses.get('block_no', '')) if unauthorized_occupation.responses is mapping
+                        else (unauthorized_occupation.responses.block_no if unauthorized_occupation.responses.block_no is defined else '')
+                    ),
+                    'lot': (
+                        (unauthorized_occupation.responses.get('lot_no', '')) if unauthorized_occupation.responses is mapping
+                        else (unauthorized_occupation.responses.lot_no if unauthorized_occupation.responses.lot_no is defined else '')
+                    )
+                } %}
+            {% endif %}
+        {% endif %}
+        {# resp mapping fields #}
+        {% if (not single or not single.block and not single.lot) and resp %}
+            {% set single = {
+                'block': (resp.get('block', resp.get('block_no', '')) if resp is mapping else (resp.block if resp.block is defined else '')),
+                'lot': (resp.get('lot', resp.get('lot_no', '')) if resp is mapping else (resp.lot if resp.lot is defined else ''))
+            } %}
+        {% endif %}
+        {# registration fallback #}
+        {% if (not single or not single.block and not single.lot) and registration is defined %}
+            {% set single = {'block': (registration.block_no if registration.block_no is defined else ''), 'lot': (registration.lot_no if registration.lot_no is defined else '')} %}
+        {% endif %}
+
+        {% if single and (single.block or single.lot) %}
+            {% set block_lots = [single] %}
+        {% endif %}
+    {% endif %}
+
+    {% if block_lots and block_lots|length > 0 %}
+        <div id="nonMemberBlockLotSection">
+            <p>Please indicate your Block and Lot number.</p>
+            <div class="pairs" id="pairsContainer" aria-live="polite">
+                {% for pair in block_lots %}
+                    {% set block = '' %}
+                    {% set lot = '' %}
+
+                    {# STRING: try JSON, comma-separated "block,lot", or plain value #}
+                    {% if pair is string %}
+                        {% set s = pair.strip() %}
+                        {% if s.startswith('{') or s.startswith('[') %}
+                            {% set parsed = s | from_json %}
+                            {% if parsed is mapping %}
+                                {% set block = parsed.get('block', parsed.get('Block', parsed.get('BLOCK', ''))) %}
+                                {% set lot = parsed.get('lot', parsed.get('Lot', parsed.get('LOT', ''))) %}
+                            {% elif parsed is iterable and parsed|length > 0 %}
+                                {# if parsed is a list like ["1","2"] or list of pairs, take first pair-like element if mapping or two items #}
+                                {% if parsed[0] is mapping %}
+                                    {% set block = parsed[0].get('block', parsed[0].get('Block', '')) %}
+                                    {% set lot = parsed[0].get('lot', parsed[0].get('Lot', '')) %}
+                                {% elif parsed|length >= 2 %}
+                                    {% set block = parsed[0] %}
+                                    {% set lot = parsed[1] %}
+                                {% endif %}
+                            {% endif %}
+                        {% elif ',' in s %}
+                            {% set parts = s.split(',') %}
+                            {% set block = parts[0].strip() %}
+                            {% set lot = parts[1].strip() if parts|length > 1 else '' %}
+                        {% elif ':' in s or '|' in s %}
+                            {# try key:value or Block:1|Lot:2 formats #}
+                            {% set sep = ':' if ':' in s else '|' %}
+                            {% set tokens = s.replace('|', ',').split(',') %}
+                            {% for tok in tokens %}
+                                {% set kv = tok.split(sep) %}
+                                {% if kv|length > 1 %}
+                                    {% set k = kv[0].strip().lower() %}
+                                    {% set v = kv[1].strip() %}
+                                    {% if 'block' in k %}{% set block = v %}{% endif %}
+                                    {% if 'lot' in k %}{% set lot = v %}{% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            {% set block = s %}
+                        {% endif %}
+
+                    {# MAPPING (dict-like) #}
+                    {% elif pair is mapping %}
+                        {% set block = pair.get('block', pair.get('Block', pair.get('BLOCK', ''))) %}
+                        {% set lot = pair.get('lot', pair.get('Lot', pair.get('LOT', ''))) %}
+
+                    {# ITERABLE (list/tuple) - try index 0/1 or mapping inside #}
+                    {% elif pair is iterable %}
+                        {% if pair|length >= 2 %}
+                            {% set block = pair[0] %}
+                            {% set lot = pair[1] %}
+                        {% elif pair|length == 1 %}
+                            {% if pair[0] is mapping %}
+                                {% set block = pair[0].get('block', pair[0].get('Block', '')) %}
+                                {% set lot = pair[0].get('lot', pair[0].get('Lot', '')) %}
+                            {% else %}
+                                {% set block = pair[0] %}
+                            {% endif %}
+                        {% endif %}
+
+                    {# OBJECT with attributes #}
+                    {% else %}
+                        {% set block = pair.block if pair.block is defined else '' %}
+                        {% set lot = pair.lot if pair.lot is defined else '' %}
+                    {% endif %}
+
+                    {% if block or lot %}
+                        <div class="pair-row">
+                            <div class="col">
+                                <label class="small">Block No.</label>
+                                <input type="text" value="{{ block }}" readonly placeholder="Block No.">
+                            </div>
+                            <div class="col">
+                                <label class="small">Lot No.</label>
+                                <input type="text" value="{{ lot }}" readonly placeholder="Lot No.">
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
         </div>
-    </div>
+    {% else %}
+        <div class="readonly-value" style="margin-bottom: 12px;">No Block/Lot information provided.</div>
+    {% endif %}
 {% endif %}
+
 
 {# --- Render all questions dynamically --- #}
 {% for field in form_structure %}

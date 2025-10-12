@@ -6,6 +6,7 @@
   <link rel="icon" type="image/png" href="/images/logo.png" />
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css" />
+  <link rel="stylesheet" href="/css/modal_shared.css" />
 <Style>
   .complaints-container {
   display: flex;              /* two-column layout */
@@ -248,17 +249,90 @@ document.addEventListener("DOMContentLoaded", async () => {
       .replace(/'/g, "&#039;");
   }
 
+  // --- Confirmation modal for opening a complaint (shared CSS classes) ---
+  const complaintConfirmModal = (function createConfirm() {
+    const m = document.createElement('div');
+    m.id = 'complaintConfirmModal';
+    m.className = 'rk-modal-backdrop';
+
+    const inner = document.createElement('div');
+    inner.className = 'rk-modal';
+    inner.innerHTML = `
+      <div class="rk-modal-header">
+        <div class="rk-modal-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#1a33a0" opacity="0.12"/><path d="M11 16h2v-2h-2v2zm0-8h2v6h-2V8z" fill="#1a33a0"/></svg>
+        </div>
+        <p class="rk-modal-title">Open complaint</p>
+      </div>
+      <p class="rk-modal-body">Do you want to open this complaint? You will be taken to the complaint preview page.</p>
+      <div class="rk-modal-actions">
+        <button id="complaintConfirmCancel" class="rk-btn-ghost">Cancel</button>
+        <button id="complaintConfirmOpen" class="rk-btn-primary">Open</button>
+      </div>
+    `;
+
+    m.appendChild(inner);
+    document.body.appendChild(m);
+
+    let pendingId = null;
+
+    const cancelBtn = m.querySelector('#complaintConfirmCancel');
+    const openBtn = m.querySelector('#complaintConfirmOpen');
+
+    cancelBtn.addEventListener('click', () => {
+      pendingId = null;
+      m.classList.remove('show');
+    });
+    openBtn.addEventListener('click', () => {
+      const id = pendingId;
+      pendingId = null;
+      m.classList.remove('show');
+      if (id) window.location.href = `/complainant/complaint/${id}`;
+    });
+
+    // allow clicking outside to cancel
+    m.addEventListener('click', (ev) => {
+      if (ev.target === m) { pendingId = null; m.classList.remove('show'); }
+    });
+
+    return {
+      show(id) { pendingId = id; m.classList.add('show'); },
+      hide() { pendingId = null; m.classList.remove('show'); }
+    };
+  })();
+
   // --- Helper: Build complaint card (used for main + history) ---
   function buildComplaintCard(c) {
   const complaintId = c.complaint_id ?? "";
   const createdAt = c.created_at ?? "";
+  // Prefer server-provided epoch (ms) so we can format to the user's local timezone.
+  let createdTime = "";
+  if (typeof c.created_at_ts === 'number' && c.created_at_ts > 0) {
+    try {
+      const dt = new Date(Number(c.created_at_ts));
+      // Format to HH:MM in user's locale (24-hour when available)
+      createdTime = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      createdTime = c.created_time ?? "";
+    }
+  } else {
+    createdTime = c.created_time ?? "";
+  }
   const type = c.type ?? c.type_of_complaint ?? "Complaint";
   const status = (c.status ?? c.state ?? "").toLowerCase(); // normalize for comparison
   const complaintStage = c.complaint_stage || "";
   const personName = (c.person && c.person.name) || c.q12 || c.person_name || "Unknown";
   const personBlock = (c.person && c.person.block) || (c.property && c.property.block) || c.block || null;
   const personLot = (c.person && c.person.lot) || (c.property && c.property.lot) || c.lot || null;
-  const personRole = (c.person && c.person.role) || "";
+  let personRole = (c.person && c.person.role) || "";
+
+  // If API returned a complainant object, prefer that for display of complainant info
+  const complainant = c.complainant || null;
+  const complainantName = complainant && complainant.name ? complainant.name : (c.registration_name || c.person_name || "");
+  const complainantType = complainant && complainant.type ? complainant.type : (c.registration_type || "");
+  const complainantHoa = complainant && complainant.hoa ? complainant.hoa : (c.hoa || "");
+  const complainantBlock = complainant && (complainant.block || complainant.block===0) ? complainant.block : personBlock;
+  const complainantLot = complainant && (complainant.lot || complainant.lot===0) ? complainant.lot : personLot;
 
   // Determine display status - prioritize complaint_stage for final states
   let displayStatus = status;
@@ -270,17 +344,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     displayStatus = "Out of Jurisdiction";
   }
 
-  // Format block and lot display
-  let blockLotDisplay = "";
-  if (personBlock && personLot) {
-    blockLotDisplay = `Block: ${personBlock}  Lot: ${personLot}`;
-  } else if (personBlock) {
-    blockLotDisplay = `Block: ${personBlock}`;
-  } else if (personLot) {
-    blockLotDisplay = `Lot: ${personLot}`;
-  } else {
-    blockLotDisplay = "Block: N/A  Lot: N/A";
+  // Format block and lot display consistently as: "Block <n>, Lot <m>" or show N/A
+  function hasValue(v) {
+    return v !== undefined && v !== null && String(v).trim() !== "";
   }
+
+  const blockLotDisplay = (function(b, l) {
+    const bHas = hasValue(b);
+    const lHas = hasValue(l);
+    if (bHas && lHas) return `Block ${b}, Lot ${l}`;
+    if (bHas) return `Block ${b}, Lot: N/A`;
+    if (lHas) return `Block: N/A, Lot ${l}`;
+    return `Block: N/A, Lot: N/A`;
+  })(complainantBlock, complainantLot);
 
   const card = document.createElement("div");
   card.classList.add("complaint-card", "clickable-card");
@@ -300,21 +376,108 @@ document.addEventListener("DOMContentLoaded", async () => {
     card.classList.add("invalid");
   }
 
-  card.innerHTML = `
-    <h4>${escapeHtml(createdAt)} - ${escapeHtml(type)}</h4>
-    <p><strong>Status:</strong> ${escapeHtml(displayStatus)}</p>
-    <div class="person-box">
+  // Build details section depending on complaint type
+  let detailsHtml = '';
+  // Helper to get stored answers for various complaint types (defensive)
+  function getAnswer(key) {
+    if (!c) return '';
+    const tries = [
+      c[key],
+      (c.answers && c.answers[key]),
+      (c.form && c.form[key]),
+      (c.data && c.data[key]),
+      (c.payload && c.payload[key]),
+      (c.details && c.details[key]),
+      (c.questionnaire && c.questionnaire[key])
+    ];
+    for (const t of tries) {
+      if (t === undefined || t === null) continue;
+      if (Array.isArray(t) && t.length > 0) return t[0];
+      if (typeof t === 'string') return t;
+      // if object with value property
+      if (typeof t === 'object' && t.value) return t.value;
+      // fallback to stringify
+      try { return String(t); } catch (e) { continue; }
+    }
+    return '';
+  }
+  // Helper to build a single opposing party string
+  function formatOpposing(op) {
+    if (!op) return '';
+    const n = escapeHtml(op.name || op.person || op.person_name || 'Unknown');
+    const rel = escapeHtml((op.relationship || op.relation || op.role || '').toString().replace(/^Relationship:\s*/i, '').trim());
+    const b = op.block || op.b || op.block_no || op.blockNumber || '';
+    const l = op.lot || op.l || op.lot_no || op.lotNumber || '';
+    let bl = '';
+    if (b && l) bl = `B${escapeHtml(b)}-L${escapeHtml(l)}`;
+    else if (b) bl = `B${escapeHtml(b)}`;
+    else if (l) bl = `L${escapeHtml(l)}`;
+    const parts = [];
+    if (rel) parts.push(rel);
+    if (bl) parts.push(bl);
+    return bl || rel ? `${n} (${parts.join(', ')})` : n;
+  }
+
+  if (type === 'Lot Dispute') {
+    detailsHtml = `
+      <p><strong>Complainant:</strong> ${escapeHtml(complainantName || personName)}${complainantType ? ` (${escapeHtml(complainantType)})` : ''}</p>
+      <p><strong>Area (HOA):</strong> ${escapeHtml(complainantHoa || '')}${complainantBlock || complainantLot ? `, ${escapeHtml(blockLotDisplay)}` : ''}</p>
+      <p><strong>Opposing Party:</strong> ${escapeHtml(personName)}${(personRole && String(personRole).replace(/^Relationship:\s*/i, '').trim()) ? ` (${escapeHtml(String(personRole).replace(/^Relationship:\s*/i, '').trim())})` : ''}</p>
+    `;
+  } else if (type === 'Boundary Dispute' || /boundary/i.test(type) || type === 'Unauthorized Occupation' || /unauthorized/i.test(type)) {
+    // For Boundary Dispute, prefer API-provided opposing_parties array
+    const opps = Array.isArray(c.opposing_parties) ? c.opposing_parties : (Array.isArray(c.persons) ? c.persons : []);
+    let opposingList = '';
+    if (opps && opps.length > 0) {
+      const formatted = opps.map(op => formatOpposing(op));
+      opposingList = formatted.filter(Boolean).join(', ');
+    } else {
+      // Fallback: try to use c.person / c.q12 / c.q13
+      const fallback = formatOpposing({ name: c.person?.name || c.q12 || c.q13 || personName, relationship: c.person?.role || '' });
+      opposingList = fallback;
+    }
+
+    const oppCount = Array.isArray(opps) ? opps.length : (opposingList ? String(opposingList).split(',').length : 0);
+    const oppLabel = oppCount === 1 ? 'Opposing Party' : 'Opposing Parties';
+    detailsHtml = `
+      <p><strong>Complainant:</strong> ${escapeHtml(complainantName || personName)}${complainantType ? ` (${escapeHtml(complainantType)})` : ''}</p>
+      <p><strong>Area (HOA):</strong> ${escapeHtml(complainantHoa || '')}${complainantBlock || complainantLot ? `, ${escapeHtml(blockLotDisplay)}` : ''}</p>
+      <p><strong>${oppLabel}:</strong> ${escapeHtml(opposingList)}</p>
+    `;
+  } else if (type === 'Pathway Dispute' || /pathway/i.test(type)) {
+  // Pathway Dispute specific fields: q1 = pathway type, q2 = encroachment
+  // Prefer API-provided top-level values (c.q1 / c.q2) then fall back to other locations
+  const pathwayType = (c.q1 !== undefined && c.q1 !== null && String(c.q1).trim() !== '') ? c.q1 : (getAnswer('q1') || getAnswer('pathway_type') || getAnswer('type_of_path') || '');
+  const encroachment = (c.q2 !== undefined && c.q2 !== null && String(c.q2).trim() !== '') ? c.q2 : (getAnswer('q2') || getAnswer('encroachment') || getAnswer('nature_of_encroachment') || '');
+
+    detailsHtml = `
+      <p><strong>Complainant:</strong> ${escapeHtml(complainantName || personName)}${complainantType ? ` (${escapeHtml(complainantType)})` : ''}</p>
+      <p><strong>Area (HOA):</strong> ${escapeHtml(complainantHoa || '')}${complainantBlock || complainantLot ? `, ${escapeHtml(blockLotDisplay)}` : ''}</p>
+      <p><strong>Pathway Type:</strong> ${escapeHtml(pathwayType)}</p>
+      <p><strong>Encroachment:</strong> ${escapeHtml(encroachment)}</p>
+    `;
+  } else {
+    detailsHtml = `
       <p><strong>Person Involved:</strong></p>
       <p>Name: ${escapeHtml(personName)}</p>
       <p>${escapeHtml(blockLotDisplay)}</p>
-  ${personRole ? `<p>${escapeHtml(personRole)}</p>` : ''}
+      ${personRole ? `<p>${escapeHtml(personRole)}</p>` : ''}
+    `;
+  }
+
+  card.innerHTML = `
+    <h4>${escapeHtml(type)} - ${escapeHtml(createdAt)}</h4>
+    <div style="font-size:0.85em;color:#666;margin-top:4px;">${escapeHtml(createdTime)}</div>
+    <p><strong>Status:</strong> ${escapeHtml(complaintStage || displayStatus)}</p>
+    <div class="person-box">
+      ${detailsHtml}
     </div>
   `;
 
-  // Click handler
+  // Click handler: show confirmation modal first
   card.addEventListener("click", () => {
     if (card.dataset.id) {
-      window.location.href = `/complainant/complaint/${card.dataset.id}`;
+      complaintConfirmModal.show(card.dataset.id);
     }
   });
 

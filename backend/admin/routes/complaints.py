@@ -274,16 +274,17 @@ def complaint_form_preview(complaint_id):
                     'signature': getattr(pathway, 'signature', None) or getattr(registration, 'signature_path', '') or '',
                 }
         elif complaint.type_of_complaint == 'Unauthorized Occupation':
-            # Build answers based on UnauthorizedOccupation model and its form structure
-            unauthorized = UnauthorizedOccupation.query.filter_by(complaint_id=complaint_id).first()
-            unauthorized_occupation = unauthorized
+            from backend.complainant.unauthorized_occupation import get_form_structure as get_unauth_form_structure
+            from backend.database.models import UnauthorizedOccupation
+
+            unauthorized_occupation = UnauthorizedOccupation.query.filter_by(complaint_id=complaint_id).first()
+
             try:
-                from backend.complainant.unauthorized_occupation import get_form_structure as get_unauth_form_structure
                 form_structure = get_unauth_form_structure()
             except Exception:
                 form_structure = []
 
-            if unauthorized:
+            if unauthorized_occupation:
                 def _parse_list(val):
                     try:
                         if isinstance(val, list):
@@ -307,20 +308,21 @@ def complaint_form_preview(complaint_id):
                         pass
                     return ''
 
-                # Map DB fields to generic names expected by form_structure template
+                # **Use the same keys as complainant preview**
                 answers = {
-                    'legal_connection': getattr(unauthorized, 'q1', None) or '',
-                    'involved_persons': _parse_list(getattr(unauthorized, 'q2', None)),
-                    'noticed_date': _parse_date(getattr(unauthorized, 'q3', None)),
-                    'activities': _parse_list(getattr(unauthorized, 'q4', None)),
-                    'occupant_claim': getattr(unauthorized, 'q5', None) or '',
-                    'occupant_documents': _parse_list(getattr(unauthorized, 'q5a', None)),
-                    'approach': getattr(unauthorized, 'q6', None) or '',
-                    'approach_details': _parse_list(getattr(unauthorized, 'q6a', None)),
-                    'boundary_reported_to': _parse_list(getattr(unauthorized, 'q7', None)),
-                    'result': getattr(unauthorized, 'q8', None) or '',
-                    'description': getattr(unauthorized, 'description', None) or getattr(complaint, 'description', '') or '',
-                    'signature': getattr(unauthorized, 'signature', None) or getattr(registration, 'signature_path', '') or '',
+                    'block_lot': _parse_list(getattr(unauthorized_occupation, 'block_lot', None)),
+                    'q1': getattr(unauthorized_occupation, 'q1', None) or '',
+                    'q2': _parse_list(getattr(unauthorized_occupation, 'q2', None)),
+                    'q3': _parse_date(getattr(unauthorized_occupation, 'q3', None)),
+                    'q4': _parse_list(getattr(unauthorized_occupation, 'q4', None)),
+                    'q5': getattr(unauthorized_occupation, 'q5', None) or '',
+                    'q5a': _parse_list(getattr(unauthorized_occupation, 'q5a', None)),
+                    'q6': getattr(unauthorized_occupation, 'q6', None) or '',
+                    'q6a': getattr(unauthorized_occupation, 'q6a', None) or '',
+                    'q7': _parse_list(getattr(unauthorized_occupation, 'q7', None)),
+                    'q8': getattr(unauthorized_occupation, 'q8', None) or '',
+                    'description': getattr(unauthorized_occupation, 'description', None) or getattr(complaint, 'description', '') or '',
+                    'signature': getattr(unauthorized_occupation, 'signature', None) or getattr(registration, 'signature_path', '') or '',
                 }
 
         # Parent info for family_of_member

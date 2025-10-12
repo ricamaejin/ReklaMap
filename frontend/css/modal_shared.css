@@ -1,0 +1,36 @@
+/* Shared modal styles used by complainant pages */
+.rk-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: none; /* visible when activated */
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.4);
+  z-index: 1100;
+}
+.rk-modal-backdrop.show { display: flex; }
+
+.rk-modal {
+  width: 460px;
+  max-width: 94%;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f9ff 100%);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(17,24,71,0.25);
+  font-family: inherit;
+  border: 1px solid rgba(26,51,160,0.08);
+  transform: translateY(-6px);
+  transition: transform 160ms ease;
+}
+
+.rk-modal-header { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+.rk-modal-icon { width:44px; height:44px; border-radius:10px; background: rgba(26,51,160,0.08); display:flex; align-items:center; justify-content:center; }
+.rk-modal-title { margin:0; font-weight:700; font-size:16px; color:#1a33a0; }
+.rk-modal-body { margin:0 0 14px; color:#1f2a4a; line-height:1.35; }
+.rk-modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:12px; }
+
+.rk-btn-ghost { padding:8px 14px; background:#fff; border:1px solid rgba(26,51,160,0.12); border-radius:8px; color:#1a33a0; cursor:pointer; font-weight:600; }
+.rk-btn-primary { padding:8px 14px; background:#1a33a0; color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:600; box-shadow:0 6px 14px rgba(26,51,160,0.18); }
+
+/* Small utility to visually hide but keep in DOM if needed */
+.rk-hidden { display: none !important; }
