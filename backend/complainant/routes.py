@@ -359,7 +359,6 @@ def view_complaint(complaint_id):
     lot_dispute = None
     boundary_dispute = None
     pathway_dispute = None
-    unauthorized_occupation = None
 
     def _parse_list(val):
         try:
@@ -545,69 +544,6 @@ def view_complaint(complaint_id):
         else:
             answers = {}
             print("[DEBUG] No PathwayDispute record found for complaint_id", complaint_id)
-
-    elif complaint.type_of_complaint == "Unauthorized Occupation":
-        from backend.complainant.unauthorized_occupation import get_form_structure as get_unauth_form_structure
-        from backend.database.models import UnauthorizedOccupation
-        form_structure = get_unauth_form_structure()
-        unauthorized_occupation = UnauthorizedOccupation.query.filter_by(complaint_id=complaint_id).first()
-        if unauthorized_occupation:
-            import json
-            def _parse_json_list(val):
-                try:
-                    if isinstance(val, list):
-                        return val
-                    if isinstance(val, str):
-                        s = val.strip()
-                        if not s:
-                            return []
-                        return json.loads(s)
-                except Exception as e:
-                    print('[DEBUG] _parse_json_list error:', e, 'val:', val)
-                return []
-            def _parse_str(val):
-                if val is None:
-                    return ''
-                if isinstance(val, str):
-                    return val
-                try:
-                    return str(val)
-                except Exception:
-                    return ''
-            def _parse_date(val):
-                if not val:
-                    return ''
-                try:
-                    return val.strftime('%Y-%m-%d')
-                except Exception:
-                    return str(val)
-
-            q6a_val = getattr(unauthorized_occupation, 'q6a', None)
-            q8_val = getattr(unauthorized_occupation, 'q8', None)
-            print("[DEBUG] UnauthorizedOccupation q6a:", q6a_val, type(q6a_val))
-            print("[DEBUG] UnauthorizedOccupation q8:", q8_val, type(q8_val))
-
-            answers = {
-                'block_lot': _parse_json_list(getattr(unauthorized_occupation, 'block_lot', None)),
-                'q1': getattr(unauthorized_occupation, 'q1', None) or '',
-                'q2': _parse_json_list(getattr(unauthorized_occupation, 'q2', None)),
-                'q3': _parse_date(getattr(unauthorized_occupation, 'q3', None)),
-                'q4': _parse_json_list(getattr(unauthorized_occupation, 'q4', None)),
-                'q5': getattr(unauthorized_occupation, 'q5', None) or '',
-                'q5a': _parse_json_list(getattr(unauthorized_occupation, 'q5a', None)),
-                'q6': getattr(unauthorized_occupation, 'q6', None) or '',
-                'q6a': q6a_val or '',
-                'q7': _parse_json_list(getattr(unauthorized_occupation, 'q7', None)),
-                'q8': q8_val or '',
-                'description': getattr(unauthorized_occupation, 'description', None) or getattr(complaint, 'description', '') or '',
-                'signature': getattr(unauthorized_occupation, 'signature', None) or getattr(registration, 'signature_path', '') or '',
-            }
-            print("[DEBUG] Unauthorized Occupation Preview Answers:")
-            for k, v in answers.items():
-                print(f"  {k}: {v} (type: {type(v)})")
-        else:
-            answers = {}
-            print("[DEBUG] No UnauthorizedOccupation record found for complaint_id", complaint_id)
     else:
         form_structure = []
 
@@ -662,5 +598,4 @@ def view_complaint(complaint_id):
         parent_info=parent_info,
         relationship=relationship,
         pathway_dispute=pathway_dispute,
-        unauthorized_occupation=unauthorized_occupation,
     )

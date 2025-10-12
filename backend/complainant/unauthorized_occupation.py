@@ -80,37 +80,10 @@ def submit_unauthorized_occupation():
         db.session.add(complaint)
         db.session.flush()  # get complaint_id
 
-        # Debug: print block_lot value received
-        print('block_lot received:', request.form.get('block_lot'))
-        block_lot_val = parse_json(request.form.get('block_lot'))
-        if block_lot_val is None:
-            block_lot_val = []
-        # Handle signature file upload
-        signature_file = request.files.get('signature')
-        signature_filename = None
-        if signature_file and signature_file.filename:
-            # Save the file to uploads/signatures/ with a unique name
-            upload_dir = os.path.normpath(os.path.join(BASE_DIR, '..', 'uploads', 'signatures'))
-            os.makedirs(upload_dir, exist_ok=True)
-            timestamp = str(int(time.time()))
-            filename = secure_filename(signature_file.filename)
-            signature_filename = f"{timestamp}_{filename}"
-            file_path = os.path.join(upload_dir, signature_filename)
-            signature_file.save(file_path)
-        # Q6a: get as string (single value from radio)
-        q6a_val = request.form.get('approach_details')
-        # If sent as JSON array (from old frontend), parse and get first value
-        import json
-        if q6a_val:
-            try:
-                arr = json.loads(q6a_val)
-                if isinstance(arr, list) and arr:
-                    q6a_val = arr[0]
-            except Exception:
-                pass
+        # Create UnauthorizedOccupation record
         unauthorized = UnauthorizedOccupation(
             complaint_id=complaint.complaint_id,
-            block_lot=block_lot_val,
+            block_lot=parse_json(request.form.get('block_lot')),
             q1=clean_field(request.form.get('legal_connection')),
             q2=parse_json(request.form.get('involved_persons')),
             q3=request.form.get('noticed_date'),
@@ -118,11 +91,11 @@ def submit_unauthorized_occupation():
             q5=clean_field(request.form.get('occupant_claim')),
             q5a=parse_json(request.form.get('occupant_documents')),
             q6=clean_field(request.form.get('approach')),
-            q6a=clean_field(q6a_val),
+            q6a=parse_json(request.form.get('approach_details')),
             q7=parse_json(request.form.get('boundary_reported_to')),
             q8=clean_field(request.form.get('result')),
             description=request.form.get('description'),
-            signature=signature_filename
+            signature=request.form.get('signature')
         )
         db.session.add(unauthorized)
         db.session.commit()
@@ -230,176 +203,66 @@ def get_unauthorized_occupation_session_data():
     return jsonify(data)
 
 def get_form_structure():
-    """
-    Returns the structured form definition for Unauthorized Occupation Complaint.
-    Each field corresponds to a column in the 'unauthorized_occupation' table.
-    """
-
+    # Return a list of dicts describing the form fields (for dynamic rendering)
     return [
-        # -------------------------------
-        # Q1: Legal Connection
-        # -------------------------------
-        {
-            "type": "radio",
-            "name": "q1",
-            "label": "1. What is your legal connection to this property?",
-            "options": [
-                ("beneficiary", "I am an awarded beneficiary."),
-                ("heir", "I am an heir/successor-in-interest of the deceased registered owner."),
-                ("purchaser", "I am the purchaser/buyer with a signed Deed of Sale or Contract to Sell."),
-                ("lessee", "I am a lessee/tenant with a valid and current lease agreement."),
-                ("hoa_officer", "I am a public officer reporting on a common area."),
-                ("representative", "I am an authorized representative of the owner/beneficiary."),
-            ],
-        },
-
-        # -------------------------------
-        # Q2: Occupants (multiple names)
-        # -------------------------------
-        {
-            "type": "multiple_text",
-            "name": "q2",
-            "label": "2. Who is currently occupying the lot?",
-            "placeholder": "Enter name",
-        },
-
-        # -------------------------------
-        # Q3: Date noticed
-        # -------------------------------
-        {
-            "type": "date",
-            "name": "q3",
-            "label": "3. When did you first notice the unauthorized occupation?",
-        },
-
-        # -------------------------------
-        # Q4: Activities done
-        # -------------------------------
-        {
-            "type": "checkbox",
-            "name": "q4",
-            "label": "4. What activities are being done on the property? (Check all that apply)",
-            "options": [
-                ("living", "Living/residing on the lot"),
-                ("built_structure", "Built a structure (house, shack, etc.)"),
-                ("fenced", "Fenced or enclosed the area"),
-                ("storing", "Storing personal belongings"),
-                ("utilities", "Connected utilities (water, electricity)"),
-                ("renting", "Renting it out to someone else"),
-            ],
-        },
-
-        # -------------------------------
-        # Q5: Claimed rights
-        # -------------------------------
-        {
-            "type": "radio",
-            "name": "q5",
-            "label": "5. Have they claimed legal rights over the lot?",
-            "options": [
-                ("docs", "Yes, they presented documents"),
-                ("verbal", "Yes, a verbal claim only (no documents)."),
-                ("none", "No, they haven't made any claim."),
-                ("unknown", "I don't know / I haven't asked."),
-            ],
-        },
-
-        # -------------------------------
-        # Q5a: Documents (conditional)
-        # -------------------------------
-        {
-            "type": "checkbox",
-            "name": "q5a",
-            "label": "Which documents do they have? (Check all that apply)",
-            "options": [
-                ("title", "Title"),
-                ("contract_to_sell", "Contract to Sell"),
-                ("certificate_full_payment", "Certificate of Full Payment"),
-                ("qualification_stub", "Pre-qualification Stub"),
-                ("contract_agreement", "Contract/Agreement"),
-                ("deed_of_sale", "Deed of Sale"),
-            ],
-            "depends_on": {"field": "q5", "value": "docs"},
-        },
-
-        # -------------------------------
-        # Q6: Tried to resolve
-        # -------------------------------
-        {
-            "type": "radio",
-            "name": "q6",
-            "label": "6. Have you tried to resolve this directly with the occupant?",
-            "options": [
-                ("yes", "Yes, I have spoken with them"),
-                ("no", "No"),
-            ],
-        },
-
-        # -------------------------------
-        # Q6a: Follow-up to Q6
-        # -------------------------------
-        {
-            "type": "radio",
-            "name": "q6a",
-            "label": "If yes, what was their response?",
-            "options": [
-                ("no_docs", "They admitted they have no documents"),
-                ("refused_leave", "They refused to leave the lot"),
-                ("claim_owner", "They claim they are the real owner"),
-                ("ignored", "They ignored me"),
-                ("hostile", "They became hostile or aggressive"),
-            ],
-            "depends_on": {"field": "q6", "value": "yes"},
-        },
-
-        {
-            "type": "checkbox",
-            "name": "q6a_no",
-            "label": "If no, why not?",
-            "options": [
-                ("advised_not", "I was advised not to confront them"),
-                ("dont_know", "I do not know them personally"),
-                ("not_residing", "I am not currently living in the area"),
-            ],
-            "depends_on": {"field": "q6", "value": "no"},
-        },
-
-        # -------------------------------
-        # Q7: Reported to authority
-        # -------------------------------
-        {
-            "type": "checkbox",
-            "name": "q7",
-            "label": "7. Have you reported this boundary issue to any office or authority? (Check all that apply)",
-            "options": [
-                ("Barangay", "Barangay"),
-                ("HOA", "HOA"),
-                ("NGC", "NGC"),
-                ("USAD_PHASELAD", "USAD - PHASELAD"),
-                ("none", "None"),
-            ],
-        },
-
-        # -------------------------------
-        # Q8: Result
-        # -------------------------------
-        {
-            "type": "radio",
-            "name": "q8",
-            "label": "8. What was the result of that report?",
-            "options": [
-                ("asked_to_leave", "The occupant was formally asked to leave"),
-                ("provide_docs", "I was asked to provide more documents"),
-                ("investigation", "Still under investigation"),
-                ("pending", "The issue is still pending or unresolved."),
-                ("no_action", "No action was taken by the authority."),
-                ("no_valid_claim", "I was told I have no valid claim"),
-            ],
-        },
-
-        # -------------------------------
-        # Description and Signature
-        # -------------------------------
-        {"type": "textarea", "name": "description", "label": "Please describe what happened briefly."},
-        {"type": "file", "name": "signature", "label": "Signature"},
+        {"type": "radio", "name": "legal_connection", "label": "1. What is your legal connection to this property?", "options": [
+            ("beneficiary", "I am an awarded beneficiary."),
+            ("heir", "I am an heir/successor-in-interest of the deceased registered owner."),
+            ("purchaser", "I am the purchaser/buyer with a signed Deed of Sale or Contract to Sell."),
+            ("lessee", "I am a lessee/tenant with a valid and current lease agreement."),
+            ("hoa_officer", "I am a public Officer reporting on a common area"),
+            ("representative", "I am an authorized representative of the owner/beneficiary")
+        ]},
+        {"type": "multiple_text", "name": "involved_persons", "label": "2. Who is currently occupying the lot?"},
+        {"type": "date", "name": "noticed_date", "label": "3. When did you first notice the unauthorized occupation?"},
+        {"type": "checkbox", "name": "activities", "label": "4. What activities are being done on the property?", "options": [
+            ("living", "Living/residing on the lot"),
+            ("built_structure", "Built a structure (house, shack, etc.)"),
+            ("fenced", "Fenced or enclosed the area"),
+            ("storing", "Storing personal belongings"),
+            ("utilities", "Connected utilities (water, electricity)"),
+            ("renting", "Renting it out to someone else")
+        ]},
+        {"type": "radio", "name": "occupant_claim", "label": "5. Have they claimed legal rights over the lot?", "options": [
+            ("docs", "Yes, they presented documents"),
+            ("verbal", "Yes, a verbal claim only (no documents)."),
+            ("none", "No, they haven't made any claim."),
+            ("unknown", "I don't know / I haven't asked.")
+        ]},
+        {"type": "checkbox", "name": "occupant_documents", "label": "Which documents do they have?", "options": [
+            ("title", "Title"),
+            ("contract_to_sell", "Contract to Sell"),
+            ("certificate_full_payment", "Certificate of Full Payment"),
+            ("qualification_stub", "Pre-qualification Stub"),
+            ("contract_agreement", "Contract/Agreement"),
+            ("deed_of_sale", "Deed of Sale")
+        ]},
+        {"type": "radio", "name": "approach", "label": "6. Have you tried to resolve this directly with the occupant?", "options": [
+            ("yes", "Yes, I have spoken with them"),
+            ("no", "No")
+        ]},
+        {"type": "checkbox", "name": "approach_details", "label": "What was their response?", "options": [
+            ("no_docs", "They admitted they have no documents"),
+            ("refused_leave", "They refused to leave the lot"),
+            ("claim_owner", "They claim they are the real owner"),
+            ("ignored", "They ignored me"),
+            ("hostile", "They became hostile or aggressive")
+        ]},
+        {"type": "checkbox", "name": "boundary_reported_to", "label": "7. Have you reported this boundary issue to any office or authority?", "options": [
+            ("Barangay", "Barangay"),
+            ("HOA", "HOA"),
+            ("NGC", "NGC"),
+            ("USAD - PHASELAD", "USAD - PHASELAD"),
+            ("none", "None")
+        ]},
+        {"type": "radio", "name": "result", "label": "8. What was the result of that report?", "options": [
+            ("asked_to_leave", "The occupant was formally asked to leave"),
+            ("provide_docs", "I was asked to provide more documents"),
+            ("investigation", "Still under investigation"),
+            ("pending", "The issue is still pending or unresolved."),
+            ("no_action", "No action was taken by the authority."),
+            ("no_valid_claim", "I was told I have no valid claim")
+        ]},
+        {"type": "textarea", "name": "description", "label": "Please describe what happened briefly, including how you found out about the issue."},
+        {"type": "file", "name": "signature", "label": "Signature"}
     ]

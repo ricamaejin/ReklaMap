@@ -458,8 +458,6 @@
                 {% include 'complaint_details_lot_dispute.html' %}
               {% elif complaint.type_of_complaint == 'Pathway Dispute' %}
                 {% include 'complaint_details_pathway.html' %}
-              {% elif complaint.type_of_complaint == 'Unauthorized Occupation' %}
-                {% include 'complaint_details_unauthorized.html' %}
               {% else %}
                 {% for field in form_structure %}
                   {% if field.type == 'textarea' %}
