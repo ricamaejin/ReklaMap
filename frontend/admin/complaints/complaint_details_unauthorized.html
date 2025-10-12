@@ -19,7 +19,7 @@
                 {% for pair in block_lots %}
                     {% set block = pair.block if pair.block is defined else pair['block'] if 'block' in pair else '' %}
                     {% set lot = pair.lot if pair.lot is defined else pair['lot'] if 'lot' in pair else '' %}
-                    <div class="pair-row" style="display:flex;gap:10px;margin-bottom:6px;">
+                    <div class="pair-row" style="display:flex; gap:10px; margin-bottom:6px;">
                         <div class="col">
                             <label class="small">Block No.</label>
                             <input type="text" value="{{ block }}" readonly placeholder="Block No.">
@@ -37,13 +37,12 @@
     </div>
 {% endif %}
 
-
 {# --- Render all questions dynamically --- #}
 {% for field in form_structure %}
     {% if field.type != 'file' and field.name not in ['q6a', 'q6a_no'] %}
-
+        
+        {# --- Q5a: Render only if depends_on condition is met --- #}
         {% if field.name == 'q5a' %}
-            {# Render only if Q5 == 'docs' #}
             {% set depends_field = field.depends_on.field if field.depends_on else None %}
             {% set depends_value = field.depends_on.value if field.depends_on else None %}
             {% set show = resp[depends_field] == depends_value if resp and depends_field in resp else False %}
@@ -54,7 +53,7 @@
                     {% set selected_norm = selected | map('lower') | list %}
                     {% for value, label in field.options %}
                         {% set vnorm = value | lower %}
-                        <label style="display:block;margin-left:8px;">
+                        <label style="display:block; margin-left:8px;">
                             <input type="checkbox" value="{{ value }}" {% if vnorm in selected_norm %}checked{% endif %} disabled>
                             {{ label }}
                         </label>
@@ -62,31 +61,29 @@
                 </div>
             {% endif %}
 
+        {# --- Q6: Radio with subquestions --- #}
         {% elif field.name == 'q6' %}
             <div class="question-block" style="margin-bottom:18px;">
                 <p>{{ field.label }}</p>
                 {% set selected = resp[field.name] if resp and field.name in resp else None %}
                 {% set selected_norm = (selected|string)|lower %}
-                {% set yes_label = field.options[0][1] %}
-                {% set no_label = field.options[1][1] %}
                 {% for value, label in field.options %}
                     <div style="margin-bottom:4px;">
-                        <label style="display:block;margin-left:8px;">
+                        <label style="display:block; margin-left:8px;">
                             <input type="radio" value="{{ value }}" {% if selected_norm == value %}checked{% endif %} disabled>
                             {{ label }}
                         </label>
-                        {# Render subquestion directly below the selected option #}
+
+                        {# Render subquestion if selected #}
                         {% if value == 'yes' and selected_norm == 'yes' %}
                             {% set sub = form_structure | selectattr('name', 'equalto', 'q6a') | first %}
                             {% if sub %}
                                 <div style="margin-left:32px;">
                                     <p>{{ sub.label }}</p>
-                                    {# Q6a: Now a single string from backend #}
                                     {% set sub_selected = resp[sub.name] if resp and sub.name in resp else '' %}
-                                    {% set sub_selected_norm = (sub_selected|string)|lower %}
                                     {% for value2, label2 in sub.options %}
-                                        <label style="display:block;margin-left:8px;">
-                                            <input type="radio" value="{{ value2 }}" {% if sub_selected_norm == value2|lower %}checked{% endif %} disabled>
+                                        <label style="display:block; margin-left:8px;">
+                                            <input type="radio" value="{{ value2 }}" {% if (sub_selected|string)|lower == value2|lower %}checked{% endif %} disabled>
                                             {{ label2 }}
                                         </label>
                                     {% endfor %}
@@ -111,7 +108,7 @@
                                     {% endif %}
                                     {% for value2, label2 in sub.options %}
                                         {% set vnorm2 = value2 | lower %}
-                                        <label style="display:block;margin-left:8px;">
+                                        <label style="display:block; margin-left:8px;">
                                             <input type="checkbox" value="{{ value2 }}" {% if vnorm2 in sub_selected_list %}checked{% endif %} disabled>
                                             {{ label2 }}
                                         </label>
@@ -123,19 +120,21 @@
                 {% endfor %}
             </div>
 
+        {# --- Q8: Simple radio --- #}
         {% elif field.name == 'q8' %}
             <div class="question-block" style="margin-bottom:18px;">
                 <p>{{ field.label }}</p>
                 {% set selected = resp[field.name] if resp and field.name in resp else None %}
                 {% set selected_norm = (selected|string)|lower %}
                 {% for value, label in field.options %}
-                    <label style="display:block;margin-left:8px;">
+                    <label style="display:block; margin-left:8px;">
                         <input type="radio" value="{{ value }}" {% if selected_norm == value|lower %}checked{% endif %} disabled>
                         {{ label }}
                     </label>
                 {% endfor %}
             </div>
 
+        {# --- All other fields --- #}
         {% else %}
             <div class="question-block" style="margin-bottom:18px;">
                 <p>{{ field.label }}</p>
@@ -144,7 +143,7 @@
                 {% if field.type == 'radio' %}
                     {% set selected_norm = (selected|string)|lower %}
                     {% for value, label in field.options %}
-                        <label style="display:block;margin-left:8px;">
+                        <label style="display:block; margin-left:8px;">
                             <input type="radio" value="{{ value }}" {% if selected_norm == value %}checked{% endif %} disabled>
                             {{ label }}
                         </label>
@@ -155,28 +154,29 @@
                     {% set selected_norm = raw | map('lower') | list %}
                     {% for value, label in field.options %}
                         {% set vnorm = value | lower %}
-                        <label style="display:block;margin-left:8px;">
+                        <label style="display:block; margin-left:8px;">
                             <input type="checkbox" value="{{ value }}" {% if vnorm in selected_norm %}checked{% endif %} disabled>
                             {{ label }}
                         </label>
                     {% endfor %}
 
                 {% elif field.type == 'date' %}
-                    <input type="date" value="{{ selected or '' }}" readonly style="width:50%;padding:8px;margin-left:15px;margin-bottom:12px;border:1px solid #ccc;border-radius:4px;">
+                    <input type="date" value="{{ selected or '' }}" readonly style="width:50%; padding:8px; margin-left:15px; margin-bottom:12px; border:1px solid #ccc; border-radius:4px;">
 
                 {% elif field.type == 'multiple_text' %}
                     <div style="margin-bottom:12px;">
                         {% if selected %}
                             {% for val in selected %}
-                                <input type="text" value="{{ val }}" readonly style="display:block;width:50%;margin:6px 0 6px 15px;padding:8px;border:1px solid #ccc;border-radius:4px;">
+                                <input type="text" value="{{ val }}" readonly style="display:block; width:50%; margin:6px 0 6px 15px; padding:8px; border:1px solid #ccc; border-radius:4px;">
                             {% endfor %}
                         {% else %}
-                            <input type="text" value="" readonly style="display:block;width:50%;margin:6px 0 6px 15px;padding:8px;border:1px solid #ccc;border-radius:4px;">
+                            <input type="text" value="" readonly style="display:block; width:50%; margin:6px 0 6px 15px; padding:8px; border:1px solid #ccc; border-radius:4px;">
                         {% endif %}
                     </div>
 
                 {% elif field.type == 'textarea' %}
-                    <textarea readonly style="width:100%;max-width:625px;min-height:80px;margin:8px 0;padding:8px;border:1px solid #ccc;border-radius:4px;">{{ selected or '' }}</textarea>
+                    <textarea readonly style="width:100%; max-width:625px; min-height:80px; margin:8px 0; padding:8px; border:1px solid #ccc; border-radius:4px;">{{ selected or '' }}</textarea>
+
                 {% endif %}
             </div>
         {% endif %}

@@ -715,7 +715,7 @@
           return null;
         };
 
-        // Prepare table data using your deadline functions
+        // Prepare helpers and compute statistics for report
         const formatDateOnly = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         const formatTimeOnly = (d) => d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         const computeStatusForPdf = (c) => {
@@ -734,9 +734,218 @@
           return 'Ongoing';
         };
 
+        // === Improved Report Layout & Styling ===
+
+// Descriptive Summary
+const summaryText = narrative || `No descriptive summary available for ${monthYear}.`;
+
+const totalComplaints = filteredComplaints.length;
+const countsByType = {};
+const countsByStatus = { 'Resolved': 0, 'Unresolved': 0, 'Ongoing': 0, 'Out of Jurisdiction': 0, 'Received': 0 };
+filteredComplaints.forEach(c => {
+  const t = c.type_of_complaint || 'Unknown';
+  countsByType[t] = (countsByType[t] || 0) + 1;
+  const s = computeStatusForPdf(c);
+  if (s in countsByStatus) countsByStatus[s] += 1; else countsByStatus['Ongoing'] += 1;
+});
+
+// Overdue Ongoing Complaints
+const nowTs = new Date().getTime();
+const overdueOngoing = filteredComplaints.filter(c => {
+  const s = computeStatusForPdf(c);
+  if (s !== 'Ongoing') return false;
+  const d = explicitDeadlineForPdf(c);
+  if (!d) return false;
+  return (new Date(d).getTime() - nowTs) < 0;
+}).map(c => ({
+  id: c.complaint_id,
+  type: c.type_of_complaint || 'N/A',
+  assigned: c.assigned_to || 'Unassigned',
+  deadline: explicitDeadlineForPdf(c),
+  submitted: c.date_received || null,
+  hoa: c.area_name || ''
+}));
+
+// ======= SECTION 1: DESCRIPTIVE SUMMARY =======
+doc.setFontSize(14);
+doc.setTextColor(26, 51, 160);
+doc.text('Descriptive Summary', 14, 30);
+doc.setTextColor(0, 0, 0);
+doc.setFontSize(10);
+
+const pageWidth = doc.internal.pageSize.getWidth();
+const marginX = 14;
+const maxWidth = pageWidth - marginX * 2;
+const summaryLines = doc.splitTextToSize(summaryText, maxWidth);
+doc.text(summaryLines, marginX, 38);
+
+let currentY = 28 + summaryLines.length * 5 + 10;
+
+// ======= TABLE 1 & 2 SIDE BY SIDE =======
+
+// Prepare data
+const orderedTypes = ['Boundary Dispute', 'Lot Dispute', 'Pathway Dispute', 'Unauthorized Occupation'];
+const breakdownRows = orderedTypes.map(t => [t, String(countsByType[t] || 0)]);
+breakdownRows.push(['Total Complaints', String(totalComplaints)]);
+
+const statusRows = [
+  ['Resolved', String(countsByStatus['Resolved'] || 0)],
+  ['Unresolved', String(countsByStatus['Unresolved'] || 0)],
+  ['Ongoing', String(countsByStatus['Ongoing'] || 0)],
+  ['Out of Jurisdiction', String(countsByStatus['Out of Jurisdiction'] || 0)],
+  ['Received', String(countsByStatus['Received'] || 0)],
+];
+
+// Common dimensions - use printable width halves so tables are wider (match graphs)
+const gapBetweenTables = 12;
+const totalPrintable = pageWidth - marginX * 2;
+const tableWidth = (totalPrintable - gapBetweenTables) / 2; // each table width
+const col1Width = tableWidth * 0.7;
+const col2Width = tableWidth * 0.3;
+const startXLeft = marginX;
+const startXRight = marginX + tableWidth + gapBetweenTables;
+
+// ===== LEFT TABLE: Complaint Type =====
+doc.autoTable({
+  head: [['Complaint Type', 'Count']],
+  body: breakdownRows,
+  startY: currentY,
+  theme: 'grid',
+  styles: {
+    fontSize: 9,
+    cellPadding: 2.8,
+    halign: 'left',
+    lineWidth: 0.2,
+    lineColor: [0, 0, 0],
+  },
+  tableWidth: tableWidth,
+  margin: { left: startXLeft, right: 0 },
+  columnStyles: {
+    0: { cellWidth: col1Width, halign: 'left' },
+    1: { cellWidth: col2Width, halign: 'center' },
+  },
+  headStyles: {
+    fillColor: [26, 51, 160],
+    textColor: 255,
+    fontStyle: 'bold',
+  },
+});
+
+const leftTableFinalY = doc.lastAutoTable.finalY;
+
+// ===== RIGHT TABLE: Status Summary =====
+doc.autoTable({
+  head: [['Status', 'Count']],
+  body: statusRows,
+  startY: currentY,
+  theme: 'grid',
+  styles: {
+    fontSize: 9,
+    cellPadding: 2.8,
+    halign: 'left',
+    lineWidth: 0.2,
+    lineColor: [0, 0, 0],
+  },
+  tableWidth: tableWidth,
+  margin: { left: startXRight, right: 0 },
+  columnStyles: {
+    0: { cellWidth: col1Width, halign: 'left' },
+    1: { cellWidth: col2Width, halign: 'center' },
+  },
+  headStyles: {
+    fillColor: [26, 51, 160],
+    textColor: 255,
+    fontStyle: 'bold',
+  },
+});
+
+const rightTableFinalY = doc.lastAutoTable.finalY;
+
+// Move Y to the lower of the two tables
+currentY = Math.max(leftTableFinalY, rightTableFinalY) + 10;
+
+
+// ======= SECTION 2: CHARTS =======
+let lastChartWidth = 0;
+let lastChartHeight = 0;
+
+// ---- Combined charts rendered into a single canvas to guarantee fit on one page ----
+try {
+  // Canvas A (complaints by type) - draw as before
+  const canvasA = document.createElement('canvas');
+  canvasA.width = 750; canvasA.height = 270;
+  const ctxA = canvasA.getContext('2d');
+  ctxA.fillStyle = '#ffffff'; ctxA.fillRect(0,0,canvasA.width, canvasA.height);
+  const types = orderedTypes.filter(t => (countsByType[t] || 0) > -1);
+  const maxCount = Math.max(1, ...types.map(t => countsByType[t] || 0));
+  const paddingA = 20; const chartWA = canvasA.width - paddingA*2; const chartHA = canvasA.height - paddingA*2; const barWA = chartWA / Math.max(1, types.length) * 0.6;
+  ctxA.strokeStyle = '#333'; ctxA.lineWidth = 1;
+  ctxA.beginPath(); ctxA.moveTo(paddingA,paddingA); ctxA.lineTo(paddingA,paddingA+chartHA); ctxA.lineTo(paddingA+chartWA,paddingA+chartHA); ctxA.stroke();
+  const colors = ['#1a33a0','#2a9d8f','#e76f51','#f4a261'];
+  types.forEach((t,i)=>{
+    const val = countsByType[t] || 0;
+    const x = paddingA + (i+0.5)*(chartWA/types.length) - barWA/2;
+    const h = (val / Math.max(1, maxCount)) * (chartHA - 10);
+    const y = paddingA + chartHA - h;
+    ctxA.fillStyle = colors[i%colors.length]; ctxA.fillRect(x,y,barWA,h);
+    ctxA.fillStyle = '#000'; ctxA.font='13px Arial'; ctxA.textAlign='center'; ctxA.fillText(String(val), x+barWA/2, y-8);
+    ctxA.save(); ctxA.translate(x+barWA/2, paddingA+chartHA+14); ctxA.rotate(0); ctxA.fillText(t,0,0); ctxA.restore();
+  });
+
+  // Canvas B (status summary)
+  const canvasB = document.createElement('canvas');
+  canvasB.width = 750; canvasB.height = 270;
+  const ctxB = canvasB.getContext('2d');
+  ctxB.fillStyle = '#ffffff'; ctxB.fillRect(0,0,canvasB.width, canvasB.height);
+  const statuses = ['Resolved','Unresolved','Ongoing','Out of Jurisdiction','Received'];
+  const statusCounts = statuses.map(s => countsByStatus[s] || 0);
+  const paddingB = 20; const chartWB = canvasB.width - paddingB*2; const chartHB = canvasB.height - paddingB*2; const barWB = chartWB / Math.max(1, statuses.length) * 0.6;
+  ctxB.strokeStyle = '#333'; ctxB.lineWidth = 1;
+  ctxB.beginPath(); ctxB.moveTo(paddingB,paddingB); ctxB.lineTo(paddingB,paddingB+chartHB); ctxB.lineTo(paddingB+chartWB,paddingB+chartHB); ctxB.stroke();
+  const scolors = ['#2a9d8f','#e9c46a','#e76f51','#9d4edd','#1a33a0'];
+  statuses.forEach((st,i)=>{
+    const val = statusCounts[i];
+    const x = paddingB + (i+0.5)*(chartWB/statuses.length) - barWB/2;
+    const h = (val / Math.max(1, Math.max(...statusCounts))) * (chartHB - 10);
+    const y = paddingB + chartHB - h;
+    ctxB.fillStyle = scolors[i % scolors.length]; ctxB.fillRect(x,y,barWB,h);
+    ctxB.fillStyle = '#000'; ctxB.font='13px Arial'; ctxB.textAlign='center'; ctxB.fillText(String(val), x+barWB/2, y-8);
+    ctxB.save(); ctxB.translate(x+barWB/2, paddingB+chartHB+14); ctxB.rotate(0); ctxB.fillText(st,0,0); ctxB.restore();
+  });
+
+  // Combine canvases side-by-side onto a single canvas
+  const gap = 12;
+  const combinedW = canvasA.width + gap + canvasB.width;
+  const combinedH = Math.max(canvasA.height, canvasB.height);
+  const combined = document.createElement('canvas');
+  combined.width = combinedW; combined.height = combinedH;
+  const cctx = combined.getContext('2d');
+  cctx.fillStyle = '#ffffff'; cctx.fillRect(0,0,combined.width, combined.height);
+  cctx.drawImage(canvasA, 0, 0);
+  cctx.drawImage(canvasB, canvasA.width + gap, 0);
+
+  // Scale combined to printable width and insert with page-break handling
+  const combinedImg = combined.toDataURL('image/png');
+  const imgMaxWidth = pageWidth - marginX*2;
+  const imgScaledHeight = (combined.height / combined.width) * imgMaxWidth;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginBottom = 20;
+  if ((currentY + imgScaledHeight) > (pageHeight - marginBottom)) {
+    doc.addPage(); currentY = 28;
+  }
+  doc.addImage(combinedImg, 'PNG', marginX, currentY, imgMaxWidth, imgScaledHeight);
+  currentY += imgScaledHeight + 10;
+
+} catch (e) {
+  console.warn('Combined chart error:', e);
+}
+// === End Styled Report Section ===
+
+
+        // Prepare table data using your deadline functions
         const tableData = filteredComplaints.map(c => {
           let deadlineText = "N/A";
-          i// Use only explicit deadlines; avoid automatic fallbacks
+          // Use only explicit deadlines; avoid automatic fallbacks
           const explicitDeadline = explicitDeadlineForPdf(c);
           if (explicitDeadline) {
             const d = explicitDeadline;
@@ -788,20 +997,8 @@
           ];
         });
 
-        // Draw narrative block if present
-        let startY = 28;
-        if (narrative) {
-          doc.setFontSize(11);
-          const pageWidth = doc.internal.pageSize.getWidth();
-          const marginX = 14;
-          const maxWidth = pageWidth - marginX * 2;
-          const lines = doc.splitTextToSize(narrative, maxWidth);
-          const lineHeight = 12; // approximate line height for font size 11
-          const narrativeTop = 28;
-          doc.text(lines, marginX, narrativeTop);
-          startY = narrativeTop + lines.length * lineHeight + 8;
-        }
-        
+        // Start detailed complaint table after the summary/stats/chart/overdue sections
+        let startY = currentY || 28;
         // Generate PDF Table
         doc.autoTable({
           head: [[

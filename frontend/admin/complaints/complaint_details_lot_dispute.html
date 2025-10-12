@@ -288,7 +288,14 @@
     {% set multiple_values = answers[field.name] if field.name in answers else [] %}
     {% if multiple_values %}
       {% if multiple_values is string %}
-        {% set multiple_list = multiple_values|from_json if multiple_values else [] %}
+        {% set s = multiple_values.strip() %}
+        {% if s.startswith('[') and s.endswith(']') %}
+          {% set multiple_list = multiple_values|from_json %}
+        {% elif ',' in multiple_values %}
+          {% set multiple_list = multiple_values|replace(' ,', ',')|replace(', ', ',')|split(',') %}
+        {% else %}
+          {% set multiple_list = [multiple_values] %}
+        {% endif %}
       {% else %}
         {% set multiple_list = multiple_values %}
       {% endif %}
@@ -307,19 +314,9 @@
   {% if field.type == 'textarea' %}
     <p><strong>{{ field.label }}</strong></p>
     <textarea readonly title="{{ field.label }}" aria-label="{{ field.label }}">{{ answers[field.name] }}</textarea>
-    <div class="section-header">COMPLAINANT’S CONSENT AND DECLARATION</div>
-    <div class="consent">
-      By submitting this complaint form, I hereby consent to the collection and processing of my personal information as necessary to address the issues raised regarding the lot in question. I confirm that the information provided is accurate and complete to the best of my knowledge. I understand that any false or incomplete information may affect the handling of my complaint, and I acknowledge that my personal details will be processed in compliance with the Privacy Act and other applicable laws.
-    </div>
   {% endif %}
 
   {% if field.type == 'signature' %}
-    <div class="signature">
-      {% if answers.signature %}
-        <a href="{{ url_for('complainant.uploaded_signature', filename=answers.signature) }}" target="_blank">View Signature</a>
-      {% else %}
-        <p><em>No signature uploaded</em></p>
-      {% endif %}
-    </div>
+    {# Signature is rendered once in the common preview wrapper; skip here to avoid duplication #}
   {% endif %}
 {% endfor %}

@@ -59,62 +59,62 @@
           <input type="radio" name="{{ field.name }}" value="{{ val }}" disabled {% if checked %}checked{% endif %}>
           {{ label }}
         </label>
-      {% endfor %}
-    </div>
 
-    {# Conditional sub-questions #}
-    {% if field.conditional is defined and field.conditional.trigger_value is defined and field.conditional.additional_fields is defined %}
-      {% set trigger = field.conditional.trigger_value|string|trim|lower %}
-      {% if selected == trigger %}
-        <div style="margin-left: 32px;">
-        {% for subfield in field.conditional.additional_fields %}
-          {% if subfield.type == 'date' %}
-            <p>{{ subfield.label }}</p>
-            <input type="date" value="{{ answers[subfield.name] }}" disabled style="max-width: 580px; width: 100%; box-sizing: border-box; background: #f3f3f3; color: #555; border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; font-size: 15px; line-height: 1.4;">
-          {% elif subfield.type == 'text' %}
-            <p>{{ subfield.label }}</p>
-            <input type="text" value="{{ answers[subfield.name] }}" disabled>
-          {% elif subfield.type == 'checkbox' %}
-            <p>{{ subfield.label|safe }}</p>
+        {# If this option has conditional additional fields, render them inline right after this option when triggered #}
+        {% if field.conditional is defined and field.conditional.trigger_value is defined and field.conditional.additional_fields is defined %}
+          {% set trigger = field.conditional.trigger_value|string|trim|lower %}
+          {% if (normalized_val == trigger or normalized_label == trigger) and selected == trigger %}
+            <div style="margin-left: 32px;">
+              {% for subfield in field.conditional.additional_fields %}
+                {% if subfield.type == 'date' %}
+                  <p>{{ subfield.label }}</p>
+                  <input type="date" value="{{ answers[subfield.name] }}" disabled style="max-width: 580px; width: 100%; box-sizing: border-box; background: #f3f3f3; color: #555; border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; font-size: 15px; line-height: 1.4;">
+                {% elif subfield.type == 'text' %}
+                  <p>{{ subfield.label }}</p>
+                  <input type="text" value="{{ answers[subfield.name] }}" disabled>
+                {% elif subfield.type == 'checkbox' %}
+                  <p>{{ subfield.label|safe }}</p>
 
-            {# --- Safe parsing for sub-checkboxes --- #}
-            {% set raw_val = answers.get(subfield.name, []) %}
-            {% set selected_sub = [] %}
-            {% if raw_val is string %}
-              {% if raw_val.strip().startswith('[') and raw_val.strip().endswith(']') %}
-                {% set selected_sub = raw_val|from_json %}
-              {% elif ',' in raw_val %}
-                {% set selected_sub = raw_val|replace(' ', '')|split(',') %}
-              {% elif raw_val %}
-                {% set selected_sub = [raw_val] %}
-              {% endif %}
-            {% elif raw_val is iterable and raw_val is not mapping %}
-              {% set selected_sub = raw_val %}
-            {% elif raw_val is not none %}
-              {% set selected_sub = [raw_val] %}
-            {% endif %}
-
-            <div class="checkbox-group">
-              {% for val, label in subfield.options %}
-                {% set normalized_val = val|string|trim|lower %}
-                {% set checked_ns = namespace(value=false) %}
-                {% for sel in selected_sub %}
-                  {% set sel_normalized = sel|string|trim|lower %}
-                  {% if sel_normalized == normalized_val %}
-                    {% set checked_ns.value = true %}
+                  {# --- Safe parsing for sub-checkboxes --- #}
+                  {% set raw_val = answers.get(subfield.name, []) %}
+                  {% set selected_sub = [] %}
+                  {% if raw_val is string %}
+                    {% if raw_val.strip().startswith('[') and raw_val.strip().endswith(']') %}
+                      {% set selected_sub = raw_val|from_json %}
+                    {% elif ',' in raw_val %}
+                      {% set selected_sub = raw_val|replace(' ', '')|split(',') %}
+                    {% elif raw_val %}
+                      {% set selected_sub = [raw_val] %}
+                    {% endif %}
+                  {% elif raw_val is iterable and raw_val is not mapping %}
+                    {% set selected_sub = raw_val %}
+                  {% elif raw_val is not none %}
+                    {% set selected_sub = [raw_val] %}
                   {% endif %}
-                {% endfor %}
-                <label class="option">
-                  <input type="checkbox" name="{{ subfield.name }}" value="{{ val }}" disabled {% if checked_ns.value %}checked{% endif %}>
-                  {{ label }}
-                </label>
+
+                  <div class="checkbox-group">
+                    {% for val2, label2 in subfield.options %}
+                      {% set normalized_val2 = val2|string|trim|lower %}
+                      {% set checked_ns = namespace(value=false) %}
+                      {% for sel in selected_sub %}
+                        {% set sel_normalized = sel|string|trim|lower %}
+                        {% if sel_normalized == normalized_val2 %}
+                          {% set checked_ns.value = true %}
+                        {% endif %}
+                      {% endfor %}
+                      <label class="option">
+                        <input type="checkbox" name="{{ subfield.name }}" value="{{ val2 }}" disabled {% if checked_ns.value %}checked{% endif %}> 
+                        {{ label2 }}
+                      </label>
+                    {% endfor %}
+                  </div>
+                {% endif %}
               {% endfor %}
             </div>
           {% endif %}
-        {% endfor %}
-        </div>
-      {% endif %}
-    {% endif %}
+        {% endif %}
+      {% endfor %}
+    </div>
   {% endif %}
 
   {# CHECKBOX FIELD #}
@@ -148,10 +148,62 @@
             {% set checked_ns.value = true %}
           {% endif %}
         {% endfor %}
-        <label class="option">
-          <input type="checkbox" name="{{ field.name }}" value="{{ val }}" disabled {% if checked_ns.value %}checked{% endif %}>
-          {{ label }}
-        </label>
+        <div style="margin-bottom:6px;">
+          <label class="option">
+            <input type="checkbox" name="{{ field.name }}" value="{{ val }}" disabled {% if checked_ns.value %}checked{% endif %}>
+            {{ label }}
+          </label>
+
+          {# If this checkbox option has conditional additional_fields, render them inline when this option is selected #}
+          {% if field.conditional is defined and field.conditional.trigger_value is defined and field.conditional.additional_fields is defined %}
+            {% set trigger = field.conditional.trigger_value|string|trim|lower %}
+            {% if normalized_val == trigger and checked_ns.value %}
+              <div style="margin-left: 32px; margin-top:6px;">
+                {% for subfield in field.conditional.additional_fields %}
+                  {% if subfield.type == 'date' %}
+                    <p>{{ subfield.label }}</p>
+                    <input type="date" value="{{ answers[subfield.name] }}" disabled style="max-width: 580px; width: 100%; box-sizing: border-box; background: #f3f3f3; color: #555; border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; font-size: 15px; line-height: 1.4;">
+                  {% elif subfield.type == 'text' %}
+                    <p>{{ subfield.label }}</p>
+                    <input type="text" value="{{ answers[subfield.name] }}" disabled>
+                  {% elif subfield.type == 'checkbox' %}
+                    <p>{{ subfield.label|safe }}</p>
+                    {% set raw_val = answers.get(subfield.name, []) %}
+                    {% set selected_sub = [] %}
+                    {% if raw_val is string %}
+                      {% if raw_val.strip().startswith('[') and raw_val.strip().endswith(']') %}
+                        {% set selected_sub = raw_val|from_json %}
+                      {% elif ',' in raw_val %}
+                        {% set selected_sub = raw_val|replace(' ', '')|split(',') %}
+                      {% elif raw_val %}
+                        {% set selected_sub = [raw_val] %}
+                      {% endif %}
+                    {% elif raw_val is iterable and raw_val is not mapping %}
+                      {% set selected_sub = raw_val %}
+                    {% elif raw_val is not none %}
+                      {% set selected_sub = [raw_val] %}
+                    {% endif %}
+                    <div class="checkbox-group">
+                      {% for sval, slabel in subfield.options %}
+                        {% set s_norm = sval|string|trim|lower %}
+                        {% set checked_s = namespace(value=false) %}
+                        {% for ss in selected_sub %}
+                          {% if ss|string|trim|lower == s_norm %}
+                            {% set checked_s.value = true %}
+                          {% endif %}
+                        {% endfor %}
+                        <label class="option">
+                          <input type="checkbox" name="{{ subfield.name }}" value="{{ sval }}" disabled {% if checked_s.value %}checked{% endif %}>
+                          {{ slabel }}
+                        </label>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            {% endif %}
+          {% endif %}
+        </div>
       {% endfor %}
     </div>
   {% endif %}

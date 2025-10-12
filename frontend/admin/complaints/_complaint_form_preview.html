@@ -1,5 +1,36 @@
 {# Admin-side complaint form preview partial; mirrors complainant preview #}
 <div class="complaint-form">
+  <style>
+    /* Scoped styles for signature preview within complaint-form */
+    .complaint-form .signature { margin-top: 14px; }
+    .complaint-form .signature-label { display: block; font-weight: 600; margin-bottom: 6px; color: #333; }
+    .complaint-form .signature-thumb {
+      display: block;
+      width: 220px; /* reasonable preview width */
+      max-width: 100%;
+      height: auto;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: #fff;
+      padding: 6px;
+      margin: 6px 0 10px 0;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .complaint-form .view-signature-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #1a33a0;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: background 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+    .complaint-form .view-signature-btn:hover { background: #1565c0; box-shadow: 0 2px 6px rgba(21,101,192,0.25); }
+    .complaint-form .view-signature-btn:focus { outline: 2px solid #90caf9; outline-offset: 2px; }
+  </style>
   <h1>COMPLAINT FORM <br> {{ complaint.type_of_complaint|upper }}</h1>
   <div class="instructions">
     <p><strong>INSTRUCTION</strong></p>
@@ -333,14 +364,14 @@
     <!-- Signature Section (always last) -->
     <div class="signature">
       {% if complaint.type_of_complaint == 'Boundary Dispute' %}
-      {% if answers.signature_path %}
-        <a href="{{ url_for('complainant.uploaded_signature', filename=answers.signature_path) }}" target="_blank">View Signature</a>
-      {% else %}
-        <p><em>No signature uploaded</em></p>
-      {% endif %}
+        {% if answers.signature_path %}
+          <a class="view-signature-btn" href="{{ url_for('complainant.uploaded_signature', filename=answers.signature_path) }}" target="_blank" rel="noopener">View Signature</a>
+        {% else %}
+          <p><em>No signature uploaded</em></p>
+        {% endif %}
       {% else %}
         {% if answers.signature %}
-          <a href="{{ url_for('complainant.uploaded_signature', filename=answers.signature) }}" target="_blank">View Signature</a>
+          <a class="view-signature-btn" href="{{ url_for('complainant.uploaded_signature', filename=answers.signature) }}" target="_blank" rel="noopener">View Signature</a>
         {% else %}
           <p><em>No signature uploaded</em></p>
         {% endif %}

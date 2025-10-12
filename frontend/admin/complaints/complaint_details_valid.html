@@ -58,6 +58,10 @@
     .unresolved-btn:hover {
       background: #e0a800 !important;
     }
+
+    .resolved-btn:hover{
+      background-color: #007bff;
+    }
     
     .button-container .resolved-btn {
       margin-top: 0 !important;
@@ -113,7 +117,7 @@
       background: linear-gradient(135deg, #f39c12, #e74c3c);
       color: white;
       padding: 15px;
-      margin-bottom: 20px;
+      margin-bottom: 5px;
       border-radius: 8px;
       text-align: center;
       font-weight: bold;
@@ -178,17 +182,17 @@
         </div>
         <button class="action-btn" onclick="openComplaint()">Action</button>
 
-        <!-- TODO BACKEND: Replace static timeline entries with timeline data from DB -->
          <!-- Dynamic Timeline Component -->
         <div class="timeline" id="complaintTimeline">
           <div class="timeline-loading" id="timelineLoading" style="text-align: center; padding: 20px; color: #666;">
             Loading timeline...
           </div>
         </div>
-        <div class="button-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
-          <button class="resolved-btn" onclick="showResolveModal()">Resolved</button>
-          <button class="unresolved-btn" onclick="showUnresolvedModal()">Unresolved</button>
+        <div class="button-container" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px;">
+          <button class="resolved-btn" onclick="showResolveModal()" style="flex: 1 1 45%;">Resolved</button>
+          <button class="unresolved-btn" onclick="showUnresolvedModal()" style="flex: 1 1 45%;">Unresolved</button>
         </div>
+
       </div>
     </div>
 
