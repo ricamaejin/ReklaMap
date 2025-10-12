@@ -1,14 +1,439 @@
 import os
 import json
-from flask import Blueprint, send_file, request, jsonify, session
+from flask import Blueprint, send_file, request, jsonify, session, render_template
 from ...database.db import db
-from ...database.models import Complaint, ComplaintHistory, Admin, Area, Beneficiary
+from ...database.models import (
+    Complaint,
+    ComplaintHistory,
+    Admin,
+    Area,
+    Beneficiary,
+    Registration,
+    LotDispute,
+    BoundaryDispute,
+    PathwayDispute,
+    UnauthorizedOccupation,
+    RegistrationFamOfMember,
+    RegistrationHOAMember,
+    RegistrationNonMember,
+)
 from sqlalchemy import text, func
 from datetime import datetime
 
 complaints_bp = Blueprint("complaints", __name__, url_prefix="/admin/complaints")
 
 frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../frontend"))
+
+
+def _safe_from_json_list(val):
+    try:
+        if isinstance(val, list):
+            return val
+        if isinstance(val, str):
+            s = val.strip()
+            if not s:
+                return []
+            if s.startswith('['):
+                return json.loads(s)
+            if ',' in s:
+                return [p.strip() for p in s.split(',') if p.strip()]
+            return [s]
+    except Exception:
+        return []
+    return []
+
+def _get_area_name(area_id):
+    if not area_id:
+        return ""
+    try:
+        area = Area.query.get(int(area_id))
+        return area.area_name if area else str(area_id)
+    except Exception:
+        return str(area_id)
+
+def _is_truthy(val):
+    return val in (True, 1, '1', 'true', 'True', 'yes', 'on', 'Y', 'y')
+
+def _normalize_list(val):
+    try:
+        if isinstance(val, list):
+            return [x for x in val if x is not None]
+        if isinstance(val, str):
+            s = val.strip()
+            if not s:
+                return []
+            if s.startswith('['):
+                parsed = json.loads(s)
+                return parsed if isinstance(parsed, list) else [s]
+            if ',' in s:
+                return [p.strip() for p in s.split(',') if p.strip()]
+            return [s]
+        return []
+    except Exception:
+        return []
+
+def _to_lower_set(items):
+    try:
+        return {str(x).strip().lower() for x in (items or []) if str(x).strip()}
+    except Exception:
+        return set()
+
+@complaints_bp.route('/api/complaint_form_preview/<int:complaint_id>', methods=['GET'])
+def complaint_form_preview(complaint_id):
+    """Return rendered HTML for the left-side complaint form preview for admin view.
+    This mirrors complainant preview but is delivered as a server-rendered partial for injection.
+    """
+    try:
+        complaint = Complaint.query.get_or_404(complaint_id)
+        registration = Registration.query.get(complaint.registration_id)
+        if not registration:
+            return jsonify({'success': False, 'message': 'Registration not found'}), 404
+
+        # Attach supporting documents convenience attribute (as done for complainant preview)
+        try:
+            hoa_member = RegistrationHOAMember.query.filter_by(registration_id=registration.registration_id).first()
+            if hoa_member and getattr(hoa_member, 'supporting_documents', None):
+                setattr(registration, 'supporting_documents', hoa_member.supporting_documents)
+            else:
+                if not hasattr(registration, 'supporting_documents'):
+                    setattr(registration, 'supporting_documents', None)
+        except Exception:
+            if not hasattr(registration, 'supporting_documents'):
+                setattr(registration, 'supporting_documents', None)
+
+        # Build form_structure and answers depending on complaint type
+        answers = {}
+        form_structure = []
+        lot_dispute = None
+        boundary_dispute = None
+        pathway_dispute = None
+        unauthorized_occupation = None
+
+        if complaint.type_of_complaint == 'Lot Dispute':
+            # Import here to avoid circular import
+            from backend.complainant.lot_dispute import get_form_structure as get_lot_form_structure
+            form_structure = get_lot_form_structure('Lot Dispute')
+            lot = LotDispute.query.filter_by(complaint_id=complaint_id).first()
+            lot_dispute = lot
+            if lot:
+                # Normalize fields as in complainant preview
+                q2_list = _safe_from_json_list(getattr(lot, 'q2', None))
+                q4_list = _safe_from_json_list(getattr(lot, 'q4', None))
+                q5_list = _safe_from_json_list(getattr(lot, 'q5', None))
+                q6_list = _safe_from_json_list(getattr(lot, 'q6', None))
+                q7_list = _safe_from_json_list(getattr(lot, 'q7', None))
+                q8_list = _safe_from_json_list(getattr(lot, 'q8', None))
+
+                q9_raw = getattr(lot, 'q9', None)
+                q9_data = { 'claim': '', 'documents': [] }
+                try:
+                    if isinstance(q9_raw, dict):
+                        q9_data = { 'claim': q9_raw.get('claim', ''), 'documents': q9_raw.get('documents', []) }
+                    elif isinstance(q9_raw, str) and q9_raw.strip():
+                        parsed = json.loads(q9_raw)
+                        if isinstance(parsed, dict):
+                            q9_data = { 'claim': parsed.get('claim', ''), 'documents': parsed.get('documents', []) }
+                except Exception:
+                    pass
+
+                q10_raw = getattr(lot, 'q10', None)
+                q10_data = {}
+                try:
+                    if isinstance(q10_raw, dict):
+                        q10_data = q10_raw
+                    elif isinstance(q10_raw, str) and q10_raw.strip():
+                        q10_data = json.loads(q10_raw)
+                except Exception:
+                    q10_data = {}
+
+                q3_val = lot.q3.strftime('%Y-%m-%d') if getattr(lot, 'q3', None) else ''
+
+                answers = {
+                    'q1': getattr(lot, 'q1', '') or '',
+                    'q2': q2_list,
+                    'q3': q3_val,
+                    'q4': q4_list,
+                    'q5': q5_list,
+                    'q6': q6_list,
+                    'q7': q7_list,
+                    'q8': q8_list,
+                    'q9': q9_data,
+                    'q10': q10_data,
+                    'description': getattr(lot, 'description', None) or getattr(complaint, 'description', '') or '',
+                    'signature': getattr(lot, 'signature', None) or getattr(registration, 'signature_path', '') or '',
+                }
+        elif complaint.type_of_complaint == 'Boundary Dispute':
+            bd = BoundaryDispute.query.filter_by(complaint_id=complaint_id).first()
+            boundary_dispute = bd
+            if bd:
+                # Import here to avoid circular import
+                try:
+                    from backend.complainant.boundary_dispute import get_form_structure as get_boundary_form_structure
+                    form_structure = get_boundary_form_structure('Boundary Dispute')
+                except Exception:
+                    form_structure = []
+
+                def _json_list(v):
+                    try:
+                        if isinstance(v, list):
+                            return v
+                        if isinstance(v, str) and v.strip():
+                            s = v.strip()
+                            if s.startswith('['):
+                                return json.loads(s)
+                            if ',' in s:
+                                return [p.strip() for p in s.split(',') if p.strip()]
+                        return []
+                    except Exception:
+                        return []
+
+                def _safe(v):
+                    return v or ''
+
+                q12_val = []
+                try:
+                    raw = getattr(bd, 'q12', None)
+                    if isinstance(raw, list):
+                        q12_val = raw
+                    elif isinstance(raw, str) and raw.strip():
+                        q12_val = json.loads(raw)
+                except Exception:
+                    q12_val = []
+
+                answers = {
+                    'q1': _json_list(getattr(bd, 'q1', None)),
+                    'q2': _safe(getattr(bd, 'q2', None)),
+                    'q3': _safe(getattr(bd, 'q3', None)),
+                    'q4': _safe(getattr(bd, 'q4', None)),
+                    'q5': _safe(getattr(bd, 'q5', None)),
+                    'q5_1': getattr(bd, 'q5_1', None).strftime('%Y-%m-%d') if getattr(bd, 'q5_1', None) else '',
+                    'q6': _json_list(getattr(bd, 'q6', None)),
+                    'q7': _json_list(getattr(bd, 'q7', None)),
+                    'q8': _safe(getattr(bd, 'q8', None)),
+                    'q9': _json_list(getattr(bd, 'q9', None)),
+                    'q10': _safe(getattr(bd, 'q10', None)),
+                    'q10_1': _json_list(getattr(bd, 'q10_1', None)),
+                    'q11': _safe(getattr(bd, 'q11', None)),
+                    'q12': q12_val,
+                    'q13': _json_list(getattr(bd, 'q13', None)),
+                    'q14': _safe(getattr(bd, 'q14', None)),
+                    'q15': _safe(getattr(bd, 'q15', None)),
+                    'q15_1': _json_list(getattr(bd, 'q15_1', None)),
+                    'description': _safe(getattr(bd, 'description', None)),
+                    'signature_path': _safe(getattr(bd, 'signature_path', None)),
+                }
+        elif complaint.type_of_complaint == 'Pathway Dispute':
+            # Dedicated block mirroring complainant preview
+            pathway = PathwayDispute.query.filter_by(complaint_id=complaint_id).first()
+            pathway_dispute = pathway
+            if pathway:
+                try:
+                    from backend.complainant.pathway_dispute import get_form_structure as get_pathway_form_structure
+                    form_structure = get_pathway_form_structure('Pathway Dispute')
+                except Exception:
+                    form_structure = []
+
+                def _parse_json_list(val):
+                    try:
+                        if isinstance(val, list):
+                            return val
+                        if isinstance(val, str):
+                            s = val.strip()
+                            if not s:
+                                return []
+                            return json.loads(s)
+                    except Exception:
+                        pass
+                    return []
+
+                def _parse_str(val):
+                    if val is None:
+                        return ''
+                    if isinstance(val, str):
+                        return val
+                    try:
+                        return str(val)
+                    except Exception:
+                        return ''
+
+                q12_val = getattr(pathway, 'q12', None)
+                answers = {
+                    'q1': getattr(pathway, 'q1', None) or '',
+                    'q2': getattr(pathway, 'q2', None) or '',
+                    'q3': getattr(pathway, 'q3', None) or '',
+                    'q4': getattr(pathway, 'q4', None) or '',
+                    'q5': _parse_json_list(getattr(pathway, 'q5', None)),
+                    'q6': getattr(pathway, 'q6', None) or '',
+                    'q7': getattr(pathway, 'q7', None) or '',
+                    'q8': _parse_json_list(getattr(pathway, 'q8', None)),
+                    'q9': _parse_json_list(getattr(pathway, 'q9', None)),
+                    'q10': getattr(pathway, 'q10', None) or '',
+                    'q11': _parse_json_list(getattr(pathway, 'q11', None)),
+                    'q12': _parse_str(q12_val),
+                    'description': getattr(pathway, 'description', None) or getattr(complaint, 'description', '') or '',
+                    'signature': getattr(pathway, 'signature', None) or getattr(registration, 'signature_path', '') or '',
+                }
+        elif complaint.type_of_complaint == 'Unauthorized Occupation':
+            # Build answers based on UnauthorizedOccupation model and its form structure
+            unauthorized = UnauthorizedOccupation.query.filter_by(complaint_id=complaint_id).first()
+            unauthorized_occupation = unauthorized
+            try:
+                from backend.complainant.unauthorized_occupation import get_form_structure as get_unauth_form_structure
+                form_structure = get_unauth_form_structure()
+            except Exception:
+                form_structure = []
+
+            if unauthorized:
+                def _parse_list(val):
+                    try:
+                        if isinstance(val, list):
+                            return val
+                        if isinstance(val, str):
+                            s = val.strip()
+                            if not s:
+                                return []
+                            return json.loads(s)
+                    except Exception:
+                        pass
+                    return []
+
+                def _parse_date(val):
+                    try:
+                        if hasattr(val, 'strftime'):
+                            return val.strftime('%Y-%m-%d')
+                        if isinstance(val, str):
+                            return val
+                    except Exception:
+                        pass
+                    return ''
+
+                # Map DB fields to generic names expected by form_structure template
+                answers = {
+                    'legal_connection': getattr(unauthorized, 'q1', None) or '',
+                    'involved_persons': _parse_list(getattr(unauthorized, 'q2', None)),
+                    'noticed_date': _parse_date(getattr(unauthorized, 'q3', None)),
+                    'activities': _parse_list(getattr(unauthorized, 'q4', None)),
+                    'occupant_claim': getattr(unauthorized, 'q5', None) or '',
+                    'occupant_documents': _parse_list(getattr(unauthorized, 'q5a', None)),
+                    'approach': getattr(unauthorized, 'q6', None) or '',
+                    'approach_details': _parse_list(getattr(unauthorized, 'q6a', None)),
+                    'boundary_reported_to': _parse_list(getattr(unauthorized, 'q7', None)),
+                    'result': getattr(unauthorized, 'q8', None) or '',
+                    'description': getattr(unauthorized, 'description', None) or getattr(complaint, 'description', '') or '',
+                    'signature': getattr(unauthorized, 'signature', None) or getattr(registration, 'signature_path', '') or '',
+                }
+
+        # Parent info for family_of_member
+        parent_info = None
+        relationship = None
+        try:
+            if registration.category == 'family_of_member':
+                fam = RegistrationFamOfMember.query.filter_by(registration_id=registration.registration_id).first()
+                if fam:
+                    relationship = fam.relationship
+                    def _sv(v):
+                        return str(v).strip() if v else ''
+                    parts = [_sv(fam.first_name), _sv(fam.middle_name), _sv(fam.last_name), _sv(fam.suffix)]
+                    sd = getattr(fam, 'supporting_documents', {}) or {}
+                    hoa_raw = sd.get('hoa')
+                    parent_info = {
+                        'full_name': ' '.join([p for p in parts if p]),
+                        'first_name': fam.first_name,
+                        'middle_name': fam.middle_name,
+                        'last_name': fam.last_name,
+                        'suffix': fam.suffix,
+                        'date_of_birth': fam.date_of_birth,
+                        'sex': fam.sex,
+                        'citizenship': fam.citizenship,
+                        'age': fam.age,
+                        'phone_number': fam.phone_number,
+                        'year_of_residence': fam.year_of_residence,
+                        'supporting_documents': getattr(fam, 'supporting_documents', None),
+                        'hoa': _get_area_name(hoa_raw) if hoa_raw else '',
+                        'block_no': sd.get('block_assignment') or '',
+                        'lot_no': sd.get('lot_assignment') or '',
+                        'lot_size': sd.get('lot_size') or '',
+                        'civil_status': sd.get('civil_status') or '',
+                        'recipient_of_other_housing': sd.get('recipient_of_other_housing') or '',
+                        'current_address': sd.get('current_address') or '',
+                    }
+        except Exception:
+            pass
+
+        # Non-member connections (for non_member registrations)
+        non_member_connections = None
+        non_member_connections_list = None
+        try:
+            if registration and (registration.category or '').strip().lower() == 'non_member':
+                reg_non_member = RegistrationNonMember.query.filter_by(registration_id=registration.registration_id).first()
+                connections_val = ""
+                if reg_non_member and getattr(reg_non_member, 'connections', None):
+                    conn = reg_non_member.connections
+                    checkbox_labels = [
+                        "I live on the lot but I am not the official beneficiary",
+                        "I live near the lot and I am affected by the issue",
+                        "I am claiming ownership of the lot",
+                        "I am related to the person currently occupying the lot",
+                        "I was previously assigned to this lot but was replaced or removed"
+                    ]
+                    display_labels = []
+                    if isinstance(conn, dict):
+                        for idx, label in enumerate(checkbox_labels, start=1):
+                            key = f"connection_{idx}"
+                            val = conn.get(key)
+                            if val in (True, 1, '1', 'true', 'True', 'yes', 'on'):
+                                display_labels.append(label)
+                        other = conn.get("connection_other")
+                        if other:
+                            display_labels.append(other)
+                    elif isinstance(conn, list):
+                        display_labels = [str(x) for x in conn if x]
+                    elif isinstance(conn, str):
+                        s = conn.strip()
+                        if s:
+                            if s.startswith('[') and s.endswith(']'):
+                                try:
+                                    arr = json.loads(s)
+                                    if isinstance(arr, list):
+                                        display_labels = [str(x).strip() for x in arr if str(x).strip()]
+                                    else:
+                                        display_labels = [s]
+                                except Exception:
+                                    display_labels = [p.strip() for p in s.split(',') if p.strip()]
+                            else:
+                                display_labels = [p.strip() for p in s.split(',') if p.strip()] if ',' in s else [s]
+                    else:
+                        display_labels = [str(conn)]
+                    connections_val = ", ".join(display_labels)
+                    non_member_connections_list = display_labels
+                non_member_connections = connections_val
+        except Exception:
+            non_member_connections = None
+            non_member_connections_list = None
+
+        # Render the same structure as complainant side but as a partial for admin
+        html = render_template(
+            'admin/complaints/_complaint_form_preview.html',
+            complaint=complaint,
+            registration=registration,
+            form_structure=form_structure,
+            answers=answers,
+            get_area_name=_get_area_name,
+            lot_dispute=lot_dispute,
+            boundary_dispute=boundary_dispute,
+            pathway_dispute=pathway_dispute,
+            unauthorized_occupation=unauthorized_occupation,
+            parent_info=parent_info,
+            relationship=relationship,
+            non_member_connections=non_member_connections,
+            non_member_connections_list=non_member_connections_list,
+        )
+        return html
+    except Exception as e:
+        print(f"Error generating form preview: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+# Recommendation endpoint removed per request
 
 # Staff Inspection Data Endpoint - loads inspection assignment details for staff modal
 @complaints_bp.route('/api/staff_inspection_data/<int:complaint_id>', methods=['GET'])
@@ -393,6 +818,150 @@ def format_address(area_name, lot_no, block_no):
     
     return ", ".join(address_parts)
 
+@complaints_bp.route('/api/report_summary', methods=['GET'])
+def api_report_summary():
+    """Return monthly (or date-range) report stats and a narrative summary for the admin report.
+
+    Query params:
+      - year: int (required if month provided)
+      - month: int (1-12) optional; if omitted, computes for whole year
+      - start: ISO date (YYYY-MM-DD) optional; overrides month/year if provided
+      - end: ISO date (YYYY-MM-DD) optional; overrides month/year if provided
+    """
+    try:
+        # Determine date range
+        year = request.args.get('year', type=int)
+        month = request.args.get('month', type=int)
+        start_param = request.args.get('start')
+        end_param = request.args.get('end')
+
+        if start_param and end_param:
+            start_dt = datetime.strptime(start_param, '%Y-%m-%d')
+            end_dt = datetime.strptime(end_param, '%Y-%m-%d')
+            # include full end day
+            end_dt = datetime(end_dt.year, end_dt.month, end_dt.day, 23, 59, 59)
+        elif year and month:
+            from calendar import monthrange
+            start_dt = datetime(year, month, 1, 0, 0, 0)
+            last_day = monthrange(year, month)[1]
+            end_dt = datetime(year, month, last_day, 23, 59, 59)
+        elif year:
+            start_dt = datetime(year, 1, 1, 0, 0, 0)
+            end_dt = datetime(year, 12, 31, 23, 59, 59)
+        else:
+            # default to current month
+            now = datetime.now()
+            from calendar import monthrange
+            start_dt = datetime(now.year, now.month, 1, 0, 0, 0)
+            last_day = monthrange(now.year, now.month)[1]
+            end_dt = datetime(now.year, now.month, last_day, 23, 59, 59)
+
+        # 1) Complaints received in period
+        complaints_query = text(
+            """
+            SELECT 
+                COUNT(*) AS total,
+                SUM(CASE WHEN status = 'Valid' THEN 1 ELSE 0 END) AS valid,
+                SUM(CASE WHEN status = 'Invalid' THEN 1 ELSE 0 END) AS invalid
+            FROM complaints
+            WHERE date_received BETWEEN :start_dt AND :end_dt
+            """
+        )
+        comp_row = db.session.execute(complaints_query, { 'start_dt': start_dt, 'end_dt': end_dt }).fetchone()
+        complaints_received = int(comp_row.total or 0)
+        complaints_valid = int(comp_row.valid or 0)
+        complaints_invalid = int(comp_row.invalid or 0)
+
+        # 2) Actions in complaint_history in period, grouped by type
+        actions_query = text(
+            """
+            SELECT type_of_action, details
+            FROM complaint_history
+            WHERE action_datetime BETWEEN :start_dt AND :end_dt
+            """
+        )
+        action_rows = db.session.execute(actions_query, { 'start_dt': start_dt, 'end_dt': end_dt }).fetchall()
+
+        action_counts = {}
+        individuals_summoned = 0
+        inspections_required = 0
+        cases_settled = 0
+
+        for row in action_rows:
+            atype = (row.type_of_action or '').strip()
+            action_counts[atype] = action_counts.get(atype, 0) + 1
+
+            # invitations: count individuals from details['to']
+            if atype in ('Invitation', 'Send Invitation', 'Sent Invitation', 'Accepted Invitation'):
+                try:
+                    details = row.details
+                    if isinstance(details, str):
+                        details = json.loads(details)
+                    if isinstance(details, dict):
+                        to_field = details.get('to')
+                        if isinstance(to_field, str):
+                            people = [p.strip() for p in to_field.split(',') if p.strip()]
+                            individuals_summoned += len(people)
+                        elif isinstance(to_field, list):
+                            individuals_summoned += len([p for p in to_field if str(p).strip()])
+                except Exception:
+                    pass
+
+            # inspections assigned or done
+            if atype in ('Inspection', 'Inspection done'):
+                inspections_required += 1
+
+            # resolved
+            if atype == 'Resolved':
+                cases_settled += 1
+
+        # Mediation/hearing: treat 'Mediation' actions as hearings
+        mediations = action_counts.get('Mediation', 0)
+
+        # 3) Build narrative
+        # Basic total activities: count of complaint_history rows in period
+        total_activities = len(action_rows)
+
+        # Month/Year label
+        period_label = (
+            f"{start_dt.strftime('%B %Y')}" if (start_dt.month == end_dt.month and start_dt.year == end_dt.year)
+            else f"{start_dt.strftime('%b %d, %Y')} - {end_dt.strftime('%b %d, %Y')}"
+        )
+
+        narrative = (
+            f"The Accomplishment Report for {period_label} provides a detailed overview of activities and achievements in governance, community service, and housing. "
+            f"A total of {total_activities} actions were recorded in the period, reflecting sustained engagement across complaints handling and field operations. "
+            f"A total of {complaints_received} complaints were received, of which {complaints_valid} were validated and {complaints_invalid} were marked invalid. "
+            f"Mediation and hearings: {mediations} mediation-related actions were conducted. "
+            f"Invitations issued summoned approximately {individuals_summoned} individual(s) to hearings and meetings. "
+            f"Inspections: {inspections_required} inspection-related actions were recorded for site validation and boundary identification. "
+            f"Resolved cases: {cases_settled} complaint(s) reached a resolution during this period."
+        )
+
+        return jsonify({
+            'success': True,
+            'period': {
+                'start': start_dt.isoformat(),
+                'end': end_dt.isoformat(),
+                'label': period_label,
+            },
+            'counts': {
+                'total_activities': total_activities,
+                'complaints_received': complaints_received,
+                'complaints_valid': complaints_valid,
+                'complaints_invalid': complaints_invalid,
+                'mediations': mediations,
+                'individuals_summoned': individuals_summoned,
+                'inspections': inspections_required,
+                'resolved': cases_settled,
+                'by_action': action_counts,
+            },
+            'narrative': narrative,
+        })
+    except Exception as e:
+        print(f"Error in report summary: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 def get_complaint_data_with_proper_areas(status_filter=None, stage_filter=None, assigned_filter=None):
     """NEW: Get complaint data with proper area joins - DEBUGGING VERSION"""
     try:
@@ -416,8 +985,8 @@ def get_complaint_data_with_proper_areas(status_filter=None, stage_filter=None, 
             ch_latest.action_datetime,
             ch_latest.type_of_action as latest_action,
             ch_latest.details,
-            ch_invitation.details as invitation_details
-        FROM complaints c
+            ch_invitation.details as invitation_details,
+            ch_inspection.details as inspection_details        FROM complaints c
         LEFT JOIN registration r ON c.registration_id = r.registration_id
         LEFT JOIN areas a ON c.area_id = a.area_id
         LEFT JOIN (
@@ -438,6 +1007,14 @@ def get_complaint_data_with_proper_areas(status_filter=None, stage_filter=None, 
             FROM complaint_history ch2
             WHERE ch2.type_of_action = 'Invitation'
         ) ch_invitation ON c.complaint_id = ch_invitation.complaint_id AND ch_invitation.rn = 1
+        LEFT JOIN (
+            SELECT 
+                chi.complaint_id,
+                chi.details,
+                ROW_NUMBER() OVER (PARTITION BY chi.complaint_id ORDER BY chi.action_datetime DESC) as rn
+            FROM complaint_history chi
+            WHERE chi.type_of_action = 'Inspection'
+        ) ch_inspection ON c.complaint_id = ch_inspection.complaint_id AND ch_inspection.rn = 1
         """
         
         params = {}
@@ -524,6 +1101,18 @@ def get_complaint_data_with_proper_areas(status_filter=None, stage_filter=None, 
             # For "Accepted Invitation", prefer meeting details from invitation_details
             meeting_date = invitation_details.get('meeting_date') or details.get('meeting_date')
             meeting_time = invitation_details.get('meeting_time') or details.get('meeting_time')
+
+            # Extract explicit inspection deadline from the latest Inspection action (if present)
+            inspection_details = {}
+            if hasattr(complaint, 'inspection_details') and complaint.inspection_details:
+                try:
+                    if isinstance(complaint.inspection_details, str):
+                        inspection_details = json.loads(complaint.inspection_details)
+                    else:
+                        inspection_details = complaint.inspection_details
+                except (json.JSONDecodeError, TypeError):
+                    inspection_details = {}
+            explicit_deadline = inspection_details.get('deadline') or details.get('deadline')
             
             formatted_complaints.append({
                 'complaint_id': complaint.complaint_id,
@@ -541,7 +1130,7 @@ def get_complaint_data_with_proper_areas(status_filter=None, stage_filter=None, 
                 'latest_action': latest_action,
                 'action_needed': latest_action,  # For backward compatibility
                 # Admin-set deadline information
-                'deadline': details.get('deadline'),
+                'deadline': explicit_deadline,
                 'meeting_date': meeting_date,
                 'meeting_time': meeting_time
             })
@@ -1029,9 +1618,7 @@ def get_ongoing_complaints():
                 'action_datetime': action_datetime.isoformat() if action_datetime else None,
                 'latest_action': latest_action,
                 'action_needed': latest_action,  # For backward compatibility
-                'deadline': deadline,
-                'meeting_date': meeting_date,
-                'meeting_time': meeting_time
+                'deadline': deadline
             })
         
         print(f"[DEBUG] Returning {len(formatted_complaints)} ongoing complaints")
@@ -2415,140 +3002,6 @@ def get_staff_assigned_complaints():
             if not area_display or area_display == 'N/A':
                 area_display = f"area_id:{complaint.area_id}" if hasattr(complaint, 'area_id') else 'No Area Data'
             
-            # Extract deadline, meeting_date, and meeting_time from complaint_history details JSON
-            deadline = None
-            meeting_date = None
-            meeting_time = None
-            print(f"[STAFF ASSIGNED] 🔍 Extracting deadline for complaint {complaint.complaint_id}")
-            try:
-                # First try to get deadline from Inspection action (for inspection tasks)
-                deadline_query = """
-                SELECT details, type_of_action, action_datetime
-                FROM complaint_history 
-                WHERE complaint_id = :complaint_id 
-                AND type_of_action IN ('Inspection', 'Invitation')
-                AND details IS NOT NULL 
-                ORDER BY action_datetime DESC 
-                LIMIT 1
-                """
-                deadline_result = db.session.execute(text(deadline_query), {'complaint_id': complaint.complaint_id})
-                deadline_row = deadline_result.fetchone()
-                print(f"[STAFF ASSIGNED] 🔍 Query result for complaint {complaint.complaint_id}: found_row={deadline_row is not None}")
-                
-                # Special debugging for complaint 272
-                if complaint.complaint_id == 272:
-                    print(f"[STAFF ASSIGNED] 🎯 COMPLAINT 272 BACKEND DEBUG:")
-                    print(f"[STAFF ASSIGNED] 🎯 Running query: {deadline_query}")
-                    print(f"[STAFF ASSIGNED] 🎯 Query params: complaint_id={complaint.complaint_id}")
-                    
-                    # Check ALL complaint_history records for this complaint
-                    all_history_query = """
-                    SELECT complaint_id, type_of_action, details, action_datetime
-                    FROM complaint_history 
-                    WHERE complaint_id = :complaint_id 
-                    ORDER BY action_datetime DESC
-                    """
-                    all_history_result = db.session.execute(text(all_history_query), {'complaint_id': complaint.complaint_id})
-                    all_history_rows = all_history_result.fetchall()
-                    print(f"[STAFF ASSIGNED] 🎯 ALL history records for complaint 272: {len(all_history_rows)} records found")
-                    
-                    for i, hist_row in enumerate(all_history_rows):
-                        print(f"[STAFF ASSIGNED] 🎯   Record {i+1}: type={hist_row.type_of_action}, datetime={hist_row.action_datetime}, has_details={hist_row.details is not None}")
-                        if hist_row.details:
-                            print(f"[STAFF ASSIGNED] 🎯   Details: {hist_row.details}")
-                
-                if deadline_row and deadline_row.details:
-                    print(f"[STAFF ASSIGNED] 🔍 Raw details for complaint {complaint.complaint_id}: {deadline_row.details}")
-                    print(f"[STAFF ASSIGNED] 🔍 Details type: {type(deadline_row.details)}")
-                    print(f"[STAFF ASSIGNED] 🔍 Action type: {deadline_row.type_of_action}")
-                    
-                    # Special debugging for complaint 272
-                    if complaint.complaint_id == 272:
-                        print(f"[STAFF ASSIGNED] 🎯 COMPLAINT 272 - Found details!")
-                        print(f"[STAFF ASSIGNED] 🎯   - Action type: {deadline_row.type_of_action}")
-                        print(f"[STAFF ASSIGNED] 🎯   - Raw details: {deadline_row.details}")
-                        print(f"[STAFF ASSIGNED] 🎯   - Details length: {len(str(deadline_row.details)) if deadline_row.details else 0}")
-                    
-                    try:
-                        # Handle both string and dict details
-                        if isinstance(deadline_row.details, str):
-                            details_data = json.loads(deadline_row.details)
-                        else:
-                            details_data = deadline_row.details
-                            
-                        print(f"[STAFF ASSIGNED] 🔍 Parsed details data: {details_data}")
-                        print(f"[STAFF ASSIGNED] 🔍 Parsed details type: {type(details_data)}")
-                        
-                        # Special debugging for complaint 272
-                        if complaint.complaint_id == 272:
-                            print(f"[STAFF ASSIGNED] 🎯 COMPLAINT 272 - Parsed details successfully!")
-                            print(f"[STAFF ASSIGNED] 🎯   - Details keys: {list(details_data.keys()) if isinstance(details_data, dict) else 'Not a dict'}")
-                            print(f"[STAFF ASSIGNED] 🎯   - Looking for 'deadline' key...")
-                        
-                        # Try to get deadline from nested details first, then fallback to root level
-                        if isinstance(details_data, dict):
-                            if 'details' in details_data and isinstance(details_data['details'], dict):
-                                nested_details = details_data['details']
-                                if 'deadline' in nested_details:
-                                    deadline = nested_details['deadline']
-                                    print(f"[STAFF ASSIGNED] ✅ Found deadline in nested details: {deadline}")
-                                if 'meeting_date' in nested_details:
-                                    meeting_date = nested_details['meeting_date']
-                                    print(f"[STAFF ASSIGNED] ✅ Found meeting_date in nested details: {meeting_date}")
-                                if 'meeting_time' in nested_details:
-                                    meeting_time = nested_details['meeting_time']
-                                    print(f"[STAFF ASSIGNED] ✅ Found meeting_time in nested details: {meeting_time}")
-                            
-                            # Fallback to root level - CHECK HERE FOR COMPLAINT 272
-                            if not deadline and 'deadline' in details_data:
-                                deadline = details_data['deadline']
-                                print(f"[STAFF ASSIGNED] ✅ Found deadline in root: {deadline}")
-                                
-                                # Special success for complaint 272
-                                if complaint.complaint_id == 272:
-                                    print(f"[STAFF ASSIGNED] 🎯 COMPLAINT 272 SUCCESS! Found deadline: {deadline}")
-                                    
-                            if not meeting_date and 'meeting_date' in details_data:
-                                meeting_date = details_data['meeting_date']
-                                print(f"[STAFF ASSIGNED] ✅ Found meeting_date in root: {meeting_date}")
-                            if not meeting_time and 'meeting_time' in details_data:
-                                meeting_time = details_data['meeting_time']
-                                print(f"[STAFF ASSIGNED] ✅ Found meeting_time in root: {meeting_time}")
-                                
-                            if not deadline and not meeting_date and not meeting_time:
-                                print(f"[STAFF ASSIGNED] ❌ No deadline or meeting fields found in details")
-                                
-                                # Special failure for complaint 272
-                                if complaint.complaint_id == 272:
-                                    print(f"[STAFF ASSIGNED] 🎯 COMPLAINT 272 FAILURE - No deadline found in details!")
-                                    print(f"[STAFF ASSIGNED] 🎯   - Available keys in details: {list(details_data.keys())}")
-                                    print(f"[STAFF ASSIGNED] 🎯   - Full details object: {details_data}")
-                        else:
-                            print(f"[STAFF ASSIGNED] ❌ Details data is not a dictionary: {type(details_data)}")
-                    except json.JSONDecodeError as e:
-                        print(f"[STAFF ASSIGNED] ❌ Error parsing deadline JSON for complaint {complaint.complaint_id}: {e}")
-                        
-                        # Special error for complaint 272
-                        if complaint.complaint_id == 272:
-                            print(f"[STAFF ASSIGNED] 🎯 COMPLAINT 272 JSON ERROR!")
-                            print(f"[STAFF ASSIGNED] 🎯   - Raw details that failed to parse: {deadline_row.details}")
-                            print(f"[STAFF ASSIGNED] 🎯   - Error: {e}")
-                else:
-                    print(f"[STAFF ASSIGNED] ❌ No details found for complaint {complaint.complaint_id}")
-                    
-                    # Special check for complaint 272
-                    if complaint.complaint_id == 272:
-                        print(f"[STAFF ASSIGNED] 🎯 COMPLAINT 272 - NO DETAILS FOUND!")
-                        print(f"[STAFF ASSIGNED] 🎯   - deadline_row: {deadline_row}")
-                        print(f"[STAFF ASSIGNED] 🎯   - deadline_row.details: {deadline_row.details if deadline_row else 'No row'}")
-            except Exception as e:
-                print(f"[STAFF ASSIGNED] ❌ Error extracting deadline for complaint {complaint.complaint_id}: {e}")
-            
-            print(f"[STAFF ASSIGNED] 🎯 Final extracted data for complaint {complaint.complaint_id}:")
-            print(f"[STAFF ASSIGNED] 🎯   - deadline: {deadline}")
-            print(f"[STAFF ASSIGNED] 🎯   - meeting_date: {meeting_date}")
-            print(f"[STAFF ASSIGNED] 🎯   - meeting_time: {meeting_time}")
-            
             formatted_complaints.append({
                 'complaint_id': complaint.complaint_id,
                 'type_of_complaint': complaint.type_of_complaint,
@@ -2562,9 +3015,6 @@ def get_staff_assigned_complaints():
                 'assigned_to': complaint.assigned_to,
                 'action_datetime': complaint.action_datetime.isoformat() if complaint.action_datetime else None,
                 'action_needed': complaint.latest_action or 'Pending',
-                'deadline': deadline,  # Add deadline field from complaint_history details
-                'meeting_date': meeting_date,  # Add meeting_date from complaint_history details
-                'meeting_time': meeting_time,  # Add meeting_time from complaint_history details
                 # Debug info
                 'debug_area_id': complaint.area_id,
                 'debug_raw_area_name': complaint.area_name

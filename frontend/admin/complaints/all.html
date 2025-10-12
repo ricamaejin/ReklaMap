@@ -163,7 +163,7 @@
   <div style="display: flex; align-items: center; gap: 10px;">
     <input type="month" id="reportMonthPicker" style="padding: 6px; border-radius: 4px;">
     <button id="generateReportBtn" class="btn btn-danger">
-      <i class="bi bi-file-earmark-pdf"></i> Generate PDF
+      <i class="bi bi-file-earmark-pdf"></i> Generate Report
     </button>
   </div>
 </div>
@@ -702,31 +702,343 @@
         doc.setFontSize(10);
         doc.text(`Generated on: ${formattedDate}, ${formattedTime}`, 14, 22);
 
+        // Fetch narrative summary for the selected month/year
+        let narrative = '';
+        try {
+          const params = new URLSearchParams();
+          params.append('year', String(year));
+          params.append('month', String(month));
+          const res = await fetch(`/admin/complaints/api/report_summary?${params.toString()}`);
+          if (res.ok) {
+            const payload = await res.json();
+            if (payload && payload.success && payload.narrative) {
+              narrative = payload.narrative;
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to load report summary narrative', e);
+        }
+
+        // Prepare helpers for PDF-friendly formatting
+        const sanitizeForPdf = (s) => (s || '')
+          .replace(/<br\s*\/?>/gi, ' ')
+          .replace(/<[^>]+>/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        const getMeetingDateTime = (c) => {
+          if (c.meeting_datetime) return new Date(c.meeting_datetime);
+          if (c.meeting_date && c.meeting_time) return new Date(`${c.meeting_date}T${c.meeting_time}`);
+          return null;
+        };
+        // Only consider explicit deadlines for PDF (no automatic fallbacks):
+        // - Inspection: use admin-set deadline only
+        // - Accepted invitation: use meeting date/time
+        // - Mediation: optional derived from meeting date (+3 days) if you want, else comment out
+        const explicitDeadlineForPdf = (c) => {
+          if (!c || c.status === 'Invalid') return null;
+          // Prefer explicit admin-set deadline when available
+          if (c.deadline) {
+            try {
+              let d = new Date(c.deadline);
+              if (isNaN(d.getTime())) d = new Date(`${c.deadline}T00:00:00`);
+              if (!isNaN(d.getTime())) return d;
+            } catch (e) { /* ignore */ }
+          }
+          // Otherwise show explicit meeting schedule if present
+          const meetingDT = getMeetingDateTime(c);
+          if (meetingDT) return meetingDT;
+          return null;
+        };
+
+        // Prepare helpers and compute statistics for report
+        const formatDateOnly = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const formatTimeOnly = (d) => d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        const computeStatusForPdf = (c) => {
+          if (!c) return 'N/A';
+          // Unresolved markers
+          if (
+            c.action_needed === 'Unresolved' ||
+            c.latest_action === 'Unresolved' ||
+            c.complaint_stage === 'Unresolved' ||
+            c.is_unresolved
+          ) return 'Unresolved';
+          // Invalid maps to Out of Jurisdiction in report wording
+          if (c.status === 'Invalid') return 'Out of Jurisdiction';
+          if (c.complaint_stage === 'Resolved' || c.is_resolved) return 'Resolved';
+          if (c.complaint_stage === 'Pending' || !c.latest_action) return 'Received';
+          return 'Ongoing';
+        };
+
+        // === Improved Report Layout & Styling ===
+
+// Descriptive Summary
+const summaryText = narrative || `No descriptive summary available for ${monthYear}.`;
+
+const totalComplaints = filteredComplaints.length;
+const countsByType = {};
+const countsByStatus = { 'Resolved': 0, 'Unresolved': 0, 'Ongoing': 0, 'Out of Jurisdiction': 0, 'Received': 0 };
+filteredComplaints.forEach(c => {
+  const t = c.type_of_complaint || 'Unknown';
+  countsByType[t] = (countsByType[t] || 0) + 1;
+  const s = computeStatusForPdf(c);
+  if (s in countsByStatus) countsByStatus[s] += 1; else countsByStatus['Ongoing'] += 1;
+});
+
+// Overdue Ongoing Complaints
+const nowTs = new Date().getTime();
+const overdueOngoing = filteredComplaints.filter(c => {
+  const s = computeStatusForPdf(c);
+  if (s !== 'Ongoing') return false;
+  const d = explicitDeadlineForPdf(c);
+  if (!d) return false;
+  return (new Date(d).getTime() - nowTs) < 0;
+}).map(c => ({
+  id: c.complaint_id,
+  type: c.type_of_complaint || 'N/A',
+  assigned: c.assigned_to || 'Unassigned',
+  deadline: explicitDeadlineForPdf(c),
+  submitted: c.date_received || null,
+  hoa: c.area_name || ''
+}));
+
+// ======= SECTION 1: DESCRIPTIVE SUMMARY =======
+doc.setFontSize(14);
+doc.setTextColor(26, 51, 160);
+doc.text('Descriptive Summary', 14, 30);
+doc.setTextColor(0, 0, 0);
+doc.setFontSize(10);
+
+const pageWidth = doc.internal.pageSize.getWidth();
+const marginX = 14;
+const maxWidth = pageWidth - marginX * 2;
+const summaryLines = doc.splitTextToSize(summaryText, maxWidth);
+doc.text(summaryLines, marginX, 38);
+
+let currentY = 28 + summaryLines.length * 5 + 10;
+
+// ======= TABLE 1 & 2 SIDE BY SIDE =======
+
+// Prepare data
+const orderedTypes = ['Boundary Dispute', 'Lot Dispute', 'Pathway Dispute', 'Unauthorized Occupation'];
+const breakdownRows = orderedTypes.map(t => [t, String(countsByType[t] || 0)]);
+breakdownRows.push(['Total Complaints', String(totalComplaints)]);
+
+const statusRows = [
+  ['Resolved', String(countsByStatus['Resolved'] || 0)],
+  ['Unresolved', String(countsByStatus['Unresolved'] || 0)],
+  ['Ongoing', String(countsByStatus['Ongoing'] || 0)],
+  ['Out of Jurisdiction', String(countsByStatus['Out of Jurisdiction'] || 0)],
+  ['Received', String(countsByStatus['Received'] || 0)],
+];
+
+// Common dimensions - use printable width halves so tables are wider (match graphs)
+const gapBetweenTables = 12;
+const totalPrintable = pageWidth - marginX * 2;
+const tableWidth = (totalPrintable - gapBetweenTables) / 2; // each table width
+const col1Width = tableWidth * 0.7;
+const col2Width = tableWidth * 0.3;
+const startXLeft = marginX;
+const startXRight = marginX + tableWidth + gapBetweenTables;
+
+// ===== LEFT TABLE: Complaint Type =====
+doc.autoTable({
+  head: [['Complaint Type', 'Count']],
+  body: breakdownRows,
+  startY: currentY,
+  theme: 'grid',
+  styles: {
+    fontSize: 9,
+    cellPadding: 2.8,
+    halign: 'left',
+    lineWidth: 0.2,
+    lineColor: [0, 0, 0],
+  },
+  tableWidth: tableWidth,
+  margin: { left: startXLeft, right: 0 },
+  columnStyles: {
+    0: { cellWidth: col1Width, halign: 'left' },
+    1: { cellWidth: col2Width, halign: 'center' },
+  },
+  headStyles: {
+    fillColor: [26, 51, 160],
+    textColor: 255,
+    fontStyle: 'bold',
+  },
+});
+
+const leftTableFinalY = doc.lastAutoTable.finalY;
+
+// ===== RIGHT TABLE: Status Summary =====
+doc.autoTable({
+  head: [['Status', 'Count']],
+  body: statusRows,
+  startY: currentY,
+  theme: 'grid',
+  styles: {
+    fontSize: 9,
+    cellPadding: 2.8,
+    halign: 'left',
+    lineWidth: 0.2,
+    lineColor: [0, 0, 0],
+  },
+  tableWidth: tableWidth,
+  margin: { left: startXRight, right: 0 },
+  columnStyles: {
+    0: { cellWidth: col1Width, halign: 'left' },
+    1: { cellWidth: col2Width, halign: 'center' },
+  },
+  headStyles: {
+    fillColor: [26, 51, 160],
+    textColor: 255,
+    fontStyle: 'bold',
+  },
+});
+
+const rightTableFinalY = doc.lastAutoTable.finalY;
+
+// Move Y to the lower of the two tables
+currentY = Math.max(leftTableFinalY, rightTableFinalY) + 10;
+
+
+// ======= SECTION 2: CHARTS =======
+let lastChartWidth = 0;
+let lastChartHeight = 0;
+
+// ---- Combined charts rendered into a single canvas to guarantee fit on one page ----
+try {
+  // Canvas A (complaints by type) - draw as before
+  const canvasA = document.createElement('canvas');
+  canvasA.width = 750; canvasA.height = 270;
+  const ctxA = canvasA.getContext('2d');
+  ctxA.fillStyle = '#ffffff'; ctxA.fillRect(0,0,canvasA.width, canvasA.height);
+  const types = orderedTypes.filter(t => (countsByType[t] || 0) > -1);
+  const maxCount = Math.max(1, ...types.map(t => countsByType[t] || 0));
+  const paddingA = 20; const chartWA = canvasA.width - paddingA*2; const chartHA = canvasA.height - paddingA*2; const barWA = chartWA / Math.max(1, types.length) * 0.6;
+  ctxA.strokeStyle = '#333'; ctxA.lineWidth = 1;
+  ctxA.beginPath(); ctxA.moveTo(paddingA,paddingA); ctxA.lineTo(paddingA,paddingA+chartHA); ctxA.lineTo(paddingA+chartWA,paddingA+chartHA); ctxA.stroke();
+  const colors = ['#1a33a0','#2a9d8f','#e76f51','#f4a261'];
+  types.forEach((t,i)=>{
+    const val = countsByType[t] || 0;
+    const x = paddingA + (i+0.5)*(chartWA/types.length) - barWA/2;
+    const h = (val / Math.max(1, maxCount)) * (chartHA - 10);
+    const y = paddingA + chartHA - h;
+    ctxA.fillStyle = colors[i%colors.length]; ctxA.fillRect(x,y,barWA,h);
+    ctxA.fillStyle = '#000'; ctxA.font='13px Arial'; ctxA.textAlign='center'; ctxA.fillText(String(val), x+barWA/2, y-8);
+    ctxA.save(); ctxA.translate(x+barWA/2, paddingA+chartHA+14); ctxA.rotate(0); ctxA.fillText(t,0,0); ctxA.restore();
+  });
+
+  // Canvas B (status summary)
+  const canvasB = document.createElement('canvas');
+  canvasB.width = 750; canvasB.height = 270;
+  const ctxB = canvasB.getContext('2d');
+  ctxB.fillStyle = '#ffffff'; ctxB.fillRect(0,0,canvasB.width, canvasB.height);
+  const statuses = ['Resolved','Unresolved','Ongoing','Out of Jurisdiction','Received'];
+  const statusCounts = statuses.map(s => countsByStatus[s] || 0);
+  const paddingB = 20; const chartWB = canvasB.width - paddingB*2; const chartHB = canvasB.height - paddingB*2; const barWB = chartWB / Math.max(1, statuses.length) * 0.6;
+  ctxB.strokeStyle = '#333'; ctxB.lineWidth = 1;
+  ctxB.beginPath(); ctxB.moveTo(paddingB,paddingB); ctxB.lineTo(paddingB,paddingB+chartHB); ctxB.lineTo(paddingB+chartWB,paddingB+chartHB); ctxB.stroke();
+  const scolors = ['#2a9d8f','#e9c46a','#e76f51','#9d4edd','#1a33a0'];
+  statuses.forEach((st,i)=>{
+    const val = statusCounts[i];
+    const x = paddingB + (i+0.5)*(chartWB/statuses.length) - barWB/2;
+    const h = (val / Math.max(1, Math.max(...statusCounts))) * (chartHB - 10);
+    const y = paddingB + chartHB - h;
+    ctxB.fillStyle = scolors[i % scolors.length]; ctxB.fillRect(x,y,barWB,h);
+    ctxB.fillStyle = '#000'; ctxB.font='13px Arial'; ctxB.textAlign='center'; ctxB.fillText(String(val), x+barWB/2, y-8);
+    ctxB.save(); ctxB.translate(x+barWB/2, paddingB+chartHB+14); ctxB.rotate(0); ctxB.fillText(st,0,0); ctxB.restore();
+  });
+
+  // Combine canvases side-by-side onto a single canvas
+  const gap = 12;
+  const combinedW = canvasA.width + gap + canvasB.width;
+  const combinedH = Math.max(canvasA.height, canvasB.height);
+  const combined = document.createElement('canvas');
+  combined.width = combinedW; combined.height = combinedH;
+  const cctx = combined.getContext('2d');
+  cctx.fillStyle = '#ffffff'; cctx.fillRect(0,0,combined.width, combined.height);
+  cctx.drawImage(canvasA, 0, 0);
+  cctx.drawImage(canvasB, canvasA.width + gap, 0);
+
+  // Scale combined to printable width and insert with page-break handling
+  const combinedImg = combined.toDataURL('image/png');
+  const imgMaxWidth = pageWidth - marginX*2;
+  const imgScaledHeight = (combined.height / combined.width) * imgMaxWidth;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginBottom = 20;
+  if ((currentY + imgScaledHeight) > (pageHeight - marginBottom)) {
+    doc.addPage(); currentY = 28;
+  }
+  doc.addImage(combinedImg, 'PNG', marginX, currentY, imgMaxWidth, imgScaledHeight);
+  currentY += imgScaledHeight + 10;
+
+} catch (e) {
+  console.warn('Combined chart error:', e);
+}
+// === End Styled Report Section ===
+
+
         // Prepare table data using your deadline functions
         const tableData = filteredComplaints.map(c => {
           let deadlineText = "N/A";
-          if (c.status === "Pending" || c.status === "Received") {
-            deadlineText = calculatePendingDeadline(c);
-          } else if (c.status !== "Invalid" && c.action_datetime) {
-            deadlineText = formatDeadline(c);
+          // Use only explicit deadlines; avoid automatic fallbacks
+          const explicitDeadline = explicitDeadlineForPdf(c);
+          if (explicitDeadline) {
+            const d = explicitDeadline;
+            const dateStr = formatDateOnly(d);
+            // Compute due annotation
+            const msPerDay = 24*60*60*1000;
+            const daysDiff = Math.ceil((d.getTime() - new Date().getTime()) / msPerDay);
+            let dueAnnot = '';
+            if (daysDiff < 0) {
+              dueAnnot = `(Overdue by ${Math.abs(daysDiff)} day/s)`;
+            } else if (daysDiff === 0) {
+              dueAnnot = `(Due today)`;
+            } else {
+              dueAnnot = `(${daysDiff} day/s left)`;
+            }
+            // Date on first line, due annotation on second line
+            deadlineText = `${dateStr}\n${dueAnnot}`;
+          }
+
+          // If explicit deadline exists, only annotate deadline text with (Due today)
+          const now = new Date();
+          const deadlineDate = explicitDeadline;
+          // no additional annotation here; already included above
+
+          const statusDisplay = computeStatusForPdf(c);
+
+          deadlineText = sanitizeForPdf(deadlineText);
+
+          // Date Submitted: date on first line, time on second line
+          let dateSubmittedCell = "N/A";
+          if (c.date_received) {
+            const dr = new Date(c.date_received);
+            const ds = formatDateOnly(dr);
+            const ts = formatTimeOnly(dr);
+            dateSubmittedCell = `${ds}\n${ts}`;
           }
 
           return [
-            c.date_received || "N/A",
+            String(c.complaint_id || "N/A"),
+            dateSubmittedCell,
             c.complainant_name || c.complainant || "N/A",
             c.type_of_complaint || "N/A",
             c.area_name || "N/A",
             c.assigned_to || "N/A",
-            c.status || "N/A",
+            statusDisplay || "N/A",
             deadlineText,
             c.latest_action || c.action_needed || "N/A",
             c.priority_level || "Minor"
           ];
         });
 
+        // Start detailed complaint table after the summary/stats/chart/overdue sections
+        let startY = currentY || 28;
         // Generate PDF Table
         doc.autoTable({
           head: [[
+            "ID",
             "Date Submitted",
             "Complainant",
             "Type of Complaint",
@@ -738,7 +1050,7 @@
             "Priority Level"
           ]],
           body: tableData,
-          startY: 28,
+          startY,
           theme: "grid",
           headStyles: {
             fillColor: [26, 51, 160],

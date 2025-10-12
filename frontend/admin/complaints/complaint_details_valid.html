@@ -58,6 +58,10 @@
     .unresolved-btn:hover {
       background: #e0a800 !important;
     }
+
+    .resolved-btn:hover{
+      background-color: #007bff;
+    }
     
     .button-container .resolved-btn {
       margin-top: 0 !important;
@@ -113,7 +117,7 @@
       background: linear-gradient(135deg, #f39c12, #e74c3c);
       color: white;
       padding: 15px;
-      margin-bottom: 20px;
+      margin-bottom: 5px;
       border-radius: 8px;
       text-align: center;
       font-weight: bold;
@@ -160,9 +164,9 @@
     </header>
 
     <div class="complaint-layout" style="margin-top: 30px;">
-      <!-- Complaint Form Placeholder -->
-      <!-- TODO BACKEND: Populate complaint-form div with complaint details from DB -->
-      <div class="complaint-form">Complaint form data will load here...</div>
+      <!-- Complaint Form (will be populated dynamically) -->
+      <div class="complaint-form" id="complaintFormContainer">Loading complaint form...</div>
+
 
       <!-- Right Panel -->
       <div class="right-panel">
@@ -178,17 +182,17 @@
         </div>
         <button class="action-btn" onclick="openComplaint()">Action</button>
 
-        <!-- TODO BACKEND: Replace static timeline entries with timeline data from DB -->
          <!-- Dynamic Timeline Component -->
         <div class="timeline" id="complaintTimeline">
           <div class="timeline-loading" id="timelineLoading" style="text-align: center; padding: 20px; color: #666;">
             Loading timeline...
           </div>
         </div>
-        <div class="button-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
-          <button class="resolved-btn" onclick="showResolveModal()">Resolved</button>
-          <button class="unresolved-btn" onclick="showUnresolvedModal()">Unresolved</button>
+        <div class="button-container" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px;">
+          <button class="resolved-btn" onclick="showResolveModal()" style="flex: 1 1 45%;">Resolved</button>
+          <button class="unresolved-btn" onclick="showUnresolvedModal()" style="flex: 1 1 45%;">Unresolved</button>
         </div>
+
       </div>
     </div>
 
@@ -262,14 +266,14 @@
             <!-- Agenda -->
             <div class="form-group">
             <label>Agenda:<span style="color:red;">*</span></label>
-            <input type="text" name="agenda" placeholder="Agenda">
+            <input type="text" name="agenda" placeholder="Agenda" readonly class="readonly-input">
             </div>
             <!-- Advisors/Witnesses -->
             <div class="form-group">
               <label>Advisors / Witnesses:<span style="color:red;">*</span></label>
               <div id="witnessContainer">
                 <div class="witness-row">
-                  <input type="text" name="witness[]" placeholder="Enter name" required>
+                  <input type="text" name="witness[]" placeholder="Enter name" style="background-color: #ffffff;" required>
                 </div>
               </div>
             </div>
@@ -1198,6 +1202,43 @@
     window.addFileUpload = addFileUpload;
     window.saveAction = saveAction;
   })();
+
+  // Load and inject complaint form preview (admin view)
+  document.addEventListener('DOMContentLoaded', async function() {
+    const params = new URLSearchParams(window.location.search);
+    const complaintId = params.get('id');
+    const container = document.getElementById('complaintFormContainer');
+    if (!container) {
+      console.warn('[Preview] Container #complaintFormContainer not found');
+      return;
+    }
+    if (!complaintId) {
+      container.textContent = 'No complaint selected.';
+      console.warn('[Preview] Missing ?id= param in URL');
+      return;
+    }
+    try {
+      console.log(`[Preview] Fetching complaint form for ID ${complaintId} ...`);
+      const res = await fetch(`/admin/complaints/api/complaint_form_preview/${complaintId}`, { credentials: 'same-origin' });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.error(`[Preview] Failed to load form: HTTP ${res.status} ${res.statusText}`, text?.slice(0,500));
+        container.textContent = `Failed to load complaint form (HTTP ${res.status}).`;
+        return;
+      }
+      const html = await res.text();
+      if (!html || !html.trim()) {
+        console.warn('[Preview] Empty HTML received for form preview');
+        container.textContent = 'No form data available.';
+        return;
+      }
+      container.outerHTML = html; // Replace container with rendered form block
+      console.log('[Preview] Complaint form injected successfully');
+    } catch (e) {
+      if (container) container.textContent = 'Error loading complaint form.';
+      console.error('[Preview] Exception while loading complaint form preview:', e);
+    }
+  });
 
   // =====================================
   // DYNAMIC TIMELINE SYSTEM

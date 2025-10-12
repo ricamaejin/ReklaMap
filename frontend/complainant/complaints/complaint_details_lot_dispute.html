@@ -72,7 +72,7 @@
         </div>
 
       {% elif field.type == 'date' %}
-        <input type="date" value="{{ value }}" readonly>
+    <input type="date" value="{{ answers[field.name] }}" disabled title="{{ field.label }}" aria-label="{{ field.label }}" style="width: 20%;">
 
       {% endif %}
     </div>
