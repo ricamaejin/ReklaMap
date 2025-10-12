@@ -428,6 +428,27 @@ i {
   padding: 34px 48px;
   margin-top: 30px;
 }
+/* Added for complaint details templates accessibility / layout fixes */
+.wide-input {
+  width: 95%;
+  box-sizing: border-box;
+}
+
+.checkbox-indent {
+  margin-left: 1rem;
+}
+
+.list-item-input {
+  display: block;
+  margin-bottom: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.section-label-normal {
+  color: black;
+  font-weight: normal;
+}
 
 .page-title {
   text-align:center;
