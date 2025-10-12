@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, session
-from backend.database.models import Complaint, Registration, LotDispute
+from backend.database.models import Complaint, Registration, LotDispute, BoundaryDispute, Area, PathwayDispute, UnauthorizedOccupation
 from backend.database.db import db
 from sqlalchemy import text
 import json
@@ -35,6 +35,29 @@ def get_submitted_complaints():
             person_lot = None
             person_role = None
             description = c.description
+            # helper to extract a usable string from stored question value
+            def _first(val):
+                try:
+                    if val is None:
+                        return ""
+                    if isinstance(val, list):
+                        return val[0] if val else ""
+                    if isinstance(val, str):
+                        try:
+                            parsed = json.loads(val)
+                            if isinstance(parsed, list):
+                                return parsed[0] if parsed else ""
+                            if isinstance(parsed, str):
+                                return parsed
+                            return str(parsed)
+                        except Exception:
+                            return val
+                    return str(val)
+                except Exception:
+                    return ""
+
+            pathway_q1 = ""
+            pathway_q2 = ""
 
             # Prefer complaint.registration when available; fallback safe
             reg = getattr(c, "registration", None)
@@ -95,7 +118,7 @@ def get_submitted_complaints():
                             relationship_value = str(lotd.q8) if lotd.q8 else "N/A"
                     
                     # Format the role with proper relationship value
-                    person_role = f"Relationship: {relationship_value}" if relationship_value and relationship_value.strip() else "Relationship: N/A"
+                    person_role = relationship_value if relationship_value and relationship_value.strip() else "N/A"
                     description = lotd.q4 or description
                     
                     # Extract block from block_lot JSON (first number is the block)
@@ -134,6 +157,174 @@ def get_submitted_complaints():
                     person_block = reg.block_no
                 if not person_lot and reg:
                     person_lot = reg.lot_no
+            elif c.type_of_complaint == "Boundary Dispute":
+                # Populate opposing parties from BoundaryDispute.q12 (persons) and q13 (relationships)
+                try:
+                    bound = BoundaryDispute.query.filter_by(complaint_id=c.complaint_id).first()
+                except Exception:
+                    bound = None
+                opposing_parties = []
+                if bound and bound.q12:
+                    # parse q12 (could be JSON string or list)
+                    try:
+                        q12_data = bound.q12
+                        if isinstance(q12_data, str):
+                            try:
+                                q12_data = json.loads(q12_data)
+                            except Exception:
+                                # treat as comma separated names
+                                q12_data = [s.strip() for s in str(q12_data).split(',') if s.strip()]
+                        if not isinstance(q12_data, list):
+                            q12_data = [q12_data]
+                    except Exception:
+                        q12_data = []
+
+                    # parse q13 (relationships)
+                    q13_data = []
+                    if bound.q13:
+                        try:
+                            q13_data = bound.q13
+                            if isinstance(q13_data, str):
+                                try:
+                                    q13_data = json.loads(q13_data)
+                                except Exception:
+                                    q13_data = [s.strip() for s in str(q13_data).split(',') if s.strip()]
+                            if not isinstance(q13_data, list):
+                                q13_data = [q13_data]
+                        except Exception:
+                            q13_data = []
+
+                    # build opposing parties list
+                    for idx, entry in enumerate(q12_data):
+                        name = None
+                        block = None
+                        lot = None
+                        relationship = None
+                        # entry can be dict, list, or string
+                        if isinstance(entry, dict):
+                            # try various key names
+                            name = entry.get('name') or entry.get('Name') or entry.get('first_name') or None
+                            if not name:
+                                # maybe object has first/last
+                                fn = entry.get('first_name') or entry.get('first') or ''
+                                ln = entry.get('last_name') or entry.get('last') or ''
+                                if fn or ln:
+                                    name = (fn + ' ' + ln).strip()
+                            block = entry.get('block') or entry.get('blk') or entry.get('blk_num') or entry.get('Block')
+                            lot = entry.get('lot') or entry.get('lt') or entry.get('lot_num') or entry.get('Lot')
+                            relationship = entry.get('relationship') or entry.get('rel') or None
+                        elif isinstance(entry, list):
+                            # common shape: [name, relationship, block, lot] or [name, block, lot]
+                            if len(entry) >= 1:
+                                name = entry[0]
+                            if len(entry) >= 2:
+                                # ambiguous; if numeric maybe block
+                                if isinstance(entry[1], str) and not entry[1].isdigit():
+                                    relationship = entry[1]
+                                else:
+                                    block = entry[1]
+                            if len(entry) >= 3:
+                                lot = entry[2]
+                        else:
+                            name = str(entry)
+
+                        # fallback to q13_data if relationship not present
+                        if not relationship and idx < len(q13_data):
+                            relationship = q13_data[idx]
+
+                        # normalize
+                        if name:
+                            opposing_parties.append({
+                                'name': name,
+                                'relationship': relationship or '',
+                                'block': block,
+                                'lot': lot
+                            })
+                # attach opposing_parties to this complaint's person structure
+                if opposing_parties:
+                    # prefer setting person_name to first opposing party's name for older UI compatibility
+                    person_name = opposing_parties[0].get('name') or person_name
+                else:
+                    opposing_parties = []
+            elif c.type_of_complaint == "Unauthorized Occupation" or (c.type_of_complaint and 'unauthorized' in c.type_of_complaint.lower()):
+                # Parse involved persons from UnauthorizedOccupation.q2 (could be list, json string, etc.)
+                try:
+                    un = UnauthorizedOccupation.query.filter_by(complaint_id=c.complaint_id).first()
+                except Exception:
+                    un = None
+                opposing_parties = []
+                if un and getattr(un, 'q2', None):
+                    try:
+                        q2_data = un.q2
+                        if isinstance(q2_data, str):
+                            try:
+                                q2_data = json.loads(q2_data)
+                            except Exception:
+                                q2_data = [s.strip() for s in str(q2_data).split(',') if s.strip()]
+                        if not isinstance(q2_data, list):
+                            q2_data = [q2_data]
+                    except Exception:
+                        q2_data = []
+
+                    for entry in q2_data:
+                        name = None
+                        # entry can be dict or string
+                        if isinstance(entry, dict):
+                            name = entry.get('name') or entry.get('full_name') or entry.get('person') or None
+                        else:
+                            name = str(entry)
+                        if name:
+                            opposing_parties.append({'name': name, 'relationship': '', 'block': None, 'lot': None})
+                # set default person_name to first opposing if missing
+                if opposing_parties and not person_name:
+                    person_name = opposing_parties[0].get('name')
+            # Ensure complainant block/lot fall back to registration values when missing
+            if reg:
+                try:
+                    if not person_block:
+                        person_block = getattr(reg, 'block_no', None)
+                except Exception:
+                    person_block = None
+                try:
+                    if not person_lot:
+                        person_lot = getattr(reg, 'lot_no', None)
+                except Exception:
+                    person_lot = None
+            # PathwayDispute parsing should be independent of reg presence
+            if c.type_of_complaint == "Pathway Dispute" or (c.type_of_complaint and 'pathway' in c.type_of_complaint.lower()):
+                # Pull q1 (pathway type) and q2 (encroachment) from PathwayDispute model
+                try:
+                    pd = PathwayDispute.query.filter_by(complaint_id=c.complaint_id).first()
+                except Exception:
+                    pd = None
+                if pd:
+                    pathway_q1 = _first(getattr(pd, 'q1', None))
+                    pathway_q2 = _first(getattr(pd, 'q2', None))
+                # expose on top-level for frontend convenience
+                # We'll attach these after building complainant/person
+
+            # Compute complainant display values from registration
+            complainant_name = ""
+            complainant_type = "Non-HOA Member"
+            hoa_or_area = ""
+            if reg:
+                complainant_name = f"{reg.first_name} {reg.last_name}"
+                cat = (reg.category or "").lower()
+                if cat == "hoa_member":
+                    complainant_type = "HOA Member"
+                elif "family" in cat:
+                    complainant_type = "Family of Beneficiary"
+                else:
+                    complainant_type = "Non-HOA Member"
+
+                # Try to resolve HOA/area name (reg.hoa may be an id or a string)
+                if reg.hoa:
+                    try:
+                        aid = int(reg.hoa)
+                        area = Area.query.get(aid)
+                        hoa_or_area = area.area_name if area else str(reg.hoa)
+                    except Exception:
+                        hoa_or_area = str(reg.hoa)
             else:
                 person_role = "Complainant"
 
@@ -170,22 +361,35 @@ def get_submitted_complaints():
             except Exception:
                 complaint_stage = None
 
+            # created time parts for frontend display
+            created_date = c.date_received.strftime("%B %d, %Y") if c.date_received else ""
+            created_time = c.date_received.strftime("%H:%M") if c.date_received else ""
+
             result.append({
                 "complaint_id": c.complaint_id,
                 "type": c.type_of_complaint,
                 "status": c.status,
-                "created_at": c.date_received.strftime("%B %d, %Y") if c.date_received else "",
+                "created_at": created_date,
+                "created_time": created_time,
                 "created_at_ts": int(c.date_received.timestamp() * 1000) if c.date_received else 0,
                 "description": description,
                 "latest_action": latest_action,
                 "action_datetime": latest_action_time,
                 "complaint_stage": complaint_stage,
+                "complainant": {
+                    "name": complainant_name,
+                    "type": complainant_type,
+                    "hoa": hoa_or_area,
+                    "block": person_block,
+                    "lot": person_lot
+                },
                 "person": {
                     "name": person_name,
-                    "block": person_block,
-                    "lot": person_lot,
                     "role": person_role or ""
-                }
+                },
+                "opposing_parties": opposing_parties if 'opposing_parties' in locals() else [],
+                "q1": pathway_q1 if 'pathway_q1' in locals() else "",
+                "q2": pathway_q2 if 'pathway_q2' in locals() else ""
             })
 
         return jsonify({"success": True, "complaints": result})
@@ -313,8 +517,152 @@ def get_complaint_details(complaint_id):
                 person_block = reg.block_no
             if not person_lot and reg:
                 person_lot = reg.lot_no
+        elif complaint.type_of_complaint == "Boundary Dispute":
+            try:
+                bound = BoundaryDispute.query.filter_by(complaint_id=complaint.complaint_id).first()
+            except Exception:
+                bound = None
+            opposing_parties = []
+            if bound and bound.q12:
+                try:
+                    q12_data = bound.q12
+                    if isinstance(q12_data, str):
+                        try:
+                            q12_data = json.loads(q12_data)
+                        except Exception:
+                            q12_data = [s.strip() for s in str(q12_data).split(',') if s.strip()]
+                    if not isinstance(q12_data, list):
+                        q12_data = [q12_data]
+                except Exception:
+                    q12_data = []
+
+                q13_data = []
+                if bound.q13:
+                    try:
+                        q13_data = bound.q13
+                        if isinstance(q13_data, str):
+                            try:
+                                q13_data = json.loads(q13_data)
+                            except Exception:
+                                q13_data = [s.strip() for s in str(q13_data).split(',') if s.strip()]
+                        if not isinstance(q13_data, list):
+                            q13_data = [q13_data]
+                    except Exception:
+                        q13_data = []
+
+                for idx, entry in enumerate(q12_data):
+                    name = None
+                    block = None
+                    lot = None
+                    relationship = None
+                    if isinstance(entry, dict):
+                        name = entry.get('name') or entry.get('Name') or None
+                        block = entry.get('block') or entry.get('blk') or entry.get('blk_num')
+                        lot = entry.get('lot') or entry.get('lt') or entry.get('lot_num')
+                        relationship = entry.get('relationship') or entry.get('rel') or None
+                    elif isinstance(entry, list):
+                        if len(entry) >= 1:
+                            name = entry[0]
+                        if len(entry) >= 2:
+                            if isinstance(entry[1], str) and not entry[1].isdigit():
+                                relationship = entry[1]
+                            else:
+                                block = entry[1]
+                        if len(entry) >= 3:
+                            lot = entry[2]
+                    else:
+                        name = str(entry)
+
+                    if not relationship and idx < len(q13_data):
+                        relationship = q13_data[idx]
+
+                    if name:
+                        opposing_parties.append({
+                            'name': name,
+                            'relationship': relationship or '',
+                            'block': block,
+                            'lot': lot
+                        })
+            # set default person name to first opposing if missing
+            if opposing_parties and not person_name:
+                person_name = opposing_parties[0].get('name')
+        elif complaint.type_of_complaint == "Unauthorized Occupation" or (complaint.type_of_complaint and 'unauthorized' in complaint.type_of_complaint.lower()):
+            try:
+                un = UnauthorizedOccupation.query.filter_by(complaint_id=complaint.complaint_id).first()
+            except Exception:
+                un = None
+            opposing_parties = []
+            if un and getattr(un, 'q2', None):
+                try:
+                    q2_data = un.q2
+                    if isinstance(q2_data, str):
+                        try:
+                            q2_data = json.loads(q2_data)
+                        except Exception:
+                            q2_data = [s.strip() for s in str(q2_data).split(',') if s.strip()]
+                    if not isinstance(q2_data, list):
+                        q2_data = [q2_data]
+                except Exception:
+                    q2_data = []
+
+                for entry in q2_data:
+                    name = None
+                    if isinstance(entry, dict):
+                        name = entry.get('name') or entry.get('full_name') or entry.get('person') or None
+                    else:
+                        name = str(entry)
+                    if name:
+                        opposing_parties.append({'name': name, 'relationship': '', 'block': None, 'lot': None})
+            if opposing_parties and not person_name:
+                person_name = opposing_parties[0].get('name')
         else:
             person_role = "Complainant"
+
+        # Ensure complainant block/lot fall back to registration values when missing (details endpoint)
+        try:
+            if reg:
+                if not person_block:
+                    person_block = getattr(reg, 'block_no', None)
+        except Exception:
+            person_block = person_block
+        try:
+            if reg:
+                if not person_lot:
+                    person_lot = getattr(reg, 'lot_no', None)
+        except Exception:
+            person_lot = person_lot
+
+        # Pathway Dispute: pull q1/q2 for details view
+        pathway_q1 = ""
+        pathway_q2 = ""
+        def _first_local(val):
+            try:
+                if val is None:
+                    return ""
+                if isinstance(val, list):
+                    return val[0] if val else ""
+                if isinstance(val, str):
+                    try:
+                        parsed = json.loads(val)
+                        if isinstance(parsed, list):
+                            return parsed[0] if parsed else ""
+                        if isinstance(parsed, str):
+                            return parsed
+                        return str(parsed)
+                    except Exception:
+                        return val
+                return str(val)
+            except Exception:
+                return ""
+
+        if complaint.type_of_complaint == "Pathway Dispute" or (complaint.type_of_complaint and 'pathway' in complaint.type_of_complaint.lower()):
+            try:
+                pd = PathwayDispute.query.filter_by(complaint_id=complaint.complaint_id).first()
+            except Exception:
+                pd = None
+            if pd:
+                pathway_q1 = _first_local(getattr(pd, 'q1', None))
+                pathway_q2 = _first_local(getattr(pd, 'q2', None))
 
         # Fetch latest action and complaint_stage
         latest_action = None
@@ -347,24 +695,47 @@ def get_complaint_details(complaint_id):
         except Exception:
             pass
 
+        created_date = complaint.date_received.strftime("%B %d, %Y") if complaint.date_received else ""
+        created_time = complaint.date_received.strftime("%H:%M") if complaint.date_received else ""
+
         result = {
             "complaint_id": complaint.complaint_id,
             "type": complaint.type_of_complaint,
             "status": complaint.status,
-            "created_at": complaint.date_received.strftime("%B %d, %Y") if complaint.date_received else "",
+            "created_at": created_date,
+            "created_time": created_time,
             "created_at_ts": int(complaint.date_received.timestamp() * 1000) if complaint.date_received else 0,
             "description": description,
             "latest_action": latest_action,
             "action_datetime": latest_action_time,
             "complaint_stage": complaint_stage,
             "signature": signature,
+            "complainant": {
+                "name": (reg.first_name + ' ' + reg.last_name) if reg else "",
+                "type": ("HOA Member" if (reg and (reg.category or '').lower()=='hoa_member') else ("Family of Beneficiary" if (reg and 'family' in (reg.category or '').lower()) else "Non-HOA Member")),
+                "hoa": (Area.query.get(int(reg.hoa)).area_name if reg and reg.hoa and str(reg.hoa).isdigit() and Area.query.get(int(reg.hoa)) else (reg.hoa if reg and reg.hoa else "")),
+                "block": person_block,
+                "lot": person_lot
+            },
             "person": {
                 "name": person_name,
-                "block": person_block,
-                "lot": person_lot,
                 "role": person_role or ""
             }
         }
+        # Attach pathway answers for details response
+        if pathway_q1:
+            result['q1'] = pathway_q1
+        if pathway_q2:
+            result['q2'] = pathway_q2
+        # include opposing_parties when available (boundary dispute or unauthorized occupation)
+        if 'opposing_parties' in locals():
+            result['opposing_parties'] = opposing_parties
+        # expose q2 for unauthorized occupation details (involved persons)
+        try:
+            if complaint.type_of_complaint and 'unauthorized' in complaint.type_of_complaint.lower() and un and getattr(un, 'q2', None):
+                result['q2'] = un.q2
+        except Exception:
+            pass
 
         return jsonify({"success": True, "complaint": result})
     except Exception as e:

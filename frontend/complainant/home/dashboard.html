@@ -6,6 +6,7 @@
     <link rel="icon" type="image/png" href="/images/logo.png">
     <title>ReklaMap</title>
     <link rel="stylesheet" href="/css/complainants.css">
+    <link rel="stylesheet" href="/css/modal_shared.css">
 </head>
 <body>
     <!-- Sidebar -->
@@ -103,6 +104,25 @@
             <div class="modal-footer" style="flex-shrink: 0; margin-top: 10px;">
                 <button class="btn-cancel" onclick="closeComplaint()">Cancel</button>
                 <button class="btn-save" onclick="goToRegistration()">Select</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation modal for dashboard complaint items -->
+    <div id="dashboard-confirm-modal" class="rk-modal-backdrop" aria-hidden="true">
+        <div role="dialog" aria-modal="true" aria-labelledby="dashboard-confirm-title" class="rk-modal">
+            <div class="rk-modal-header">
+                <div class="rk-modal-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#1a33a0" opacity="0.12"/><path d="M11 16h2v-2h-2v2zm0-8h2v6h-2V8z" fill="#1a33a0"/></svg>
+                </div>
+                <p class="rk-modal-title">Open complaint</p>
+            </div>
+            <div>
+                <p class="rk-modal-body">Do you want to open this complaint? You will be taken to the complaint preview page.</p>
+            </div>
+            <div class="rk-modal-actions">
+                <button id="dashboard-confirm-cancel" class="rk-btn-ghost">Cancel</button>
+                <button id="dashboard-confirm-open" class="rk-btn-primary">Open</button>
             </div>
         </div>
     </div>
@@ -544,15 +564,15 @@
                         </div>
                     `;
 
-                    // Click and keyboard access navigate to the complaint preview page
+                    // Click and keyboard access show confirmation modal before navigation
                     const targetUrl = `/complainant/complaint/${latest.complaint_id}`;
                     statusItem.addEventListener("click", () => {
-                        window.location.href = targetUrl;
+                        showDashboardConfirm(targetUrl);
                     });
                     statusItem.addEventListener("keydown", (e) => {
                         if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            window.location.href = targetUrl;
+                            showDashboardConfirm(targetUrl);
                         }
                     });
 
@@ -689,4 +709,57 @@
     </script>
 
 </body>
+</html>
+<script>
+    (function(){
+        const modal = document.getElementById('dashboard-confirm-modal');
+        const btnCancel = document.getElementById('dashboard-confirm-cancel');
+        const btnOpen = document.getElementById('dashboard-confirm-open');
+        let pendingTarget = null;
+
+        function showDashboardConfirm(url) {
+            pendingTarget = url;
+            if (!modal) return;
+            modal.style.display = 'flex';
+            modal.setAttribute('aria-hidden','false');
+            // focus the cancel button for accessibility
+            setTimeout(()=> btnCancel && btnCancel.focus(), 50);
+        }
+
+        function hideDashboardConfirm() {
+            if (!modal) return;
+            modal.style.display = 'none';
+            modal.setAttribute('aria-hidden','true');
+            pendingTarget = null;
+        }
+
+        if (btnCancel) btnCancel.addEventListener('click', hideDashboardConfirm);
+        if (btnOpen) btnOpen.addEventListener('click', () => {
+            if (pendingTarget) {
+                window.location.href = pendingTarget;
+            }
+        });
+
+        // Close when clicking outside the dialog
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) hideDashboardConfirm();
+            });
+        }
+
+        // Keyboard: Esc to cancel, Enter to open
+        document.addEventListener('keydown', (e) => {
+            if (!modal || modal.style.display === 'none') return;
+            if (e.key === 'Escape') {
+                hideDashboardConfirm();
+            } else if (e.key === 'Enter') {
+                if (pendingTarget) window.location.href = pendingTarget;
+            }
+        });
+
+        // Expose for other scripts
+        window.showDashboardConfirm = showDashboardConfirm;
+        window.hideDashboardConfirm = hideDashboardConfirm;
+    })();
+</script>
 </html>

@@ -61,8 +61,18 @@
       <div id="nonMemberBlockLotSection" style="display:none;">
   <p style="font-weight:bold;">What is the specific block and lot involved in the lot dispute?</p>
         <div class="pairs" id="pairsContainer" aria-live="polite">
-          <!-- rows will be added here -->
+          <div class="pair-row">
+            <div class="col">
+              <label class="small">Block No.</label>
+              <input type="text" name="block_no[]" placeholder="Block No.">
+            </div>
+            <div class="col">
+              <label class="small">Lot No.</label>
+              <input type="text" name="lot_no[]" placeholder="Lot No.">
+            </div>
+          </div>
         </div>
+        <!-- Single static Block/Lot input row for non-members (no add/remove) -->
       </div>
       <p style="font-weight: bold;">1. How did you come into possession of the lot?</p>
       <label><input type="radio" name="possession" value="Official assignment by NGCHDP/NHA"> I was officially assigned the lot by NGCHDP/NHA</label>
@@ -170,6 +180,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const container = document.getElementById('complainantDetails');
   if(!container) return;
+// Static single Block/Lot input row only — dynamic add/remove removed as requested.
 
   // --- Helper Functions ---
   function row1(label, value, type='text') {
@@ -347,6 +358,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     container.innerHTML='';
     container.appendChild(pairs);
     if(memberWrapper) container.appendChild(memberWrapper);
+    // If the session indicates a non-member, unhide the non-member Block/Lot section
+    try {
+      if (cat === 'non_member') {
+        const nm = document.getElementById('nonMemberBlockLotSection');
+        if (nm) nm.style.display = '';
+      }
+    } catch (e) {
+      console.warn('Could not show non-member block/lot section:', e);
+    }
 
   }catch(e){
     console.warn('Failed to populate boundary dispute header:', e);
