@@ -161,21 +161,21 @@
                     {% endfor %}
 
                 {% elif field.type == 'date' %}
-                    <input type="date" value="{{ selected or '' }}" readonly style="width:50%; padding:8px; margin-left:15px; margin-bottom:12px; border:1px solid #ccc; border-radius:4px;">
+                    <input type="date" value="{{ selected or '' }}" readonly style="width:20%; padding:8px; margin-left:15px; margin-bottom:12px; border:1px solid #ccc; border-radius:4px;">
 
                 {% elif field.type == 'multiple_text' %}
                     <div style="margin-bottom:12px;">
                         {% if selected %}
                             {% for val in selected %}
-                                <input type="text" value="{{ val }}" readonly style="display:block; width:50%; margin:6px 0 6px 15px; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                                <input type="text" value="{{ val }}" readonly style="display:block; width: 95%; margin:6px 0 6px 15px; padding:8px; border:1px solid #ccc; border-radius:4px;">
                             {% endfor %}
                         {% else %}
-                            <input type="text" value="" readonly style="display:block; width:50%; margin:6px 0 6px 15px; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                            <input type="text" value="" readonly style="display:block; width: 95%; margin:6px 0 6px 15px; padding:8px; border:1px solid #ccc; border-radius:4px;">
                         {% endif %}
                     </div>
 
                 {% elif field.type == 'textarea' %}
-                    <textarea readonly style="width:100%; max-width:625px; min-height:80px; margin:8px 0; padding:8px; border:1px solid #ccc; border-radius:4px;">{{ selected or '' }}</textarea>
+                    <textarea readonly style="width:95%; margin-left: 15px !important; min-height:80px; margin:8px 0; padding:8px; border:1px solid #ccc; border-radius:4px;">{{ selected or '' }}</textarea>
 
                 {% endif %}
             </div>

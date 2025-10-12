@@ -35,7 +35,7 @@
     </header>
 
     <div class="complaint-layout" style="margin-top: 30px;">
-      <div class="complaint-form">Complaint form data will load here...</div>
+      <div class="complaint-form" id="complaintFormContainer">Loading complaint form...</div>
 
       <!-- Right Panel -->
       <div class="right-panel">
@@ -163,16 +163,16 @@
 
   // Staff (Inspector): Load complaint form preview
   document.addEventListener('DOMContentLoaded', async function () {
-    const params = new URLSearchParams(window.location.search);
-    const complaintId = params.get('id');
+    // Try to resolve complaint id from multiple possible sources
+    const complaintId = getComplaintIdFromURL();
     const container = document.getElementById('complaintFormContainer');
     if (!container) {
       console.warn('[Staff Inspector Preview] Container #complaintFormContainer not found');
       return;
     }
     if (!complaintId) {
-      container.textContent = 'No complaint selected.';
-      console.warn('[Staff Inspector Preview] Missing ?id= param in URL');
+      container.textContent = 'No complaint selected. (missing complaint id)';
+      console.warn('[Staff Inspector Preview] Missing complaint id in URL or path');
       return;
     }
     try {
@@ -564,12 +564,27 @@ async function resolveTask() {
   }
 }
 
+// Robust complaint id resolver used by preview and other scripts
 function getComplaintIdFromURL() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const id = urlParams.get('id');
-  console.log('URL parameters:', window.location.search);
-  console.log('Extracted complaint ID:', id);
-  return id || null;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const candidates = ['id', 'complaint_id', 'complaintId', 'cid', 'complaint'];
+    for (const key of candidates) {
+      const val = params.get(key);
+      if (val) return val;
+    }
+
+    // Fallback: try to extract a numeric id from the pathname
+    const pathMatch = window.location.pathname.match(/\/(?:complaints|complaint)\/(?:[a-zA-Z_-]+\/)?(\d+)/);
+    if (pathMatch && pathMatch[1]) return pathMatch[1];
+
+    console.log('URL parameters:', window.location.search);
+    console.log('No complaint id found in query params or path');
+    return null;
+  } catch (e) {
+    console.error('Error resolving complaint id from URL:', e);
+    return null;
+  }
 }
 
 // Back button functionality
