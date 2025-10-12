@@ -1752,6 +1752,11 @@ def api_add_action():
         # if account_type == 2 and action_type not in ["Inspection", "Invitation"]:
         #     return jsonify({'error': 'Staff can only add Inspection or Invitation'}), 403
 
+        # If frontend provided a nested `details` object, prefer it. Otherwise fall back to flattened keys.
+        incoming_details = None
+        if isinstance(data.get('details'), dict):
+            incoming_details = data.get('details')
+
         # #build details JSON depending on action type - preserve frontend detail building
         details = {}
         if action_type == "Mediation":
@@ -1777,13 +1782,23 @@ def api_add_action():
                 "scope": data.get("scope", []),  
             }
         elif action_type == "Invitation":
-            details = {
-                "to": data.get("to"),
-                "meeting_date": data.get("meeting_date"),
-                "meeting_time": data.get("meeting_time"),
-                "location": data.get("location"),
-                "agenda": data.get("agenda")
-            }
+            # If frontend passed nested details, use it. Otherwise use flattened keys.
+            if incoming_details is not None:
+                details = {
+                    "to": incoming_details.get("to"),
+                    "meeting_date": incoming_details.get("meeting_date"),
+                    "meeting_time": incoming_details.get("meeting_time"),
+                    "location": incoming_details.get("location"),
+                    "agenda": incoming_details.get("agenda")
+                }
+            else:
+                details = {
+                    "to": data.get("to"),
+                    "meeting_date": data.get("meeting_date"),
+                    "meeting_time": data.get("meeting_time"),
+                    "location": data.get("location"),
+                    "agenda": data.get("agenda")
+                }
         elif action_type == "Out of Jurisdiction":
             details = {
                 "jurisdiction": data.get("details", {}).get("jurisdiction", ""),
@@ -1809,8 +1824,15 @@ def api_add_action():
         details['deadline'] = deadline
         
         # Also preserve any additional fields from frontend that weren't captured above
+        # Do NOT copy the top-level 'details' key back into details (would create nested duplication)
+        excluded = {'complaint_id', 'action_type', 'assigned_to', 'action_datetime', 'description', 'details'}
         for key, value in data.items():
-            if key not in {'complaint_id', 'action_type', 'assigned_to', 'action_datetime', 'description'} and key not in details:
+            if key in excluded:
+                continue
+            # don't overwrite existing meaningful detail keys with None/empty from flattened payload
+            if key in details and details.get(key) is not None:
+                continue
+            if key not in details:
                 details[key] = value
         
         details_json = json.dumps(details)
@@ -1923,41 +1945,73 @@ def api_action_autofill(complaint_id):
         if not value:
             return ""
         try:
-            # Clean surrounding quotes and escaped characters
             s = str(value).strip()
             if s.startswith('"') and s.endswith('"'):
                 s = s[1:-1]
             s = s.replace('\\"', '"').replace("\\'", "'")
-
             parsed = json.loads(s)
+            # If it's a list, prefer extracting 'name' from dict items, otherwise use string items
             if isinstance(parsed, list):
-                return ", ".join(str(v).strip() for v in parsed if v)
+                names = []
+                for item in parsed:
+                    if isinstance(item, dict):
+                        # Prefer explicit 'name' key
+                        if item.get('name'):
+                            names.append(str(item.get('name')).strip())
+                        else:
+                            # Try common name-like keys if present
+                            possible = []
+                            for k in ('full_name', 'fullname', 'first_name', 'first', 'last_name', 'last'):
+                                if item.get(k):
+                                    possible.append(str(item.get(k)).strip())
+                            if possible:
+                                names.append(' '.join(possible))
+                    elif isinstance(item, str):
+                        if item.strip():
+                            names.append(item.strip())
+                return ", ".join(names)
             elif isinstance(parsed, dict):
-                return ", ".join(str(v).strip() for v in parsed.values() if v)
+                # Prefer 'name' key in dicts
+                if parsed.get('name'):
+                    return str(parsed.get('name')).strip()
+                # Otherwise join likely name-like fields
+                possible = []
+                for k in ('full_name', 'fullname', 'first_name', 'first', 'last_name', 'last'):
+                    if parsed.get(k):
+                        possible.append(str(parsed.get(k)).strip())
+                if possible:
+                    return ' '.join(possible)
+                # Fallback: join all string values (less ideal, but better than raw dict)
+                return ", ".join(str(v).strip() for v in parsed.values() if isinstance(v, (str, int, float)) and str(v).strip())
             elif isinstance(parsed, str):
                 return parsed.strip()
             return str(parsed)
         except Exception:
-            # If not valid JSON, just return cleaned string
-            return str(value).replace("[", "").replace("]", "").replace('"', "").strip()
+            # Final fallback: remove brackets/quotes and attempt to extract quoted substrings
+            try:
+                cleaned = str(value).replace('[', '').replace(']', '').replace('"', '').strip()
+                # If there are multiple quoted names separated by commas, return them cleaned
+                return cleaned
+            except Exception:
+                return str(value).strip()
 
     try:
-        # Get complaint info
+        # --- Base complaint info
         complaint = db.session.execute(
             text("""
-            SELECT c.complaint_id,
-                   c.type_of_complaint,
-                   r.first_name,
-                   r.middle_name,
-                   r.last_name,
-                   r.suffix,
-                   r.lot_no,
-                   r.block_no,
-                   a.area_name
-            FROM complaints c
-            LEFT JOIN registration r ON c.registration_id = r.registration_id
-            LEFT JOIN areas a ON c.area_id = a.area_id
-            WHERE c.complaint_id = :id
+                SELECT c.complaint_id,
+                       c.type_of_complaint,
+                       r.first_name,
+                       r.middle_name,
+                       r.last_name,
+                       r.suffix,
+                       r.lot_no,
+                       r.block_no,
+                       a.area_name
+                FROM complaints c
+                LEFT JOIN registration r ON c.registration_id = r.registration_id
+                LEFT JOIN areas a ON c.area_id = a.area_id
+                WHERE c.complaint_id = :id
             """),
             {"id": complaint_id}
         ).fetchone()
@@ -1965,73 +2019,57 @@ def api_action_autofill(complaint_id):
         if not complaint:
             return jsonify({"error": "Complaint not found"}), 404
 
-        complaint_type = complaint.type_of_complaint.lower().replace(" ", "_")
+        complaint_type = (complaint.type_of_complaint or "").lower().replace(" ", "_")
+        complainant_name = f"{complaint.first_name} {complaint.middle_name or ''} {complaint.last_name} {complaint.suffix or ''}".strip()
+
         autofill_data = {
             "agenda": complaint.type_of_complaint,
-            "location": "2nd FLR. USAD-PHASELAD OFFICE, BAYANIHAN BUILDING BARANGAY MAIN"
+            "location": "2nd FLR. USAD-PHASELAD OFFICE, BAYANIHAN BUILDING BARANGAY MAIN",
+            "to": complainant_name
         }
 
-        # Default complainant name
-        complainant_name = f"{complaint.first_name} {complaint.middle_name or ''} {complaint.last_name} {complaint.suffix or ''}".strip()
-        autofill_data["to"] = complainant_name
-
-        # === OVERLAPPING ===
-        if complaint_type == "overlapping":
-            overlapping = db.session.execute(
-                text("SELECT q1, q8 FROM overlapping WHERE complaint_id=:id"),
-                {"id": complaint_id}
-            ).fetchone()
-
-            if overlapping:
-                other_party = safe_parse_name_field(getattr(overlapping, "q8", ""))
-                autofill_data["to"] = f"{complainant_name}{', ' + other_party if other_party else ''}"
-
-                parsed_q1 = None
-                try:
-                    raw = overlapping.q1
-                    if isinstance(raw, str):
-                        s = raw.strip()
-                        if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
-                            s = s[1:-1]
-                        parsed_q1 = json.loads(s)
-                    else:
-                        parsed_q1 = raw
-                except Exception:
-                    parsed_q1 = None
-
-                inspection_block = complaint.block_no
-                inspection_lot = complaint.lot_no
-                if parsed_q1:
-                    if isinstance(parsed_q1, list) and parsed_q1 and isinstance(parsed_q1[0], dict):
-                        inspection_block = parsed_q1[0].get("block", inspection_block)
-                        inspection_lot = parsed_q1[0].get("lot", inspection_lot)
-                    elif isinstance(parsed_q1, dict):
-                        inspection_block = parsed_q1.get("block", inspection_block)
-                        inspection_lot = parsed_q1.get("lot", inspection_lot)
-
-                inspection_hoa = complaint.area_name or ""
-                inspection_pretty = ", ".join(
-                    part for part in [inspection_hoa, f"Block {inspection_block}" if inspection_block else "", f"Lot {inspection_lot}" if inspection_lot else ""] if part
-                ) or "Barangay Main Office"
-
-                autofill_data.update({
-                    "inspection_location_raw": overlapping.q1,
-                    "inspection_location_pretty": inspection_pretty,
-                    "inspection_assigned_personnel": "Alberto Nonato Jr.",
-                    "block_no": complaint.block_no,
-                    "lot_no": complaint.lot_no
-                })
-
         # === LOT DISPUTE ===
-        elif complaint_type == "lot_dispute":
+        if complaint_type == "lot_dispute":
             lot_dispute = db.session.execute(
                 text("SELECT q7 FROM lot_dispute WHERE complaint_id=:id"),
                 {"id": complaint_id}
             ).fetchone()
-
             if lot_dispute:
                 other_party = safe_parse_name_field(getattr(lot_dispute, "q7", ""))
                 autofill_data["to"] = f"{complainant_name}{', ' + other_party if other_party else ''}"
+                autofill_data["inspection_assigned_personnel"] = "Alberto Nonato Jr."
+
+        # === BOUNDARY DISPUTE ===
+        elif complaint_type == "boundary_dispute":
+            boundary = db.session.execute(
+                text("SELECT q12 FROM boundary_dispute WHERE complaint_id=:id"),
+                {"id": complaint_id}
+            ).fetchone()
+            if boundary and getattr(boundary, "q12", None):
+                raw = getattr(boundary, "q12")
+                try:
+                    # Try to parse as JSON if it's a string, otherwise treat as already-parsed
+                    q12_list = json.loads(raw) if isinstance(raw, str) else raw
+                    if isinstance(q12_list, list):
+                        # Accept list items that are dicts with a 'name' key or simple strings
+                        names = []
+                        for p in q12_list:
+                            if isinstance(p, dict) and p.get("name"):
+                                names.append(p.get("name"))
+                            elif isinstance(p, str) and p.strip():
+                                names.append(p.strip())
+                        other_parties = ", ".join(names)
+                        autofill_data["to"] = f"{complainant_name}{', ' + other_parties if other_parties else ''}"
+                    else:
+                        # Fallback: try to clean/parse non-JSON strings
+                        other_party = safe_parse_name_field(raw)
+                        if other_party:
+                            autofill_data["to"] = f"{complainant_name}{', ' + other_party if other_party else ''}"
+                except Exception:
+                    # Final fallback to tolerant parser for odd formats
+                    other_party = safe_parse_name_field(raw)
+                    if other_party:
+                        autofill_data["to"] = f"{complainant_name}{', ' + other_party if other_party else ''}"
                 autofill_data["inspection_assigned_personnel"] = "Alberto Nonato Jr."
 
         # === UNAUTHORIZED OCCUPATION ===
@@ -2040,13 +2078,20 @@ def api_action_autofill(complaint_id):
                 text("SELECT q2 FROM unauthorized_occupation WHERE complaint_id=:id"),
                 {"id": complaint_id}
             ).fetchone()
-
-            if unauthorized:
-                other_party = safe_parse_name_field(getattr(unauthorized, "q2", ""))
-                autofill_data["to"] = f"{complainant_name}{', ' + other_party if other_party else ''}"
+            if unauthorized and getattr(unauthorized, "q2", None):
+                raw = getattr(unauthorized, "q2")
+                try:
+                    q2_list = json.loads(raw) if isinstance(raw, str) else raw
+                    if isinstance(q2_list, list):
+                        names = [p.get("name") if isinstance(p, dict) else str(p) for p in q2_list if p]
+                        other_parties = ", ".join(names)
+                        autofill_data["to"] = f"{complainant_name}{', ' + other_parties if other_parties else ''}"
+                except Exception:
+                    other_party = safe_parse_name_field(raw)
+                    autofill_data["to"] = f"{complainant_name}{', ' + other_party if other_party else ''}"
                 autofill_data["inspection_assigned_personnel"] = "Alberto Nonato Jr."
 
-        # === GENERAL FALLBACK: LOCATION BUILDER ===
+        # === GENERAL FALLBACK: location prettifier ===
         if "inspection_location_pretty" not in autofill_data:
             location_parts = []
             if complaint.area_name:
@@ -2057,7 +2102,6 @@ def api_action_autofill(complaint_id):
                 location_parts.append(f"Lot {complaint.lot_no}")
             autofill_data["inspection_location_pretty"] = ", ".join(location_parts) or "Barangay Main Office"
 
-        # Ensure assigned personnel always defaults
         autofill_data.setdefault("inspection_assigned_personnel", "Alberto Nonato Jr.")
 
         return jsonify(autofill_data)
@@ -2067,7 +2111,7 @@ def api_action_autofill(complaint_id):
         return jsonify({"error": str(e)}), 500
 
 
-    
+
 def safe_parse_name_field(value):
     """
     Safely parse fields that may be JSON arrays or quoted strings, e.g.

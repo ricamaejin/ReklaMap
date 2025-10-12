@@ -11,7 +11,7 @@ _COMPLAINT_PATHS_REGISTERED = {
     "Lot Dispute": "/complainant/lot_dispute/new_lot_dispute_form",
     "Boundary Dispute": "/complainant/boundary_dispute/new_boundary_dispute_form",
     "Pathway Dispute": "/complainant/pathway_dispute/new_pathway_dispute_form",
-    "Unauthorized Occupation": "/complainant/complaints/unauthorized_occupation.html",
+    "Unauthorized Occupation": "/complainant/unauthorized_occupation/new_unauthorized_occupation_form",
 
 }
 
