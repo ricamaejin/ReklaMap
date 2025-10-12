@@ -92,7 +92,8 @@
 
       <div class="form-group">
         <label>Scope of Inspection:</label>
-        <input type="text" id="staffScope" value="Loading..." readonly />
+        <!-- Render non-editable checkboxes representing the scope -->
+        <div id="staffScopeContainer" style="padding:6px 0;"></div>
       </div>
 
       <hr>
@@ -172,6 +173,50 @@
     dateEl.innerHTML = `${dateStr}<br>${timeStr}`;
   }
 
+  // Render non-editable checked checkboxes for scope list
+  function humanizeScopeLabel(key) {
+    if (!key) return '';
+    // Replace underscores/hyphens and capitalize words
+    return key.replace(/[_-]/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+
+  function renderScopeList(container, scope) {
+    if (!container) return;
+    container.innerHTML = '';
+
+    const items = Array.isArray(scope) ? scope : (typeof scope === 'string' && scope.length ? [scope] : []);
+    if (!items || items.length === 0) {
+      const none = document.createElement('div');
+      none.textContent = 'No scope specified';
+      none.style.color = '#666';
+      container.appendChild(none);
+      return;
+    }
+
+    // Use the shared CSS classes to match other forms
+    const group = document.createElement('div');
+    group.className = 'checkbox-group-compact';
+
+    items.forEach(item => {
+      const labelText = humanizeScopeLabel(String(item));
+      const label = document.createElement('label');
+      label.className = 'checkbox-item-compact';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.name = 'scope[]';
+      checkbox.value = String(item);
+      checkbox.checked = true;
+      checkbox.disabled = true;
+
+      label.appendChild(checkbox);
+      label.appendChild(document.createTextNode(' ' + labelText));
+      group.appendChild(label);
+    });
+
+    container.appendChild(group);
+  }
+
   // Load inspection data from database using admin's autofill system
   async function loadInspectionData() {
     try {
@@ -212,7 +257,7 @@
       // Fill readonly fields with data from admin assignment
       const deadlineEl = document.getElementById('staffDeadline');
       const locationEl = document.getElementById('staffLocation');
-      const scopeEl = document.getElementById('staffScope');
+  const scopeContainer = document.getElementById('staffScopeContainer');
       const assignedToEl = document.getElementById('assignedTo');
 
       if (deadlineEl) {
@@ -223,16 +268,9 @@
         locationEl.value = (info && info.location) ? info.location : 'No location specified';
       }
 
-      if (scopeEl) {
-        // Convert scope array to readable text
+      if (scopeContainer) {
         const scopeVal = info && info.scope;
-        if (Array.isArray(scopeVal) && scopeVal.length > 0) {
-          scopeEl.value = scopeVal.join(', ');
-        } else if (typeof scopeVal === 'string' && scopeVal.length > 0) {
-          scopeEl.value = scopeVal;
-        } else {
-          scopeEl.value = 'No scope specified';
-        }
+        renderScopeList(scopeContainer, scopeVal);
       }
 
       // Update assigned inspector text if element exists
@@ -1010,8 +1048,8 @@ async function showTimelinePreview(historyId, actionType) {
       }
       
       if (details.scope) {
-        const scopeEl = document.getElementById('staffScope');
-        if (scopeEl) scopeEl.value = details.scope;
+        const scopeContainer = document.getElementById('staffScopeContainer');
+        if (scopeContainer) renderScopeList(scopeContainer, details.scope);
       }
       
       // Open the modal for editing
