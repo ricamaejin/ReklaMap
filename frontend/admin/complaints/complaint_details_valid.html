@@ -559,7 +559,7 @@
       <div class="modal" style="display:flex; flex-direction:column; max-height:80vh;">
         <div class="modal-top">
           <h2 id="previewModalTitle">Action Details</h2>
-          <span class="close" onclick="closeTimelinePreview()">&times;</span>
+          <span class="close" onclick="closeTimelinePreview()" style="cursor: pointer;">&times;</span>
         </div>
         <div class="modal-body" id="previewModalBody" style="overflow-y: auto; flex: 1;">
           <!-- Dynamic content will be loaded here -->
@@ -1043,12 +1043,40 @@
       let description = "";
 
       if (actionType === "Mediation") {
+        // Helper function to collect parties involved values from medPartiesInvolved div OR get from autofill cache
+        const collectPartiesInvolved = () => {
+          // First try to get from the autofill cache (which comes from invitation "to" field)
+          if (autofillCache && autofillCache.to) {
+            console.log('[MEDIATION] Getting parties from autofill cache "to" field:', autofillCache.to);
+            const partiesFromTo = autofillCache.to
+              .split(',')
+              .map(s => s.trim())
+              .filter(Boolean);
+            if (partiesFromTo.length > 0) {
+              console.log('[MEDIATION] Using parties from invitation "to":', partiesFromTo);
+              return partiesFromTo;
+            }
+          }
+          
+          // Fallback to collecting from the medPartiesInvolved div inputs
+          const medPartiesEl = document.getElementById('medPartiesInvolved');
+          if (!medPartiesEl) {
+            console.log('[MEDIATION] No medPartiesInvolved element found');
+            return [];
+          }
+          
+          const inputs = medPartiesEl.querySelectorAll('input[name="parties_involved[]"]');
+          const partiesFromInputs = Array.from(inputs).map(input => input.value.trim()).filter(Boolean);
+          console.log('[MEDIATION] Collected parties from inputs:', partiesFromInputs);
+          return partiesFromInputs;
+        };
+
         details = {
           advisors: Array.from(document.querySelectorAll("input[name='witness[]']")).map(w => w.value),
           agenda: document.querySelector("input[name='agenda']")?.value || "",
           summary: document.querySelector("textarea[name='summary']")?.value || "",
           assigned_personnel: document.querySelector('#medAssignedPersonnel')?.value || 'Josie Rosal',
-          parties_involved: (document.querySelector('#medPartiesInvolved')?.value || '').split('\n').map(s => s.trim()).filter(Boolean),
+          parties_involved: collectPartiesInvolved(),
           files: Array.from(document.querySelectorAll("input[name='mediationFiles[]']")).map((fileInput, idx) => {
             return {
               filename: fileInput.value.split("\\").pop(),
@@ -1057,6 +1085,8 @@
           })
         };
         description = details.summary;  // use summary as description
+        
+        console.log('[MEDIATION] Final parties_involved in details:', details.parties_involved);
       } 
       else if (actionType === "Assessment") {
         details = {
@@ -2196,16 +2226,32 @@
     
     modalTitle.textContent = `${actionType} - Details`;
     
-    // Parse the details JSON
+    // Parse the details JSON with enhanced debugging
     let details = {};
     try {
       if (entry.details) {
         details = typeof entry.details === 'string' ? JSON.parse(entry.details) : entry.details;
-        console.log(`[PREVIEW DEBUG] ${actionType} details:`, details);
-        console.log(`[PREVIEW DEBUG] ${actionType} entry:`, entry);
+        console.log(`[PREVIEW DEBUG] ${actionType} details parsed:`, details);
+        console.log(`[PREVIEW DEBUG] ${actionType} full entry:`, entry);
+        
+        // Additional debug for specific fields
+        if (actionType.toLowerCase() === 'mediation') {
+          console.log('[MEDIATION DEBUG] parties_involved:', details.parties_involved);
+          console.log('[MEDIATION DEBUG] agenda:', details.agenda);
+          console.log('[MEDIATION DEBUG] files:', details.files);
+        } else if (actionType.toLowerCase() === 'send invitation') {
+          console.log('[INVITATION DEBUG] to:', details.to);
+          console.log('[INVITATION DEBUG] location:', details.location);
+          console.log('[INVITATION DEBUG] agenda:', details.agenda);
+          console.log('[INVITATION DEBUG] meeting_date:', details.meeting_date);
+          console.log('[INVITATION DEBUG] meeting_time:', details.meeting_time);
+        }
+      } else {
+        console.warn(`[PREVIEW DEBUG] No details found for ${actionType}`);
       }
     } catch (e) {
       console.error('Error parsing entry details:', e);
+      console.log('Raw entry.details:', entry.details);
     }
     
     // Generate preview content based on action type
@@ -2215,6 +2261,7 @@
       case 'inspection':
         previewHTML = generateInspectionPreview(details, entry);
         break;
+      case 'invitation':
       case 'send invitation':
         previewHTML = generateInvitationPreview(details, entry);
         break;
@@ -2363,26 +2410,40 @@
       }
     };
 
+    // Helper function to format the "To" field
+    const formatToField = () => {
+      const toField = details.to || details.individuals || details.invTo;
+      if (!toField) return 'Not specified';
+      
+      if (Array.isArray(toField)) {
+        return toField.length > 0 ? toField.join(', ') : 'Not specified';
+      }
+      
+      if (typeof toField === 'string') {
+        return toField.trim() || 'Not specified';
+      }
+      
+      return 'Not specified';
+    };
+
     return `
       <div style="padding: 15px;">
         <!-- To -->
         <div class="form-group">
           <label><strong>To:</strong></label>
-          <div class="readonly-field">
-            ${details.to ? (Array.isArray(details.to) ? details.to.join(', ') : details.to) : (details.individuals || 'Not specified')}
-          </div>
+          <div class="readonly-field">${formatToField()}</div>
         </div>
 
         <!-- Location -->
         <div class="form-group">
           <label><strong>Location:</strong></label>
-          <div class="readonly-field">${details.location || details.venue || 'Not specified'}</div>
+          <div class="readonly-field">${details.location || details.venue || details.invLocation || 'Not specified'}</div>
         </div>
         
         <!-- Agenda -->
         <div class="form-group">
           <label><strong>Agenda:</strong></label>
-          <div class="readonly-field">${details.agenda || 'Not specified'}</div>
+          <div class="readonly-field">${details.agenda || details.invAgenda || 'Not specified'}</div>
         </div>
         
         <hr style="margin: 10px 0;">
@@ -2390,13 +2451,13 @@
         <!-- Date of Meeting -->
         <div class="form-group">
           <label><strong>Date of Meeting:</strong></label>
-          <div class="readonly-field">${formatDate(details.meeting_date)}</div>
+          <div class="readonly-field">${formatDate(details.meeting_date || details.invDate)}</div>
         </div>
         
         <!-- Time of Meeting -->
         <div class="form-group">
           <label><strong>Time of Meeting:</strong></label>
-          <div class="readonly-field">${formatTime(details.meeting_time)}</div>
+          <div class="readonly-field">${formatTime(details.meeting_time || details.invTime)}</div>
         </div>
 
         <!-- Assigned Personnel -->
@@ -2419,6 +2480,29 @@
 
   // Generate mediation preview HTML - matches exact original form layout
   function generateMediationPreview(details, entry) {
+    // Helper function to format parties involved with multiple fallbacks
+    const formatPartiesInvolved = () => {
+      // Try multiple possible field names and formats
+      const parties = details.parties_involved || details.partiesInvolved || details.parties;
+      
+      if (!parties) return 'Not specified';
+      
+      if (Array.isArray(parties)) {
+        return parties.length > 0 ? parties.join(', ') : 'Not specified';
+      }
+      
+      if (typeof parties === 'string') {
+        // Handle newline-separated or comma-separated strings
+        const cleanParties = parties.trim();
+        if (cleanParties.includes('\n')) {
+          return cleanParties.split('\n').map(p => p.trim()).filter(Boolean).join(', ');
+        }
+        return cleanParties || 'Not specified';
+      }
+      
+      return 'Not specified';
+    };
+
     return `
       <div style="padding: 15px;">
         <!-- Assigned Personnel -->
@@ -2430,9 +2514,7 @@
         <!-- Parties Involved -->
         <div class="form-group">
           <label><strong>Parties Involved:</strong></label>
-          <div class="readonly-field">
-            ${details.parties_involved ? (Array.isArray(details.parties_involved) ? details.parties_involved.join(', ') : details.parties_involved) : 'Not specified'}
-          </div>
+          <div class="readonly-field">${formatPartiesInvolved()}</div>
         </div>
         
         <hr style="margin: 10px 0;">
@@ -2465,7 +2547,7 @@
           <div class="readonly-field">
             ${details.files.map((file, index) => `
               <div style="margin-bottom: 5px;">
-                <strong>${file.description || 'File ' + (index + 1)}:</strong> ${file.name || 'Uploaded file'}
+                <strong>${file.type || file.description || 'File ' + (index + 1)}:</strong> ${file.filename || file.name || 'Uploaded file'}
               </div>
             `).join('')}
           </div>
@@ -2579,14 +2661,26 @@
       return '';
     }
     
-    const filesHTML = details.files.map(file => {
-      const fileName = typeof file === 'string' ? file : file.name;
-      const fileUrl = typeof file === 'string' ? file : file.url || '#';
+    const filesHTML = details.files.map((file, index) => {
+      if (typeof file === 'string') {
+        return `
+          <div style="margin: 5px 0;">
+            <a href="${file}" target="_blank" style="color: #007bff; text-decoration: none;">
+              📄 ${file}
+            </a>
+          </div>
+        `;
+      }
+      
+      // Handle file object with multiple possible field names
+      const fileName = file.filename || file.name || `File ${index + 1}`;
+      const fileDescription = file.type || file.description || fileName;
+      const fileUrl = file.url || file.path || '#';
       
       return `
         <div style="margin: 5px 0;">
           <a href="${fileUrl}" target="_blank" style="color: #007bff; text-decoration: none;">
-            📄 ${fileName}
+            📄 <strong>${fileDescription}:</strong> ${fileName}
           </a>
         </div>
       `;
@@ -2912,6 +3006,21 @@
       margin-bottom: 5px;
       font-weight: 600;
       color: #333;
+    }
+    .close, .close:hover, .close:focus {
+      cursor: pointer !important;
+    }
+    .modal-top .close {
+      cursor: pointer !important;
+      font-size: 24px;
+      font-weight: bold;
+      color: #aaa;
+      float: right;
+      line-height: 1;
+      text-decoration: none;
+    }
+    .modal-top .close:hover {
+      color: #000;
     }
   `;
   document.head.appendChild(style);
