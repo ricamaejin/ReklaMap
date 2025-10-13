@@ -72,7 +72,7 @@
         </div>
 
       {% elif field.type == 'date' %}
-        <input type="date" value="{{ answers[field.name] }}" disabled title="{{ field.label }}" aria-label="{{ field.label }}" style="width: 95%;">
+        <input type="date" value="{{ answers[field.name] }}" disabled title="{{ field.label }}" aria-label="{{ field.label }}" style="width: 20%;">
       {% endif %}
     </div>
   {% endif %}
@@ -135,7 +135,7 @@
               {% set show_docs = claim in ['yes', 'true', '1', 'i have documents', 'have documents'] %}
               {% if show_docs and documents %}
                 <div class="checkbox-group" style="margin-left: 1.5rem; margin-top: 0.5rem;">
-                  <p style="margin-bottom: 0.25rem;">Documents they have:</p>
+                  <p style="margin-bottom: 0.25rem; margin-left: 15px;">Documents they have:</p>
                   {% for val2, label2 in field.conditional.additional_fields[0].options %}
                     {% set checked_doc = false %}
                     {% if documents is iterable and documents is not string %}

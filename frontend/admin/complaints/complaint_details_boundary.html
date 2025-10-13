@@ -58,11 +58,11 @@
         {% if field.conditional is defined and field.conditional.trigger_value is defined and field.conditional.additional_fields is defined %}
           {% set trigger = field.conditional.trigger_value|string|trim|lower %}
           {% if (normalized_val == trigger or normalized_label == trigger) and selected == trigger %}
-            <div style="margin-left: 32px;">
+            <div style="margin-left: 38px;">
               {% for subfield in field.conditional.additional_fields %}
                 {% if subfield.type == 'date' %}
                   <p>{{ subfield.label }}</p>
-                  <input type="date" value="{{ answers[subfield.name] }}" disabled>
+                  <input type="date" value="{{ answers[subfield.name] }}" style="width: 20%;" disabled>
                 {% elif subfield.type == 'text' %}
                   <p>{{ subfield.label }}</p>
                   <input type="text" value="{{ answers[subfield.name] }}" disabled>
@@ -201,7 +201,7 @@
             </label>
 
             {% if checked and pfield.conditional is defined %}
-              <div style="margin-left:32px;margin-top:6px;">
+              <div style="margin-left:38px;margin-top:6px;">
                 {% for subfield in pfield.conditional.additional_fields %}
                   <p>{{ subfield.label }}</p>
                   {% set raw_val = answers.get(subfield.name, []) %}

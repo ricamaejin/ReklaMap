@@ -392,6 +392,7 @@ def get_form_structure():
                 ("pending", "The issue is still pending or unresolved."),
                 ("no_action", "No action was taken by the authority."),
                 ("no_valid_claim", "I was told I have no valid claim"),
+                ("not_applicable", "Not applicable / No inspection yet"),
             ],
         },
 

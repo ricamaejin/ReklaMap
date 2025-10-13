@@ -230,16 +230,18 @@
         <div class="col"><label class="small">Area (HOA):</label><input type="text" name="hoa" value="{{ get_area_name(registration.hoa) if registration.hoa else '' }}" readonly title="Area (HOA)" aria-label="Area (HOA)" style="width: 98.2%;"></div>
       </div>
         <div class="pair-row">
+          {% if complaint and (complaint.type_of_complaint|string|lower).strip() != 'unauthorized occupation' %}
           <div class="col" style="width:100%">
-            <label class="small">How are you connected to the lot you are complaining about?</label>
-            {% if non_member_connections_list and non_member_connections_list|length > 0 %}
-              {% for item in non_member_connections_list %}
-                <input type="text" value="{{ item }}" readonly style="margin-bottom:6px; width: 98.2%;">
-              {% endfor %}
-            {% else %}
-              <input type="text" value="{{ non_member_connections or '' }}" readonly>
-            {% endif %}
-          </div>
+              <label class="small">How are you connected to the lot you are complaining about?</label>
+              {% if non_member_connections_list and non_member_connections_list|length > 0 %}
+                {% for item in non_member_connections_list %}
+                  <input type="text" value="{{ item }}" readonly style="margin-bottom:6px; width: 98.2%;">
+                {% endfor %}
+              {% else %}
+                <input type="text" value="{{ non_member_connections or '' }}" readonly>
+              {% endif %}
+            </div>
+          {% endif %}
         </div>
     </div>
                             

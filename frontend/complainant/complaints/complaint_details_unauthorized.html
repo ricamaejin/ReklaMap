@@ -147,7 +147,7 @@
                     {% if value|lower == 'yes' and selected_norm == 'yes' %}
                         {% set sub = form_structure | selectattr('name', 'equalto', 'q6a') | first %}
                         {% if sub %}
-                            <div style="margin-left:32px;">
+                            <div style="margin-left:47px;">
                                 <p>{{ sub.label }}</p>
                                 {% set sub_selected = resp[sub.name] if resp and sub.name in resp else '' %}
                                 {% for value2, label2 in sub.options %}
@@ -227,7 +227,7 @@
                     <input type="text" value="" readonly style="display:block; width:95%; margin:6px 0 6px 15px; padding:8px; border:1px solid #ccc; border-radius:4px;">
                 {% endif %}
             {% elif field.type == 'textarea' %}
-                <textarea readonly style="width:100%; max-width:625px; min-height:80px; margin:8px 0; padding:8px; border:1px solid #ccc; border-radius:4px;">{{ selected or '' }}</textarea>
+                <textarea readonly style="margin-left: 15px !important; width: 95%; min-height:80px; margin:8px 0; padding:8px; border:1px solid #ccc; border-radius:4px;">{{ selected or '' }}</textarea>
             {% endif %}
         </div>
     {% endif %}
