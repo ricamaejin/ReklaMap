@@ -17,6 +17,7 @@ from backend.admin.routes.beneficiaries import beneficiaries_bp
 from backend.admin.routes.blocks import blocks_bp
 from backend.admin.routes.search import search_bp
 from backend.admin.routes.policies import policies_bp
+from backend.admin.routes.files import files_bp
 from backend.complainant.routes import complainant_bp
 from backend.staff.routes import staff_bp
 from backend.shared.routes import shared_bp
@@ -79,6 +80,7 @@ app.register_blueprint(beneficiaries_bp)
 app.register_blueprint(blocks_bp)
 app.register_blueprint(search_bp)
 app.register_blueprint(policies_bp)
+app.register_blueprint(files_bp)
 
 app.register_blueprint(complainant_bp)
 app.register_blueprint(mem_reg_bp)

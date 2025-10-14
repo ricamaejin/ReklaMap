@@ -515,12 +515,30 @@ async function resolveTask() {
     return;
   }
 
-  // If validation passes → proceed with Sent Invitation workflow
+  // If validation passes → first upload files, then mark task complete
   const complaintId = getComplaintIdFromURL();
   
   try {
-    console.log('[STAFF WORKFLOW] Submitting Sent Invitation for complaint:', complaintId);
+    console.log('[STAFF WORKFLOW] Uploading files for Sent Invitation, complaint:', complaintId);
+
+    // 1) Upload files to /uploads/staff
+    const formData = new FormData();
+    files.forEach(f => formData.append('files', f, f.name));
+
+    const uploadRes = await fetch('/uploads/staff', {
+      method: 'POST',
+      body: formData
+    });
+    const uploadJson = await uploadRes.json().catch(() => ({}));
+    if (!uploadRes.ok || !uploadJson.success) {
+      console.error('Upload failed:', uploadJson);
+      showCustomAlert('Failed to upload files. Please try again.');
+      return;
+    }
+    const savedNames = uploadJson.files || files.map(f => f.name);
+    console.log('[STAFF WORKFLOW] Uploaded files saved as:', savedNames);
     
+    console.log('[STAFF WORKFLOW] Submitting Sent Invitation for complaint:', complaintId);
     const response = await fetch('/admin/complaints/api/staff_complete_task', {
       method: 'POST',
       headers: {
@@ -530,13 +548,13 @@ async function resolveTask() {
         complaint_id: complaintId,
         action_type: 'Sent Invitation',
         description: 'Notice of Meeting sent to all parties',
-        files: files.map(f => f.name),
+        files: savedNames,
         staff_account_type: currentStaffAccount, // admin.account == 2
         completed_by_staff: true, // Flag to mark this as staff completion
         task_type: 'invitation', // Specify this is invitation completion
         invitation_details: {
           notice_attached: true,
-          file_count: files.length,
+          file_count: savedNames.length,
           completion_notes: 'Meeting notice distributed to all specified individuals'
         }
       })
@@ -1231,15 +1249,14 @@ document.head.appendChild(style);
 
   // Preview file for staff
   function previewStaffFile(filename) {
-    // TODO: Implement proper file preview (PDF viewer, image preview, etc.)
-    const fileUrl = `/files/complaints/${filename}`; // Placeholder URL
+    // Open directly from the uploads route where staff files are stored
+    const fileUrl = `/uploads/staff/${filename}`;
     window.open(fileUrl, '_blank');
   }
 
   // Download file for staff
   function downloadStaffFile(filename) {
-    // TODO: Implement proper file serving endpoint
-    const fileUrl = `/files/complaints/${filename}`; // Placeholder URL
+    const fileUrl = `/uploads/staff/${filename}`;
     const link = document.createElement('a');
     link.href = fileUrl;
     link.download = filename;

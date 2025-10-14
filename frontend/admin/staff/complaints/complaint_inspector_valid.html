@@ -518,10 +518,25 @@ async function resolveTask() {
       return;
     }
 
-  // If all validations pass → proceed with Task Completed workflow
+  // If all validations pass → upload files then proceed with Task Completed workflow
   const complaintId = getComplaintIdFromURL();
   
   try {
+    console.log('[STAFF WORKFLOW] Uploading inspection files for complaint:', complaintId);
+
+    // 1) Upload files to /uploads/staff so they are available under /uploads/staff/<name>
+    const formData = new FormData();
+    allFiles.forEach(f => formData.append('files', f, f.name));
+    const uploadRes = await fetch('/uploads/staff', { method: 'POST', body: formData });
+    const uploadJson = await uploadRes.json().catch(() => ({}));
+    if (!uploadRes.ok || !uploadJson.success) {
+      console.error('Upload failed:', uploadJson);
+      showCustomAlert('Failed to upload files. Please try again.');
+      return;
+    }
+    const savedNames = uploadJson.files || allFiles.map(f => f.name);
+    console.log('[STAFF WORKFLOW] Uploaded inspection files saved as:', savedNames);
+
     console.log('[STAFF WORKFLOW] Submitting Task Completed for complaint:', complaintId);
     
     // Collect location and scope values (if present in the inspector modal)
@@ -542,7 +557,7 @@ async function resolveTask() {
         complaint_id: complaintId,
         action_type: 'Inspection Done',
         description: findings,
-        files: allFiles.map(f => f.name),
+        files: savedNames,
         location: locationEl ? locationEl.value : undefined,
         scope: scopeValues.length ? scopeValues : undefined,
         staff_account_type: currentStaffAccount, // admin.account == 2
@@ -1282,15 +1297,14 @@ function addInspectionFileUpload() {
 
   // Preview file for staff
   function previewStaffFile(filename) {
-    // TODO: Implement proper file preview (PDF viewer, image preview, etc.)
-    const fileUrl = `/files/complaints/${filename}`; // Placeholder URL
+    // Open directly from the uploads route where staff files are stored
+    const fileUrl = `/uploads/staff/${filename}`;
     window.open(fileUrl, '_blank');
   }
 
   // Download file for staff
   function downloadStaffFile(filename) {
-    // TODO: Implement proper file serving endpoint
-    const fileUrl = `/files/complaints/${filename}`; // Placeholder URL
+    const fileUrl = `/uploads/staff/${filename}`;
     const link = document.createElement('a');
     link.href = fileUrl;
     link.download = filename;

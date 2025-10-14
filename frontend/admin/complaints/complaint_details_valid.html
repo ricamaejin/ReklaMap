@@ -6,6 +6,7 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
+  <link rel="stylesheet" href="/css/modal_shared.css">
   <!-- Fuzzy recommendation modules (pathway + lot) and dispatcher -->
   <script src="/js/fuzzy_rules_pathway.js" defer></script>
   <script src="/js/fuzzy_rules_lot.js" defer></script>
@@ -139,8 +140,14 @@
     .readonly-mode-banner.out-of-jurisdiction {
       background: linear-gradient(135deg, #f39c12, #d68910);
     }
+  /* Ensure shared rk modals overlay the timeline and other elements */
+  #acceptInvitationModal,
+  #resolveModal,
+  #unresolveModal,
+  #alertModal { z-index: 10010 !important; }
   </style>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
 <body>
   <!-- Sidebar -->
   <aside class="sidebar">
@@ -477,21 +484,22 @@
       </div>
     </div>
 
-    <!-- ACCEPTED INVITATION MODAL -->
-    <div class="modal-overlay" id="acceptInvitationModal" style="display:none;">
-      <div class="warning-modal">
-        <div class="warning-header">
-          ⚠️ WARNING MESSAGE
-        </div>
-        <div class="warning-body">
-          <div class="warning-text">
-            <p style="align-items: center !important;">Are you sure both parties have accepted the invitation?</p>
-            <p style="align-items: center !important;"><strong>This will update the timeline status to "Accepted Invitation".</strong></p>
+    <!-- ACCEPTED INVITATION MODAL (uses shared modal styles) -->
+  <div id="acceptInvitationModal" class="rk-modal-backdrop" aria-hidden="true" style="display:none;" onclick="if(event.target===this) closeAcceptInvitationModal()">
+      <div class="rk-modal" role="dialog" aria-modal="true" aria-labelledby="acceptInvitationTitle">
+        <div class="rk-modal-header">
+          <div class="rk-modal-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#1a33a0" opacity="0.12"/><path d="M11 16h2v-2h-2v2zm0-8h2v6h-2V8z" fill="#1a33a0"/></svg>
           </div>
+          <p class="rk-modal-title" id="acceptInvitationTitle">Notice</p>
         </div>
-        <div class="warning-footer">
-          <button onclick="confirmAcceptedInvitation()" style="background: #28a745; color: white; margin-right: 10px;">Yes, Both Parties Accepted</button>
-          <button onclick="closeAcceptInvitationModal()" style="background: #6c757d; color: white;">Cancel</button>
+        <div class="rk-modal-body">
+          <p>Are you sure both parties have accepted the invitation?</p>
+          <p class="rk-modal-note">This will update the timeline status to "Accepted Invitation".</p>
+        </div>
+        <div class="rk-modal-actions">
+          <button type="button" class="rk-btn-ghost" onclick="closeAcceptInvitationModal()">Cancel</button>
+          <button type="button" class="rk-btn-primary" onclick="confirmAcceptedInvitation()">Yes, Both Parties Accepted</button>
         </div>
       </div>
     </div>
@@ -524,56 +532,60 @@
       </div>
     </div>
 
-    <!-- RESOLVE CONFIRMATION MODAL -->
-    <div class="modal-overlay" id="resolveModal" style="display:none;">
-      <div class="warning-modal">
-        <div class="warning-header">
-          ⚠️ WARNING MESSAGE
-        </div>
-        <div class="warning-body">
-          <div class="warning-text">
-            <p style="align-items: center !important;">Are you sure to mark this complaint as Resolved?</p>
+    <!-- RESOLVE CONFIRMATION MODAL (shared rk-modal) -->
+    <div id="resolveModal" class="rk-modal-backdrop" aria-hidden="true" style="display:none;" onclick="if(event.target===this) closeResolveModal()">
+      <div class="rk-modal" role="dialog" aria-modal="true" aria-labelledby="resolveModalTitle">
+        <div class="rk-modal-header">
+          <div class="rk-modal-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#1a33a0" opacity="0.12"/><path d="M11 16h2v-2h-2v2zm0-8h2v6h-2V8z" fill="#1a33a0"/></svg>
           </div>
+          <p class="rk-modal-title" id="resolveModalTitle">Notice</p>
         </div>
-        <div class="warning-footer">
-          <button onclick="resolveComplaint()" style="background: #dc3545; color: white; margin-right: 10px;">Yes, Mark as Resolved</button>
-          <button onclick="closeResolveModal()" style="background: #6c757d; color: white;">Cancel</button>
+        <div class="rk-modal-body">
+          <p>Are you sure to mark this complaint as Resolved?</p>
+          <p class="rk-modal-note">This will change the complaint status and may affect reporting and tracking.</p>
+        </div>
+        <div class="rk-modal-actions">
+          <button type="button" class="rk-btn-ghost" onclick="closeResolveModal()">Cancel</button>
+          <button type="button" class="rk-btn-primary" onclick="resolveComplaint()">Yes, Mark as Resolved</button>
         </div>
       </div>
     </div>
 
-    <!-- UNRESOLVE CONFIRMATION MODAL -->
-    <div class="modal-overlay" id="unresolveModal" style="display:none;">
-      <div class="warning-modal">
-        <div class="warning-header">
-          ⚠️ WARNING MESSAGE
-        </div>
-        <div class="warning-body">
-          <div class="warning-text">
-            <p style="align-items: center !important;">Are you sure to mark this complaint as Unresolved?</p>
-            <p style="color: #6c757d; font-size: 0.9em; margin-top: 10px;">This will change the complaint status and may affect reporting and tracking.</p>
+    <!-- UNRESOLVE CONFIRMATION MODAL (shared rk-modal) -->
+    <div id="unresolveModal" class="rk-modal-backdrop" aria-hidden="true" style="display:none;" onclick="if(event.target===this) closeUnresolveModal()">
+      <div class="rk-modal" role="dialog" aria-modal="true" aria-labelledby="unresolveModalTitle">
+        <div class="rk-modal-header">
+          <div class="rk-modal-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#1a33a0" opacity="0.12"/><path d="M11 16h2v-2h-2v2zm0-8h2v6h-2V8z" fill="#1a33a0"/></svg>
           </div>
+          <p class="rk-modal-title" id="unresolveModalTitle">Notice</p>
         </div>
-        <div class="warning-footer">
-          <button onclick="unresolveComplaint()" style="background: #ffc107; color: #212529; margin-right: 10px;">Yes, Mark as Unresolved</button>
-          <button onclick="closeUnresolveModal()" style="background: #6c757d; color: white;">Cancel</button>
+        <div class="rk-modal-body">
+          <p>Are you sure to mark this complaint as Unresolved?</p>
+          <p class="rk-modal-note">This will change the complaint status and may affect reporting and tracking.</p>
+        </div>
+        <div class="rk-modal-actions">
+          <button type="button" class="rk-btn-ghost" onclick="closeUnresolveModal()">Cancel</button>
+          <button type="button" class="rk-btn-primary" onclick="unresolveComplaint()">Yes, Mark as Unresolved</button>
         </div>
       </div>
     </div>
 
-    <!-- Custom Alert Modal -->
-    <div class="modal-overlay" id="alertModal" style="display: none;">
-      <div class="warning-modal">
-        <div class="warning-header">
-          ⚠️ WARNING MESSAGE
-        </div>
-        <div class="warning-body">
-          <div class="warning-text">
-            <p id="alertMessage" style="align-items: center !important;"></p>
+    <!-- Custom Alert Modal (shared rk-modal) -->
+    <div id="alertModal" class="rk-modal-backdrop" aria-hidden="true" style="display:none;" onclick="if(event.target===this) closeCustomAlert()">
+      <div class="rk-modal" role="dialog" aria-modal="true" aria-labelledby="alertModalTitle">
+        <div class="rk-modal-header">
+          <div class="rk-modal-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#1a33a0" opacity="0.12"/><path d="M11 16h2v-2h-2v2zm0-8h2v6h-2V8z" fill="#1a33a0"/></svg>
           </div>
+          <p class="rk-modal-title" id="alertModalTitle">Notice</p>
         </div>
-        <div class="warning-footer">
-          <button onclick="closeCustomAlert()">OK</button>
+        <div class="rk-modal-body">
+          <p id="alertMessage"></p>
+        </div>
+        <div class="rk-modal-actions">
+          <button type="button" class="rk-btn-primary" onclick="closeCustomAlert()">OK</button>
         </div>
       </div>
     </div>
@@ -1616,13 +1628,13 @@
       const hasAcceptedInvitation = filteredEntries.some(e => e.type_of_action === 'Accepted Invitation');
       let acceptInvitationButton = '';
       
-      if (timelineStatus === 'Sent Invitation') {
+        if (timelineStatus === 'Sent Invitation') {
         if (hasAcceptedInvitation) {
           // Already accepted - show disabled gray button
           acceptInvitationButton = `<button class="accept-invitation-btn" disabled style="background: #6c757d; color: #adb5bd; border: none; padding: 3px 8px; border-radius: 3px; cursor: not-allowed; font-size: 11px; margin-left: 5px;">Already Accepted</button>`;
         } else {
-          // Not accepted yet - show clickable green button
-          acceptInvitationButton = `<button class="accept-invitation-btn" onclick="showAcceptInvitationModal(${entry.history_id})" style="background: #28a745; color: white; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-left: 5px;">Mark as Accepted</button>`;
+          // Not accepted yet - render button with data attribute and attach handler after injecting HTML
+          acceptInvitationButton = `<button class="accept-invitation-btn" data-history-id="${entry.history_id}" type="button" style="background: #28a745; color: white; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-left: 5px;">Mark as Accepted</button>`;
         }
       }
       
@@ -1647,7 +1659,21 @@
     }).join('');
     
     timelineContainer.innerHTML = timelineHTML;
-    
+
+    // Attach click handlers for dynamically created accept-invitation buttons (reliable than inline onclick)
+    document.querySelectorAll('.accept-invitation-btn[data-history-id]').forEach(btn => {
+      // Avoid double-binding
+      if (btn.__acceptListenerBound) return;
+      btn.addEventListener('click', function (e) {
+        // Prevent the parent timeline entry's onclick from firing
+        e.preventDefault();
+        e.stopPropagation();
+        const hid = this.getAttribute('data-history-id');
+        try { showAcceptInvitationModal(hid); } catch (err) { console.error('showAcceptInvitationModal error', err); }
+      });
+      btn.__acceptListenerBound = true;
+    });
+
     // Re-attach file button event listeners
     attachFileButtonListeners();
   }
@@ -1846,6 +1872,23 @@
     checkResolvedState();
     refreshTimeline();
     loadComplaintMap();
+  });
+
+  // Robust delegated handler for "Mark as Accepted" buttons inside the timeline
+  document.addEventListener('DOMContentLoaded', function() {
+    const timeline = document.getElementById('complaintTimeline');
+    if (!timeline || timeline.__acceptDelegationBound) return;
+    timeline.addEventListener('click', function(e) {
+      const btn = e.target && e.target.closest && e.target.closest('.accept-invitation-btn[data-history-id]');
+      if (!btn || !timeline.contains(btn)) return;
+      if (btn.disabled) return;
+      // Intercept before parent .timeline-entry onclick fires
+      e.preventDefault();
+      e.stopPropagation();
+      const hid = btn.getAttribute('data-history-id');
+      try { showAcceptInvitationModal(hid); } catch (err) { console.error('Delegated accept modal open failed:', err); }
+    }, true); // use capture to beat inline onclick on parent
+    timeline.__acceptDelegationBound = true;
   });
 
   // Load complaint details and display area map
@@ -2077,11 +2120,19 @@
   
   function showAcceptInvitationModal(historyId) {
     currentInvitationHistoryId = historyId;
-    document.getElementById('acceptInvitationModal').style.display = 'flex';
+    const modalEl = document.getElementById('acceptInvitationModal');
+    if (!modalEl) return;
+    modalEl.style.display = 'flex';
+    // If modal_shared.css uses .show to control opacity/visibility, add it
+    requestAnimationFrame(() => modalEl.classList.add('show'));
   }
   
   function closeAcceptInvitationModal() {
-    document.getElementById('acceptInvitationModal').style.display = 'none';
+    const modalEl = document.getElementById('acceptInvitationModal');
+    if (!modalEl) return;
+    modalEl.classList.remove('show');
+    // Allow any fade-out to complete if defined in CSS
+    setTimeout(() => { modalEl.style.display = 'none'; }, 150);
     currentInvitationHistoryId = null;
   }
   
@@ -2227,14 +2278,20 @@
   /* Sending actions is handled by saveAction() / saveMediationAction() above.
      Removed duplicate event listener that used incorrect selectors/endpoints. */
 
-  // Show resolve confirmation modal
+  // Show resolve confirmation modal (shared rk-modal behavior)
   function showResolveModal() {
-    document.getElementById('resolveModal').style.display = 'flex';
+    const modalEl = document.getElementById('resolveModal');
+    if (!modalEl) return;
+    modalEl.style.display = 'flex';
+    requestAnimationFrame(() => modalEl.classList.add('show'));
   }
   
-  // Close resolve confirmation modal
+  // Close resolve confirmation modal (shared rk-modal behavior)
   function closeResolveModal() {
-    document.getElementById('resolveModal').style.display = 'none';
+    const modalEl = document.getElementById('resolveModal');
+    if (!modalEl) return;
+    modalEl.classList.remove('show');
+    setTimeout(() => { modalEl.style.display = 'none'; }, 150);
   }
   
   // Resolve complaint function
@@ -2282,14 +2339,20 @@
     }
   }
 
-  // Show unresolved confirmation modal
+  // Show unresolved confirmation modal (shared rk-modal behavior)
   function showUnresolvedModal() {
-    document.getElementById('unresolveModal').style.display = 'flex';
+    const modalEl = document.getElementById('unresolveModal');
+    if (!modalEl) return;
+    modalEl.style.display = 'flex';
+    requestAnimationFrame(() => modalEl.classList.add('show'));
   }
   
-  // Close unresolved confirmation modal
+  // Close unresolved confirmation modal (shared rk-modal behavior)
   function closeUnresolveModal() {
-    document.getElementById('unresolveModal').style.display = 'none';
+    const modalEl = document.getElementById('unresolveModal');
+    if (!modalEl) return;
+    modalEl.classList.remove('show');
+    setTimeout(() => { modalEl.style.display = 'none'; }, 150);
   }
   
   // Unresolved complaint function
@@ -2357,12 +2420,19 @@
 
   // Custom Alert Modal Functions
   function showCustomAlert(message) {
-    document.getElementById('alertMessage').textContent = message;
-    document.getElementById('alertModal').style.display = 'flex';
+    const msgEl = document.getElementById('alertMessage');
+    if (msgEl) msgEl.textContent = message;
+    const modalEl = document.getElementById('alertModal');
+    if (!modalEl) return;
+    modalEl.style.display = 'flex';
+    requestAnimationFrame(() => modalEl.classList.add('show'));
   }
 
   function closeCustomAlert() {
-    document.getElementById('alertModal').style.display = 'none';
+    const modalEl = document.getElementById('alertModal');
+    if (!modalEl) return;
+    modalEl.classList.remove('show');
+    setTimeout(() => { modalEl.style.display = 'none'; }, 150);
   }
 
   // =====================================

@@ -34,3 +34,10 @@
 
 /* Small utility to visually hide but keep in DOM if needed */
 .rk-hidden { display: none !important; }
+
+/* Subtle helper text inside modal bodies */
+.rk-modal-note {
+  color: #6c757d;
+  font-size: 0.9em;
+  margin-top: 10px;
+}
