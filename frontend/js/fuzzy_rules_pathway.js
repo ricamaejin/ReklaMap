@@ -1,0 +1,391 @@
+/* Pathway Dispute: Fuzzy Association Rules for Recommended Action
+   Exposes global: window.PathwayFuzzy with helpers:
+   - extractAnswers(rootEl)
+   - computeRecommendation(answers)
+   - renderRecommendation(result)
+*/
+(function(){
+  function toArray(x){ return Array.isArray(x) ? x : (x != null ? [x] : []); }
+  function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+  function pct(x){ return Math.round(clamp01(x)*100); }
+  function titleCase(s){ return (s||'').split('_').map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' '); }
+
+  // Keep a last known answer set to allow rendering narrative without re-extraction
+  let __lastAnswers = {};
+
+  // --- Membership functions ---
+  function urgencyFromQ4(v){
+    if(!v) return 0;
+    v = v.toLowerCase();
+    if(v.includes('fully')) return 1.0;
+    if(v.includes('partial')) return 0.7;
+    if(v.includes('removed')) return 0.35;
+    if(v === 'no') return 0.0;
+    return 0.2; // not sure
+  }
+  function severityFromQ2(v){
+    if(!v) return 0;
+    v = v.toLowerCase();
+    if(v.includes('permanent')) return 0.85;
+    if(v.includes('fence') || v.includes('gate')) return 0.75;
+    if(v.includes('store') || v.includes('business')) return 0.7;
+    if(v.includes('parked')) return 0.45;
+    if(v.includes('debris') || v.includes('materials') || v.includes('temporary')) return 0.35;
+    return 0.4;
+  }
+  function durationFromQ3(v){
+    if(!v) return 0.2;
+    v = v.toLowerCase();
+    if(v.includes('more than 6')) return 0.8;
+    if(v.includes('1-6')) return 0.55;
+    if(v.includes('less than 1')) return 0.35;
+    if(v.includes('not sure')) return 0.25;
+    return 0.3;
+  }
+  function impactFromQ5(arr){
+    const list = toArray(arr);
+    if(!list.length) return 0;
+    let score = 0;
+    list.forEach(v => {
+      if(!v) return;
+      const s = v.toLowerCase();
+      if(s.includes('cannot pass')) score += 0.35;
+      else if(s.includes('unsafe') || s.includes('narrow')) score += 0.25;
+      else if(s.includes('children') || s.includes('elderly') || s.includes('pwd')) score += 0.25;
+      else if(s.includes('forced to walk')) score += 0.25;
+      else if(s.includes('emergency')) score += 0.35;
+    });
+    // squash to [0,1]
+    return clamp01(score);
+  }
+  function socialConcernFromQ6Q7(q6, q7){
+    let s = 0;
+    if(q6 && q6.toLowerCase() === 'yes') s += 0.5; // other residents concerned
+    if(q7){
+      const t = q7.toLowerCase();
+      if(t.includes('barangay')) s += 0.4;
+      else if(t.includes('by me')) s += 0.25;
+      else if(t === 'no') s += 0.0;
+      else s += 0.15; // not sure
+    }
+    return clamp01(s);
+  }
+  function authorityFromQ9(arr){
+    const list = toArray(arr).map(v => (v||'').toLowerCase());
+    return {
+      none: list.includes('none'),
+      barangay: list.includes('barangay'),
+      hoa: list.includes('hoa'),
+      ngc: list.includes('ngc'),
+      usad: list.includes('usad - phaseland') || list.includes('usad - phaselad') || list.includes('usad')
+    };
+  }
+  function inspectionOrgFromQ10(v){
+    v = (v||'').toLowerCase();
+    return {
+      barangay: v.includes('barangay'),
+      hoa: v.includes('hoa'),
+      ngc: v.includes('ngc') || v.includes('usad')
+    };
+  }
+  function resultFromQ11(arr){
+    const list = toArray(arr).map(v => (v||'').toLowerCase());
+    return {
+      advised_adjust: list.some(x => x.includes('advised to adjust') || x.includes('vacate')),
+      provide_docs: list.some(x => x.includes('provide more documents')),
+      under_investigation: list.some(x => x.includes('under investigation')),
+      no_action: list.some(x => x.includes('no action')),
+      not_applicable: list.some(x => x.includes('not applicable'))
+    };
+  }
+
+  function evidenceScore(answers){
+    // Penalize unknown/none, reward filled & strong signals
+    let answered = 0, total = 0, penalty = 0, bonus = 0;
+    const keys = Object.keys(answers||{});
+    keys.forEach(k => {
+      total++;
+      const v = answers[k];
+      if(v == null) return;
+      if(Array.isArray(v)) {
+        if(v.length){ answered++; }
+        if(v.some(x => /none|not applicable|not sure/i.test(x))) penalty += 0.05;
+      } else if(typeof v === 'string') {
+        if(v.trim()) answered++;
+        if(/none|not applicable|not sure/i.test(v)) penalty += 0.05;
+      }
+    });
+    // Core signals
+    bonus += urgencyFromQ4(answers.q4)*0.2 + severityFromQ2(answers.q2)*0.1 + impactFromQ5(answers.q5)*0.1;
+    const completeness = total ? answered/total : 0.5;
+    return clamp01(completeness - penalty + bonus);
+  }
+
+  // --- Compute action scores ---
+  function computeRecommendation(answers){
+    answers = answers || {};
+    const urg = urgencyFromQ4(answers.q4);
+    const sev = severityFromQ2(answers.q2);
+    const dur = durationFromQ3(answers.q3);
+    const imp = impactFromQ5(answers.q5);
+    const soc = socialConcernFromQ6Q7(answers.q6, answers.q7);
+    const auth = authorityFromQ9(answers.q9);
+    const inspOrg = inspectionOrgFromQ10(answers.q10);
+    const res11 = resultFromQ11(answers.q11);
+    const ongoing = ((answers.q12||'').toLowerCase().includes('yes')) ? 0.5 : 0;
+    const govEasement = (answers.q1||'').toLowerCase().includes('government-declared');
+
+    // Base scores
+    let inspection = 0, mediation = 0, assessment = 0, ooj = 0;
+
+    // Inspection: urgency, severity, impact, duration; boost if no action taken; reduce if inspection already done by barangay/hoa
+    inspection += urg*0.4 + sev*0.25 + imp*0.2 + dur*0.15;
+    if(res11.no_action || res11.under_investigation) inspection += 0.1;
+    if(inspOrg.barangay || inspOrg.hoa) inspection -= 0.15; // already inspected locally
+
+    // Mediation: social concern, fence/gate/store cases, partially blocked, reported to barangay/hoa
+    const partial = (answers.q4||'').toLowerCase().includes('partial');
+    const fenceLike = (answers.q2||'').toLowerCase().match(/fence|gate|store|business/);
+    mediation += soc*0.5 + (partial?0.15:0) + (fenceLike?0.2:0);
+    if(auth.barangay || auth.hoa) mediation += 0.1;
+
+    // Assessment: documentation/status uncertainty, gov easement, ongoing development, provide docs result, prior inspections
+    const unsure = [answers.q3, answers.q4, answers.q6, answers.q7].some(v => /not sure/i.test(v||''));
+    assessment += (unsure?0.15:0) + (govEasement?0.2:0) + ongoing*0.2 + (res11.provide_docs?0.25:0) + ((inspOrg.barangay||inspOrg.hoa)?0.1:0);
+
+    // Out of Jurisdiction: weak evidence, gov agencies involved, gov easement without strong HOA indicators, many NGC/USAD selections
+    const ev = evidenceScore(answers);
+    const externalAgency = (auth.ngc || auth.usad || inspOrg.ngc);
+    ooj += (1 - ev)*0.4 + (govEasement?0.2:0) + (externalAgency?0.25:0);
+    if(auth.none && ev < 0.35) ooj += 0.15;
+
+    // Normalize and pick
+    inspection = clamp01(inspection);
+    mediation = clamp01(mediation);
+    assessment = clamp01(assessment);
+    ooj = clamp01(ooj);
+    const scores = { inspection, mediation, assessment, out_of_jurisdiction: ooj };
+    const total = inspection + mediation + assessment + ooj + 1e-6;
+    const norm = {
+      inspection: inspection/total,
+      mediation: mediation/total,
+      assessment: assessment/total,
+      out_of_jurisdiction: ooj/total
+    };
+    let action = 'inspection';
+    let best = norm.inspection;
+    Object.keys(norm).forEach(k => { if(norm[k] > best){ best = norm[k]; action = k; } });
+
+    // Rationale
+    const reasons = [];
+    if(urg >= 0.7) reasons.push('Pathway is currently blocked (high urgency).');
+    if(sev >= 0.7) reasons.push('Encroachment is severe (e.g., permanent structure or gate).');
+    if(imp >= 0.5) reasons.push('Significant impact on mobility or safety.');
+    if(soc >= 0.5) reasons.push('Multiple residents or officials have raised/handled concerns.');
+    if(res11.provide_docs) reasons.push('Authorities requested more documents — further assessment is warranted.');
+    if(govEasement) reasons.push('Issue involves a government-declared easement/right-of-way.');
+    if(ongoing > 0) reasons.push('There is ongoing development that may affect jurisdiction.');
+    if((auth.ngc||auth.usad||inspOrg.ngc)) reasons.push('External agency involvement noted (NGC/USAD).');
+    if(best < 0.45) reasons.push('Overall evidence is mixed; consider verifying details.');
+
+    return { action, confidence: best, scores: norm, reasons };
+  }
+
+  // --- Extract answers from injected Pathway Dispute preview/form ---
+  function extractAnswers(root){
+    const qVal = name => {
+      const group = root.querySelectorAll(`input[name="${name}"]`);
+      if(!group.length){
+        // Try single radio by name with checked attribute preserved
+        const any = root.querySelector(`input[name="${name}"][checked]`);
+        return any ? any.value : '';
+      }
+      const checked = Array.from(group).find(i => i.checked);
+      return checked ? checked.value : '';
+    };
+    const qArr = name => Array.from(root.querySelectorAll(`input[name="${name}"]`)).filter(i => i.checked).map(i => i.value);
+
+    // Map Pathway Dispute names
+    const answers = {
+      q1: qVal('q1'),            // type of pathway (radio)
+      q2: qVal('q2'),            // nature (radio)
+      q3: qVal('q3'),            // duration (radio)
+      q4: qVal('q4'),            // obstruction still present (radio)
+      q5: qArr('q5'),            // impacts (checkboxes)
+      q6: qVal('q6'),            // others concerned (radio)
+      q7: qVal('q7'),            // informed/warned (radio)
+      q8: qArr('q8'),            // led to any issues (checkboxes)
+      q9: qArr('q9'),            // reported to authority (checkboxes)
+      q10: qVal('q10'),          // inspection conducted (radio)
+      q11: qArr('q11'),          // result (checkboxes)
+      q12: qVal('q12'),          // ongoing development (radio)
+      description: (root.querySelector('textarea[name="description"]') || {}).value || ''
+    };
+    // cache for downstream narrative rendering
+    __lastAnswers = answers;
+    return answers;
+  }
+
+  // --- Stylish UI helpers ---
+  const ACTION_LABEL = {
+    inspection: 'Inspection',
+    mediation: 'Mediation',
+    assessment: 'Assessment',
+    out_of_jurisdiction: 'Out of Jurisdiction'
+  };
+
+  const ACTION_COLOR = {
+    inspection: '#1a33a0',
+    mediation: '#0b8b6a',
+    assessment: '#8751b8',
+    out_of_jurisdiction: '#a03b2b'
+  };
+
+  function confidenceLabel(c){
+    const v = clamp01(c);
+    if(v >= 0.75) return {label: 'High confidence', color: '#0b8b6a'};
+    if(v >= 0.5) return {label: 'Moderate confidence', color: '#e6a100'};
+    return {label: 'Low confidence', color: '#a03b2b'};
+  }
+
+  function renderScoreBars(scores, primary){
+    const keys = ['inspection','mediation','assessment','out_of_jurisdiction'];
+    const rows = keys.map(k => {
+      const p = Math.round(clamp01(scores[k]||0)*100);
+      const color = ACTION_COLOR[k] || '#1f2a4a';
+      const isBest = k === primary;
+      return `
+        <div style="display:flex; align-items:center; gap:8px; margin:6px 0;">
+          <div style="width:140px; font-weight:${isBest?'700':'500'}; color:${isBest?color:'#1f2a4a'};">${ACTION_LABEL[k]||titleCase(k)}</div>
+          <div style="flex:1; background:#eef2ff; border-radius:999px; height:10px; overflow:hidden;">
+            <div style="width:${p}%; height:100%; background:${color}; opacity:${isBest?1:0.6}"></div>
+          </div>
+          <div style="width:42px; text-align:right; color:${isBest?color:'#51607a'}; font-weight:${isBest?700:500}">${p}%</div>
+        </div>`;
+    }).join('');
+    return `<div style="margin-top:10px;">${rows}</div>`;
+  }
+
+  function buildNarrative(answers, result){
+    const actionKey = result.action;
+    const action = ACTION_LABEL[actionKey] || titleCase(actionKey);
+    const confPct = pct(result.confidence);
+    const conf = confidenceLabel(result.confidence).label.toLowerCase();
+
+    const bits = [];
+    bits.push(`Recommended action: ${action} (${confPct}% ${conf}).`);
+
+    // Contextualize using answers
+    const details = [];
+    if((answers.q4||'').toLowerCase().includes('fully')) details.push('pathway reportedly fully blocked');
+    else if((answers.q4||'').toLowerCase().includes('partial')) details.push('pathway partially obstructed');
+    if(/fence|gate|store|business/i.test(answers.q2||'')) details.push('encroachment involves a structure (e.g., fence/gate/store)');
+    if((answers.q6||'').toLowerCase()==='yes') details.push('other residents are concerned');
+    if(/barangay|hoa/i.test(answers.q7||'')) details.push('matter already raised to local authorities');
+    if((answers.q1||'').toLowerCase().includes('government')) details.push('possible government-declared easement/right-of-way');
+    if((answers.q12||'').toLowerCase().includes('yes')) details.push('ongoing development in the area');
+    if((answers.description||'').trim().length>0) details.push('complaint description provided');
+    if(details.length){ bits.push(`Signals considered: ${details.join('; ')}.`); }
+
+    // Rationale
+    const reasons = (result.reasons||[]).slice(0,4);
+    if(reasons.length){ bits.push(`Why this: ${reasons.join(' ')}.`); }
+
+    // Next steps guidance per action
+    const next = [];
+    switch(actionKey){
+      case 'inspection':
+        next.push('Schedule a site visit within 3–5 days.');
+        next.push('Capture photos/videos and exact location.');
+        next.push('Coordinate with barangay/HOA as needed.');
+        break;
+      case 'mediation':
+        next.push('Invite involved parties to an on-site meeting.');
+        next.push('Agree on interim access (e.g., partial clearance).');
+        next.push('Document commitments and a follow-up window.');
+        break;
+      case 'assessment':
+        next.push('Request supporting documents (permits, plans, IDs).');
+        next.push('Check easement/right-of-way policies for applicability.');
+        next.push('Decide whether to escalate to inspection or mediation.');
+        break;
+      default: // out_of_jurisdiction
+        next.push('Prepare a referral letter to the proper authority (e.g., NGC/USAD/Barangay).');
+        next.push('Inform complainant about scope and expected timeline.');
+        next.push('Attach any collected evidence for continuity.');
+        break;
+    }
+    bits.push(`Next steps: ${next.join(' ')}.`);
+
+    // If confidence moderate/low, encourage evidence
+    if(result.confidence < 0.75){
+      bits.push('Note: Confidence is not maximal. Additional photos, specific dates, and any received notices can improve the recommendation.');
+    }
+
+    return bits.join('\n\n');
+  }
+
+  function renderRecommendation(result, answers){
+    const modal = document.getElementById('recommendModal');
+    if(!modal) return;
+    const container = modal.querySelector('.modal, .warning-modal') || modal;
+    let box = container.querySelector('#autoRecommendation');
+    if(!box){
+      box = document.createElement('div');
+      box.id = 'autoRecommendation';
+      box.style.border = '1px solid rgba(26,51,160,0.18)';
+      box.style.borderRadius = '12px';
+      box.style.padding = '14px 16px';
+      box.style.margin = '10px 0 16px';
+      box.style.background = '#f7f9ff';
+      box.style.color = '#1f2a4a';
+      box.style.fontSize = '14px';
+      container.insertBefore(box, container.firstChild);
+    }
+    try {
+      const primary = result.action;
+      const action = ACTION_LABEL[primary] || titleCase(primary);
+      const confPct = pct(result.confidence);
+      const confMeta = confidenceLabel(result.confidence);
+      const reasons = (result.reasons||[]).slice(0,4).map(r=>`<li>${r}</li>`).join('');
+
+      const header = `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; border-bottom: 2px solid #1a33a0;">
+          <div style="font-weight:800; color:#1a33a0; display:flex; align-items:center; gap:10px;">
+            <span class="material-icons" style="font-size:18px; color:#1a33a0;">psychology</span>
+            System Recommendation
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="padding:4px 10px; border-radius:999px; background:${ACTION_COLOR[primary]||'#1a33a0'}10; color:${ACTION_COLOR[primary]||'#1a33a0'}; font-weight:700;">${action}</span>
+            <span style="padding:4px 10px; border-radius:999px; background:${confMeta.color}10; color:${confMeta.color}; font-weight:700;">${confPct}%</span>
+          </div>
+        </div>`;
+
+      const bars = renderScoreBars(result.scores||{}, primary);
+
+      const why = `
+        <div style="margin-top:8px; color:#1f2a4a;">Why this</div>
+        <ul style="margin:6px 0 0 18px; color: #00030dff">${reasons || '<li>Signals are mixed; additional details may improve accuracy.</li>'}</ul>`;
+
+      box.innerHTML = header + bars + why;
+
+      // Try to fill the narrative textarea below
+      const ans = answers || __lastAnswers || {};
+      const narrative = buildNarrative(ans, result);
+      const textarea = document.getElementById('recommendText');
+      if(textarea){ textarea.value = narrative; }
+    } catch (e) {
+      // graceful fallback text
+      box.innerHTML = '<div style="font-weight:700; color:#a03b2b;">Unable to render detailed recommendation UI.</div>';
+    }
+  }
+
+  // expose
+  window.PathwayFuzzy = {
+    extractAnswers,
+    computeRecommendation,
+    renderRecommendation,
+    // also expose helpers for advanced callers
+    _buildNarrative: buildNarrative
+  };
+})();
