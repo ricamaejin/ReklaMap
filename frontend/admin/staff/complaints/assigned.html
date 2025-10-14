@@ -966,22 +966,63 @@
     function getDeadlineDate(complaint) {
       const actionType = (complaint.action_needed || complaint.latest_action || '').toLowerCase();
       
+      // Get action datetime for time component (used for inspections)
+      let actionDate = null;
+      if (complaint.action_datetime) {
+        actionDate = new Date(complaint.action_datetime);
+      } else if (complaint.date_received) {
+        actionDate = new Date(complaint.date_received);
+      }
+      
       // Use admin-set deadline when available (not just for inspections)
       if (complaint.deadline && complaint.deadline !== null && complaint.deadline !== 'null') {
         const adminDeadline = new Date(complaint.deadline);
-        if (!isNaN(adminDeadline.getTime())) return adminDeadline;
+        if (!isNaN(adminDeadline.getTime())) {
+          // For inspections, combine admin deadline date with action time to match display format
+          if (actionType.includes('inspection') && !actionType.includes('done') && actionDate && !isNaN(actionDate.getTime())) {
+            // Create new date with admin deadline date but action time
+            const combinedDeadline = new Date(adminDeadline);
+            combinedDeadline.setHours(actionDate.getHours(), actionDate.getMinutes(), actionDate.getSeconds(), actionDate.getMilliseconds());
+            return combinedDeadline;
+          }
+          return adminDeadline;
+        }
       } else if (complaint.inspection_deadline && complaint.inspection_deadline !== null && complaint.inspection_deadline !== 'null') {
         const inspectionDeadline = new Date(complaint.inspection_deadline);
-        if (!isNaN(inspectionDeadline.getTime())) return inspectionDeadline;
+        if (!isNaN(inspectionDeadline.getTime())) {
+          // For inspections, combine with action time
+          if (actionType.includes('inspection') && !actionType.includes('done') && actionDate && !isNaN(actionDate.getTime())) {
+            const combinedDeadline = new Date(inspectionDeadline);
+            combinedDeadline.setHours(actionDate.getHours(), actionDate.getMinutes(), actionDate.getSeconds(), actionDate.getMilliseconds());
+            return combinedDeadline;
+          }
+          return inspectionDeadline;
+        }
       } else if (complaint.details && typeof complaint.details === 'object' && complaint.details.deadline) {
         const adminDeadline = new Date(complaint.details.deadline);
-        if (!isNaN(adminDeadline.getTime())) return adminDeadline;
+        if (!isNaN(adminDeadline.getTime())) {
+          // For inspections, combine with action time
+          if (actionType.includes('inspection') && !actionType.includes('done') && actionDate && !isNaN(actionDate.getTime())) {
+            const combinedDeadline = new Date(adminDeadline);
+            combinedDeadline.setHours(actionDate.getHours(), actionDate.getMinutes(), actionDate.getSeconds(), actionDate.getMilliseconds());
+            return combinedDeadline;
+          }
+          return adminDeadline;
+        }
       } else if (complaint.details && typeof complaint.details === 'string') {
         try {
           const parsedDetails = JSON.parse(complaint.details);
           if (parsedDetails.deadline) {
             const adminDeadline = new Date(parsedDetails.deadline);
-            if (!isNaN(adminDeadline.getTime())) return adminDeadline;
+            if (!isNaN(adminDeadline.getTime())) {
+              // For inspections, combine with action time
+              if (actionType.includes('inspection') && !actionType.includes('done') && actionDate && !isNaN(actionDate.getTime())) {
+                const combinedDeadline = new Date(adminDeadline);
+                combinedDeadline.setHours(actionDate.getHours(), actionDate.getMinutes(), actionDate.getSeconds(), actionDate.getMilliseconds());
+                return combinedDeadline;
+              }
+              return adminDeadline;
+            }
           }
         } catch (e) {
           // Ignore JSON parse errors

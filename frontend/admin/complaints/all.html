@@ -371,8 +371,8 @@
               return 'Missing meeting date';
             }
           } else if (actionType.includes('mediation')) {
-            const baseDate = meetingDateTime || actionDate;
-            deadline = new Date(baseDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+            // Mediation → Assessment deadline is 3 days after mediation completion (action_datetime)
+            deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
           } else if (actionType.includes('assessment')) {
             // Assessment has no deadline - ready for resolution
             return 'Assessment Complete';
@@ -395,8 +395,17 @@
           let status = complaint.complaint_stage || 'Ongoing';
           let countdown = '';
           
+          // For mediation, show "For Assessment" instead of just "Ongoing"
+          if (actionType.includes('mediation')) {
+            status = 'For Assessment';
+          }
+          
           if (daysDiff < 0) {
-            status = 'Overdue';
+            if (actionType.includes('mediation')) {
+              status = 'Pending Review';
+            } else {
+              status = 'Overdue';
+            }
             countdown = `<br/><small style="color: red; font-weight: bold; font-size: 11px">${Math.abs(daysDiff)} day/s late</small>`;
           } else if (daysDiff === 0) {
             countdown = '<br/><small style="color: orange; font-weight: bold;">Due today</small>';
