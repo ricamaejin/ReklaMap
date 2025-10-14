@@ -539,6 +539,7 @@ def get_staff_invitation_data(complaint_id):
             'meeting_time': invitation_details.get('meeting_time', 'No time set'),
             'venue': invitation_details.get('location', 'No venue specified'),  # Admin uses 'location' field
             'agenda': invitation_details.get('agenda', 'No agenda specified'),
+            'recipients_address': invitation_details.get('recipients_address') or invitation_details.get('address') or '',
             'assistant': invitation_row.assigned_to or 'Not assigned',
             'assigned_date': invitation_row.action_datetime.strftime('%Y-%m-%d') if invitation_row.action_datetime else None
         }
@@ -2464,7 +2465,9 @@ def api_add_action():
                     "meeting_date": incoming_details.get("meeting_date"),
                     "meeting_time": incoming_details.get("meeting_time"),
                     "location": incoming_details.get("location"),
-                    "agenda": incoming_details.get("agenda")
+                    "agenda": incoming_details.get("agenda"),
+                    # support both names coming from frontend/backend
+                    "recipients_address": incoming_details.get("recipients_address") or incoming_details.get("address")
                 }
                 print(f"[INVITATION DEBUG] Using nested details: {details}")
             else:
@@ -2473,7 +2476,9 @@ def api_add_action():
                     "meeting_date": data.get("meeting_date"),
                     "meeting_time": data.get("meeting_time"),
                     "location": data.get("location"),
-                    "agenda": data.get("agenda")
+                    "agenda": data.get("agenda"),
+                    # flattened recipients address (frontend may send this key)
+                    "recipients_address": data.get("recipients_address") or data.get("address")
                 }
                 print(f"[INVITATION DEBUG] Using flattened keys: {details}")
                 print(f"[INVITATION DEBUG] Raw data keys: {list(data.keys())}")
@@ -2679,15 +2684,16 @@ def api_action_autofill(complaint_id):
         # --- Base complaint info
         complaint = db.session.execute(
             text("""
-                SELECT c.complaint_id,
-                       c.type_of_complaint,
-                       r.first_name,
-                       r.middle_name,
-                       r.last_name,
-                       r.suffix,
-                       r.lot_no,
-                       r.block_no,
-                       a.area_name
+          SELECT c.complaint_id,
+              c.type_of_complaint,
+              r.first_name,
+              r.middle_name,
+              r.last_name,
+              r.suffix,
+              r.lot_no,
+              r.block_no,
+              a.area_name,
+              r.current_address
                 FROM complaints c
                 LEFT JOIN registration r ON c.registration_id = r.registration_id
                 LEFT JOIN areas a ON c.area_id = a.area_id
@@ -2705,7 +2711,10 @@ def api_action_autofill(complaint_id):
         autofill_data = {
             "agenda": complaint.type_of_complaint,
             "location": "2nd FLR. USAD-PHASELAD OFFICE, BAYANIHAN BUILDING BARANGAY MAIN",
-            "to": complainant_name
+            "to": complainant_name,
+            # Provide address from registration.current_address as both current_address and address
+            "current_address": getattr(complaint, 'current_address', '') or '',
+            "address": getattr(complaint, 'current_address', '') or ''
         }
 
         # === LOT DISPUTE ===

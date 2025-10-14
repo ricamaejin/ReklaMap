@@ -266,7 +266,7 @@
             <!-- Agenda -->
             <div class="form-group">
             <label>Agenda:<span style="color:red;">*</span></label>
-            <input type="text" name="agenda" placeholder="Agenda" readonly class="readonly-input">
+            <input type="text" name="agenda" placeholder="Agenda">
             </div>
             <!-- Advisors/Witnesses -->
             <div class="form-group">
@@ -419,6 +419,11 @@
             <div class="form-group">
               <label for="invAgenda">Agenda:</label>
               <input type="text" id="invAgenda" name="agenda" readonly class="readonly-input">
+            </div>
+            <!-- Recipients Address (autofilled) -->
+            <div class="form-group">
+              <label for="invRecipientsAddress">Recipients Address:</label>
+              <input id="invRecipientsAddress" type="text" name="recipients_address" readonly class="readonly-input">
             </div>
             <hr>
 
@@ -642,6 +647,11 @@
 
       if (invAgendaEl) invAgendaEl.value = data.agenda || '';
       if (invLocationEl) invLocationEl.value = data.location || '2nd FLR. USAD-PHASELAD OFFICE, BAYANIHAN BUILDING BARANGAY MAIN';
+      const invRecipientsAddressEl = document.getElementById('invRecipientsAddress');
+      if (invRecipientsAddressEl) {
+        const addr = data.address || data.inspection_location_pretty || data.location || '';
+        invRecipientsAddressEl.value = addr;
+      }
 
       // Inspection fields
       const assignedPersonnelEl = document.getElementById('assignedPersonnel');
@@ -1076,7 +1086,9 @@
           agenda: document.querySelector("input[name='agenda']")?.value || "",
           summary: document.querySelector("textarea[name='summary']")?.value || "",
           assigned_personnel: document.querySelector('#medAssignedPersonnel')?.value || 'Josie Rosal',
-          parties_involved: collectPartiesInvolved(),
+          parties_involved: Array.from(document.querySelectorAll('#medPartiesInvolved input'))
+            .map(i => (i.value || '').trim())
+            .filter(Boolean),
           files: Array.from(document.querySelectorAll("input[name='mediationFiles[]']")).map((fileInput, idx) => {
             return {
               filename: fileInput.value.split("\\").pop(),
@@ -1135,6 +1147,7 @@
 
         details = {
           to: toList.join(", "), // join into a comma-separated string
+          recipients_address: document.querySelector('#invRecipientsAddress')?.value || '',
           meeting_date: document.querySelector("#invDate")?.value || "",
           meeting_time: document.querySelector("#invTime")?.value || "",
           location: document.querySelector("#invLocation")?.value || "",
@@ -1472,9 +1485,10 @@
         }
       }
       
-      // Determine if this entry should be clickable for preview
-      const isPreviewable = ['Inspection', 'Send Invitation', 'Mediation', 'Assessment'].includes(timelineStatus) && 
-                           timelineStatus !== 'Accepted Invitation';
+  // Determine if this entry should be clickable for preview
+  // Include both completed and in-progress variants where relevant
+  const isPreviewable = ['Inspection', 'Inspection done', 'Send Invitation', 'Sent Invitation', 'Mediation', 'Assessment'].includes(timelineStatus) && 
+           timelineStatus !== 'Accepted Invitation';
       const clickableClass = isPreviewable ? 'timeline-clickable' : '';
       const clickHandler = isPreviewable ? `onclick="showTimelinePreview('${entry.history_id}', '${entry.type_of_action}')"` : '';
       
@@ -2261,6 +2275,9 @@
       case 'inspection':
         previewHTML = generateInspectionPreview(details, entry);
         break;
+      case 'inspection done':
+        previewHTML = generateInspectionDonePreview(details, entry);
+        break;
       case 'invitation':
       case 'send invitation':
         previewHTML = generateInvitationPreview(details, entry);
@@ -2362,6 +2379,89 @@
         </div>
         ` : ''}
         
+        ${generateFileAttachments(details)}
+      </div>
+    `;
+  }
+
+  // Generate inspection done preview HTML - shows completed inspection fields including findings
+  function generateInspectionDonePreview(details, entry) {
+    const formatDateTime = (dateStr) => {
+      if (!dateStr) return 'Not specified';
+      try {
+        const d = new Date(dateStr);
+        return d.toLocaleString();
+      } catch (e) {
+        return dateStr;
+      }
+    };
+
+    const formatScope = (scope) => {
+      if (!scope || (Array.isArray(scope) && scope.length === 0)) return 'Not specified';
+      if (Array.isArray(scope)) {
+        return scope.map(s => {
+          switch(s) {
+            case 'safety': return 'Safety';
+            case 'affected_lots': return 'Affected lot/s';
+            case 'measurement': return 'Measurement of lot/s';
+            case 'relation_owner': return 'Relation to the lot owner (if non-HOA)';
+            default: return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ');
+          }
+        }).join(', ');
+      }
+      return scope.toString();
+    };
+
+    return `
+      <div style="padding: 15px;">
+        <div class="form-group">
+          <label><strong>Assigned Personnel:</strong></label>
+          <div class="readonly-field">${entry.assigned_to || details.inspector || 'Not specified'}</div>
+        </div>
+
+        <div class="form-group">
+          <label><strong>Location of Inspection:</strong></label>
+          <div class="readonly-field">${details.location || details.location_of_inspection || details.lot || entry.location || 'Not specified'}</div>
+        </div>
+
+        <div class="form-group">
+          <label><strong>Deadline:</strong></label>
+          <div class="readonly-field">${details.deadline ? formatDateTime(details.deadline) : (entry.action_datetime ? formatDateTime(entry.action_datetime) : 'Not specified')}</div>
+        </div>
+
+        <div class="form-group">
+          <label><strong>Scope of Inspection:</strong></label>
+          <div class="readonly-field">${formatScope(details.scope || details.scope_of_inspection || details.scopes || details.scopeList)}</div>
+        </div>
+
+        <div class="form-group">
+          <label><strong>Inspection Findings:</strong></label>
+          <div class="readonly-field" style="white-space: pre-wrap; max-height: 180px; overflow-y: auto; border: 1px solid #ccc; padding: 8px; border-radius: 6px; background-color: #f9f9f9;">${(
+            // Prefer explicit inspection/task findings saved by staff: e.g., inspection_findings or <task_type>_findings
+            (details && details.task_type && details[`${details.task_type}_findings`]) ||
+            details.inspection_findings ||
+            details.findings ||
+            details.findings_notes ||
+            details.report ||
+            details.description ||
+            entry.description
+          ) || 'No findings provided'}</div>
+        </div>
+
+        <!-- File uploads -->
+        ${details.files && details.files.length > 0 ? `
+        <div class="form-group">
+          <label><strong>Uploaded Files:</strong></label>
+          <div class="readonly-field">
+            ${details.files.map((file, index) => `
+              <div style="margin-bottom: 5px;">
+                <strong>${file.type || file.description || 'File ' + (index + 1)}:</strong> <a href="${file.url || file.path || file.file_url || '#'}" target="_blank">${file.filename || file.name || 'Uploaded file'}</a>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        ` : ''}
+
         ${generateFileAttachments(details)}
       </div>
     `;
@@ -2657,11 +2757,12 @@
 
   // Generate file attachments section
   function generateFileAttachments(details) {
-    if (!details.files || !Array.isArray(details.files) || details.files.length === 0) {
+    const files = details.files || details.attached_files || [];
+    if (!Array.isArray(files) || files.length === 0) {
       return '';
     }
     
-    const filesHTML = details.files.map((file, index) => {
+    const filesHTML = files.map((file, index) => {
       if (typeof file === 'string') {
         return `
           <div style="margin: 5px 0;">
@@ -2675,7 +2776,7 @@
       // Handle file object with multiple possible field names
       const fileName = file.filename || file.name || `File ${index + 1}`;
       const fileDescription = file.type || file.description || fileName;
-      const fileUrl = file.url || file.path || '#';
+      const fileUrl = file.url || file.path || file.file_url || '#';
       
       return `
         <div style="margin: 5px 0;">
@@ -2999,7 +3100,7 @@
       min-height: 20px;
     }
     .form-group {
-      margin-bottom: 15px;
+      margin-bottom: 8px;
     }
     .form-group label {
       display: block;
@@ -3029,11 +3130,11 @@
   function getAdminFilesFromEntry(entry) {
     try {
       if (entry.details && typeof entry.details === 'object') {
-        return entry.details.files || [];
+        return entry.details.files || entry.details.attached_files || [];
       }
       if (entry.details && typeof entry.details === 'string') {
         const parsed = JSON.parse(entry.details);
-        return parsed.files || [];
+        return parsed.files || parsed.attached_files || [];
       }
       return [];
     } catch (error) {
