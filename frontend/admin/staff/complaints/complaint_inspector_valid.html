@@ -531,7 +531,7 @@ async function resolveTask() {
       },
       body: JSON.stringify({
         complaint_id: complaintId,
-        action_type: 'Inspection done',
+        action_type: 'Inspection Done',
         description: findings,
         files: allFiles.map(f => f.name),
         staff_account_type: currentStaffAccount, // admin.account == 2
@@ -711,7 +711,7 @@ function mapActionToTimelineStatus(actionType, isCompleted = false, role = 'staf
   // STAFF VIEW: Only allowed sequential flow statuses
   const statusMap = {
     'Submitted': 'Submitted a Valid Complaint',
-    'Inspection': isCompleted ? 'Inspection done' : 'Inspection',
+    'Inspection': isCompleted ? 'Inspection Done' : 'Inspection',
     'Invitation': isCompleted ? 'Sent Invitation' : 'Send Invitation',
     'Task Completed': 'Task Completed',
     'Resolved': 'Resolved'
@@ -725,7 +725,7 @@ function getDefaultMessage(actionType, assignedTo) {
   const messages = {
     'Submitted a Valid Complaint': 'Your complaint has been received and validated',
     'Inspection': `Site inspection assigned to ${assignedTo || 'inspector'}`,
-    'Inspection done': `Site inspection completed by ${assignedTo || 'inspector'}`,
+    'Inspection Done': `Site inspection completed by ${assignedTo || 'inspector'}`,
     'Send Invitation': `Invitation task assigned to ${assignedTo || 'staff'}`,
     'Sent Invitation': `Invitation sent to involved parties by ${assignedTo || 'staff'}`,
     'Task Completed': `Task completed and passed back to admin`,
@@ -764,7 +764,7 @@ function filterEntriesByRole(entries, role) {
       
     case 'complainant':
       // Complainant sees only milestone completions
-      const milestones = ['Inspection done', 'Sent Invitation', 'Assessment', 'Resolved'];
+      const milestones = ['Inspection Done', 'Sent Invitation', 'Assessment', 'Resolved'];
       return entries.filter(entry => {
         const status = mapActionToTimelineStatus(entry.type_of_action);
         return milestones.includes(status) || entry.type_of_action === 'Submitted';
@@ -839,7 +839,7 @@ function renderTimeline(entries) {
         '';
       
       // Determine if this entry should be clickable for preview (only staff-completed actions)
-      const isPreviewable = ['Inspection done'].includes(timelineStatus);
+      const isPreviewable = ['Inspection Done'].includes(timelineStatus);
       const clickableClass = isPreviewable ? 'timeline-clickable' : '';
       const clickHandler = isPreviewable ? `onclick="showTimelinePreview('${entry.history_id}', '${entry.type_of_action}')"` : '';
       
@@ -1092,7 +1092,7 @@ async function showTimelinePreview(historyId, actionType) {
     
     const entry = data.entry;
     
-    // For "Inspection done" actions, allow staff to edit their own completed work
+    // For "Inspection Done" actions, allow staff to edit their own completed work
     if (actionType.toLowerCase().includes('inspection done') || actionType.toLowerCase().includes('inspection')) {
       // Pre-populate the modal with the saved data and open it in edit mode
       const details = typeof entry.details === 'string' ? JSON.parse(entry.details) : entry.details;

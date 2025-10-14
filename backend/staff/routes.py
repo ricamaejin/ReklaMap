@@ -81,7 +81,7 @@ def get_staff_complaint_data_with_proper_areas(staff_name=None, stage_filter=Non
                         SELECT 1 FROM complaint_history ch_completed 
                         WHERE ch_completed.complaint_id = c.complaint_id 
                         AND ch_completed.assigned_to = :staff_name
-                        AND ch_completed.type_of_action IN ('Inspection done', 'Sent Invitation')
+                        AND ch_completed.type_of_action IN ('Inspection Done', 'Sent Invitation')
                     )
                 """)
             else:
@@ -94,7 +94,7 @@ def get_staff_complaint_data_with_proper_areas(staff_name=None, stage_filter=Non
                     SELECT 1 FROM complaint_history ch_completed 
                     WHERE ch_completed.complaint_id = c.complaint_id 
                     AND ch_completed.assigned_to = :staff_name
-                    AND ch_completed.type_of_action IN ('Inspection done', 'Sent Invitation')
+                    AND ch_completed.type_of_action IN ('Inspection Done', 'Sent Invitation')
                 )
             """)
         
@@ -238,8 +238,14 @@ def api_assigned_complaints():
     # if auth_check:
     #     return jsonify({'error': 'Unauthorized'}), 401
     
-    # Use test staff name if no session
-    staff_name = session.get('admin_name') or "Test Staff"
+    # Use same logic as current-staff API for consistency
+    test_staff = request.args.get('test_staff')
+    
+    if test_staff:
+        staff_name = test_staff
+    else:
+        staff_name = session.get('admin_name') or "Alberto Nonato Jr."  # Default to Alberto, same as current-staff API
+        
     print(f"[DEBUG] Staff assigned API called with staff_name: {staff_name}")
     
     try:
@@ -303,7 +309,7 @@ def api_resolved_complaints():
     
     try:
         # Query to get the LATEST action per complaint for this staff member
-        # Prioritizes completion actions (Inspection done, Sent Invitation) over assignment actions
+        # Prioritizes completion actions (Inspection Done, Sent Invitation) over assignment actions
         query = """
         WITH staff_latest_actions AS (
             SELECT 
@@ -315,7 +321,7 @@ def api_resolved_complaints():
                     PARTITION BY ch.complaint_id 
                     ORDER BY 
                         CASE 
-                            WHEN ch.type_of_action IN ('Inspection done', 'Sent Invitation') THEN 1
+                            WHEN ch.type_of_action IN ('Inspection Done', 'Sent Invitation') THEN 1
                             WHEN ch.type_of_action IN ('Inspection', 'Invitation') THEN 2
                             ELSE 3
                         END ASC,
@@ -371,7 +377,7 @@ def api_resolved_complaints():
                 formatted_address = ', '.join(address_parts) if address_parts else 'Address not specified'
             
             # Show the latest action taken by staff (completion status if available, otherwise assignment)
-            if complaint.type_of_action in ['Inspection done', 'Sent Invitation']:
+            if complaint.type_of_action in ['Inspection Done', 'Sent Invitation']:
                 # Staff completed the task - show completion status
                 task_description = complaint.type_of_action
                 if complaint.complaint_stage == 'Resolved':

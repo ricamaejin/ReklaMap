@@ -9,7 +9,7 @@ def generate_action_description(action_type, assigned_to, role='admin'):
     admin_descriptions = {
         'Submitted': 'Submitted a Valid Complaint (default status after complaint submitted)',
         'Inspection': f'Site inspection assigned to {assigned_to}' if assigned_to else 'Inspection task assigned to staff',
-        'Inspection done': f'Site inspection completed by {assigned_to}' if assigned_to else 'Site inspection completed by staff',
+        'Inspection Done': f'Site inspection completed by {assigned_to}' if assigned_to else 'Site inspection completed by staff',
         'Invitation': f'Send Invitation task assigned to {assigned_to}' if assigned_to else 'Send Invitation task assigned to staff', 
         'Sent Invitation': f'Invitation sent by {assigned_to}' if assigned_to else 'Invitation sent to involved parties by staff',
         'Accepted Invitation': f'Invite accepted by both parties (ready for mediation)' if assigned_to else 'Invitation sent to involved parties by staff',
@@ -23,7 +23,7 @@ def generate_action_description(action_type, assigned_to, role='admin'):
         'Submitted': 'Complaint submitted and validated',
         'Assessment': 'Initial assessment completed by admin',
         'Inspection': f'Site inspection assigned to you ({assigned_to})' if assigned_to else 'Site inspection assigned to you',
-        'Inspection done': 'Site inspection completed - task done',
+        'Inspection Done': 'Site inspection completed - task done',
         'Invitation': f'Send Invitation assigned to you ({assigned_to})' if assigned_to else 'Send Invitation assigned to you',
         'Sent Invitation': 'Invitation sent to parties - task done', 
         'Task Completed': 'Task completed and passed back to admin for further processing'
@@ -32,7 +32,7 @@ def generate_action_description(action_type, assigned_to, role='admin'):
     # COMPLAINANT VIEW - Simplified milestones only
     complainant_descriptions = {
         'Submitted': 'Submitted a valid complaint',
-        'Inspection done': 'Site inspection completed',
+        'Inspection Done': 'Site inspection completed',
         'Invitation': 'Invitation sent to involved parties',
         'Assessment': 'Assessment completed',
         'Resolved': 'Complaint has been resolved'
@@ -280,7 +280,7 @@ def filter_entries_by_role(entries, role, complaint_id=None):
     
     if role == 'admin':
         # ADMIN VIEW (admin.account == 1): Full sequential flow
-        # 1. "Submitted a Valid Complaint" → 2. "Inspection" → 3. "Inspection done" → 
+        # 1. "Submitted a Valid Complaint" → 2. "Inspection" → 3. "Inspection Done" → 
         # 4. "Send Invitation" → 5. "Sent Invitation" → 6. "Accepted Invitation" → 
         # 7. "Mediation" → 8. "Assessment" → moves to resolved.html
         return entries
@@ -325,7 +325,7 @@ def filter_entries_by_role(entries, role, complaint_id=None):
                 simplified_entry['description'] = 'Submitted a valid complaint'
             elif action_type == 'Inspection':
                 simplified_entry['description'] = f'Site inspection assigned to {entry["assigned_to"]}' if entry.get("assigned_to") else 'Site inspection assigned to staff'
-            elif action_type == 'Inspection done':
+            elif action_type == 'Inspection Done':
                 simplified_entry['description'] = 'Site inspection completed'
             elif action_type == 'Invitation':
                 simplified_entry['description'] = 'Invitation process assigned to staff'

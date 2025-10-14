@@ -672,7 +672,7 @@ function mapActionToTimelineStatus(actionType, isCompleted = false, role = 'staf
   // STAFF VIEW: Only allowed sequential flow statuses
   const statusMap = {
     'Submitted': 'Submitted a Valid Complaint',
-    'Inspection': isCompleted ? 'Inspection done' : 'Inspection',
+    'Inspection': isCompleted ? 'Inspection Done' : 'Inspection',
     'Invitation': isCompleted ? 'Sent Invitation' : 'Send Invitation',
     'Task Completed': 'Task Completed',
     'Resolved': 'Resolved'
@@ -686,7 +686,7 @@ function getDefaultMessage(actionType, assignedTo) {
   const messages = {
     'Submitted a Valid Complaint': 'Your complaint has been received and validated',
     'Inspection': `Site inspection assigned to ${assignedTo || 'inspector'}`,
-    'Inspection done': `Site inspection completed by ${assignedTo || 'inspector'}`,
+    'Inspection Done': `Site inspection completed by ${assignedTo || 'inspector'}`,
     'Send Invitation': `Invitation task assigned to ${assignedTo || 'staff'}`,
     'Sent Invitation': `Invitation sent to involved parties by ${assignedTo || 'staff'}`,
     'Task Completed': `Task completed and passed back to admin`,
@@ -725,7 +725,7 @@ function filterEntriesByRole(entries, role) {
       
     case 'complainant':
       // Complainant sees only milestone completions
-      const milestones = ['Inspection done', 'Sent Invitation', 'Assessment', 'Resolved'];
+      const milestones = ['Inspection Done', 'Sent Invitation', 'Assessment', 'Resolved'];
       return entries.filter(entry => {
         const status = mapActionToTimelineStatus(entry.type_of_action);
         return milestones.includes(status) || entry.type_of_action === 'Submitted';

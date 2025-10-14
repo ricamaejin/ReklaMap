@@ -687,7 +687,7 @@
       }
       
       else if (actionType.includes('inspection done')) {
-        // Inspection done → Show "Send invite before:" + 3 days after this action
+        // Inspection Done → Show "Send invite before:" + 3 days after this action
         const deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
         const dateStr = deadline.toLocaleDateString();
         return `Send invite before:<br/>${dateStr}`;

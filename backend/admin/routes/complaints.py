@@ -636,7 +636,7 @@ def staff_complete_task():
             completion_status = 'Assessment'
             task_description = 'assessment'
         else:
-            completion_status = 'Inspection done'
+            completion_status = 'Inspection Done'
             task_description = 'inspection'
         
         # Create detailed completion record with task findings
@@ -910,7 +910,7 @@ def api_report_summary():
                     pass
 
             # inspections assigned or done
-            if atype in ('Inspection', 'Inspection done'):
+            if atype in ('Inspection', 'Inspection Done'):
                 inspections_required += 1
 
             # resolved
@@ -1030,8 +1030,9 @@ def get_complaint_data_with_proper_areas(status_filter=None, stage_filter=None, 
         
         if stage_filter:
             if stage_filter == 'Pending':
-                # For pending complaints, ensure no actions have been taken yet
-                where_clauses.append("c.complaint_stage = :stage AND c.status = 'Valid' AND ch_latest.complaint_id IS NULL")
+                # For pending complaints, include complaints with 'Pending' stage OR no actionable history
+                # This matches the logic used in all.html frontend
+                where_clauses.append("c.complaint_stage = :stage AND c.status = 'Valid' AND (ch_latest.complaint_id IS NULL OR ch_latest.type_of_action = 'Submitted')")
             else:
                 where_clauses.append("c.complaint_stage = :stage AND c.status = 'Valid'")
             params['stage'] = stage_filter
@@ -1084,10 +1085,16 @@ def get_complaint_data_with_proper_areas(status_filter=None, stage_filter=None, 
                 try:
                     if isinstance(complaint.details, str):
                         details = json.loads(complaint.details)
-                    else:
+                    elif isinstance(complaint.details, dict):
                         details = complaint.details
+                    else:
+                        details = {}
                 except (json.JSONDecodeError, TypeError):
                     details = {}
+            
+            # Ensure details is always a dictionary
+            if not isinstance(details, dict):
+                details = {}
             
             # Parse invitation details to get meeting date/time for "Accepted Invitation" cases
             invitation_details = {}
@@ -1095,10 +1102,16 @@ def get_complaint_data_with_proper_areas(status_filter=None, stage_filter=None, 
                 try:
                     if isinstance(complaint.invitation_details, str):
                         invitation_details = json.loads(complaint.invitation_details)
-                    else:
+                    elif isinstance(complaint.invitation_details, dict):
                         invitation_details = complaint.invitation_details
+                    else:
+                        invitation_details = {}
                 except (json.JSONDecodeError, TypeError):
                     invitation_details = {}
+            
+            # Ensure invitation_details is always a dictionary
+            if not isinstance(invitation_details, dict):
+                invitation_details = {}
             
             # For "Accepted Invitation", prefer meeting details from invitation_details
             meeting_date = invitation_details.get('meeting_date') or details.get('meeting_date')
@@ -1110,10 +1123,17 @@ def get_complaint_data_with_proper_areas(status_filter=None, stage_filter=None, 
                 try:
                     if isinstance(complaint.inspection_details, str):
                         inspection_details = json.loads(complaint.inspection_details)
-                    else:
+                    elif isinstance(complaint.inspection_details, dict):
                         inspection_details = complaint.inspection_details
+                    else:
+                        inspection_details = {}
                 except (json.JSONDecodeError, TypeError):
                     inspection_details = {}
+            
+            # Ensure inspection_details is always a dictionary
+            if not isinstance(inspection_details, dict):
+                inspection_details = {}
+                
             explicit_deadline = inspection_details.get('deadline') or details.get('deadline')
             
             formatted_complaints.append({
@@ -1769,7 +1789,7 @@ def get_unresolved_complaints():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
-@complaints_bp.route('/api/debug/complaints', methods=['GET'])
+# @complaints_bp.route('/api/debug/complaints', methods=['GET'])
 def debug_complaints():
     """Debug endpoint to check complaint data in database"""
     try:
@@ -1806,7 +1826,7 @@ def debug_complaints():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@complaints_bp.route('/api/test/timeline/<int:complaint_id>', methods=['GET'])
+# @complaints_bp.route('/api/test/timeline/<int:complaint_id>', methods=['GET'])
 def test_timeline_debug(complaint_id):
     """Debug timeline functionality to see what's happening"""
     try:
@@ -2285,7 +2305,7 @@ def api_complaint_details(complaint_id):
         print(f"Error getting complaint details: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@complaints_bp.route("/api/debug/areas")
+# @complaints_bp.route("/api/debug/areas")
 def api_debug_areas():
     """Debug endpoint to check area data"""
     try:
@@ -2845,12 +2865,12 @@ def get_staff_stats():
         WHERE ch_latest.assigned_to = :staff_name 
         AND c.status = 'Valid'
         AND c.complaint_stage != 'Resolved'
-        AND ch_latest.type_of_action NOT IN ('Inspection done', 'Sent Invitation')
+        AND ch_latest.type_of_action NOT IN ('Inspection Done', 'Sent Invitation')
         AND NOT EXISTS (
             SELECT 1 FROM complaint_history ch_completed 
             WHERE ch_completed.complaint_id = c.complaint_id 
             AND (ch_completed.assigned_to = :staff_name OR ch_completed.assigned_to = 'Staff Member')
-            AND ch_completed.type_of_action IN ('Inspection done', 'Sent Invitation')
+            AND ch_completed.type_of_action IN ('Inspection Done', 'Sent Invitation')
         )
         """
         
@@ -2860,7 +2880,7 @@ def get_staff_stats():
         FROM complaints c
         JOIN complaint_history ch ON c.complaint_id = ch.complaint_id
         WHERE (ch.assigned_to = :staff_name OR ch.assigned_to = 'Staff Member')
-        AND ch.type_of_action IN ('Inspection done', 'Sent Invitation')
+        AND ch.type_of_action IN ('Inspection Done', 'Sent Invitation')
         AND c.status = 'Valid'
         """
         
@@ -2974,12 +2994,12 @@ def get_staff_assigned_complaints():
         WHERE ch_latest.assigned_to = :staff_name 
         AND c.status = 'Valid'
         AND c.complaint_stage != 'Resolved'
-        AND ch_latest.type_of_action NOT IN ('Inspection done', 'Sent Invitation')
+        AND ch_latest.type_of_action NOT IN ('Inspection Done', 'Sent Invitation')
         AND NOT EXISTS (
             SELECT 1 FROM complaint_history ch_completed 
             WHERE ch_completed.complaint_id = c.complaint_id 
             AND ch_completed.assigned_to = :staff_name
-            AND ch_completed.type_of_action IN ('Inspection done', 'Sent Invitation')
+            AND ch_completed.type_of_action IN ('Inspection Done', 'Sent Invitation')
         )
         ORDER BY c.date_received DESC
         """
@@ -3037,7 +3057,7 @@ def get_staff_assigned_complaints():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
-@complaints_bp.route('/staff/api/debug', methods=['GET'])
+# @complaints_bp.route('/staff/api/debug', methods=['GET'])
 def debug_staff_data():
     """Debug endpoint to check data relationships"""
     try:
@@ -3208,7 +3228,7 @@ def get_staff_resolved_complaints():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e), 'error_type': type(e).__name__}), 500
 
-@complaints_bp.route('/staff/api/debug/assignments', methods=['GET'])
+# @complaints_bp.route('/staff/api/debug/assignments', methods=['GET'])
 def debug_staff_assignments():
     """Debug endpoint to see what staff assignments exist"""
     try:
@@ -3267,7 +3287,7 @@ def get_complainant_timeline(complaint_id):
         # Filter timeline entries for complainant view - only show specific statuses
         complainant_allowed_statuses = [
             'Submitted a valid complaint',
-            'Inspection done', 
+            'Inspection Done', 
             'Sent Invitation',
             'Accepted Invitation',
             'Assessment',
@@ -3281,7 +3301,7 @@ def get_complainant_timeline(complaint_id):
             # Map action types to complainant-friendly status names
             mapped_status = None
             if 'inspection' in action_type.lower() and 'done' in action_type.lower():
-                mapped_status = 'Inspection done'
+                mapped_status = 'Inspection Done'
             elif 'sent invitation' in action_type.lower() or 'invitation' in action_type.lower():
                 mapped_status = 'Sent Invitation'
             elif 'accept' in action_type.lower() and 'invitation' in action_type.lower():
@@ -3319,7 +3339,7 @@ def get_default_complainant_message(status, assigned_to):
     """Generate default messages for complainant timeline"""
     messages = {
         'Submitted a valid complaint': 'Your complaint has been submitted and is under review.',
-        'Inspection done': f'Site inspection completed by {assigned_to or "staff"}.',
+        'Inspection Done': f'Site inspection completed by {assigned_to or "staff"}.',
         'Sent Invitation': f'Invitation sent to parties by {assigned_to or "staff"}.',
         'Accepted Invitation': 'Invitation accepted by all parties.',
         'Resolved': 'Your complaint has been resolved.'
@@ -3367,7 +3387,7 @@ def fix_assessment_status():
 
 @complaints_bp.route('/api/complaint_details/<int:complaint_id>', methods=['GET'])
 def get_complaint_details(complaint_id):
-    """Get complaint details including area information for map display"""
+    """Get complaint details including area information and lot dispute data for fuzzy recommendations"""
     try:
         # Query complaint with area details
         query = text("""
