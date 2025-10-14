@@ -354,7 +354,17 @@
     // Load assigned complaints data
     async function loadAssignedComplaints() {
       try {
-        const response = await fetch(`/staff/api/complaints/assigned?_=${Date.now()}`);
+        // Check for test_staff parameter in URL for testing different staff members
+        const urlParams = new URLSearchParams(window.location.search);
+        const testStaff = urlParams.get('test_staff');
+        
+        let apiUrl = `/staff/api/complaints/assigned?_=${Date.now()}`;
+        if (testStaff) {
+          apiUrl += `&test_staff=${encodeURIComponent(testStaff)}`;
+          console.log(`[DEBUG] Testing with staff: ${testStaff}`);
+        }
+        
+        const response = await fetch(apiUrl);
         const data = await response.json();
         
         if (data.success) {
@@ -537,7 +547,16 @@
     // Load staff name dynamically
     async function loadStaffName() {
       try {
-        const response = await fetch('/staff/api/current-staff');
+        // Check for test_staff parameter in URL for testing different staff members
+        const urlParams = new URLSearchParams(window.location.search);
+        const testStaff = urlParams.get('test_staff');
+        
+        let apiUrl = '/staff/api/current-staff';
+        if (testStaff) {
+          apiUrl += `?test_staff=${encodeURIComponent(testStaff)}`;
+        }
+        
+        const response = await fetch(apiUrl);
         if (response.ok) {
           const data = await response.json();
           document.getElementById('staff-name').textContent = data.admin_name || 'Unknown Staff';
@@ -668,7 +687,7 @@
       }
       
       else if (actionType.includes('inspection done')) {
-        // Inspection done → Show "Send invite before:" + 3 days after this action
+        // Inspection Done → Show "Send invite before:" + 3 days after this action
         const deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
         const dateStr = deadline.toLocaleDateString();
         return `Send invite before:<br/>${dateStr}`;

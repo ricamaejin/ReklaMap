@@ -7,6 +7,10 @@
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
   <link rel="stylesheet" href="/css/modal_shared.css">
+  <!-- Fuzzy recommendation modules (pathway + lot) and dispatcher -->
+  <script src="/js/fuzzy_rules_pathway.js" defer></script>
+  <script src="/js/fuzzy_rules_lot.js" defer></script>
+  <script src="/js/recommendation_dispatch.js" defer></script>
   <style>
     .accept-invitation-btn {
       background: #28a745 !important;
@@ -143,6 +147,7 @@
   #alertModal { z-index: 10010 !important; }
   </style>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
 <body>
   <!-- Sidebar -->
   <aside class="sidebar">
@@ -210,15 +215,11 @@
         </div>
         <hr>
 
-        <!-- Recommendation Description -->
-        <!-- TODO BACKEND: Replace static description from backend -->
-        <textarea style="width: 100%; height: 200px; text-align: justify; padding: 20px 30px; box-sizing: border-box;">Based on system analysis, we recommend the following action: 
-  
-  - Assign an Inspection to the assigned personnel (Alberto Nonato Jr.). The inspection should cover safety, affected lots, and measurement of lots.
-  
-  - Notify all relevant parties about the inspection details and ensure their availability.
-        </textarea>
-
+        <!-- System Recommendation (rendered by fuzzy modules) -->
+      <div id="autoRecommendation" 
+      style="background-color: #fff; width: 100%; margin-left: 0px !important; height: auto; text-align: justify; padding: 20px 30px; box-sizing: border-box; border-radius: 5px;">
+      </div>
+        
         <div class="modal-footer">
           <button class="btn-save" onclick="proceedToAssign()">Assign</button>
           <button class="btn-save" onclick="proceedToAction()">Proceed</button>
@@ -583,7 +584,6 @@
         <div class="modal-footer" style="margin-top: auto; padding: 15px; border-top: 1px solid #ddd;">
           <div id="previewModalActions">
             <button type="button" onclick="closeTimelinePreview()" class="btn-secondary">Close</button>
-            <button type="button" id="editPreviewAction" onclick="editTimelineEntry()" class="btn-primary" style="display: none;">Edit</button>
           </div>
         </div>
       </div>
@@ -727,8 +727,9 @@
     }
 
     // Step 1: Open Recommended modal first
-    async function openComplaint() {
-      recommendModal.style.display = "flex";
+    function openComplaint() {
+      try { if (window.runFuzzyRecommendation) window.runFuzzyRecommendation(); } catch(e) {}
+      recommendModal.style.display = 'flex';
     }
 
     // Close Recommended modal
@@ -748,6 +749,18 @@
       loadAutofill().then(data => {
         try { applyAutofillToAction(data); } catch (e) { console.warn('applyAutofillToAction failed', e); }
       });
+      // Preselect suggested action from recommender
+      try {
+        const recData = document.getElementById('recommendModal').dataset;
+        const suggestAction = recData?.suggestAction;
+        if (suggestAction){
+          const sel = document.getElementById('actionType');
+          if (sel){
+            sel.value = suggestAction;
+            sel.dispatchEvent(new Event('change'));
+          }
+        }
+      } catch(e) { console.warn('Failed to preselect action from recommendation', e); }
     }
 
     // Step 2 (b): From Recommended → proceed to Assign modal
@@ -773,6 +786,18 @@
           }
         }
       });
+      // Preselect suggested assignment from recommender
+      try {
+        const recData = document.getElementById('recommendModal').dataset;
+        const suggestAssign = recData?.suggestAssign;
+        if (suggestAssign){
+          const sel = document.getElementById('assignType');
+          if (sel){
+            sel.value = suggestAssign;
+            sel.dispatchEvent(new Event('change'));
+          }
+        }
+      } catch(e) { console.warn('Failed to preselect assignment from recommendation', e); }
     }
 
     // Close whichever modal is open
@@ -1370,11 +1395,11 @@
     const statusMap = {
       'Submitted': 'Submitted a Valid Complaint',
       'Inspection': 'Inspection',
-      'Inspection done': 'Inspection done',
+      'Inspection Done': 'Inspection Done',
       'Invitation': 'Send Invitation',  // Admin creates invitation task - show as assignment
       'Send Invitation': 'Send Invitation',  // Map legacy to new label
       'Sent Invitation': 'Sent Invitation',
-      'Task Completed': 'Inspection done',  // Map legacy Task Completed to Inspection done
+      'Task Completed': 'Inspection Done',  // Map legacy Task Completed to Inspection Done
       'Resolved': 'Resolved'
     };
     return statusMap[actionType] || actionType;
@@ -1386,7 +1411,7 @@
     const messages = {
       'Submitted a Valid Complaint': 'Complaint has been received and validated',
       'Inspection': `Site inspection assigned to ${assignedTo || 'staff'}`,
-      'Inspection done': `Site inspection completed by ${assignedTo || 'staff'}`,
+      'Inspection Done': `Site inspection completed by ${assignedTo || 'staff'}`,
       'Send Invitation': `Invitation task assigned to ${assignedTo || 'staff'}`,
       'Sent Invitation': `Invitation sent to parties by ${assignedTo || 'staff'}`,
       'Task Completed': `Task completed and passed back to admin`,
@@ -1449,11 +1474,11 @@
         `<button class="file-btn" data-pdf="${entry.file_path || '#'}" onclick="openTimelineFile('${entry.file_path || '#'}')" style="background: #4CAF50; color: white; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-left: 10px;">📄 File</button>` : 
         '';
 
-      // Check for file attachments from staff uploads (specifically for "Inspection done" and "Sent Invitation")
+      // Check for file attachments from staff uploads (specifically for "Inspection Done" and "Sent Invitation")
       let fileIcon = '';
       const actionType = (entry.type_of_action || '').toLowerCase();
       
-      // For "Inspection done" and "Sent Invitation" - check for attached_files from staff
+      // For "Inspection Done" and "Sent Invitation" - check for attached_files from staff
       if (actionType === 'inspection done' || actionType === 'sent invitation') {
         const attachedFiles = (entry.details && entry.details.attached_files) ? entry.details.attached_files : [];
         if (attachedFiles.length > 0) {
@@ -2293,7 +2318,12 @@
       populatePreviewModal(data.entry, actionType);
       
       // Show the modal
-      document.getElementById('timelinePreviewModal').style.display = 'flex';
+      const tlModal = document.getElementById('timelinePreviewModal');
+      if (tlModal) {
+        tlModal.style.display = 'flex';
+      } else {
+        console.warn('Timeline preview modal not found in DOM');
+      }
       
     } catch (error) {
       console.error('[TIMELINE PREVIEW] Error loading timeline entry:', error);
@@ -2305,7 +2335,6 @@
   function populatePreviewModal(entry, actionType) {
     const modalTitle = document.getElementById('previewModalTitle');
     const modalBody = document.getElementById('previewModalBody');
-    const editButton = document.getElementById('editPreviewAction');
     
     modalTitle.textContent = `${actionType} - Details`;
     
@@ -2365,20 +2394,6 @@
     }
     
     modalBody.innerHTML = previewHTML;
-    
-    // Show edit button only if this entry was created by current user role (admin)
-    // For admin view, show edit button for admin-created actions
-    const editableActionTypes = ['inspection', 'send invitation', 'mediation', 'assessment'];
-    const actionTypeLower = actionType.toLowerCase();
-    const isEditableAction = editableActionTypes.some(type => 
-      actionTypeLower.includes(type) || type.includes(actionTypeLower)
-    );
-    
-    if (currentRole === 'admin' && isEditableAction) {
-      editButton.style.display = 'inline-block';
-    } else {
-      editButton.style.display = 'none';
-    }
   }
 
   // Generate inspection preview HTML - matches exact original form layout
@@ -2868,292 +2883,10 @@
 
   // Close timeline preview modal
   function closeTimelinePreview() {
-    document.getElementById('timelinePreviewModal').style.display = 'none';
+  const tlModal = document.getElementById('timelinePreviewModal');
+  if (tlModal) tlModal.style.display = 'none';
     // Don't clear currentPreviewData here - keep it for editing
   }
-
-  // Edit timeline entry
-  function editTimelineEntry() {
-    /* EDIT FUNCTIONALITY - COMMENTED OUT FOR NOW DI KO PA ALAM IF ITULOY TO
-    // TODO: Implement edit functionality that updates existing timeline entry instead of creating new one
-    // Requirements:
-    // 1. Should edit the existing previewed status entry, not create new one
-    // 2. Should update the saved timestamp accordingly
-    // 3. Should toggle edit mode for the same data in the preview modal
-    // 4. Should maintain exact same format and layout as original action modal
-    
-    if (!currentPreviewData) {
-      showCustomAlert('No timeline entry data available for editing.');
-      return;
-    }
-    
-    // Store the data in a local variable before closing
-    const timelineData = currentPreviewData;
-    
-    // Close the preview modal
-    document.getElementById('timelinePreviewModal').style.display = 'none';
-    
-    // Open the appropriate action modal with pre-populated data
-    // This will use the existing modal system but populate it with the timeline entry data
-    if (timelineData.type_of_action.toLowerCase().includes('inspection')) {
-      // Open assign modal for inspection editing
-      proceedToAssign();
-      // Pre-populate with existing data
-      setTimeout(() => populateAssignModalWithTimelineData(timelineData), 100);
-    } else if (timelineData.type_of_action.toLowerCase().includes('invitation')) {
-      // Open assign modal for invitation editing
-      proceedToAssign();
-      // Pre-populate with existing data
-      setTimeout(() => populateAssignModalWithTimelineData(timelineData), 100);
-    } else {
-      // Open action modal for other types
-      proceedToAction();
-      // Pre-populate with existing data
-      setTimeout(() => populateActionModalWithTimelineData(timelineData), 100);
-    }
-    */
-    
-    // Temporary: Show alert that edit functionality is being developed
-    showCustomAlert('Edit functionality is being developed. Preview mode only for now.');
-  }
-
-  /* EDIT MODAL POPULATION FUNCTIONS - COMMENTED OUT FOR NOW
-  // TODO: These functions will be used when edit functionality is implemented
-  // They should populate the action modals with existing timeline data for editing
-  
-  // Populate assign modal with timeline data
-  function populateAssignModalWithTimelineData(timelineData) {
-    try {
-      const details = typeof timelineData.details === 'string' ? JSON.parse(timelineData.details) : timelineData.details;
-      
-      console.log('Populating assign modal with data:', { timelineData, details });
-      
-      // Set assign type and trigger field visibility
-      const assignTypeSelect = document.getElementById('assignType');
-      if (assignTypeSelect) {
-        if (timelineData.type_of_action.toLowerCase().includes('inspection')) {
-          assignTypeSelect.value = 'Inspection';
-        } else if (timelineData.type_of_action.toLowerCase().includes('invitation')) {
-          assignTypeSelect.value = 'Invitation';
-        }
-        // Trigger change event to show appropriate fields
-        assignTypeSelect.dispatchEvent(new Event('change'));
-      }
-      
-      // Wait a bit for the fields to appear, then populate them
-      setTimeout(() => {
-        // Populate Inspection fields
-        if (timelineData.type_of_action.toLowerCase().includes('inspection')) {
-          const assignedPersonnel = document.getElementById('assignedPersonnel');
-          const inspectionLocation = document.getElementById('inspectionLocation');
-          const inspectionDeadline = document.getElementById('inspectionDeadline');
-          
-          if (assignedPersonnel && timelineData.assigned_to) {
-            assignedPersonnel.value = timelineData.assigned_to;
-          }
-          
-          if (inspectionLocation && details.location) {
-            inspectionLocation.value = details.location;
-          }
-          
-          if (inspectionDeadline && details.deadline) {
-            inspectionDeadline.value = details.deadline;
-          }
-          
-          // Populate scope checkboxes if they exist
-          if (details.scope && Array.isArray(details.scope)) {
-            details.scope.forEach(scopeItem => {
-              const checkbox = document.querySelector(`input[name="scope[]"][value="${scopeItem}"]`);
-              if (checkbox) checkbox.checked = true;
-            });
-          }
-          
-          // Handle "Others" checkbox and input
-          if (details.others) {
-            const othersCheckbox = document.getElementById('othersCheckbox');
-            const othersInput = document.getElementById('othersInput');
-            if (othersCheckbox) othersCheckbox.checked = true;
-            if (othersInput) othersInput.value = details.others;
-          }
-        }
-        
-        // Populate Invitation fields
-        if (timelineData.type_of_action.toLowerCase().includes('invitation')) {
-          const invAssignedPersonnel = document.getElementById('invAssignedPersonnel');
-          const invTo = document.getElementById('invTo');
-          const invAgenda = document.getElementById('invAgenda');
-          const invLocation = document.getElementById('invLocation');
-          const invDate = document.getElementById('invDate');
-          const invTime = document.getElementById('invTime');
-          
-          if (invAssignedPersonnel && timelineData.assigned_to) {
-            invAssignedPersonnel.value = timelineData.assigned_to;
-          }
-          
-          if (invAgenda && details.agenda) {
-            invAgenda.value = details.agenda;
-          }
-          
-          if (invLocation && details.venue) {
-            invLocation.value = details.venue;
-          }
-          
-          if (invDate && details.meeting_date) {
-            invDate.value = details.meeting_date;
-          }
-          
-          if (invTime && details.meeting_time) {
-            invTime.value = details.meeting_time;
-          }
-          
-          // Handle dynamic invTo fields (individuals)
-          if (invTo && details.individuals) {
-            // Clear existing fields first
-            invTo.innerHTML = '';
-            
-            // Handle both string and array formats
-            let individuals = [];
-            if (typeof details.individuals === 'string') {
-              individuals = details.individuals.split(',').map(name => name.trim());
-            } else if (Array.isArray(details.individuals)) {
-              individuals = details.individuals;
-            }
-            
-            // Create input fields for each individual
-            individuals.forEach(name => {
-              if (name) {
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.name = 'invTo[]';
-                input.value = name.trim();
-                input.placeholder = 'Enter name';
-                input.required = true;
-                invTo.appendChild(input);
-              }
-            });
-          }
-        }
-      }, 150);
-      
-    } catch (error) {
-      console.error('Error populating assign modal with timeline data:', error);
-      showCustomAlert('Error loading timeline data for editing: ' + error.message);
-    }
-  }
-
-  // Populate action modal with timeline data
-  function populateActionModalWithTimelineData(timelineData) {
-    try {
-      const details = typeof timelineData.details === 'string' ? JSON.parse(timelineData.details) : timelineData.details;
-      
-      console.log('Populating action modal with data:', { timelineData, details });
-      
-      // Set action type and trigger field visibility
-      const actionTypeSelect = document.getElementById('actionType');
-      if (actionTypeSelect) {
-        // Map timeline action types to modal action types
-        let modalActionType = timelineData.type_of_action;
-        if (modalActionType.toLowerCase().includes('mediation')) {
-          modalActionType = 'Mediation';
-        } else if (modalActionType.toLowerCase().includes('assessment')) {
-          modalActionType = 'Assessment';
-        } else if (modalActionType.toLowerCase().includes('jurisdiction')) {
-          modalActionType = 'Out of Jurisdiction';
-        }
-        
-        actionTypeSelect.value = modalActionType;
-        // Trigger change event to show appropriate fields
-        actionTypeSelect.dispatchEvent(new Event('change'));
-      }
-      
-      // Wait a bit for the fields to appear, then populate them
-      setTimeout(() => {
-        // Populate Mediation fields
-        if (timelineData.type_of_action.toLowerCase().includes('mediation')) {
-          const agenda = document.querySelector("input[name='agenda']");
-          const summary = document.querySelector("textarea[name='summary']");
-          const medAssignedPersonnel = document.getElementById('medAssignedPersonnel');
-          
-          if (agenda && details.agenda) {
-            agenda.value = details.agenda;
-          }
-          
-          if (summary && details.summary) {
-            summary.value = details.summary;
-          }
-          
-          if (medAssignedPersonnel && timelineData.assigned_to) {
-            medAssignedPersonnel.value = timelineData.assigned_to;
-          }
-          
-          // Populate witnesses if they exist
-          const witnessContainer = document.getElementById('witnessContainer');
-          if (witnessContainer && details.witnesses && Array.isArray(details.witnesses)) {
-            // Clear existing witnesses first
-            witnessContainer.innerHTML = '';
-            
-            details.witnesses.forEach(witness => {
-              if (witness) {
-                const div = document.createElement("div");
-                div.classList.add("witness-row");
-                div.innerHTML = `
-                  <input type="text" name="witness[]" placeholder="Enter witness/advisor name" value="${witness}" required>
-                  <button type="button" class="remove-btn-wit" onclick="this.parentElement.remove()">
-                    <span class="material-icons">close</span>
-                  </button>
-                `;
-                witnessContainer.appendChild(div);
-              }
-            });
-          }
-        }
-        
-        // Populate Assessment fields
-        if (timelineData.type_of_action.toLowerCase().includes('assessment')) {
-          const assessmentNotes = document.getElementById('assessmentNotes');
-          const assAssignedPersonnel = document.getElementById('assAssignedPersonnel');
-          
-          if (assessmentNotes && details.notes) {
-            assessmentNotes.value = details.notes;
-          }
-          
-          if (assAssignedPersonnel && timelineData.assigned_to) {
-            assAssignedPersonnel.value = timelineData.assigned_to;
-          }
-        }
-        
-        // Populate Out of Jurisdiction fields
-        if (timelineData.type_of_action.toLowerCase().includes('jurisdiction')) {
-          const outOfJurisdictionNotes = document.getElementById('outOfJurisdictionNotes');
-          
-          if (outOfJurisdictionNotes && details.notes) {
-            outOfJurisdictionNotes.value = details.notes;
-          }
-          
-          // Handle jurisdiction radio buttons
-          if (details.jurisdiction_type) {
-            const radio = document.querySelector(`input[name="outOfJurisdiction"][value="${details.jurisdiction_type}"]`);
-            if (radio) {
-              radio.checked = true;
-              
-              // Handle "Others" input if needed
-              if (details.jurisdiction_type === 'Others' && details.others) {
-                const outOthersInput = document.getElementById('outOthersInput');
-                if (outOthersInput) {
-                  outOthersInput.value = details.others;
-                }
-              }
-            }
-          }
-        }
-      }, 150);
-      
-    } catch (error) {
-      console.error('Error populating action modal with timeline data:', error);
-      showCustomAlert('Error loading timeline data for editing: ' + error.message);
-    }
-  }
-  */ // End of EDIT MODAL POPULATION FUNCTIONS comment block
 
   // Add CSS for readonly fields
   const style = document.createElement('style');
@@ -3264,10 +2997,6 @@
     fileListHTML += `
       </div>
       <div style="text-align: right;">
-        <button onclick="editTimelineEntry()" 
-                style="background: #ffc107; color: #212529; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px;">
-          Edit Entry
-        </button>
         <button onclick="this.closest('.admin-file-preview-modal').remove()" 
                 style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
           Close
@@ -3303,7 +3032,7 @@
     link.click();
   }
 
-  // View staff uploaded files (for "Inspection done" and "Sent Invitation" entries)
+  // View staff uploaded files (for "Inspection Done" and "Sent Invitation" entries)
   function viewStaffFiles(attachedFiles, actionType, historyId) {
     if (!attachedFiles || attachedFiles.length === 0) {
       showCustomAlert('No files available for this entry.');
@@ -3404,7 +3133,6 @@
   // Make functions globally available
   window.showTimelinePreview = showTimelinePreview;
   window.closeTimelinePreview = closeTimelinePreview;
-  window.editTimelineEntry = editTimelineEntry;
   window.showCustomAlert = showCustomAlert;
   window.closeCustomAlert = closeCustomAlert;
   window.getAdminFilesFromEntry = getAdminFilesFromEntry;
