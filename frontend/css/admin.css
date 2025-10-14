@@ -637,6 +637,35 @@ tbody td {
   background-color: transparent;
 }
 
+/*All.html notif */
+.inbox-dropdown button:hover i {
+  color: #14257a;
+  transform: scale(1.05);
+  transition: all 0.2s ease;
+}
+
+#inboxMenu div:hover {
+  background-color: #f8f9fa;
+}
+
+/* Hoverable style for clickable due-soon items */
+#inboxMenu .inbox-item {
+  border-radius: 6px;
+  transition: background-color 0.2s ease, transform 0.06s ease, box-shadow 0.2s ease;
+}
+
+#inboxMenu .inbox-item:hover {
+  background-color: #eef2ff; /* subtle highlight */
+  transform: translateY(-1px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+#inboxMenu .inbox-item:active {
+  transform: translateY(0);
+  box-shadow: none;
+  background-color: #e7ecff;
+}
+
 /* Table Row Highlighting */
 .highlight {
   background-color: #fff3cd !important;
@@ -821,10 +850,64 @@ svg g.selected-area {
   .back-arrow {
     font-size: 16px;
   }
+
+  .logo-section {
+    margin-bottom: 25px;  /* pull closer to nav */
+    gap: 6px;
+  }
+
+  .logo {
+    width: 32px;          /* smaller logo */
+  }
+
+  .title {
+    font-size: 22px;      /* smaller title text */
+  }
+
+  .sidebar {
+    padding: 15px;
+  }
+
+  .nav-menu {
+    gap: 18px;            /* tighten space between nav items */
+  }
+
+  .user-dropdown {
+    margin-top: 65px;
+    right: 5px;
+  }
 }
 
 @media (max-width: 480px) {
-  .nav-item { font-size: 14px; padding: 6px; }
+  .logo-section {
+    margin-bottom: 60px;  /* bring logo/title closer to menu */
+    gap: 4px;
+  }
+
+  .logo {
+    width: 26px;          /* even smaller logo */
+  }
+
+  .title {
+    font-size: 18px;      /* smaller text so fits in one line */
+  }
+
+  .nav-menu {
+    flex-wrap: wrap;      /* allow wrapping if space is very tight */
+    gap: 12px;
+    margin-top: 20px;
+    padding: 0;
+  }
+
+  .nav-item {
+    font-size: 14px;      /* slightly smaller nav labels */
+    padding: 0px ;
+  }
+
+  .user-dropdown {
+    margin-top: 65px;
+    right: 5px;
+  }
 
   .search-bar { flex-direction: column; }
   .search-bar input,
@@ -834,9 +917,5 @@ svg g.selected-area {
   }
 
   .stat-card { flex: 1 1 100%; }
-
-  .user-dropdown {
-    justify-content: center;
-  }
 }
 

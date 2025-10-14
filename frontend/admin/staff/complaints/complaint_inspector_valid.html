@@ -524,6 +524,15 @@ async function resolveTask() {
   try {
     console.log('[STAFF WORKFLOW] Submitting Task Completed for complaint:', complaintId);
     
+    // Collect location and scope values (if present in the inspector modal)
+    const locationEl = document.getElementById('staffLocation');
+    const scopeContainer = document.getElementById('staffScopeContainer');
+    let scopeValues = [];
+    if (scopeContainer) {
+      // read checked/disabled checkboxes inside scope container
+      scopeContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => { if (cb.checked) scopeValues.push(cb.value || cb.getAttribute('data-value') || cb.name); });
+    }
+
     const response = await fetch('/admin/complaints/api/staff_complete_task', {
       method: 'POST',
       headers: {
@@ -534,6 +543,8 @@ async function resolveTask() {
         action_type: 'Inspection Done',
         description: findings,
         files: allFiles.map(f => f.name),
+        location: locationEl ? locationEl.value : undefined,
+        scope: scopeValues.length ? scopeValues : undefined,
         staff_account_type: currentStaffAccount, // admin.account == 2
         completed_by_staff: true, // Flag to mark this as staff completion
         task_type: 'inspection' // Specify this is inspection completion

@@ -161,7 +161,7 @@
   function clearSvgSelection() {
     container.querySelectorAll('svg g').forEach(g => {
       g.classList.remove('selected-area');
-      g.querySelectorAll('path, rect, polygon, circle').forEach(el => {
+      g.querySelectorAll('path, rect, polygon, circle, ellipse').forEach(el => {
         if (el.dataset.origFill) {
           el.setAttribute('fill', el.dataset.origFill);
         }
@@ -174,7 +174,7 @@
     if (!areaEl) return;
     areaEl.classList.add('selected-area');
 
-    areaEl.querySelectorAll('path, rect, polygon, circle').forEach(el => {
+    areaEl.querySelectorAll('path, rect, polygon, circle, ellipse').forEach(el => {
       el.setAttribute('fill', '#4CAF50');
     });
   }
@@ -196,12 +196,7 @@
     }
 
     // Bidirectional highlighting: highlight corresponding SVG area
-    const svgGroups = Array.from(container.querySelectorAll('svg g'));
-    const matchArea = svgGroups.find(g => {
-      const aBlock = parseBlockFromId(g.id);
-      const aLot = parseLotFromId(g.id);
-      return String(aBlock) === String(block) && String(aLot) === String(lot);
-    });
+    const matchArea = findSvgAreaByBlockLot(block, lot);
 
     // Clear previous SVG selections and apply new one
     clearSvgSelection();
@@ -243,6 +238,43 @@
       const match = id.match(pattern);
       if (match) return match[1];
     }
+    return null;
+  }
+
+  // Find SVG area group by block and lot, supporting id and [lot] structures
+  function findSvgAreaByBlockLot(block, lot) {
+    const svgRoot = container.querySelector('svg');
+    if (!svgRoot) return null;
+
+    // 1) Direct id-based match on groups
+    const idMatch = Array.from(svgRoot.querySelectorAll('g[id]')).find(g => {
+      const aBlock = parseBlockFromId(g.id);
+      const aLot = parseLotFromId(g.id);
+      return String(aBlock) === String(block) && String(aLot) === String(lot);
+    });
+    if (idMatch) return idMatch;
+
+    // 2) Attribute-based match: groups with lot attribute, infer block from self/ancestor
+    const lotGroups = Array.from(svgRoot.querySelectorAll(`g[lot="${lot}"]`));
+    for (const g of lotGroups) {
+      const selfBlock = parseBlockFromId(g.id || '');
+      if (String(selfBlock) === String(block)) return g;
+      let p = g.parentElement;
+      while (p && p !== svgRoot) {
+        const pBlock = parseBlockFromId(p.id || '');
+        if (String(pBlock) === String(block)) return g;
+        p = p.parentElement;
+      }
+    }
+
+    // 3) Optional data attributes support
+    const dataMatch = Array.from(svgRoot.querySelectorAll('g[data-lot], g[data-block]')).find(g => {
+      const dLot = g.getAttribute('data-lot');
+      const dBlock = g.getAttribute('data-block') || parseBlockFromId(g.id || '');
+      return String(dLot) === String(lot) && String(dBlock) === String(block);
+    });
+    if (dataMatch) return dataMatch;
+
     return null;
   }
 
@@ -608,8 +640,9 @@
         // Check if this element has a "lot" attribute for full interactivity
         const hasLotAttribute = g.hasAttribute('lot');
         
-        g.querySelectorAll('path, rect, polygon, circle').forEach(el => {
+        g.querySelectorAll('path, rect, polygon, circle, ellipse').forEach(el => {
           el.dataset.origFill = el.getAttribute('fill') || '';
+          el.dataset.origStyleFill = el.style.fill || '';
         });
 
         // Skip ALL interactivity for elements without "lot" attribute
@@ -693,7 +726,7 @@
           tooltip.style.display = 'none';
         });
 
-        // Click highlight row
+  // Click: persistently highlight both table row and SVG area
         g.addEventListener('click', () => {
           
           console.log('SVG clicked:', g.id); // Debug log
@@ -728,29 +761,8 @@
           console.log('Parsed SVG block:', svgBlock, 'lot:', svgLot); // Debug log
           
           if (svgBlock && svgLot) {
-            // Find matching row based on displayed values in Block and Lot No. columns
-            const rows = Array.from(residentTable.querySelectorAll('tr'));
-            const matchingRow = rows.find(row => {
-              const displayedBlock = row.children[1]?.textContent.trim();
-              const displayedLot = row.children[2]?.textContent.trim();
-              
-              // Compare with displayed values (case-insensitive for block)
-              return String(displayedBlock).toLowerCase() === String(svgBlock).toLowerCase() && 
-                     String(displayedLot) === String(svgLot);
-            });
-            
-            if (matchingRow) {
-              // Clear previous highlights
-              residentTable.querySelectorAll('tr').forEach(r => r.classList.remove('highlight'));
-              
-              // Highlight the matching row
-              matchingRow.classList.add('highlight');
-              matchingRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              
-              console.log('Highlighted row for Block:', svgBlock, 'Lot:', svgLot); // Debug log
-            } else {
-              console.log('No matching row found for Block:', svgBlock, 'Lot:', svgLot); // Debug log
-            }
+            // Use shared highlighter to keep logic consistent
+            highlightRow(svgBlock, svgLot);
           } else {
             console.log('Could not parse block/lot from SVG structure. Element:', g.id, 'Lot attr:', lotAttr); // Debug log
           }
@@ -875,13 +887,7 @@
       matchedRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
       
       // Also highlight in SVG if possible
-      const svgGroups = Array.from(container.querySelectorAll('svg g'));
-      const matchSvgArea = svgGroups.find(g => {
-        const aBlock = parseBlockFromId(g.id);
-        const aLot = parseLotFromId(g.id);
-        return String(aBlock) === String(block) && String(aLot) === String(lot);
-      });
-
+      const matchSvgArea = findSvgAreaByBlockLot(block, lot);
       if (matchSvgArea) {
         highlightSvgArea(matchSvgArea);
       }
@@ -897,6 +903,9 @@
   
   // Handle URL highlighting after data loads
   setTimeout(handleUrlHighlighting, 2000);
+
+  // Expose row highlighter for external modules (search) to reuse
+  window.mapHighlightRow = highlightRow;
 
 })();
 
@@ -996,14 +1005,14 @@ function initSearch() {
       searchInput.value = '';
       searchResults.style.display = 'none';
       
-      // Highlight table row (without affecting layout)
-      clearHighlights();
-      row.classList.add('highlight');
-      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      
-      // Highlight corresponding SVG area (without affecting layout)
-      if (block && lot) {
-        highlightSvgByBlockLot(block, lot);
+      // Use shared highlighter to highlight both table and SVG persistently
+      if (block && lot && window.mapHighlightRow) {
+        window.mapHighlightRow(block.trim(), lot.trim());
+      } else {
+        // Fallback: highlight table row
+        clearHighlights();
+        row.classList.add('highlight');
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
   }
@@ -1087,6 +1096,9 @@ function initSearch() {
       e.preventDefault();
       if (selectedIndex >= 0) {
         selectResult(selectedIndex);
+      } else if (items.length > 0) {
+        // If nothing selected, choose the first result by default
+        selectResult(0);
       }
     } else if (e.key === 'Escape') {
       clearSearch();
@@ -1380,8 +1392,8 @@ svg g.selected-area path,
 svg g.selected-area rect,
 svg g.selected-area polygon,
 svg g.selected-area circle {
-  stroke: #2196f3 !important;
-  stroke-width: 2 !important;
+  stroke: black !important;
+  stroke-width: 1 !important;
   filter: brightness(1.1);
 }
 

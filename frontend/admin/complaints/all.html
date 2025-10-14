@@ -1444,7 +1444,7 @@ try {
         };
 
         const buildEntry = (color, label, dueDate, c) => `
-          <div style="padding: 10px; border-bottom: 2px solid #ccc;">
+          <div class="inbox-item" data-complaint-id="${c.complaint_id}" data-status="${(c.status || c.complaint_stage || '')}" style="padding: 10px; border-bottom: 2px solid #ccc; cursor: pointer;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <strong style="color:${color}; font-size:14px;">${label}</strong>
             </div>
@@ -1472,6 +1472,21 @@ try {
 
           inboxList.innerHTML += buildEntry(color, label, c.deadline, c.complaint);
         });
+
+        // Make due soon items clickable -> navigate to complaint details
+        // Use event delegation to handle future updates safely
+        if (!inboxList.__clickBound) {
+          inboxList.addEventListener('click', (e) => {
+            const item = e.target.closest('.inbox-item');
+            if (!item) return;
+            const id = item.getAttribute('data-complaint-id');
+            const status = (item.getAttribute('data-status') || '').toLowerCase();
+            const detailsPage = status.includes('invalid') ? 'complaint_details_invalid.html' : 'complaint_details_valid.html';
+            window.location.href = `/admin/complaints/${detailsPage}?id=${id}&referrer=all.html`;
+          });
+          // mark to avoid duplicate bindings if this block re-runs
+          Object.defineProperty(inboxList, '__clickBound', { value: true, enumerable: false, configurable: true });
+        }
 
       } catch (err) {
         console.error("Error loading inbox:", err);
@@ -1648,19 +1663,6 @@ try {
       }
     }
   </script>
-
-<style>
-  .inbox-dropdown button:hover i {
-  color: #14257a;
-  transform: scale(1.05);
-  transition: all 0.2s ease;
-}
-
-#inboxMenu div:hover {
-  background-color: #f8f9fa;
-}
-
-</style>
 
 </body>
 </html>

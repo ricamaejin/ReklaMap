@@ -134,31 +134,61 @@ def get_unauthorized_occupation_session_data():
     registration_id = session.get("registration_id")
     complaint_id = session.get("complaint_id")
     if not registration_id:
-        return jsonify({'success': False, 'message': 'No registration in session'})
+        return jsonify({'success': False, 'error': 'No registration in session'})
     reg = Registration.query.get(registration_id)
     if not reg:
-        return jsonify({'success': False, 'message': 'Registration not found'})
+        return jsonify({'success': False, 'error': 'Registration not found'})
     def safe(val):
         return val if val else ''
     name_parts = [safe(reg.first_name), safe(reg.middle_name), safe(reg.last_name), safe(reg.suffix)]
     full_name = " ".join([p for p in name_parts if p])
 
 
-    # --- Resolve area_name for HOA/Area field ---
+    # --- Resolve area_name for HOA/Area field robustly ---
     hoa_value = getattr(reg, "hoa", "") or ""
-    area_name = hoa_value
+    area_name = ''
     if hoa_value:
-        # Try as area_id (int)
+        # Try numeric id
         try:
             area_id = int(hoa_value)
-            area = Area.query.filter_by(area_id=area_id).first()
+            area = Area.query.get(area_id)
             if area:
                 area_name = area.area_name
         except Exception:
-            # Try as area_name directly
-            area = Area.query.filter_by(area_name=hoa_value).first()
-            if area:
-                area_name = area.area_name
+            # Try area_code or exact area_name match
+            try:
+                s = str(hoa_value)
+                area = Area.query.filter((Area.area_code == s) | (Area.area_name == s)).first()
+                if area:
+                    area_name = area.area_name
+            except Exception:
+                area_name = str(hoa_value)
+
+    # If still blank, try to derive from beneficiary/block via registration block/lot
+    if not area_name and getattr(reg, 'block_no', None) and getattr(reg, 'lot_no', None):
+        try:
+            bn = reg.block_no
+            ln = reg.lot_no
+            try:
+                bn = int(bn)
+            except Exception:
+                pass
+            try:
+                ln = int(ln)
+            except Exception:
+                pass
+            ben = Beneficiary.query.filter_by(block_id=bn, lot_no=ln).first()
+            if not ben:
+                from backend.database.models import Block
+                blk = Block.query.filter_by(block_no=bn).first()
+                if blk:
+                    ben = Beneficiary.query.filter_by(block_id=blk.block_id, lot_no=ln).first()
+            if ben:
+                a = Area.query.get(ben.area_id)
+                if a:
+                    area_name = a.area_name
+        except Exception:
+            pass
 
 
     # --- Supporting documents logic (match pathway_dispute/boundary_dispute) ---
@@ -172,34 +202,58 @@ def get_unauthorized_occupation_session_data():
     elif reg.category == "family_of_member":
         fam = RegistrationFamOfMember.query.filter_by(registration_id=reg.registration_id).first()
         if fam:
-            # Find parent registration (the HOA member this family belongs to)
-            parent_reg = None
-            if fam.beneficiary_id:
-                ben = Beneficiary.query.get(fam.beneficiary_id)
-                if ben:
-                    parent_reg = Registration.query.filter_by(beneficiary_id=ben.beneficiary_id, category="hoa_member").first()
-            if parent_reg:
-                hoa_member = RegistrationHOAMember.query.filter_by(registration_id=parent_reg.registration_id).first()
-                parent_info = {
-                    "full_name": " ".join([str(parent_reg.first_name or ""), str(parent_reg.middle_name or ""), str(parent_reg.last_name or ""), str(parent_reg.suffix or "")]).strip(),
-                    "date_of_birth": parent_reg.date_of_birth.isoformat() if parent_reg.date_of_birth else "",
-                    "sex": parent_reg.sex,
-                    "citizenship": parent_reg.citizenship,
-                    "age": parent_reg.age,
-                    "current_address": parent_reg.current_address,
-                    "year_of_residence": parent_reg.year_of_residence,
-                    "phone_number": parent_reg.phone_number,
-                    "civil_status": parent_reg.civil_status,
-                    "hoa": area_name if hasattr(parent_reg, 'hoa') else "",
-                    "blk_num": getattr(parent_reg, "block_no", "") or "",
-                    "lot_num": getattr(parent_reg, "lot_no", "") or "",
-                    "lot_size": getattr(parent_reg, "lot_size", "") or "",
-                    "recipient_of_other_housing": parent_reg.recipient_of_other_housing,
-                    "supporting_documents": hoa_member.supporting_documents if hoa_member and hoa_member.supporting_documents else None
-                }
-                relationship = fam.relationship if hasattr(fam, 'relationship') else None
-                if hoa_member and hoa_member.supporting_documents:
-                    supporting_documents = hoa_member.supporting_documents
+            # Build parent_info from family record first (works even without parent registration)
+            sd = getattr(fam, 'supporting_documents', {}) or {}
+            parent_hoa_value = ''
+            if sd.get('hoa'):
+                try:
+                    candidate = int(sd.get('hoa'))
+                    a = Area.query.get(candidate)
+                    if a:
+                        parent_hoa_value = a.area_name
+                except Exception:
+                    a = Area.query.filter((Area.area_code == str(sd.get('hoa'))) | (Area.area_name == str(sd.get('hoa')))).first()
+                    if a:
+                        parent_hoa_value = a.area_name
+
+            parent_name = ' '.join([str(getattr(fam, 'first_name', '') or ''), str(getattr(fam, 'middle_name', '') or ''), str(getattr(fam, 'last_name', '') or ''), str(getattr(fam, 'suffix', '') or '')]).strip()
+            parent_info = {
+                'full_name': parent_name,
+                'date_of_birth': getattr(fam, 'date_of_birth', None).isoformat() if getattr(fam, 'date_of_birth', None) else '',
+                'sex': getattr(fam, 'sex', None),
+                'citizenship': getattr(fam, 'citizenship', None),
+                'age': getattr(fam, 'age', None),
+                'current_address': getattr(fam, 'current_address', None) or sd.get('current_address') or '',
+                'year_of_residence': getattr(fam, 'year_of_residence', None),
+                'phone_number': getattr(fam, 'phone_number', None),
+                'civil_status': sd.get('civil_status') or getattr(fam, 'civil_status', None),
+                'blk_num': sd.get('block_assignment') or getattr(fam, 'block_no', '') or '',
+                'lot_num': sd.get('lot_assignment') or getattr(fam, 'lot_no', '') or '',
+                'lot_size': sd.get('lot_size') or getattr(fam, 'lot_size', '') or '',
+                'recipient_of_other_housing': sd.get('recipient_of_other_housing') or getattr(fam, 'recipient_of_other_housing', None),
+                'hoa': parent_hoa_value,
+                'supporting_documents': sd if sd else None
+            }
+            relationship = getattr(fam, 'relationship', None)
+
+            # If family record references a beneficiary, try to enrich from the beneficiary -> parent registration
+            if getattr(fam, 'beneficiary_id', None) and not parent_info.get('supporting_documents'):
+                try:
+                    ben = Beneficiary.query.get(fam.beneficiary_id)
+                    if ben:
+                        parent_reg = Registration.query.filter_by(beneficiary_id=ben.beneficiary_id, category='hoa_member').first()
+                        if parent_reg:
+                            hoa_member = RegistrationHOAMember.query.filter_by(registration_id=parent_reg.registration_id).first()
+                            if hoa_member and hoa_member.supporting_documents:
+                                parent_info['supporting_documents'] = hoa_member.supporting_documents
+                                supporting_documents = hoa_member.supporting_documents
+                            # If parent_info still has no hoa, derive from beneficiary.area_id
+                            if not parent_info.get('hoa'):
+                                a = Area.query.get(ben.area_id)
+                                if a:
+                                    parent_info['hoa'] = a.area_name
+                except Exception:
+                    pass
 
 
     data = {

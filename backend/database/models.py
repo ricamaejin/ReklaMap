@@ -115,6 +115,14 @@ class Registration(db.Model):
 
     # relationship back to user
     user = db.relationship("User", backref="registrations")
+    # Relationship to Complaint: when a registration is deleted, cascade delete complaints
+    complaints = db.relationship(
+        "Complaint",
+        back_populates="registration",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy=True,
+    )
 
 # -----------------------
 # Registration HOA Member (linking table)
@@ -181,6 +189,14 @@ class Complaint(db.Model):
     complainant_name = db.Column(db.String(150), nullable=False)
     area_id = db.Column(db.Integer, db.ForeignKey('areas.area_id'), nullable=False)
     address = db.Column(db.String(255), nullable=False)
+
+    # Relationship back to Registration (so deleting a Registration cascades to complaints)
+    registration = db.relationship(
+        "Registration",
+        back_populates="complaints",
+        passive_deletes=True,
+        uselist=False,
+    )
 
     # Relationship to LotDispute
     lot_dispute = db.relationship(

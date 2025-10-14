@@ -489,57 +489,74 @@ def get_boundary_session_data():
         fam = RegistrationFamOfMember.query.filter_by(registration_id=reg.registration_id).first()
         if fam:
             data["relationship"] = getattr(fam, "relationship", "")
-            # Find parent registration (the HOA member this family belongs to)
-            parent_reg = None
-            if fam.beneficiary_id:
-                # Try to find Registration with matching beneficiary_id and category 'hoa_member'
-                parent_reg = Registration.query.filter_by(beneficiary_id=fam.beneficiary_id, category="hoa_member").first()
-            if parent_reg:
-                parent_name_parts = [safe(parent_reg.first_name), safe(parent_reg.middle_name), safe(parent_reg.last_name), safe(parent_reg.suffix)]
-                parent_full_name = " ".join([p for p in parent_name_parts if p])
-                parent_info = {
-                    "full_name": parent_full_name,
-                    "date_of_birth": parent_reg.date_of_birth.isoformat() if parent_reg.date_of_birth else "",
-                    "sex": parent_reg.sex,
-                    "citizenship": parent_reg.citizenship,
-                    "age": parent_reg.age,
-                    "phone_number": parent_reg.phone_number,
-                    "year_of_residence": parent_reg.year_of_residence,
-                    "hoa": getattr(parent_reg, "hoa", "") or "",
-                    "current_address": parent_reg.current_address or "",
-                    "blk_num": getattr(parent_reg, "block_no", "") or "",
-                    "lot_num": getattr(parent_reg, "lot_no", "") or "",
-                    "lot_size": getattr(parent_reg, "lot_size", "") or "",
-                    "civil_status": parent_reg.civil_status,
-                    "recipient_of_other_housing": parent_reg.recipient_of_other_housing,
-                    "supporting_documents": None,
-                }
-                # Get supporting documents for parent HOA member
-                hoa_member = RegistrationHOAMember.query.filter_by(registration_id=parent_reg.registration_id).first()
-                if hoa_member and hoa_member.supporting_documents:
-                    parent_info["supporting_documents"] = hoa_member.supporting_documents
-                data["parent_info"] = parent_info
-            else:
-                # fallback: just use family member's own info (should not happen in normal flow)
-                parent_name_parts = [safe(fam.first_name), safe(fam.middle_name), safe(fam.last_name), safe(fam.suffix)]
-                parent_full_name = " ".join([p for p in parent_name_parts if p])
-                data["parent_info"] = {
-                    "full_name": parent_full_name,
-                    "date_of_birth": fam.date_of_birth.isoformat() if fam.date_of_birth else "",
-                    "sex": fam.sex,
-                    "citizenship": fam.citizenship,
-                    "age": fam.age,
-                    "phone_number": fam.phone_number,
-                    "year_of_residence": fam.year_of_residence,
-                    "hoa": "",
-                    "current_address": fam.current_address or "",
-                    "blk_num": "",
-                    "lot_num": "",
-                    "lot_size": "",
-                    "civil_status": "",
-                    "recipient_of_other_housing": "",
-                    "supporting_documents": fam.supporting_documents if hasattr(fam, "supporting_documents") else None,
-                }
+            # First build parent_info from the family record where available
+            sd = getattr(fam, 'supporting_documents', {}) or {}
+            parts = [str(getattr(fam, 'last_name', '') or '').strip(), str(getattr(fam, 'first_name', '') or '').strip(), str(getattr(fam, 'middle_name', '') or '').strip(), str(getattr(fam, 'suffix', '') or '').strip()]
+            parent_full_name = " ".join([p for p in parts if p])
+            parent_info = {
+                "full_name": parent_full_name,
+                "date_of_birth": getattr(fam, 'date_of_birth', None).isoformat() if getattr(fam, 'date_of_birth', None) else "",
+                "sex": getattr(fam, 'sex', None),
+                "citizenship": getattr(fam, 'citizenship', None),
+                "age": getattr(fam, 'age', None),
+                "phone_number": getattr(fam, 'phone_number', None),
+                "year_of_residence": getattr(fam, 'year_of_residence', None),
+                "hoa": sd.get('hoa') or getattr(fam, 'hoa', '') or "",
+                "current_address": getattr(fam, 'current_address', None) or sd.get('current_address') or "",
+                "blk_num": sd.get('block_assignment') or getattr(fam, 'block_no', '') or "",
+                "lot_num": sd.get('lot_assignment') or getattr(fam, 'lot_no', '') or "",
+                "lot_size": sd.get('lot_size') or getattr(fam, 'lot_size', '') or "",
+                "civil_status": sd.get('civil_status') or getattr(fam, 'civil_status', None),
+                "recipient_of_other_housing": sd.get('recipient_of_other_housing') or getattr(fam, 'recipient_of_other_housing', None),
+                "supporting_documents": sd if sd else None,
+            }
+            # If the family record references a beneficiary_id, try to locate the registered HOA parent and enrich
+            try:
+                if getattr(fam, 'beneficiary_id', None):
+                    parent_reg = Registration.query.filter_by(beneficiary_id=fam.beneficiary_id, category='hoa_member').first()
+                    if parent_reg:
+                        parent_name_parts = [safe(parent_reg.first_name), safe(parent_reg.middle_name), safe(parent_reg.last_name), safe(parent_reg.suffix)]
+                        parent_full_name = " ".join([p for p in parent_name_parts if p])
+                        parent_info.update({
+                            "full_name": parent_full_name,
+                            "date_of_birth": parent_reg.date_of_birth.isoformat() if parent_reg.date_of_birth else parent_info.get('date_of_birth',''),
+                            "sex": parent_reg.sex or parent_info.get('sex'),
+                            "citizenship": parent_reg.citizenship or parent_info.get('citizenship'),
+                            "age": parent_reg.age or parent_info.get('age'),
+                            "phone_number": parent_reg.phone_number or parent_info.get('phone_number'),
+                            "year_of_residence": parent_reg.year_of_residence or parent_info.get('year_of_residence'),
+                            "current_address": parent_reg.current_address or parent_info.get('current_address'),
+                            "blk_num": getattr(parent_reg, 'block_no', '') or parent_info.get('blk_num',''),
+                            "lot_num": getattr(parent_reg, 'lot_no', '') or parent_info.get('lot_num',''),
+                            "lot_size": getattr(parent_reg, 'lot_size', '') or parent_info.get('lot_size',''),
+                        })
+                        hoa_member = RegistrationHOAMember.query.filter_by(registration_id=parent_reg.registration_id).first()
+                        if hoa_member and hoa_member.supporting_documents:
+                            parent_info['supporting_documents'] = hoa_member.supporting_documents
+            except Exception:
+                pass
+            data["parent_info"] = parent_info
+        else:
+            # fallback: just use family member's own info (should not happen in normal flow)
+            parent_name_parts = [safe(fam.first_name), safe(fam.middle_name), safe(fam.last_name), safe(fam.suffix)]
+            parent_full_name = " ".join([p for p in parent_name_parts if p])
+            data["parent_info"] = {
+                "full_name": parent_full_name,
+                "date_of_birth": fam.date_of_birth.isoformat() if fam.date_of_birth else "",
+                "sex": fam.sex,
+                "citizenship": fam.citizenship,
+                "age": fam.age,
+                "phone_number": fam.phone_number,
+                "year_of_residence": fam.year_of_residence,
+                "hoa": "",
+                "current_address": fam.current_address or "",
+                "blk_num": "",
+                "lot_num": "",
+                "lot_size": "",
+                "civil_status": "",
+                "recipient_of_other_housing": "",
+                "supporting_documents": fam.supporting_documents if hasattr(fam, "supporting_documents") else None,
+            }
 
     # Ensure returned hoa is an area name when possible
     try:
