@@ -265,7 +265,8 @@
         // Handle pending cases with 7-day deadline warning
         const assignedToDisplay = 'Pending';
         const deadlineDisplay = calculatePendingDeadline(complaint);
-        const actionNeededDisplay = complaint.latest_action || 'Received';
+        // All newly received complaints should show as "Submitted" regardless of type
+        const actionNeededDisplay = 'Submitted';
         
         row.innerHTML = `
           <td>${complaint.complaint_id}</td>

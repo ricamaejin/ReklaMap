@@ -208,6 +208,25 @@
         </div>
         <hr>
 
+        <!-- Loading State -->
+        <div id="recommendationLoading" style="text-align: center; padding: 30px; display: block;">
+          <div style="font-size: 18px; margin-bottom: 15px; color: #c8dff7;">🔄 Analyzing complaint details...</div>
+          <div style="color: #ffffff; font-size: 14px;">Fuzzy logic processing in progress</div>
+          <div style="margin-top: 15px;">
+            <div style="width: 200px; height: 4px; background: #e0e0e0; border-radius: 2px; margin: 0 auto; overflow: hidden;">
+              <div id="loadingBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #007bff, #28a745); border-radius: 2px; transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recommendation Content removed: graph + "Why this" will be injected dynamically by JS -->
+
+        <!-- Error State -->
+        <div id="recommendationError" style="display: none; padding: 20px; background: #f8d7da; color: #721c24; border-radius: 4px; margin: 10px 0; text-align: center;">
+          <div style="font-size: 16px; margin-bottom: 10px;">⚠️ Unable to generate intelligent recommendation</div>
+          <div style="font-size: 14px;">Using default manual process instead</div>
+        </div>
+
         <!-- System Recommendation (rendered by fuzzy modules) -->
       <div id="autoRecommendation" 
       style="background-color: #fff; width: 100%; margin-left: 0px !important; height: auto; text-align: justify; padding: 20px 30px; box-sizing: border-box; border-radius: 5px;">
@@ -583,6 +602,16 @@
     const modal = document.getElementById('modal');               // Action modal
     const assignModal = document.getElementById('assignModal');   // Assign modal
     const recommendModal = document.getElementById("recommendModal"); // Recommended modal
+    const recommendationLoading = document.getElementById('recommendationLoading');
+    const recommendationError = document.getElementById('recommendationError');
+    const autoRecommendation = document.getElementById('autoRecommendation');
+    let recLoadingInterval = null;
+    let recObserver = null;
+    let recTimeoutId = null;
+    let recProgress = 0;
+  let recStartTime = 0;
+  let recRevealTimeoutId = null;
+  const REC_MIN_MS = 1000; // enforce ~1s loader visibility
 
     let interval = null;
 
@@ -714,20 +743,106 @@
       document.getElementById(targetId).innerHTML = `${dateStr}<br>${timeStr}`;
     }
 
+    // Recommendation loading helpers
+    function startRecommendationLoading() {
+      if (!recommendationLoading) return;
+      // Reset states
+      recommendationLoading.style.display = 'block';
+      if (recommendationError) recommendationError.style.display = 'none';
+      if (autoRecommendation) {
+        autoRecommendation.innerHTML = '';
+        autoRecommendation.style.display = 'none'; // hide content until ready
+      }
+      const loadingBar = document.getElementById('loadingBar');
+      recProgress = 0;
+      if (loadingBar) loadingBar.style.width = '0%';
+      recStartTime = (window.performance && performance.now) ? performance.now() : Date.now();
+
+      // Progress up to 90% while waiting
+      if (recLoadingInterval) clearInterval(recLoadingInterval);
+      recLoadingInterval = setInterval(() => {
+        const now = (window.performance && performance.now) ? performance.now() : Date.now();
+        const elapsed = now - recStartTime;
+        // Fill smoothly towards 95% across the min duration, then hold
+        const target = Math.min(95, Math.floor((elapsed / REC_MIN_MS) * 95));
+        recProgress = Math.max(recProgress, target);
+        if (loadingBar) loadingBar.style.width = recProgress + '%';
+      }, 50);
+
+      // Observe when recommendation content arrives
+      if (recObserver) recObserver.disconnect();
+      if (autoRecommendation) {
+        recObserver = new MutationObserver(() => {
+          const hasContent = autoRecommendation.textContent.trim().length > 0 || autoRecommendation.children.length > 0;
+          if (hasContent) {
+            // Enforce minimum loader time before revealing
+            const now = (window.performance && performance.now) ? performance.now() : Date.now();
+            const elapsed = now - recStartTime;
+            const remaining = Math.max(0, REC_MIN_MS - elapsed);
+            if (recRevealTimeoutId) { clearTimeout(recRevealTimeoutId); recRevealTimeoutId = null; }
+            recRevealTimeoutId = setTimeout(() => {
+              stopRecommendationLoading(true);
+            }, remaining);
+          }
+        });
+        recObserver.observe(autoRecommendation, { childList: true, subtree: true, characterData: true });
+      }
+
+      // Fallback timeout to show error
+      if (recTimeoutId) clearTimeout(recTimeoutId);
+      recTimeoutId = setTimeout(() => {
+        const hasContent = autoRecommendation && (autoRecommendation.textContent.trim().length > 0 || autoRecommendation.children.length > 0);
+        if (!hasContent) {
+          recommendationLoading.style.display = 'none';
+          if (recommendationError) recommendationError.style.display = 'block';
+          stopRecommendationLoading(false);
+        }
+      }, 8000);
+    }
+
+    function stopRecommendationLoading(success) {
+      const loadingBar = document.getElementById('loadingBar');
+      if (recLoadingInterval) { clearInterval(recLoadingInterval); recLoadingInterval = null; }
+      if (recTimeoutId) { clearTimeout(recTimeoutId); recTimeoutId = null; }
+      if (recObserver) { recObserver.disconnect(); recObserver = null; }
+      if (recRevealTimeoutId) { clearTimeout(recRevealTimeoutId); recRevealTimeoutId = null; }
+      if (loadingBar) loadingBar.style.width = success ? '100%' : loadingBar.style.width || '0%';
+      if (recommendationLoading) recommendationLoading.style.display = 'none';
+      if (success && autoRecommendation) autoRecommendation.style.display = 'block';
+    }
+
     // Step 1: Open Recommended modal first
     function openComplaint() {
-      try { if (window.runFuzzyRecommendation) window.runFuzzyRecommendation(); } catch(e) {}
+      // Show modal and start loader immediately
       recommendModal.style.display = 'flex';
+      startRecommendationLoading();
+
+      // Ensure the loader paints before any heavy computation runs.
+      // Using rAF + setTimeout allows the browser to flush layout and render the loading UI first.
+      const kickOff = () => {
+        try {
+          if (window.runFuzzyRecommendation) {
+            window.runFuzzyRecommendation();
+          }
+        } catch (e) { /* swallow */ }
+      };
+      if (window.requestAnimationFrame) {
+        requestAnimationFrame(() => setTimeout(kickOff, 0));
+      } else {
+        setTimeout(kickOff, 0);
+      }
     }
 
     // Close Recommended modal
     function closeRecommend() {
       recommendModal.style.display = "none";
+      stopRecommendationLoading(false);
     }
 
     // Step 2 (a): From Recommended → proceed to Action modal
     function proceedToAction() {
       recommendModal.style.display = "none";
+      stopRecommendationLoading(true);
       modal.style.display = 'flex';
       updateComplaintDateTime("actionDatetime");
       if (!interval) interval = setInterval(() => updateComplaintDateTime("actionDatetime"), 1000);
@@ -754,6 +869,7 @@
     // Step 2 (b): From Recommended → proceed to Assign modal
     function proceedToAssign() {
       recommendModal.style.display = "none";
+      stopRecommendationLoading(true);
       assignModal.style.display = 'flex';
       updateComplaintDateTime("assignDatetime");
       if (!interval) interval = setInterval(() => updateComplaintDateTime("assignDatetime"), 1000);
@@ -1314,6 +1430,7 @@
   // Timeline management
   let timelineData = [];
   let currentRole = 'admin'; // Default role, will be detected from URL or API
+  let complaintMeta = null; // complaint details for seeding the timeline
   
   // Detect user role from URL parameters or make API call
   function detectUserRole() {
@@ -1397,7 +1514,7 @@
   function getDefaultMessage(actionType, assignedTo) {
     const timelineStatus = mapActionToTimelineStatus(actionType);
     const messages = {
-      'Submitted a Valid Complaint': 'Complaint has been received and validated',
+      'Submitted a Valid Complaint': 'Complaint has been received',
       'Inspection': `Site inspection assigned to ${assignedTo || 'staff'}`,
       'Inspection Done': `Site inspection completed by ${assignedTo || 'staff'}`,
       'Send Invitation': `Invitation task assigned to ${assignedTo || 'staff'}`,
@@ -1566,7 +1683,7 @@
             history_id: 'generated-submitted',
             type_of_action: 'Submitted',
             assigned_to: '',
-            description: 'Submitted a Valid Complaint',
+            description: 'Complaint has been received',
             action_datetime: submissionDate,
             details: {},
             has_file: false,
@@ -1643,7 +1760,37 @@
         loadingElement.style.display = 'block';
       }
       
-      const entries = await loadTimelineData();
+      let entries = await loadTimelineData();
+
+      // Ensure a 'Submitted' entry exists as first step (visible label becomes 'Submitted a Valid Complaint')
+      const hasSubmitted = entries.some(e => {
+        const t = (e.type_of_action || '').toLowerCase();
+        return t === 'submitted' || t === 'submitted a valid complaint' || t === 'valid complaint' || t === 'complaint submitted' || t === 'received';
+      });
+      if (!hasSubmitted) {
+        // Pick date_received from complaint details if available; else fallback to earliest action time
+        let submitDate = null;
+        if (complaintMeta && (complaintMeta.date_received || complaintMeta.date_submitted)) {
+          const d = new Date(complaintMeta.date_received || complaintMeta.date_submitted);
+          if (!isNaN(d.getTime())) submitDate = d;
+        }
+        if (!submitDate) {
+          const times = entries
+            .map(e => new Date(e.action_datetime))
+            .filter(d => d instanceof Date && !isNaN(d.getTime()))
+            .map(d => d.getTime());
+          submitDate = times.length ? new Date(Math.min(...times)) : new Date();
+        }
+        entries.push({
+          history_id: 'synthetic-submitted',
+          type_of_action: 'Submitted',
+          action_datetime: submitDate.toISOString(),
+          description: getDefaultMessage('Submitted', 'System'),
+          has_file: false,
+          details: {}
+        });
+      }
+
       timelineData = entries;
       renderTimeline(entries);
     } catch (error) {
@@ -1716,6 +1863,8 @@
       const data = await response.json();
       
       if (data.success && data.complaint) {
+        // store for timeline seeding
+        complaintMeta = data.complaint;
         displayAreaMap(data.complaint);
         
         // Check if complaint is in final state and apply read-only mode
