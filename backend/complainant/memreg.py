@@ -139,12 +139,15 @@ def mem_reg():
 
             mismatches = []
 
-            # Middle initial: ignore periods and case, only compare first letter
+            # Middle initial: only validate if the user supplied one.
+            # Ignore periods and case, only compare first letter
             def normalize_mi(val):
                 if not val: return None
                 return str(val).replace('.', '').strip().upper()[:1] or None
-            if normalize_mi(existing_beneficiary.middle_initial) != normalize_mi(input_middle):
-                mismatches.append("Middle Name")
+            # Only enforce MI mismatch when user provided a middle initial
+            if input_middle:
+                if normalize_mi(existing_beneficiary.middle_initial) != normalize_mi(input_middle):
+                    mismatches.append("Middle Name")
             if (existing_beneficiary.suffix or None) != input_suffix:
                 mismatches.append("Suffix")
             if existing_beneficiary.lot_no != lot_asn:

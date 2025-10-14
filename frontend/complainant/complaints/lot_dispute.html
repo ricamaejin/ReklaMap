@@ -6,6 +6,7 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
+  <link rel="stylesheet" href="/css/modal_shared.css">
   <style>
     /* Grey out autofilled (read-only) complainant detail fields */
     #complainantDetails .pairs input[readonly] {
@@ -17,10 +18,20 @@
 </head>
 <body>
 
-  <!-- Error Popup -->
-  <div id="errorPop" 
-    style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);z-index:999;background:#e3f2fd;color:#083048;width:max-content;padding:16px 28px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.12);font-weight:500;min-width:220px;max-width:340px;transition:opacity .2s;">
-    <span id="errorPopMsg"></span>
+  <!-- Modal popup for error messages (shared styles) -->
+  <div id="errorModalBackdrop" class="rk-modal-backdrop" aria-hidden="true">
+    <div class="rk-modal" role="dialog" aria-modal="true" aria-labelledby="errorModalTitle">
+      <div class="rk-modal-header">
+        <div class="rk-modal-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#1a33a0" opacity="0.12"/><path d="M11 16h2v-2h-2v2zm0-8h2v6h-2V8z" fill="#1a33a0"/></svg>
+        </div>
+        <p class="rk-modal-title" id="errorModalTitle">Notice</p>
+      </div>
+      <div class="rk-modal-body" id="errorPopMsg"></div>
+      <div class="rk-modal-actions">
+        <button type="button" id="errorPopClose" class="rk-btn-ghost">Close</button>
+      </div>
+    </div>
   </div>
 
   <!-- Sidebar -->
@@ -178,6 +189,9 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
+  // NOTE: Do NOT check for active complaints on page load anymore.
+  // The active-complaint check will be performed when the user clicks Submit so
+  // the popup only appears at submit time (per UX request).
   const container = document.getElementById('complainantDetails');
   if(!container) return;
 // Static single Block/Lot input row only — dynamic add/remove removed as requested.
@@ -247,20 +261,59 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function showErrorPop(msg) {
-    const pop = document.getElementById('errorPop');
+    const backdrop = document.getElementById('errorModalBackdrop');
     const popMsg = document.getElementById('errorPopMsg');
-    if(!pop || !popMsg) return;
+    if (!backdrop || !popMsg) return;
     popMsg.textContent = msg;
-    pop.style.display='block';
-    pop.style.opacity='1';
-    setTimeout(()=>{
-      pop.style.opacity='0';
-      setTimeout(()=>{pop.style.display='none';},400);
-    },1000);
+    backdrop.style.display = 'flex';
+    backdrop.classList.add('show');
+    backdrop.setAttribute('aria-hidden', 'false');
+
+    const closeBtn = document.getElementById('errorPopClose');
+    const onClose = (e) => { e && e.preventDefault(); hideErrorPop(); };
+    const onBackdropClick = (ev) => { if (ev.target === backdrop) hideErrorPop(); };
+    const onKeydown = (ev) => { if (ev.key === 'Escape') hideErrorPop(); };
+
+    if (closeBtn) closeBtn.addEventListener('click', onClose);
+    backdrop.addEventListener('click', onBackdropClick);
+    document.addEventListener('keydown', onKeydown);
+
+    // store refs so hide can clean up
+    backdrop._errHandlers = { onClose, onBackdropClick, onKeydown, closeBtn };
   }
 
+  function hideErrorPop() {
+    const backdrop = document.getElementById('errorModalBackdrop');
+    if (!backdrop) return;
+    backdrop.style.display = 'none';
+    backdrop.classList.remove('show');
+    backdrop.setAttribute('aria-hidden', 'true');
+    const h = backdrop._errHandlers;
+    if (h) {
+      if (h.closeBtn) h.closeBtn.removeEventListener('click', h.onClose);
+      backdrop.removeEventListener('click', h.onBackdropClick);
+      document.removeEventListener('keydown', h.onKeydown);
+      delete backdrop._errHandlers;
+    }
+  }
+
+  // Close button and click-outside handling
+  document.addEventListener('click', function(e) {
+    const backdrop = document.getElementById('errorModalBackdrop');
+    if (!backdrop) return;
+    const modal = backdrop.querySelector('.rk-modal');
+    if (backdrop.classList.contains('show') && !modal.contains(e.target)) {
+      hideErrorPop();
+    }
+  });
+  document.addEventListener('DOMContentLoaded', function() {
+    const closeBtn = document.getElementById('errorPopClose');
+    if (closeBtn) closeBtn.addEventListener('click', hideErrorPop);
+  });
+
   try{
-    const res = await fetch('/complainant/boundary_dispute/get_boundary_session_data', {credentials:'same-origin'});
+    // Use the Lot Dispute-specific session data endpoint so previews use the correct registration HOA
+    const res = await fetch('/complainant/lot_dispute/get_lot_session_data', {credentials:'same-origin'});
     if(!res.ok) throw new Error('Failed to fetch session data');
     const d = await res.json();
     if(!d || d.error) throw new Error(d?.error || 'No data returned');
@@ -517,19 +570,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
   if (!form || !submitBtn) return;
 
-  // --- Helper to show blue popup errors ---
+  // --- Helper to show modal-based error messages (shared modal) ---
   function showErrorPop(msg) {
-    const pop = document.getElementById('errorPop');
+    const backdrop = document.getElementById('errorModalBackdrop');
     const popMsg = document.getElementById('errorPopMsg');
-    if (!pop || !popMsg) return;
+    if (!backdrop || !popMsg) return;
     popMsg.textContent = msg;
-    pop.style.display = 'block';
-    pop.style.opacity = '1';
-    setTimeout(() => {
-      pop.style.opacity = '0';
-      setTimeout(() => { pop.style.display = 'none'; }, 400);
-    }, 1000);
+    backdrop.classList.add('show');
+    backdrop.setAttribute('aria-hidden', 'false');
   }
+
+  function hideErrorPop() {
+    const backdrop = document.getElementById('errorModalBackdrop');
+    if (!backdrop) return;
+    backdrop.classList.remove('show');
+    backdrop.setAttribute('aria-hidden', 'true');
+  }
+
+  // Wire modal Close button and click-outside behavior
+  (function wireErrorModal() {
+    const backdrop = document.getElementById('errorModalBackdrop');
+    const closeBtn = document.getElementById('errorPopClose');
+    if (closeBtn) closeBtn.addEventListener('click', hideErrorPop);
+    if (backdrop) {
+      backdrop.addEventListener('click', function(e) {
+        // Close when clicking on the backdrop itself (outside the modal)
+        if (e.target === backdrop) hideErrorPop();
+      });
+    }
+  })();
 
   // --- Enable submit button when signature is uploaded ---
   if (sigInput) {
@@ -550,6 +619,26 @@ document.addEventListener('DOMContentLoaded', function() {
   form.addEventListener('submit', async function(e) {
     e.preventDefault();
     if (submitBtn) submitBtn.disabled = true;
+
+    // Before doing any work, check whether the user currently has an active complaint.
+    // If they do, show the notice and abort submission (per UX request).
+    try {
+      const activeRes = await fetch('/complainant/has-active-complaint', { credentials: 'same-origin' });
+      if (activeRes && activeRes.ok) {
+        const activeJson = await activeRes.json();
+        if (activeJson && activeJson.has_active) {
+          showErrorPop('You have an active complaint that is not yet resolved. Please wait until it is completed before filing a new one.');
+          if (submitBtn) submitBtn.disabled = false;
+          return; // abort submission
+        }
+      }
+    } catch (err) {
+      // Network error checking activity: allow submission to proceed but re-enable the button
+      if (submitBtn) submitBtn.disabled = false;
+      console.warn('Could not verify active complaint status:', err);
+      // proceed with submission in this case
+      if (submitBtn) submitBtn.disabled = true;
+    }
 
     try {
       const fd = new FormData(form);
