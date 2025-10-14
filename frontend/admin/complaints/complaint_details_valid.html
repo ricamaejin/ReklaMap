@@ -420,6 +420,11 @@
               <label for="invAgenda">Agenda:</label>
               <input type="text" id="invAgenda" name="agenda" readonly class="readonly-input">
             </div>
+            <!-- Recipients Address (autofilled) -->
+            <div class="form-group">
+              <label for="invRecipientsAddress">Recipients Address:</label>
+              <input id="invRecipientsAddress" type="text" name="recipients_address" readonly class="readonly-input">
+            </div>
             <hr>
 
             <!-- Date of Meeting -->
@@ -642,6 +647,11 @@
 
       if (invAgendaEl) invAgendaEl.value = data.agenda || '';
       if (invLocationEl) invLocationEl.value = data.location || '2nd FLR. USAD-PHASELAD OFFICE, BAYANIHAN BUILDING BARANGAY MAIN';
+      const invRecipientsAddressEl = document.getElementById('invRecipientsAddress');
+      if (invRecipientsAddressEl) {
+        const addr = data.address || data.inspection_location_pretty || data.location || '';
+        invRecipientsAddressEl.value = addr;
+      }
 
       // Inspection fields
       const assignedPersonnelEl = document.getElementById('assignedPersonnel');
@@ -1107,6 +1117,7 @@
 
         details = {
           to: toList.join(", "), // join into a comma-separated string
+          recipients_address: document.querySelector('#invRecipientsAddress')?.value || '',
           meeting_date: document.querySelector("#invDate")?.value || "",
           meeting_time: document.querySelector("#invTime")?.value || "",
           location: document.querySelector("#invLocation")?.value || "",
