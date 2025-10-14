@@ -181,15 +181,64 @@ def get_pathway_session_data():
         data["relationship"] = relationship
 
         parent_info = None
-        if getattr(reg, "beneficiary_id", None):
+        # First try to build parent_info from the family link itself (works even if parent never registered)
+        if fam_link:
+            sd = getattr(fam_link, "supporting_documents", {}) or {}
+            hoa_raw = sd.get("hoa") or None
+            # Robust HOA resolution: try id, code, name
+            parent_hoa_value = ""
+            from backend.database.models import Area, Beneficiary
+            if hoa_raw:
+                try:
+                    candidate = int(hoa_raw)
+                    a = Area.query.get(candidate)
+                    if a:
+                        parent_hoa_value = a.area_name
+                except Exception:
+                    # try by area_code or exact name
+                    a = Area.query.filter((Area.area_code == str(hoa_raw)) | (Area.area_name == str(hoa_raw))).first()
+                    if a:
+                        parent_hoa_value = a.area_name
+
+            # If no explicit HOA in supporting_documents, try linked beneficiary
+            if not parent_hoa_value and getattr(fam_link, 'beneficiary_id', None):
+                try:
+                    ben = Beneficiary.query.get(fam_link.beneficiary_id)
+                    if ben and getattr(ben, 'area_id', None):
+                        a = Area.query.get(ben.area_id)
+                        if a:
+                            parent_hoa_value = a.area_name
+                except Exception:
+                    pass
+
+            parts = [str(getattr(fam_link, 'first_name', '') or '').strip(), str(getattr(fam_link, 'middle_name', '') or '').strip(), str(getattr(fam_link, 'last_name', '') or '').strip(), str(getattr(fam_link, 'suffix', '') or '').strip()]
+            parent_full_name = " ".join([p for p in parts if p])
+            parent_info = {
+                "full_name": parent_full_name,
+                "date_of_birth": getattr(fam_link, 'date_of_birth', None).isoformat() if getattr(fam_link, 'date_of_birth', None) else "",
+                "sex": getattr(fam_link, 'sex', None),
+                "citizenship": getattr(fam_link, 'citizenship', None),
+                "age": getattr(fam_link, 'age', None),
+                "phone_number": getattr(fam_link, 'phone_number', None),
+                "year_of_residence": getattr(fam_link, 'year_of_residence', None),
+                "current_address": getattr(fam_link, 'current_address', None) or sd.get('current_address') or "",
+                "blk_num": sd.get('block_assignment') or getattr(fam_link, 'block_no', '') or "",
+                "lot_num": sd.get('lot_assignment') or getattr(fam_link, 'lot_no', '') or "",
+                "lot_size": sd.get('lot_size') or getattr(fam_link, 'lot_size', '') or "",
+                "civil_status": sd.get('civil_status') or getattr(fam_link, 'civil_status', None),
+                "recipient_of_other_housing": sd.get('recipient_of_other_housing') or getattr(fam_link, 'recipient_of_other_housing', None),
+                "hoa": parent_hoa_value,
+                "supporting_documents": sd if sd else None,
+            }
+
+        # If we didn't get useful parent_info from the fam_link, try to locate a parent Registration (hoa_member) and use that
+        if not parent_info and getattr(reg, "beneficiary_id", None):
             parent = Registration.query.filter_by(beneficiary_id=reg.beneficiary_id, category="hoa_member").first()
             if parent:
                 parent_name_parts = [safe(parent.first_name), safe(parent.middle_name), safe(parent.last_name), safe(parent.suffix)]
                 parent_full_name = " ".join([p for p in parent_name_parts if p])
-                # Supporting documents for parent HOA member (try both RegistrationHOAMember and Registration)
                 parent_docs = []
-                from backend.database.models import RegistrationHOAMember, Area, Block, Beneficiary
-                # Try RegistrationHOAMember first
+                from backend.database.models import RegistrationHOAMember, Area, Beneficiary
                 hoa_member = RegistrationHOAMember.query.filter_by(registration_id=parent.registration_id).first()
                 if hoa_member and hoa_member.supporting_documents:
                     try:
@@ -200,7 +249,6 @@ def get_pathway_session_data():
                             parent_docs = hoa_member.supporting_documents
                     except Exception:
                         parent_docs = []
-                # Fallback: try parent.supporting_documents if not found
                 if not parent_docs and getattr(parent, "supporting_documents", None):
                     try:
                         import json as _json
@@ -213,43 +261,26 @@ def get_pathway_session_data():
 
                 # Resolve parent's HOA area_name
                 parent_hoa_value = ""
-                # Try by beneficiary_id
                 if getattr(parent, "beneficiary_id", None):
                     beneficiary = Beneficiary.query.get(parent.beneficiary_id)
                     if beneficiary and getattr(beneficiary, "area_id", None):
                         area = Area.query.get(beneficiary.area_id)
                         if area:
                             parent_hoa_value = area.area_name
-                # Try by block/lot
                 if not parent_hoa_value:
                     try:
-                        block_no = getattr(parent, "block_no", None)
-                        lot_no = getattr(parent, "lot_no", None)
-                        if block_no and lot_no:
-                            bn = int(block_no)
-                            ln = int(lot_no)
-                            blk = Block.query.filter_by(block_no=bn).first()
-                            if blk:
-                                beneficiary = Beneficiary.query.filter_by(block_id=blk.block_id, lot_no=ln).first()
-                                if beneficiary:
-                                    area = Area.query.filter_by(area_id=beneficiary.area_id).first()
-                                    if area:
-                                        parent_hoa_value = area.area_name
+                        hoa_field = getattr(parent, "hoa", None)
+                        if hoa_field:
+                            try:
+                                a = Area.query.get(int(hoa_field))
+                                if a:
+                                    parent_hoa_value = a.area_name
+                            except Exception:
+                                a = Area.query.filter((Area.area_code == hoa_field) | (Area.area_name == hoa_field)).first()
+                                if a:
+                                    parent_hoa_value = a.area_name
                     except Exception:
                         pass
-                # Try by parent.hoa (if it's an area_id or area_code)
-                if not parent_hoa_value:
-                    hoa_field = getattr(parent, "hoa", None)
-                    if hoa_field:
-                        area = None
-                        try:
-                            area = Area.query.get(int(hoa_field))
-                        except Exception:
-                            pass
-                        if not area:
-                            area = Area.query.filter_by(area_code=hoa_field).first()
-                        if area:
-                            parent_hoa_value = area.area_name
 
                 parent_info = {
                     "full_name": parent_full_name,

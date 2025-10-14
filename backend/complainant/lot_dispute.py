@@ -34,13 +34,103 @@ lot_dispute_bp = Blueprint(
 # -----------------------------
 
 def get_area_name(area_id):
+    """Resolve an area identifier (id, code, or name) to the canonical area_name.
+
+    Handles numeric area_id, area_code, or area_name values robustly and
+    falls back to returning the original input as a string when no match found.
+    """
     if not area_id:
         return ""
+    # Try numeric id first
     try:
-        area = Area.query.get(int(area_id))
-        return area.area_name if area else str(area_id)
-    except (ValueError, TypeError):
-        return str(area_id)
+        candidate = int(area_id)
+        area = Area.query.get(candidate)
+        if area:
+            return area.area_name
+    except Exception:
+        # not an int or lookup failed: continue to try other lookups
+        pass
+
+    # Try by area_code or area_name
+    try:
+        s = str(area_id)
+        area = Area.query.filter((Area.area_code == s) | (Area.area_name == s)).first()
+        if area:
+            return area.area_name
+    except Exception:
+        pass
+
+    # Last resort: return the original value as string
+    return str(area_id)
+
+
+def resolve_hoa_for_registration(registration):
+    """Robustly determine the Area.area_name for a Registration.
+
+    Order:
+    1. Try registration.hoa (id/code/name) via get_area_name()
+    2. Fallback to beneficiary lookup using registration.block_no and registration.lot_no
+    """
+    try:
+        # 1) Try registration.hoa
+        hoa_val = getattr(registration, 'hoa', None)
+        if hoa_val:
+            s = str(hoa_val).strip()
+            if s:
+                # Try numeric/id resolution first
+                resolved = get_area_name(s)
+                # Try exact name match
+                a = Area.query.filter_by(area_name=resolved).first() if resolved else None
+                if a:
+                    return a.area_name
+                # Try exact code or exact name on original input
+                a2 = Area.query.filter((Area.area_code == s) | (Area.area_name == s)).first()
+                if a2:
+                    return a2.area_name
+                # Try case-insensitive contains match for area_name (helps with small formatting differences)
+                try:
+                    a3 = Area.query.filter(Area.area_name.ilike(f"%{s}%")).first()
+                    if a3:
+                        return a3.area_name
+                except Exception:
+                    pass
+
+        # 1b) If registration references a beneficiary directly, prefer that
+        try:
+            ben_id = getattr(registration, 'beneficiary_id', None)
+            if ben_id:
+                ben = Beneficiary.query.get(ben_id)
+                if ben:
+                    a = Area.query.get(ben.area_id)
+                    if a:
+                        return a.area_name
+        except Exception:
+            pass
+
+        # 2) Fallback: derive via block_no / lot_no -> Beneficiary -> Area
+        bn = getattr(registration, 'block_no', None)
+        ln = getattr(registration, 'lot_no', None)
+        if bn and ln:
+            try:
+                bn_c = int(bn)
+            except Exception:
+                bn_c = bn
+            try:
+                ln_c = int(ln)
+            except Exception:
+                ln_c = ln
+            ben = Beneficiary.query.filter_by(block_id=bn_c, lot_no=ln_c).first()
+            if not ben:
+                blk = Block.query.filter_by(block_no=bn_c).first()
+                if blk:
+                    ben = Beneficiary.query.filter_by(block_id=blk.block_id, lot_no=ln_c).first()
+            if ben:
+                a = Area.query.get(ben.area_id)
+                if a:
+                    return a.area_name
+    except Exception:
+        pass
+    return ""
 
 
 def _parse_list(val):
@@ -270,7 +360,7 @@ def get_lot_session_data():
         "phone_number": reg.phone_number,
         "year_of_residence": reg.year_of_residence,
         "recipient_of_other_housing": reg.recipient_of_other_housing,
-        "hoa": get_area_name(reg.hoa) if reg.hoa else "",
+        "hoa": resolve_hoa_for_registration(reg) if reg else "",
         "blk_num": getattr(reg, "block_no", "") or "",
         "lot_num": getattr(reg, "lot_no", "") or "",
         "lot_size": getattr(reg, "lot_size", "") or "",
@@ -343,13 +433,16 @@ def get_lot_session_data():
             # Override HOA, Block, Lot, Lot Size from family member or linked beneficiary
             sd = getattr(fam, "supporting_documents", {}) or {}
             if sd.get("hoa"):
-                data["hoa"] = get_area_name(sd["hoa"])
+                # family supporting docs may contain hoa id/code/name
+                data["hoa"] = get_area_name(sd["hoa"]) or data.get("hoa", "")
             else:
                 try:
                     if fam.beneficiary_id:
                         ben = Beneficiary.query.get(fam.beneficiary_id)
                         if ben:
-                            data["hoa"] = get_area_name(ben.area_id)
+                            a = Area.query.get(ben.area_id)
+                            if a:
+                                data["hoa"] = a.area_name
                 except Exception:
                     pass
 

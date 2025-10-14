@@ -12,6 +12,7 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
+  <link rel="stylesheet" href="/css/modal_shared.css">
 </head>
 <body>
     
@@ -152,9 +153,17 @@
           <button type="submit" class="btn submit">Submit</button>
         </div>
 
-        <div id="errorPop" 
-          style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);z-index:999;background:#e3f2fd;color:#083048;width:max-content;padding:16px 28px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.12);font-weight:500;min-width:220px;max-width:340px;transition:opacity .2s;">
-          <span id="errorPopMsg"></span>
+        <div id="errorModalBackdrop" class="rk-modal-backdrop" aria-hidden="true">
+          <div class="rk-modal" role="dialog" aria-modal="true" aria-labelledby="errorModalTitle">
+            <div class="rk-modal-header">
+              <div class="rk-modal-icon">!</div>
+              <h3 class="rk-modal-title" id="errorModalTitle">Notice</h3>
+            </div>
+            <div class="rk-modal-body" id="errorPopMsg"> </div>
+            <div class="rk-modal-actions">
+              <button type="button" id="errorPopClose" class="rk-btn-ghost">Close</button>
+            </div>
+          </div>
         </div>
 
       </form>
@@ -165,15 +174,17 @@
   <!-- Form submission script -->
   <script>
     function showErrorPop(msg) {
-      const pop = document.getElementById('errorPop');
+      const backdrop = document.getElementById('errorModalBackdrop');
       const popMsg = document.getElementById('errorPopMsg');
       popMsg.textContent = msg;
-      pop.style.display = 'block';
-      pop.style.opacity = '1';
-      setTimeout(() => {
-        pop.style.opacity = '0';
-        setTimeout(() => { pop.style.display = 'none'; }, 400);
-      }, 1000);
+      backdrop.classList.add('show');
+      backdrop.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideErrorPop() {
+      const backdrop = document.getElementById('errorModalBackdrop');
+      backdrop.classList.remove('show');
+      backdrop.setAttribute('aria-hidden', 'true');
     }
 
     // Field warning helpers
@@ -457,6 +468,17 @@
         submitBtn.disabled = false;
       }
     });
+
+    // Close button and backdrop click to dismiss
+    document.addEventListener('click', function(e){
+      const backdrop = document.getElementById('errorModalBackdrop');
+      if (!backdrop) return;
+      const modal = backdrop.querySelector('.rk-modal');
+      if (backdrop.classList.contains('show') && !modal.contains(e.target)) {
+        hideErrorPop();
+      }
+    });
+    document.getElementById('errorPopClose').addEventListener('click', hideErrorPop);
   </script>
 
 </body>

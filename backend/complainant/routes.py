@@ -256,6 +256,29 @@ def get_complaint_type():
     ctype = session.get("type_of_complaint")
     return jsonify({"success": True, "type": ctype})
 
+
+@complainant_bp.route("/has-active-complaint", methods=["GET"])
+def has_active_complaint():
+    """Return whether the logged-in user's registration has any complaint
+    with complaint_stage in ('Pending','Ongoing').
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"success": True, "has_active": False})
+
+    # Find registration for this user
+    reg = Registration.query.filter_by(user_id=user_id).first()
+    if not reg:
+        return jsonify({"success": True, "has_active": False})
+
+    # Query complaints linked to this registration
+    active = Complaint.query.filter(
+        Complaint.registration_id == reg.registration_id,
+        Complaint.complaint_stage.in_(["Pending", "Ongoing"])  # pending or ongoing
+    ).first() is not None
+
+    return jsonify({"success": True, "has_active": bool(active)})
+
 # -----------------------------
 # Start complaint: resolve destination form
 # Used by dashboard modal to jump to the correct form page
