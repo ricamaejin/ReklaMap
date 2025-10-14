@@ -6,6 +6,10 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
+  <!-- Fuzzy recommendation modules (pathway + lot) and dispatcher -->
+  <script src="/js/fuzzy_rules_pathway.js" defer></script>
+  <script src="/js/fuzzy_rules_lot.js" defer></script>
+  <script src="/js/recommendation_dispatch.js" defer></script>
   <style>
     .accept-invitation-btn {
       background: #28a745 !important;
@@ -203,17 +207,12 @@
           <h2>Recommended Action</h2>
         </div>
         <hr>
+
+        <!-- System Recommendation (rendered by fuzzy modules) -->
+      <div id="autoRecommendation" 
+      style="background-color: #fff; width: 100%; margin-left: 0px !important; height: auto; text-align: justify; padding: 20px 30px; box-sizing: border-box; border-radius: 5px;">
+      </div>
         
-
-        <!-- Recommendation Description -->
-        <!-- TODO BACKEND: Replace static description from backend -->
-        <textarea style="width: 100%; height: 200px; text-align: justify; padding: 20px 30px; box-sizing: border-box;">Based on system analysis, we recommend the following action: 
-  
-  - Assign an Inspection to the assigned personnel (Alberto Nonato Jr.). The inspection should cover safety, affected lots, and measurement of lots.
-  
-  - Notify all relevant parties about the inspection details and ensure their availability.
-        </textarea>
-
         <div class="modal-footer">
           <button class="btn-save" onclick="proceedToAssign()">Assign</button>
           <button class="btn-save" onclick="proceedToAction()">Proceed</button>
@@ -716,8 +715,9 @@
     }
 
     // Step 1: Open Recommended modal first
-    async function openComplaint() {
-      recommendModal.style.display = "flex";
+    function openComplaint() {
+      try { if (window.runFuzzyRecommendation) window.runFuzzyRecommendation(); } catch(e) {}
+      recommendModal.style.display = 'flex';
     }
 
     // Close Recommended modal
@@ -737,6 +737,18 @@
       loadAutofill().then(data => {
         try { applyAutofillToAction(data); } catch (e) { console.warn('applyAutofillToAction failed', e); }
       });
+      // Preselect suggested action from recommender
+      try {
+        const recData = document.getElementById('recommendModal').dataset;
+        const suggestAction = recData?.suggestAction;
+        if (suggestAction){
+          const sel = document.getElementById('actionType');
+          if (sel){
+            sel.value = suggestAction;
+            sel.dispatchEvent(new Event('change'));
+          }
+        }
+      } catch(e) { console.warn('Failed to preselect action from recommendation', e); }
     }
 
     // Step 2 (b): From Recommended → proceed to Assign modal
@@ -762,6 +774,18 @@
           }
         }
       });
+      // Preselect suggested assignment from recommender
+      try {
+        const recData = document.getElementById('recommendModal').dataset;
+        const suggestAssign = recData?.suggestAssign;
+        if (suggestAssign){
+          const sel = document.getElementById('assignType');
+          if (sel){
+            sel.value = suggestAssign;
+            sel.dispatchEvent(new Event('change'));
+          }
+        }
+      } catch(e) { console.warn('Failed to preselect assignment from recommendation', e); }
     }
 
     // Close whichever modal is open
