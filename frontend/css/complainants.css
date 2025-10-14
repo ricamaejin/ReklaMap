@@ -1594,11 +1594,13 @@ input[type="radio"], input[type="checkbox"] {
   position: absolute;
   left: 10px;
   top: 6px;
-  width: 12px;
-  height: 12px;
+  width: 10px !important;
+  height: 10px !important;
   border-radius: 50%;
   box-shadow: 0 0 0 2px rgba(0,0,0,0.03) inset;
+  margin-left: 7px;
 }
+
 .timeline-entry h4 {
   font-size: 1rem;
   font-weight: bold;
@@ -1934,6 +1936,10 @@ input[type="radio"], input[type="checkbox"] {
     flex-direction: column;
   }
 
+  .img.logo{
+    margin-top: 0;
+  }
+  
    .sidebar {
     width: 100%;
     height: 110px;
