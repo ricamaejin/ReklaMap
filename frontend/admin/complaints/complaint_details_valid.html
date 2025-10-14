@@ -10,6 +10,7 @@
   <!-- Fuzzy recommendation modules (pathway + lot) and dispatcher -->
   <script src="/js/fuzzy_rules_pathway.js" defer></script>
   <script src="/js/fuzzy_rules_lot.js" defer></script>
+  <script src="/js/fuzzy_rules_unauthorized.js" defer></script>
   <script src="/js/recommendation_dispatch.js" defer></script>
   <style>
     .accept-invitation-btn {
@@ -218,7 +219,7 @@
         <!-- Loading State -->
         <div id="recommendationLoading" style="text-align: center; padding: 30px; display: block;">
           <div style="font-size: 18px; margin-bottom: 15px; color: #c8dff7;">🔄 Analyzing complaint details...</div>
-          <div style="color: #ffffff; font-size: 14px;">Fuzzy logic processing in progress</div>
+          <div style="color: #ffffff; font-size: 13px;">Generating recommendation in progress</div>
           <div style="margin-top: 15px;">
             <div style="width: 200px; height: 4px; background: #e0e0e0; border-radius: 2px; margin: 0 auto; overflow: hidden;">
               <div id="loadingBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #007bff, #28a745); border-radius: 2px; transition: width 0.3s ease;"></div>
@@ -230,8 +231,7 @@
 
         <!-- Error State -->
         <div id="recommendationError" style="display: none; padding: 20px; background: #f8d7da; color: #721c24; border-radius: 4px; margin: 10px 0; text-align: center;">
-          <div style="font-size: 16px; margin-bottom: 10px;">⚠️ Unable to generate intelligent recommendation</div>
-          <div style="font-size: 14px;">Using default manual process instead</div>
+          <div style="font-size: 16px; margin-bottom: 10px;">⚠️ Unable to generate recommendation</div>
         </div>
 
         <!-- System Recommendation (rendered by fuzzy modules) -->
