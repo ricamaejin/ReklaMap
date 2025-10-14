@@ -1510,7 +1510,7 @@
   function mapActionToTimelineStatus(actionType, isCompleted = false, role = 'admin') {
     // ADMIN VIEW: Only allowed sequential flow statuses
     const statusMap = {
-      'Submitted': 'Submitted a Valid Complaint',
+      'Submitted': 'Submitted a Complaint',
       'Inspection': 'Inspection',
       'Inspection Done': 'Inspection Done',
       'Invitation': 'Send Invitation',  // Admin creates invitation task - show as assignment
@@ -1526,7 +1526,7 @@
   function getDefaultMessage(actionType, assignedTo) {
     const timelineStatus = mapActionToTimelineStatus(actionType);
     const messages = {
-      'Submitted a Valid Complaint': 'Complaint has been received',
+      'Submitted a Complaint': 'Complaint has been received',
       'Inspection': `Site inspection assigned to ${assignedTo || 'staff'}`,
       'Inspection Done': `Site inspection completed by ${assignedTo || 'staff'}`,
       'Send Invitation': `Invitation task assigned to ${assignedTo || 'staff'}`,
@@ -1788,7 +1788,7 @@
       
       let entries = await loadTimelineData();
 
-      // Ensure a 'Submitted' entry exists as first step (visible label becomes 'Submitted a Valid Complaint')
+      // Ensure a 'Submitted' entry exists as first step (visible label becomes 'Submitted a Complaint')
       const hasSubmitted = entries.some(e => {
         const t = (e.type_of_action || '').toLowerCase();
         return t === 'submitted' || t === 'submitted a valid complaint' || t === 'valid complaint' || t === 'complaint submitted' || t === 'received';

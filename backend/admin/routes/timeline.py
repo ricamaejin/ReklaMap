@@ -7,7 +7,7 @@ def generate_action_description(action_type, assigned_to, role='admin'):
     
     # ADMIN VIEW (admin.account == 1) - Only 7 allowed statuses
     admin_descriptions = {
-        'Submitted': 'Submitted a Valid Complaint (default status after complaint submitted)',
+        'Submitted': 'Submitted a Complaint (default status after complaint submitted)',
         'Inspection': f'Site inspection assigned to {assigned_to}' if assigned_to else 'Inspection task assigned to staff',
         'Inspection Done': f'Site inspection completed by {assigned_to}' if assigned_to else 'Site inspection completed by staff',
         'Invitation': f'Send Invitation task assigned to {assigned_to}' if assigned_to else 'Send Invitation task assigned to staff', 
@@ -280,7 +280,7 @@ def filter_entries_by_role(entries, role, complaint_id=None):
     
     if role == 'admin':
         # ADMIN VIEW (admin.account == 1): Full sequential flow
-        # 1. "Submitted a Valid Complaint" → 2. "Inspection" → 3. "Inspection Done" → 
+        # 1. "Submitted a Complaint" → 2. "Inspection" → 3. "Inspection Done" → 
         # 4. "Send Invitation" → 5. "Sent Invitation" → 6. "Accepted Invitation" → 
         # 7. "Mediation" → 8. "Assessment" → moves to resolved.html
         return entries

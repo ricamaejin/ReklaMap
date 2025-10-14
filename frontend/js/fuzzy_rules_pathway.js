@@ -132,6 +132,19 @@
     const auth = authorityFromQ9(answers.q9);
     const inspOrg = inspectionOrgFromQ10(answers.q10);
     const res11 = resultFromQ11(answers.q11);
+      // Explicit overrides per user request:
+      // - If Q12 === 'Yes' (ongoing development / government project) => out_of_jurisdiction
+      // - If Q2 indicates parked vehicle => out_of_jurisdiction
+      // - If Q4 indicates removed / 'No – it was removed but may return' => assessment
+      const q12Yes = (answers.q12||'').toLowerCase().includes('yes');
+      const q2Parked = (answers.q2||'').toLowerCase().includes('parked');
+      const q4Removed = (answers.q4||'').toLowerCase().includes('removed') || (answers.q4||'').toLowerCase().includes('no – removed');
+      if(q12Yes || q2Parked){
+        return { action: 'out_of_jurisdiction', confidence: 0.98, scores: { inspection:0, mediation:0, assessment:0, out_of_jurisdiction:1 }, reasons: ['Selected option indicates out-of-jurisdiction (government project or parked vehicle).'] };
+      }
+      if(q4Removed){
+        return { action: 'assessment', confidence: 0.92, scores: { inspection:0, mediation:0, assessment:1, out_of_jurisdiction:0 }, reasons: ['Obstruction reported removed; assessment is recommended.'] };
+      }
     const ongoing = ((answers.q12||'').toLowerCase().includes('yes')) ? 0.5 : 0;
     const govEasement = (answers.q1||'').toLowerCase().includes('government-declared');
 
@@ -229,7 +242,7 @@
   // --- Stylish UI helpers ---
   const ACTION_LABEL = {
     inspection: 'Inspection',
-    mediation: 'Mediation',
+    mediation: 'Send Invitation',
     assessment: 'Assessment',
     out_of_jurisdiction: 'Out of Jurisdiction'
   };
@@ -350,7 +363,7 @@
       const reasons = (result.reasons||[]).slice(0,4).map(r=>`<li>${r}</li>`).join('');
 
       const header = `
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; border-bottom: 2px solid #1a33a0;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; border-bottom: 2px solid #1a33a0; padding-bottom: 4px">
           <div style="font-weight:800; color:#1a33a0; display:flex; align-items:center; gap:10px;">
             <span class="material-icons" style="font-size:18px; color:#1a33a0;">psychology</span>
             System Recommendation
@@ -365,7 +378,7 @@
 
       const why = `
         <div style="margin-top:8px; color:#1f2a4a;">Why this</div>
-        <ul style="margin:6px 0 0 18px; color: #00030dff">${reasons || '<li>Signals are mixed; additional details may improve accuracy.</li>'}</ul>`;
+        <ul style="margin:6px 0 0 18px; color: black;">${reasons || '<li>Signals are mixed; additional details may improve accuracy.</li>'}</ul>`;
 
       box.innerHTML = header + bars + why;
 

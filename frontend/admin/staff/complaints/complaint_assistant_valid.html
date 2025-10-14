@@ -696,7 +696,7 @@ function truncateDescription(text, maxLength = 80) {
 function mapActionToTimelineStatus(actionType, isCompleted = false, role = 'staff') {
   // STAFF VIEW: Only allowed sequential flow statuses
   const statusMap = {
-    'Submitted': 'Submitted a Valid Complaint',
+    'Submitted': 'Submitted  Complaint',
     'Inspection': isCompleted ? 'Inspection Done' : 'Inspection',
     'Invitation': isCompleted ? 'Sent Invitation' : 'Send Invitation',
     'Task Completed': 'Task Completed',
@@ -709,7 +709,7 @@ function mapActionToTimelineStatus(actionType, isCompleted = false, role = 'staf
 function getDefaultMessage(actionType, assignedTo) {
   const timelineStatus = mapActionToTimelineStatus(actionType);
   const messages = {
-    'Submitted a Valid Complaint': 'Your complaint has been received and validated',
+    'Submitted a Complaint': 'Your complaint has been received and validated',
     'Inspection': `Site inspection assigned to ${assignedTo || 'inspector'}`,
     'Inspection Done': `Site inspection completed by ${assignedTo || 'inspector'}`,
     'Send Invitation': `Invitation task assigned to ${assignedTo || 'staff'}`,

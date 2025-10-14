@@ -629,7 +629,7 @@
           return `${dateStr} (Overdue by ${Math.abs(daysDiff)}d)`;
         } else if (daysDiff === 0) {
           return `${dateStr} (Due today)`;
-        } else if (daysDiff <= 2) {
+        } else if (daysDiff <= 3) {
           return `${dateStr} (${daysDiff}d left)`;
         } else {
           return `${dateStr} (${daysDiff}d left)`;
@@ -1267,9 +1267,10 @@ try {
       try {
         // Use EXACT same logic as index.html - fetch from multiple endpoints and use the same helper functions
         const urls = [
+          `/admin/complaints/api/all?_=${Date.now()}`,
           `/admin/complaints/api/assigned?_=${Date.now()}`,
           `/admin/complaints/api/ongoing?_=${Date.now()}`,
-          `/admin/complaints/api/all?_=${Date.now()}`
+          `/admin/complaints/api/pending?_=${Date.now()}`
         ];
         let adminAssignedCache = [];
         let loaded = false;
@@ -1339,8 +1340,8 @@ try {
           if (complaint.complaint_stage === 'Pending' || !complaint.latest_action) {
             const submittedDate = new Date(complaint.date_received);
             if (isNaN(submittedDate.getTime())) return null;
-            // 6 days after submission (same as Deadline column logic)
-            return new Date(submittedDate.getTime() + 6 * 24 * 60 * 60 * 1000);
+            // 7 days after submission (same as Deadline column logic)
+            return new Date(submittedDate.getTime() + 7 * 24 * 60 * 60 * 1000);
           }
 
           // For Ongoing complaints - use same logic as Deadline column
@@ -1410,9 +1411,9 @@ try {
             const daysLeft = adminGetDaysLeft(deadline);
             if (daysLeft === null) return;
 
-            // Include if overdue (daysLeft < 0) or due soon (<=3 days)
+            const isPending = (c.complaint_stage === 'Pending') || !c.latest_action;
+            // Include only if overdue or due soon (<= 3 days)
             if (daysLeft <= 3) {
-              const isPending = (c.complaint_stage === 'Pending') || !c.latest_action;
               items.push({ complaint: c, deadline, daysLeft, isPending });
             }
           });
@@ -1458,16 +1459,33 @@ try {
         // Render all due soon items with consistent labeling logic
         dueSoonItems.forEach(c => {
           let color, label;
-          if (c.daysLeft < 0) {
-            const daysLate = Math.abs(c.daysLeft);
-            color = "red";
-            label = `Overdue (${daysLate} day${daysLate !== 1 ? "s" : ""} late)`;
-          } else if (c.daysLeft === 0) {
-            color = "orange";
-            label = "Due Today";
+
+          if (c.isPending) {
+            // For Pending/Received, label explicitly as Received
+            if (c.daysLeft < 0) {
+              const daysLate = Math.abs(c.daysLeft);
+              color = "red";
+              label = `Received (${daysLate} day${daysLate !== 1 ? "s" : ""} late)`;
+            } else if (c.daysLeft === 0) {
+              color = "orange";
+              label = "Received (Due Today)";
+            } else {
+              color = "#1a33a0"; // brand blue for clarity on pending/received
+              label = `Received (${c.daysLeft} day${c.daysLeft !== 1 ? "s" : ""} left)`;
+            }
           } else {
-            color = "green";
-            label = `Ongoing (${c.daysLeft} day${c.daysLeft !== 1 ? "s" : ""} left)`;
+            // Non-pending follows the original overdue/due today/ongoing scheme
+            if (c.daysLeft < 0) {
+              const daysLate = Math.abs(c.daysLeft);
+              color = "red";
+              label = `Overdue (${daysLate} day${daysLate !== 1 ? "s" : ""} late)`;
+            } else if (c.daysLeft === 0) {
+              color = "orange";
+              label = "Due Today";
+            } else {
+              color = "green";
+              label = `Ongoing (${c.daysLeft} day${c.daysLeft !== 1 ? "s" : ""} left)`;
+            }
           }
 
           inboxList.innerHTML += buildEntry(color, label, c.deadline, c.complaint);
