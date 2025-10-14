@@ -266,7 +266,7 @@
             <!-- Agenda -->
             <div class="form-group">
             <label>Agenda:<span style="color:red;">*</span></label>
-            <input type="text" name="agenda" placeholder="Agenda" readonly class="readonly-input">
+            <input type="text" name="agenda" placeholder="Agenda">
             </div>
             <!-- Advisors/Witnesses -->
             <div class="form-group">
@@ -1048,7 +1048,9 @@
           agenda: document.querySelector("input[name='agenda']")?.value || "",
           summary: document.querySelector("textarea[name='summary']")?.value || "",
           assigned_personnel: document.querySelector('#medAssignedPersonnel')?.value || 'Josie Rosal',
-          parties_involved: (document.querySelector('#medPartiesInvolved')?.value || '').split('\n').map(s => s.trim()).filter(Boolean),
+          parties_involved: Array.from(document.querySelectorAll('#medPartiesInvolved input'))
+            .map(i => (i.value || '').trim())
+            .filter(Boolean),
           files: Array.from(document.querySelectorAll("input[name='mediationFiles[]']")).map((fileInput, idx) => {
             return {
               filename: fileInput.value.split("\\").pop(),
@@ -2905,7 +2907,7 @@
       min-height: 20px;
     }
     .form-group {
-      margin-bottom: 15px;
+      margin-bottom: 8px;
     }
     .form-group label {
       display: block;
