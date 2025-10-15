@@ -2697,10 +2697,10 @@
         previewHTML = generateGenericPreview(details, entry);
     }
     
-    modalBody.innerHTML = previewHTML;
+  modalBody.innerHTML = previewHTML;
 
-    // Strictly for preview: when viewing Send Invitation, hide Description field block if present
-    if (actionType && actionType.toLowerCase() === 'sent invitation') {
+  // Strictly for preview: when viewing Send Invitation, hide Description field block if present
+  if (actionType && actionType.toLowerCase() === 'sent invitation') {
       try {
         // Common patterns: a label 'Description' with a textarea or a paragraph following it
         const labels = modalBody.querySelectorAll('label, p, div');
@@ -2721,6 +2721,22 @@
         });
       } catch (e) { /* non-fatal UI tweak */ }
     }
+
+    // Hide only the 'Attached Files' section for these statuses in the preview modal
+    // This does not affect timeline paper clips or staff upload buttons
+    try {
+      const lower = (actionType || '').toLowerCase();
+      if (lower === 'inspection done' || lower === 'mediation' || lower === 'sent invitation') {
+        const candidates = modalBody.querySelectorAll('label, .label, strong, h3, h4, p, span');
+        candidates.forEach(el => {
+          const txt = (el.textContent || '').trim().toLowerCase();
+          if (txt === 'attached files' || txt === 'attached files:' || txt.startsWith('attached files')) {
+            const block = el.closest('.form-group') || el.parentElement;
+            if (block) block.style.display = 'none'; else el.style.display = 'none';
+          }
+        });
+      }
+    } catch (e) { /* non-fatal UI tweak */ }
   }
 
   // Generate inspection preview HTML - matches exact original form layout
