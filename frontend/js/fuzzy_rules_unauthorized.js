@@ -25,6 +25,100 @@
     return text(lab) || '';
   }
 
+  // --- Admin preview fallbacks (no name attributes, disabled inputs) ---
+  function findQuestionBlock(regex, root=document){
+    const blocks = $all('.question-block', root);
+    for (const b of blocks){
+      const p = $('p', b);
+      if (p && regex.test((p.textContent||'').trim())) return b;
+    }
+    // Fallback: scan paragraphs
+    const paras = $all('p', root);
+    for (const p of paras){
+      if (regex.test((p.textContent||'').trim())) return p.closest('.question-block') || p.parentElement;
+    }
+    return null;
+  }
+  function checkedLabelsIn(block){
+    if (!block) return [];
+    return $all('label input:checked', block).map(inp => text(inp.closest('label')));
+  }
+  function checkedRadioLabelIn(block){
+    if (!block) return '';
+    const r = $('input[type="radio"][checked]', block);
+    return r ? text(r.closest('label')) : '';
+  }
+  function mapActivityLabel(lbl){
+    const t = (lbl||'').toLowerCase();
+    if (/living|resid/.test(t)) return 'living';
+    if (/built.*structure|house|shack/.test(t)) return 'built_structure';
+    if (/fenc|enclos/.test(t)) return 'fenced';
+    if (/storing|belongings/.test(t)) return 'storing';
+    if (/utilit|water|electric/.test(t)) return 'utilities';
+    if (/rent/i.test(t)) return 'renting';
+    return '';
+  }
+  function mapDocLabel(lbl){
+    const t = (lbl||'').toLowerCase();
+    if (/title/.test(t)) return 'title';
+    if (/contract.*sell/.test(t)) return 'contract_to_sell';
+    if (/certificate.*full.*payment/.test(t)) return 'certificate_full_payment';
+    if (/pre-?qualification.*stub/.test(t)) return 'qualification_stub';
+    if (/contract\/agreement|contract\s*\/\s*agreement|agreement/.test(t)) return 'contract_agreement';
+    if (/deed.*sale/.test(t)) return 'deed_of_sale';
+    return '';
+  }
+  function mapReportedLabel(lbl){
+    const t = (lbl||'').toLowerCase();
+    if (/usad|phaselad/.test(t)) return 'USAD';
+    if (/ngc/.test(t)) return 'NGC';
+    if (/barangay/.test(t)) return 'Barangay';
+    if (/hoa/.test(t)) return 'HOA';
+    if (/none/.test(t)) return 'none';
+    return '';
+  }
+  function mapLegalConn(lbl){
+    const t = (lbl||'').toLowerCase();
+    if (/beneficiar/.test(t)) return 'beneficiary';
+    if (/heir|successor/.test(t)) return 'heir';
+    if (/purchaser|buyer|deed.*sale|contract.*sell/.test(t)) return 'purchaser';
+    if (/lessee|tenant/.test(t)) return 'lessee';
+    if (/officer|common area|hoa/.test(t)) return 'hoa_officer';
+    if (/representative/.test(t)) return 'representative';
+    return '';
+  }
+  function mapClaim(lbl){
+    const t = (lbl||'').toLowerCase();
+    if (/presented.*document/.test(t)) return 'docs';
+    if (/verbal/.test(t)) return 'verbal';
+    if (/haven't|have not|no.*claim/.test(t)) return 'none';
+    if (/don't know|do not know|haven't asked/.test(t)) return 'unknown';
+    return '';
+  }
+  function mapApproachDetail(lbl){
+    const t = (lbl||'').toLowerCase();
+    if (/no.*document/.test(t)) return 'no_docs';
+    if (/refus.*leave/.test(t)) return 'refused_leave';
+    if (/claim.*real.*owner/.test(t)) return 'claim_owner';
+    if (/ignor/.test(t)) return 'ignored';
+    if (/hostile|aggressive/.test(t)) return 'hostile';
+    if (/advised.*not/.test(t)) return 'advised_not';
+    if (/do.*not.*know/.test(t)) return 'dont_know';
+    if (/not.*residing|not.*living/.test(t)) return 'not_residing';
+    return '';
+  }
+  function mapResult(lbl){
+    const t = (lbl||'').toLowerCase();
+    if (/asked.*leave/.test(t)) return 'asked_to_leave';
+    if (/provide.*document/.test(t)) return 'provide_docs';
+    if (/investigation/.test(t)) return 'investigation';
+    if (/pending|unresolved/.test(t)) return 'pending';
+    if (/no.*action/.test(t)) return 'no_action';
+    if (/no.*valid.*claim/.test(t)) return 'no_valid_claim';
+    if (/not.*applicable|no.*inspection/.test(t)) return 'not_applicable';
+    return '';
+  }
+
   // Q4 has one checkbox missing name/value ("Renting it out...") and we also need label text fallback.
   function getActivities(root=document){
     // Gather named checkboxes first
@@ -73,6 +167,66 @@
     const adYes = valRadio('approach_details', root);
     const adNo = valRadio('approachNoDetails', root);
     s.q6_approach_details = adYes || adNo || '';
+
+    // --- Fallbacks for admin preview (disabled inputs without names) ---
+    // Q1 legal connection
+    if (!s.q1_legal_connection){
+      const b = findQuestionBlock(/legal connection/i, root);
+      const lbl = checkedRadioLabelIn(b);
+      const m = mapLegalConn(lbl);
+      if (m) s.q1_legal_connection = m;
+    }
+    // Q4 activities
+    if (!s.q4_activities || !s.q4_activities.length){
+      const b = findQuestionBlock(/what activities are being done/i, root);
+      const labs = checkedLabelsIn(b).map(mapActivityLabel).filter(Boolean);
+      if (labs.length) s.q4_activities = labs;
+    }
+    // Q5 claim type + docs
+    if (!s.q5_claim_type){
+      const b = findQuestionBlock(/claimed legal rights/i, root);
+      const lbl = checkedRadioLabelIn(b);
+      const m = mapClaim(lbl);
+      if (m) s.q5_claim_type = m;
+      if (m === 'docs'){
+        // nested docs checkboxes under this block
+        const docLabels = $all('label input[type="checkbox"][checked]', b).map(inp => text(inp.closest('label')));
+        const docVals = docLabels.map(mapDocLabel).filter(Boolean);
+        if (docVals.length) s.q5_docs_list = docVals;
+      }
+    }
+    // Q6 approach + details
+    if (!s.q6_approach){
+      const b = findQuestionBlock(/tried to resolve.*directly/i, root);
+      const lbl = checkedRadioLabelIn(b);
+      if (/yes/i.test(lbl)) s.q6_approach = 'yes'; else if (/no$/i.test(lbl)) s.q6_approach = 'no';
+      // details (either yes-details radio or no-details checkboxes)
+      const detailNodes = $all('label input[checked]', b);
+      // pick the first detail that maps to a known token besides the yes/no itself
+      for (const n of detailNodes){
+        const l = text(n.closest('label'));
+        const mapped = mapApproachDetail(l);
+        if (mapped){ s.q6_approach_details = mapped; break; }
+      }
+    }
+    // Q7 reported to
+    if (!s.q7_reported_to || !s.q7_reported_to.length){
+      const b = findQuestionBlock(/reported.*boundary.*office|authority/i, root);
+      const labs = checkedLabelsIn(b).map(mapReportedLabel).filter(Boolean);
+      if (labs.length) s.q7_reported_to = labs;
+    }
+    // Q8 result
+    if (!s.q8_result){
+      const b = findQuestionBlock(/result of that report/i, root);
+      const lbl = checkedRadioLabelIn(b);
+      const m = mapResult(lbl);
+      if (m) s.q8_result = m;
+    }
+    // Description (readonly preview)
+    if (!s.description){
+      const t = root.querySelector('textarea[readonly]');
+      if (t && t.value) s.description = t.value;
+    }
     return s;
   }
 
@@ -90,7 +244,8 @@
       legal_connection_weight: 0,
       jurisdiction_flag: 0,
       urgency: 0,
-      basis_weakness: 0
+      basis_weakness: 0,
+      explicit_weak: 0
     };
 
     // Q5 documents strength
@@ -175,12 +330,44 @@
     const invOrPending = (res === 'investigation' || res === 'pending' || res === 'no_action') ? 1 : 0;
     f.urgency = clamp01(0.5*f.occupancy_intensity + 0.3*f.resistance_level + 0.2*invOrPending);
 
-    // Basis weakness
+    // Basis weakness (rebalanced to avoid over-penalizing unknowns)
     const claimWeak = (claimType === 'none' || claimType === 'unknown') ? 1 : 0;
     const approachNo = normalize(s.q6_approach) === 'no' ? 1 : 0;
     const approachWeakReason = /(not_residing|dont_know)/.test(s.q6_approach_details||'') ? 1 : 0;
     const resWeak = (res === 'not_applicable' || res === 'no_valid_claim') ? 1 : 0;
-    f.basis_weakness = clamp01(0.35*(f.doc_strength < 0.2 ? 1 : 0) + 0.25*(f.prior_reporting_strength < 0.2 ? 1 : 0) + 0.2*claimWeak + 0.1*approachNo + 0.1*approachWeakReason + 0.15*resWeak);
+    f.basis_weakness = clamp01(
+      0.30*(f.doc_strength < 0.2 ? 1 : 0) +
+      0.20*(f.prior_reporting_strength < 0.2 ? 1 : 0) +
+      0.20*claimWeak +
+      0.05*approachNo +
+      0.05*approachWeakReason +
+      0.10*resWeak
+    );
+
+    // Completeness heuristic to detect sparse previews (admin view)
+    const present = [
+      s.q1_legal_connection ? 1 : 0,
+      (s.q4_activities||[]).length ? 1 : 0,
+      s.q5_claim_type ? 1 : 0,
+      (s.q7_reported_to||[]).filter(x=>x && x.toLowerCase()!=='none').length ? 1 : 0,
+      s.q8_result ? 1 : 0,
+      s.q6_approach ? 1 : 0
+    ].reduce((a,b)=>a+b,0);
+    f._completeness = present / 6;
+
+    // If very sparse (< ~1/3 answered), soften weakness and boost neutral actions slightly
+    if (f._completeness < 0.34){
+      f.basis_weakness = clamp01(f.basis_weakness * 0.7);
+      // Add small, neutral baselines to avoid OOJ by default
+      f.urgency = Math.max(f.urgency, 0.08);
+      f.doc_strength = Math.max(f.doc_strength, 0.05);
+    }
+
+    // Compute explicit weak indicators for jurisdiction
+    const reportedNone = (s.q7_reported_to||[]).some(x => String(x).toLowerCase() === 'none');
+    const resultWeak = ['no_valid_claim','not_applicable'].includes((s.q8_result||'').toLowerCase());
+    const claimNoneOrUnknown = ['none','unknown'].includes((s.q5_claim_type||'').toLowerCase());
+    f.explicit_weak = (reportedNone || resultWeak || claimNoneOrUnknown || f.jurisdiction_flag > 0) ? 1 : 0;
 
     return f;
   }
@@ -190,17 +377,38 @@
     const scores = { Inspection: 0, Invitation: 0, Assessment: 0, 'Out of Jurisdiction': 0 };
 
     // Inspection: urgency + construction + resistance + limited prior action
-    scores.Inspection = 0.45*f.urgency + 0.25*f.construction_activity + 0.2*f.resistance_level + 0.15*(f.prior_reporting_strength < 0.2 ? 1 : 0) + 0.15*((f.action_progress>=0.2 && f.action_progress<=0.4)?1:0) + 0.1*f.legal_connection_weight;
+    // Emphasize on-site physical cues: occupancy, construction, resistance. Slightly de-emphasize legal connection.
+    scores.Inspection = 0.40*f.urgency
+                     + 0.25*f.construction_activity
+                     + 0.20*f.resistance_level
+                     + 0.20*f.occupancy_intensity
+                     + 0.10*(f.prior_reporting_strength < 0.2 ? 1 : 0)
+                     + 0.10*((f.action_progress>=0.2 && f.action_progress<=0.4)?1:0)
+                     + 0.05*f.legal_connection_weight;
 
     // Invitation: claim + resistance + prior reporting + asked_to_leave + engagement
-    const askedToLeave = normalize ? (normalize((f._res_key||'')) === 'asked_to_leave') : false; // placeholder (not used)
-    scores.Invitation = 0.4*f.claim_strength + 0.35*f.resistance_level + 0.25*(f.prior_reporting_strength > 0.2 ? 1 : 0) + 0.2*(f.action_progress >= 0.6 ? 1 : 0) + 0.15*(f.engagement_attempted ? 1 : 0);
+  scores.Invitation = 0.4*f.claim_strength + 0.35*f.resistance_level + 0.25*(f.prior_reporting_strength > 0.2 ? 1 : 0) + 0.2*(f.action_progress >= 0.6 ? 1 : 0) + 0.15*(f.engagement_attempted ? 1 : 0);
 
     // Assessment: documents + claim + prior reporting + provide_docs + legal connection + mid weakness
-    scores.Assessment = 0.5*f.doc_strength + 0.3*f.claim_strength + 0.25*f.prior_reporting_strength + 0.2*(f.action_progress >= 0.5 && f.action_progress < 0.6 ? 1 : 0) + 0.2*f.legal_connection_weight + 0.15*((f.basis_weakness>0.3 && f.basis_weakness<0.6)?1:0);
+    scores.Assessment = 0.50*f.doc_strength
+                      + 0.30*f.claim_strength
+                      + 0.25*f.prior_reporting_strength
+                      + 0.25*(f.action_progress >= 0.5 && f.action_progress < 0.6 ? 1 : 0) // asked to provide docs
+                      + 0.20*f.legal_connection_weight
+                      + 0.15*((f.basis_weakness>0.3 && f.basis_weakness<0.6)?1:0);
+    // If documents are weak and no 'provide_docs' cue, downweight Assessment to reflect office-document focus
+    if (f.doc_strength < 0.2 && !(f.action_progress >= 0.5 && f.action_progress < 0.6)){
+      scores.Assessment = Math.max(0, scores.Assessment - 0.12);
+    }
 
-    // Out of Jurisdiction: weak basis + no docs + no reporting + heuristic flag
-    scores['Out of Jurisdiction'] = 0.5*f.basis_weakness + 0.25*(f.doc_strength < 0.2 ? 1 : 0) + 0.2*(f.prior_reporting_strength === 0 ? 1 : 0) + 0.15*(f.jurisdiction_flag ? 1 : 0);
+    // Out of Jurisdiction: require explicit weak cues; scale down on sparse data
+    const explicitWeak = f.explicit_weak > 0;
+    let ooj = 0.5*f.basis_weakness + 0.25*(f.doc_strength < 0.2 ? 1 : 0) + 0.2*(f.prior_reporting_strength === 0 ? 1 : 0) + 0.15*(f.jurisdiction_flag ? 1 : 0);
+    if (!explicitWeak) ooj *= 0.6;             // Scale down if no explicit indicator
+    if (f._completeness < 0.34) ooj *= 0.7;     // Further reduce on sparse previews
+    scores['Out of Jurisdiction'] = ooj;
+
+    // Remove artificial baselines; rely on extracted signals like Lot/Pathway
 
     return scores;
   }
