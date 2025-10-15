@@ -215,18 +215,18 @@
     const margin = Math.max(0, bestV - secondV); // 0..1
     const confidence = clamp01(0.6*margin + 0.4*ev);
 
-    // Reasons
+    // Reasons (bullet-style, similar to Boundary's "Why this", tailored to Pathway)
     const reasons = [];
-    if(urg >= 0.8) reasons.push('Pathway is currently fully blocked (high urgency).');
-    else if(urg >= 0.6) reasons.push('Pathway is partially blocked (moderate urgency).');
-    if(sev >= 0.75) reasons.push('Encroachment is severe (e.g., permanent structure, fence, gate, or store).');
-    if(imp >= 0.5) reasons.push('Significant impact on mobility or safety was reported.');
-    if(soc >= 0.5) reasons.push('Multiple residents or barangay involvement suggests mediation value.');
-    if(res11.provide_docs) reasons.push('Authorities requested more documents — assessment recommended.');
-    if(type1.utilities_path) reasons.push('Pathway is used for utilities; verification/assessment may be necessary.');
-    if(externalAgency) reasons.push('External agencies (NGC/USAD) are involved.');
-    if(type1.public_sidewalk) reasons.push('Public sidewalk involvement may require barangay action.');
-    if(confidence < 0.5) reasons.push('Signals are mixed; consider collecting more evidence.');
+    if (urg >= 0.8) reasons.push('Pathway fully blocked — field inspection typically required.');
+    else if (urg >= 0.6) reasons.push('Pathway partially obstructed — mediation can help coordinate clearance.');
+    if (sev >= 0.75) reasons.push('Encroachment involves a likely permanent structure (e.g., fence/wall/store).');
+    if (imp >= 0.5) reasons.push('Reported strong impact on mobility or safety of residents.');
+    if (soc >= 0.5) reasons.push('Community or barangay involvement suggests value in convening parties.');
+    if (res11.provide_docs) reasons.push('Authorities requested more documents — assessment is appropriate.');
+    if (type1.utilities_path) reasons.push('Pathway used for utilities — verification/assessment may be necessary.');
+    if (externalAgency) reasons.push('External agencies (NGC) are involved — may be outside USAD scope.');
+    if (type1.public_sidewalk) reasons.push('Public sidewalk/common path may fall under barangay oversight.');
+  if (confidence < 0.5) reasons.push('Available information appears limited — additional photos, dates, or notices can improve accuracy.');
 
     return { action: bestK, confidence, scores: norm, reasons };
   }
@@ -407,7 +407,7 @@
 
       const why = `
         <div style="margin-top:8px; color:#1f2a4a;">Why this</div>
-        <ul style="margin:6px 0 0 18px; color: black;">${reasons || '<li>Signals are mixed; additional details may improve accuracy.</li>'}</ul>`;
+        <ul style="margin:6px 0 0 18px; color: black;">${reasons || '<li>Available information is limited; please add more details to improve accuracy.</li>'}</ul>`;
 
       box.innerHTML = header + bars + why;
 
