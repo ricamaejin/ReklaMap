@@ -120,18 +120,22 @@
   </aside>
 
 
-  <!-- Main Content -->
-  <div class="main">
-    <div class="form-container">
-    {# Prefer showing complaint_stage for final-stage labels like 'Out of Jurisdiction' or 'Unresolved' #}
-    <h2 id="statusText" class="status-header" data-status="{{ complaint.status }}" data-stage="{{ complaint.complaint_stage }}" data-type="{{ complaint.type_of_complaint }}">
-      {% if complaint.complaint_stage in ['Out of Jurisdiction', 'Unresolved'] %}
-        {{ complaint.complaint_stage }}
-      {% else %}
-        {{ complaint.status }}
-      {% endif %}
-    </h2>
-  <h1>COMPLAINT FORM <br> {{ complaint.type_of_complaint|upper }}</h1>
+  <!-- Main Content (mirrors valid layout: left form preview, right timeline) -->
+  <main class="main-content">
+    <header class="header"><h1>Submitted Complaint</h1></header>
+
+    <div class="complaint-layout">
+      <!-- Left Panel: Complaint Preview -->
+      <div class="complaint-form">
+        {# Prefer showing complaint_stage for final-stage labels like 'Out of Jurisdiction' or 'Unresolved' #}
+        <h2 id="statusText" class="status-header" data-status="{{ complaint.status }}" data-stage="{{ complaint.complaint_stage }}" data-type="{{ complaint.type_of_complaint }}">
+          {% if complaint.complaint_stage in ['Out of Jurisdiction', 'Unresolved'] %}
+            {{ complaint.complaint_stage }}
+          {% else %}
+            {{ complaint.status }}
+          {% endif %}
+        </h2>
+        <h1>COMPLAINT FORM <br> {{ complaint.type_of_complaint|upper }}</h1>
       <div class="instructions">
         <p><strong>INSTRUCTION</strong></p>
         <ul>
@@ -481,10 +485,250 @@
       <div class="signature">
         <button id="submitAnotherBtn" class="add-btn hidden" type="button">Submit Another Complaint</button>
       </div>
+      </div> <!-- closes .complaint-form -->
+
+      <!-- Right Panel: Timeline (exactly as valid layout) -->
+      <div class="right-panel">
+        <h2 style="color: #001241; background-color: #f3f3f3; font-size: 22px; padding: 15px 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
+          Tracking of Complaint Status
+        </h2>
+        <div class="timeline" id="complainantTimeline">
+          <!-- Dynamic timeline will be loaded here -->
+          <div id="timelineLoading">Loading timeline...</div>
+        </div>
+        <button class="resolved-btn" style="margin-top: 2px;" type="button" onclick="window.location.href='/complainant/complaints/submitted_complaints.html'">Close</button>
       </div>
+    </div> <!-- closes .complaint-layout -->
+  </main>
+
+  <!-- OOJ Preview Modal (complainant) reusing admin timeline preview modal design -->
+  <div class="modal-overlay" id="oojPreviewModal" style="display:none;" onclick="if(event.target===this) closeOOJPreview()">
+    <div class="modal" style="display:flex; flex-direction:column; max-height:80vh;">
+      <div class="modal-top">
+        <h2 id="oojPreviewTitle">Action Details</h2>
+        <span class="close" onclick="closeOOJPreview()" style="cursor: pointer;">&times;</span>
+      </div>
+      <div class="modal-body" id="oojPreviewBody" style="overflow-y: auto; flex: 1;"></div>
+      <div class="modal-footer" style="margin-top: auto; padding: 15px; border-top: 1px solid #ddd;">
+        <div>
+          <button type="button" onclick="closeOOJPreview()" class="btn-secondary">Close</button>
+        </div>
       </div>
     </div>
   </div>
+  <script>
+  // Timeline functions (mirrors valid page behavior)
+  function getComplaintIdFromURL() {
+    const m = window.location.pathname.match(/\/complainant\/complaint\/(\d+)/);
+    if (m && m[1]) return m[1];
+    const urlParams = new URLSearchParams(window.location.search);
+    const id = urlParams.get('id');
+    return id || '';
+  }
+
+  async function fetchTimeline(complaintId) {
+    try {
+      let res = await fetch(`/admin/complaints/api/timeline/${complaintId}?role=admin&_=${Date.now()}`, { credentials: 'include' });
+      if (res.status === 401 || res.status === 403) {
+        res = await fetch(`/admin/complaints/api/timeline/${complaintId}?role=complainant&_=${Date.now()}`, { credentials: 'include' });
+      }
+      const data = await res.json();
+      if (data && data.success) return data.timeline || [];
+    } catch (e) {
+      console.error('[COMPLAINANT TIMELINE] Failed to load timeline:', e);
+    }
+    return [];
+  }
+
+  async function fetchComplaintDetails(complaintId) {
+    try {
+      const res = await fetch(`/complainant/complaints/details/${complaintId}?_=${Date.now()}`, { credentials: 'include' });
+      const data = await res.json();
+      if (data && data.success) return data.complaint || null;
+    } catch (e) {
+      console.warn('[COMPLAINANT TIMELINE] Failed to load complaint details:', e);
+    }
+    return null;
+  }
+
+  function formatTimelineDate(dateString) {
+    try {
+      const date = new Date(dateString);
+      const dateStr = date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+      const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      return `${dateStr} | ${timeStr}`;
+    } catch (err) { return dateString; }
+  }
+
+  function isOOJEntry(entry) {
+    const type = (entry.type_of_action || entry.action_type || '').toLowerCase();
+    const desc = (entry.description || '').toLowerCase();
+    const stage = (entry.complaint_stage || entry.status || '').toLowerCase();
+    let d = {};
+    try { d = entry.details ? (typeof entry.details === 'string' ? JSON.parse(entry.details) : entry.details) : {}; } catch {}
+    const hasOOJKey = d && (Object.prototype.hasOwnProperty.call(d, 'jurisdiction') || Object.prototype.hasOwnProperty.call(d, 'outOfJurisdiction') || Object.prototype.hasOwnProperty.call(d, 'under_scope'));
+    return type.includes('out of jurisdiction') || desc.includes('out of jurisdiction') || stage.includes('out of jurisdiction') || type.includes('invalid') || hasOOJKey;
+  }
+
+  function renderComplainantTimeline(entries, details) {
+    const timelineContainer = document.getElementById('complainantTimeline');
+    const loadingElement = document.getElementById('timelineLoading');
+    if (!timelineContainer) return;
+    if (loadingElement) loadingElement.style.display = 'none';
+    
+    
+
+    // Sort: most recent first, but keep Submitted at bottom
+    const sorted = entries.slice().sort((a,b) => {
+      const aType = (a.type_of_action || a.action_type || '').toLowerCase();
+      const bType = (b.type_of_action || b.action_type || '').toLowerCase();
+      if (aType.includes('submitted') && !bType.includes('submitted')) return 1;
+      if (!aType.includes('submitted') && bType.includes('submitted')) return -1;
+      return new Date(b.action_datetime || 0) - new Date(a.action_datetime || 0);
+    });
+
+    const colorFor = (type) => {
+      const t = (type||'').toLowerCase();
+      if (t.includes('resolved')) return '#20c997';
+      if (t.includes('unresolved')) return '#dc3545';
+      if (t.includes('out of jurisdiction') || t.includes('invalid')) return '#fd7e14';
+      if (t.includes('mediation') || t.includes('accepted invitation')) return '#8e44ad';
+      if (t.includes('assessment')) return '#6f42c1';
+      if (t.includes('sent invitation')) return '#28a745';
+      if (t.includes('invitation')) return '#ffc107';
+      if (t.includes('inspection done')) return '#28a745';
+      if (t.includes('inspection')) return '#007bff';
+      if (t.includes('submitted')) return '#17a2b8';
+      return '#6c757d';
+    };
+
+    let html = '';
+    sorted.forEach((entry, idx) => {
+      const type = entry.type_of_action || entry.action_type || 'Update';
+      const formattedDate = formatTimelineDate(entry.action_datetime);
+      const staff = (entry.assigned_to || '').toString().trim();
+      const color = colorFor(type);
+      const ooj = isOOJEntry(entry);
+      const fallbackAction = (type || '').toLowerCase();
+      const desc = (entry.description && entry.description.trim())
+        ? entry.description.trim()
+        : (staff ? `Complaint marked as ${fallbackAction} by ${staff}` : `Complaint marked as ${fallbackAction}`);
+      html += `
+        <div class="timeline-entry" data-idx="${idx}" data-ooj="${ooj ? '1' : '0'}" style="border-left:4px solid ${color}; padding: 15px; margin-bottom: 15px; border-radius: 5px; background: #f9f9f9; ${ooj ? 'cursor:pointer;' : ''}">
+          <h4 style="margin:0; color:#001241;">${type}</h4>
+          <div style="font-size:12px; color:#666; margin-top:4px;">${formattedDate}</div>
+          <div style="font-size:13px; color:#333; margin-top:6px;">${staff}</div>
+          <p style="margin:8px 0 0; color:#444;">${desc}</p>
+        </div>`;
+    });
+    timelineContainer.innerHTML = html;
+
+    timelineContainer.onclick = null;
+    timelineContainer.addEventListener('click', function(e) {
+      const entryEl = e.target && (e.target.closest ? e.target.closest('.timeline-entry') : null);
+      if (!entryEl || !timelineContainer.contains(entryEl)) return;
+      const isOOJ = entryEl.getAttribute('data-ooj') === '1';
+      if (!isOOJ) return;
+      const idxAttr = entryEl.getAttribute('data-idx');
+      const idxNum = idxAttr ? parseInt(idxAttr, 10) : NaN;
+      if (!isNaN(idxNum) && sorted[idxNum]) {
+        openOOJPreview(sorted[idxNum]);
+      }
+    }, { once: false });
+  }
+
+  function showTimelineError() {
+    const timelineContainer = document.getElementById('complainantTimeline');
+    const loadingElement = document.getElementById('timelineLoading');
+    if (loadingElement) loadingElement.style.display = 'none';
+    if (timelineContainer) {
+      timelineContainer.innerHTML = `<div class="timeline-entry"><h4>Unable to load timeline</h4><p>Please refresh the page to try again.</p></div>`;
+    }
+  }
+
+  async function loadComplainantTimeline() {
+    try {
+      const complaintId = getComplaintIdFromURL();
+      const [timeline, details] = await Promise.all([
+        fetchTimeline(complaintId),
+        fetchComplaintDetails(complaintId)
+      ]);
+
+      let entries = Array.isArray(timeline) ? timeline.slice() : [];
+      const hasSubmitted = entries.some(e => ((e.type_of_action || e.action_type || '').toLowerCase() === 'submitted'));
+      if (!hasSubmitted) {
+        const createdAt = details && details.created_at ? details.created_at : new Date().toISOString();
+        entries.push({ type_of_action: 'Submitted', action_datetime: createdAt, description: 'Complaint submitted by the complainant' });
+      }
+      renderComplainantTimeline(entries, details);
+    } catch (err) {
+      console.error('Error loading complainant timeline:', err);
+      showTimelineError();
+    }
+  }
+
+  // OOJ Preview helpers
+  function openOOJPreview(entry) {
+    try {
+      let details = {};
+      if (entry && entry.details) {
+        details = typeof entry.details === 'string' ? JSON.parse(entry.details) : entry.details;
+      }
+      const jurisdiction = details.jurisdiction || details.outOfJurisdiction || details.under_scope || entry.jurisdiction || '';
+      const underScope = (details.under_scope || details.outOfJurisdiction || details.scope || '').toString();
+      const othersSpecify = details.others_specify || details.others || details.out_others || '';
+      const remarks = details.notes || details.remarks || details.description || entry.description || entry.notes || '';
+      const typeOfAction = entry.type_of_action || entry.action_type || 'Out of Jurisdiction';
+
+      const title = document.getElementById('oojPreviewTitle');
+      if (title) title.textContent = `${typeOfAction} - Details`;
+
+      const scopeValue = (underScope || jurisdiction || '').trim();
+      const sv = scopeValue.toLowerCase();
+      const isBarangay = sv === 'barangay';
+      const isNGC = sv === 'ngc';
+      const isOthers = sv === 'others' || (!!othersSpecify && !(isBarangay || isNGC));
+      const displayScope = isBarangay ? 'Barangay' : (isNGC ? 'NGC' : (othersSpecify || scopeValue || ''));
+
+      const dt = entry.action_datetime ? formatTimelineDate(entry.action_datetime) : '';
+
+      const body = document.getElementById('oojPreviewBody');
+      body.innerHTML = `
+        <div style="padding: 15px;">
+          <div class="form-group">
+            <label style="font-weight:600;">Type of Action:</label>
+            <input type="text" value="${typeOfAction}" readonly />
+          </div>
+          <div class="form-group">
+            <label style="font-weight:600;">Under the Scope of:</label>
+            <input type="text" value="${displayScope}" readonly />
+          </div>
+          <div class="form-group">
+            <label style="font-weight:600;">Out of Jurisdiction Remarks:</label>
+            <textarea rows="4" readonly>${remarks || ''}</textarea>
+          </div>
+          <div class="form-group">
+            <label style="font-weight:600;">Processed By:</label>
+            <input type="text" value="Josie Rosal" readonly />
+          </div>
+          <div class="form-group">
+            <label style="font-weight:600;">Date & Time:</label>
+            <input type="text" value="${dt}" readonly />
+          </div>
+        </div>`;
+
+      const overlay = document.getElementById('oojPreviewModal');
+      if (overlay) overlay.style.display = 'flex';
+    } catch (e) {
+      console.error('[COMPLAINANT OOJ PREVIEW] Failed to open preview:', e);
+    }
+  }
+
+  function closeOOJPreview() {
+    const overlay = document.getElementById('oojPreviewModal');
+    if (overlay) overlay.style.display = 'none';
+  }
+  </script>
 
   <!-- Complaint Status Popup -->
   <div class="modal-overlay" id="modal">
@@ -539,7 +783,7 @@
   const complaintStage = statusText ? statusText.dataset.stage || '' : '';
 
   // List labels that don't have a timeline view (do not attempt to load timeline)
-  const statusesWithoutTimeline = ["Invalid", "Out of Jurisdiction", "Unresolved"];
+  const statusesWithoutTimeline = ["Invalid", "Unresolved"]; // allow timeline for Out of Jurisdiction
 
   // Show popup immediately on page load
   window.addEventListener('DOMContentLoaded', async () => {
@@ -555,11 +799,20 @@
       };
     }
 
-    // If marked Out of Jurisdiction, try to pull the specific reason from admin timeline entry
+    // If marked Out of Jurisdiction, pull the specific reason (admin notes) from the timeline entry
     await tryFillOOJReasonFromTimeline();
 
-    // Then enhance with intelligent explanation using the same fuzzy logic used by admin
-    tryEnhanceOOJReasonWithFuzzy();
+    // Show complainant timeline ONLY for Out of Jurisdiction to avoid prior 500s on other final states
+    const isOOJ = (complaintStage === 'Out of Jurisdiction' || complaintStatus === 'Out of Jurisdiction');
+    const rightPanel = document.querySelector('.right-panel');
+    if (isOOJ) {
+      if (typeof loadComplainantTimeline === 'function') {
+        loadComplainantTimeline();
+      }
+    } else if (rightPanel) {
+      // Hide right panel on other final states to keep previous behavior unchanged
+      rightPanel.style.display = 'none';
+    }
   });
 
   // Make status text clickable to reopen popup
@@ -642,19 +895,14 @@
       });
       if (!oojEntry) return;
 
-      // Prefer explicit notes/jurisdiction if available, else use description
-      const jurisdiction = (oojEntry.jurisdiction || '').toString().trim();
-      const notes = (oojEntry.notes || '').toString().trim();
-      let text = (oojEntry.description || '').toString().trim();
-      if (!text) {
-        const parts = [];
-        if (jurisdiction) parts.push(jurisdiction);
-        if (notes) parts.push(notes);
-        text = parts.join(' - ');
-      }
-      const cleaned = sanitizeReasonText(text);
-      if (cleaned) {
-        reasonEl.textContent = cleaned;
+      // Strictly use admin-entered notes from details JSON for OOJ
+      let details = {};
+      try {
+        details = oojEntry.details ? (typeof oojEntry.details === 'string' ? JSON.parse(oojEntry.details) : oojEntry.details) : {};
+      } catch {}
+      const notes = (details && (details.notes || details.remarks)) ? String(details.notes || details.remarks).trim() : '';
+      if (notes) {
+        reasonEl.textContent = notes;
       }
     } catch (e) {
       // Non-fatal; leave default text
@@ -662,71 +910,7 @@
     }
   }
 
-  // Build a smarter reason based on the fuzzy recommendation logic (mirrors admin)
-  function tryEnhanceOOJReasonWithFuzzy(){
-    const isOOJ = (complaintStage === 'Out of Jurisdiction' || complaintStatus === 'Out of Jurisdiction');
-    if (!isOOJ) return;
-
-    const reasonEl = document.getElementById('reasonText');
-    if (!reasonEl) return;
-    const baseText = (reasonEl.textContent || '').trim();
-    const cleanBase = sanitizeReasonText(baseText);
-    // If the base text had an action label prefix, strip it immediately
-    if (cleanBase !== baseText) {
-      reasonEl.textContent = cleanBase;
-    }
-
-    const type = (statusText && statusText.dataset && statusText.dataset.type) ? statusText.dataset.type : '';
-    const explanations = [];
-
-    try {
-      if (/Pathway Dispute/i.test(type) && window.PathwayFuzzy) {
-        const answers = window.PathwayFuzzy.extractAnswers(document);
-        const res = window.PathwayFuzzy.computeRecommendation(answers);
-        const oojScore = (res && res.scores) ? (res.scores.out_of_jurisdiction || 0) : 0;
-        if (res && (res.action === 'out_of_jurisdiction' || oojScore >= 0.45)) {
-          const rs = Array.isArray(res.reasons) ? res.reasons.slice(0, 2) : [];
-          if (rs.length) explanations.push(rs.join(' '));
-        }
-      }
-      else if (/Lot Dispute/i.test(type) && window.LotFuzzy) {
-        const s = window.LotFuzzy.extractSignals(document);
-        const f = window.LotFuzzy.computeFeatures(s);
-        const raw = window.LotFuzzy.scoreActions(f);
-        const sum = Object.values(raw).reduce((a,b)=>a+b, 1e-6);
-        const normOOJ = (raw['Out of Jurisdiction']||0) / sum;
-        if (normOOJ >= 0.45) {
-          if (f.basis_weakness >= 0.5) explanations.push('The case shows weak basis (limited documentation/reporting or clarifications needed).');
-          if (f.doc_strength < 0.2) explanations.push('Supporting documents are insufficient or missing.');
-          if (f.reported_strength < 0.2) explanations.push('There is limited prior reporting to relevant bodies.');
-          if (f.urgency < 0.2) explanations.push('Signals indicate low urgency for HOA intervention.');
-        }
-      }
-      else if (/Unauthorized Occupation/i.test(type) && window.UnauthorizedFuzzy) {
-        const s = window.UnauthorizedFuzzy.extractSignals(document);
-        const f = window.UnauthorizedFuzzy.computeFeatures(s);
-        const raw = window.UnauthorizedFuzzy.scoreActions(f);
-        const sum = Object.values(raw).reduce((a,b)=>a+b, 1e-6);
-        const normOOJ = (raw['Out of Jurisdiction']||0) / sum;
-        if (normOOJ >= 0.45) {
-          if (f.jurisdiction_flag >= 0.4) explanations.push('Indicators suggest involvement of external authorities (e.g., NGC/USAD).');
-          if (f.basis_weakness >= 0.5) explanations.push('Insufficient basis from documents, reports, or clarity of claims.');
-          if (f.prior_reporting_strength < 0.2) explanations.push('Limited prior reporting to appropriate offices.');
-          if (f.urgency < 0.2) explanations.push('Low urgency indicated for HOA action.');
-        }
-      }
-    } catch(e) {
-      // Non-fatal
-      console.warn('[OOJ REASON] Fuzzy enhancement failed:', e);
-    }
-
-    if (explanations.length) {
-      const extra = explanations.slice(0, 2).join(' ');
-      // If we already have a specific admin reason, append the intelligent explanation; else replace the generic or empty text
-      const isGeneric = /The lot falls outside the project's jurisdiction\.|No additional information provided\.|The case remains unresolved/i.test(baseText) || cleanBase.length === 0;
-      reasonEl.textContent = (isGeneric ? extra : `${cleanBase} ${extra}`).trim();
-    }
-  }
+  // Fuzzy enhancement disabled on Invalid page (Reason should strictly reflect admin notes for OOJ)
   </script>
 
   <!-- Add Complaint Modal (same functionality as dashboard) -->

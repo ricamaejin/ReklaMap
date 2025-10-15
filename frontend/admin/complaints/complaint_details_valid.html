@@ -2596,6 +2596,39 @@
   
   let currentPreviewData = null;
 
+  // Helper: hide only the "Attached Files:" section inside the preview modal
+  function hideAttachmentsInPreview(rootEl) {
+    try {
+      if (!rootEl) return;
+      // Look for a label/strong heading that matches exactly "Attached Files" (case-insensitive)
+      const isAttachedFilesLabel = (el) => {
+        const t = (el.textContent || '').trim().toLowerCase();
+        return t === 'attached files:' || t === 'attached files';
+      };
+
+      const containers = new Set();
+      rootEl.querySelectorAll('label, strong').forEach(el => {
+        if (isAttachedFilesLabel(el)) {
+          const grp = el.closest('.form-group') || el.parentElement;
+          if (grp) containers.add(grp);
+        }
+      });
+
+      // Also hide the standard attachments wrapper produced by generateFileAttachments
+      // by finding a .form-group with a child label that matches
+      if (containers.size === 0) {
+        rootEl.querySelectorAll('.form-group').forEach(grp => {
+          const lbl = grp.querySelector('label');
+          if (lbl && isAttachedFilesLabel(lbl)) containers.add(grp);
+        });
+      }
+
+      containers.forEach(node => { node.style.display = 'none'; });
+    } catch (e) {
+      console.warn('hideAttachmentsInPreview failed:', e);
+    }
+  }
+
   // Show timeline entry preview modal
   async function showTimelinePreview(historyId, actionType) {
     try {
@@ -2698,6 +2731,12 @@
     }
     
     modalBody.innerHTML = previewHTML;
+
+    // Strictly in preview: hide "Attached Files:" for Inspection Done, Mediation, and Sent Invitation only
+    const at = (actionType || '').toLowerCase();
+    if (['inspection done', 'mediation', 'sent invitation'].includes(at)) {
+      hideAttachmentsInPreview(modalBody);
+    }
 
     // Strictly for preview: when viewing Send Invitation, hide Description field block if present
     if (actionType && actionType.toLowerCase() === 'sent invitation') {
