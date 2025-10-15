@@ -1261,17 +1261,25 @@
       else if (actionType === "Out of Jurisdiction") {
         const selectedRadio = document.querySelector('input[name="outOfJurisdiction"]:checked');
         const othersInput = document.getElementById('outOthersInput');
-        const notes = document.querySelector("#outOfJurisdictionNotes")?.value || "";
+        const notesVal = (document.querySelector("#outOfJurisdictionNotes")?.value || "").trim();
 
-        const jurisdictionValue = selectedRadio
-          ? (selectedRadio.value === 'Others' ? othersInput?.value.trim() || 'Others' : selectedRadio.value)
-          : '';
+        // Normalize scope selection
+        const rawChoice = selectedRadio ? (selectedRadio.value || "").trim() : "";
+        const isOthers = rawChoice.toLowerCase() === 'others';
+        const othersVal = (othersInput && isOthers) ? (othersInput.value || '').trim() : '';
+        const jurisdictionValue = rawChoice ? (isOthers ? (othersVal || 'Others') : rawChoice) : '';
 
+        // Provide multiple key aliases so backend/history variants can persist correctly
         details = {
           jurisdiction: jurisdictionValue,
-          notes: notes
+          under_scope: rawChoice || '',
+          outOfJurisdiction: rawChoice || '',
+          others_specify: othersVal || '',
+          // store remarks under both keys used elsewhere
+          notes: notesVal,
+          remarks: notesVal
         };
-        description = `${jurisdictionValue} - ${notes}`;
+        description = jurisdictionValue && notesVal ? `${jurisdictionValue} - ${notesVal}` : (jurisdictionValue || 'Out of Jurisdiction');
       }
       else if (actionType === "Inspection") {
         const othersValue = document.querySelector("#othersCheckbox")?.checked 
@@ -1314,13 +1322,16 @@
 
     // Create final payload
     // Flatten details into the top-level payload so backend receives flattened keys
-    const payload = Object.assign({
+    // Additionally, include a nested `details` object for action types that expect it server-side
+    const payloadBase = {
       complaint_id: complaintId,
       action_type: actionType,
       assigned_to: assignedTo,
       action_datetime: new Date().toISOString().slice(0,19).replace("T"," "),
       description: description
-    }, details || {});
+    };
+    const includeNested = (String(actionType).toLowerCase() === 'out of jurisdiction');
+    const payload = Object.assign({}, payloadBase, details || {}, includeNested ? { details: details || {} } : {});
 
     // Remove nested `details` to avoid duplication — backend expects flattened keys
     // (example flattened keys: deadline, inspector, location, scope, to, meeting_date, meeting_time, agenda, files)
@@ -1357,6 +1368,54 @@
           
           // Close the modal automatically after successful save
           closeComplaint();
+
+          // If Out of Jurisdiction, switch to static read-only view instantly (no reload)
+          if (String(actionType).toLowerCase() === 'out of jurisdiction') {
+            try {
+              // Mark body as readonly and add banner if not present
+              document.body.classList.add('readonly-mode');
+
+              // Create banner only if not already added
+              const existingBanner = document.querySelector('.readonly-mode-banner.out-of-jurisdiction');
+              if (!existingBanner) {
+                const banner = document.createElement('div');
+                banner.className = 'readonly-mode-banner out-of-jurisdiction';
+                banner.innerHTML = '⚠️ This complaint has been marked as out of jurisdiction. No further actions are available.';
+                const mainContent = document.querySelector('.main-content');
+                const header = mainContent ? mainContent.querySelector('.header') : null;
+                if (mainContent) {
+                  if (header && header.nextElementSibling) {
+                    header.parentNode.insertBefore(banner, header.nextElementSibling);
+                  } else {
+                    mainContent.insertBefore(banner, mainContent.firstChild);
+                  }
+                }
+              }
+
+              // Hide resolve/unresolve and disable other actions to match final-state behavior
+              ['.resolved-btn', '.unresolve-btn', 'button[onclick*="showResolveModal"]', 'button[onclick*="showUnresolvedModal"]']
+                .forEach(selector => document.querySelectorAll(selector).forEach(btn => btn.style.display = 'none'));
+              ['button[onclick*="showAssignModal"]', 'button[onclick*="acceptInvitationModal"]', '.modal-buttons button:not(.cancel-btn):not(.resolved-btn):not(.unresolve-btn)']
+                .forEach(selector => document.querySelectorAll(selector).forEach(btn => { btn.style.opacity='0.5'; btn.style.pointerEvents='none'; btn.style.cursor='not-allowed'; btn.disabled=true; }));
+
+              // Disable timeline interactions except file buttons
+              document.querySelectorAll('.timeline-entry').forEach(entry => {
+                entry.style.pointerEvents = 'none';
+                entry.style.opacity = '0.8';
+                entry.querySelectorAll('.file-btn').forEach(fileBtn => {
+                  fileBtn.style.pointerEvents = 'auto';
+                  fileBtn.style.opacity = '1';
+                });
+              });
+
+              // Update local complaintMeta stage if available (for any downstream logic)
+              if (window.complaintMeta) {
+                window.complaintMeta.complaint_stage = 'Out of Jurisdiction';
+              }
+            } catch (e) {
+              console.warn('Failed to toggle readonly mode after OOJ save:', e);
+            }
+          }
         } else {
           // Only show error messages, no success messages
           console.error("Error saving action:", res.error || res.message);
@@ -1517,7 +1576,8 @@
       'Send Invitation': 'Send Invitation',  // Map legacy to new label
       'Sent Invitation': 'Sent Invitation',
       'Task Completed': 'Inspection Done',  // Map legacy Task Completed to Inspection Done
-      'Resolved': 'Resolved'
+      'Resolved': 'Resolved',
+      'Out of Jurisdiction': 'Out of Jurisdiction'
     };
     return statusMap[actionType] || actionType;
   }
@@ -1640,8 +1700,8 @@
       
   // Determine if this entry should be clickable for preview
   // Include both completed and in-progress variants where relevant
-  const isPreviewable = ['Inspection', 'Inspection done', 'Send Invitation', 'Sent Invitation', 'Mediation', 'Assessment'].includes(timelineStatus) && 
-           timelineStatus !== 'Accepted Invitation';
+  const ts = (timelineStatus || '').toLowerCase();
+  const isPreviewable = ['inspection','inspection done','send invitation','sent invitation','mediation','assessment','out of jurisdiction'].includes(ts) && ts !== 'accepted invitation';
       const clickableClass = isPreviewable ? 'timeline-clickable' : '';
       const clickHandler = isPreviewable ? `onclick="showTimelinePreview('${entry.history_id}', '${entry.type_of_action}')"` : '';
       
@@ -2543,6 +2603,29 @@
     }
     
     modalBody.innerHTML = previewHTML;
+
+    // Strictly for preview: when viewing Send Invitation, hide Description field block if present
+    if (actionType && actionType.toLowerCase() === 'sent invitation') {
+      try {
+        // Common patterns: a label 'Description' with a textarea or a paragraph following it
+        const labels = modalBody.querySelectorAll('label, p, div');
+        labels.forEach(el => {
+          const t = (el.textContent || '').trim().toLowerCase();
+          if (t === 'description' || t.startsWith('description:')) {
+            const block = el.closest('.form-group') || el.parentElement;
+            if (block) block.style.display = 'none';
+          }
+        });
+        // Fallback: hide any textarea labeled description
+        const textareas = modalBody.querySelectorAll('textarea');
+        textareas.forEach(ta => {
+          const prev = ta.previousElementSibling;
+          if (prev && /description/i.test(prev.textContent || '')) {
+            (prev.closest('.form-group') || ta.closest('.form-group') || ta).style.display = 'none';
+          }
+        });
+      } catch (e) { /* non-fatal UI tweak */ }
+    }
   }
 
   // Generate inspection preview HTML - matches exact original form layout
@@ -2645,6 +2728,22 @@
       return scope.toString();
     };
 
+    // Fallback: if location/scope missing in completed entry, try to fetch from the latest 'Inspection' assignment
+    let assignDetails = null;
+    try {
+      if (Array.isArray(timelineData) && timelineData.length){
+        const latestAssign = [...timelineData]
+          .filter(e => (mapActionToTimelineStatus(e.type_of_action) || '').toLowerCase() === 'inspection')
+          .sort((a,b)=> new Date(b.action_datetime) - new Date(a.action_datetime))[0];
+        if (latestAssign && latestAssign.details){
+          assignDetails = typeof latestAssign.details === 'string' ? JSON.parse(latestAssign.details) : latestAssign.details;
+        }
+      }
+    } catch(e){ /* non-fatal */ }
+
+    const resolvedLocation = details.location || details.location_of_inspection || details.lot || entry.location || (assignDetails && (assignDetails.location || assignDetails.location_of_inspection || assignDetails.lot)) || 'Not specified';
+    const resolvedScopeRaw = details.scope || details.scope_of_inspection || details.scopes || details.scopeList || (assignDetails && (assignDetails.scope || assignDetails.scope_of_inspection || assignDetails.scopes || assignDetails.scopeList));
+
     return `
       <div style="padding: 15px;">
         <div class="form-group">
@@ -2654,7 +2753,7 @@
 
         <div class="form-group">
           <label><strong>Location of Inspection:</strong></label>
-          <div class="readonly-field">${details.location || details.location_of_inspection || details.lot || entry.location || 'Not specified'}</div>
+          <div class="readonly-field">${resolvedLocation}</div>
         </div>
 
         <div class="form-group">
@@ -2664,7 +2763,7 @@
 
         <div class="form-group">
           <label><strong>Scope of Inspection:</strong></label>
-          <div class="readonly-field">${formatScope(details.scope || details.scope_of_inspection || details.scopes || details.scopeList)}</div>
+          <div class="readonly-field">${formatScope(resolvedScopeRaw)}</div>
         </div>
 
         <div class="form-group">
@@ -2921,18 +3020,30 @@
 
   // Generate out of jurisdiction preview HTML - matches exact original form layout
   function generateOutOfJurisdictionPreview(details, entry) {
+    // Normalize potential server payloads across versions
+    const jurisdiction = details.jurisdiction || details.scope || details.outOfJurisdiction || details.under_scope || '';
+    const othersSpecify = details.others_specify || details.others || '';
+    const remarks = details.notes || details.remarks || details.description || entry.description || '';
+    const typeOfAction = entry.type_of_action || entry.action_type || 'Out of Jurisdiction';
+
     return `
       <div style="padding: 15px;">
+        <!-- Type of Action (explicit per request) -->
+        <div class="form-group">
+          <label><strong>Type of Action:</strong></label>
+          <div class="readonly-field">${typeOfAction}</div>
+        </div>
+
         <!-- Under the Scope of -->
         <div class="form-group">
           <label><strong>Under the Scope of:</strong></label>
-          <div class="readonly-field">${details.scope || details.outOfJurisdiction || 'Not specified'}</div>
+          <div class="readonly-field">${jurisdiction || 'Not specified'}</div>
         </div>
         
-        ${details.others_specify ? `
+        ${othersSpecify ? `
         <div class="form-group">
           <label><strong>Others (Specified):</strong></label>
-          <div class="readonly-field">${details.others_specify}</div>
+          <div class="readonly-field">${othersSpecify}</div>
         </div>
         ` : ''}
         
@@ -2940,7 +3051,7 @@
         <div class="form-group">
           <label><strong>Out of Jurisdiction Remarks:</strong></label>
           <div class="readonly-field" style="white-space: pre-wrap; max-height: 120px; overflow-y: auto; border: 1px solid #ccc; padding: 8px; border-radius: 6px; background-color: #f9f9f9;">
-            ${details.remarks || details.description || entry.description || 'No remarks provided'}
+            ${remarks || 'No remarks provided'}
           </div>
         </div>
         

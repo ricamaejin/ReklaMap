@@ -1230,6 +1230,157 @@ hr {
   color: #0d2cb0;
 }
 
+/* ===== Scoped polish for Complainant OOJ Preview Modal ===== */
+#oojPreviewModal {
+  backdrop-filter: blur(2px);
+}
+
+#oojPreviewModal .modal {
+  /* Ensure clean layout without double scrollbars */
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh;
+  overflow: hidden;
+  padding: 0; /* tighter chrome: header/body/footer manage their own padding */
+  background: linear-gradient(180deg, #0f31b3 0%, #0b2794 100%);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 12px 28px rgba(3, 14, 66, 0.45);
+}
+
+#oojPreviewModal .modal-top {
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  margin: 0; /* remove inherited margins */
+}
+
+#oojPreviewModal .modal-top h2 {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  margin: 0;
+  color: #ffffff;
+}
+
+#oojPreviewModal .close {
+  color: #ffffff;
+  font-size: 24px;
+  line-height: 1;
+  opacity: 0.9;
+  transition: transform 0.1s ease, opacity 0.2s ease;
+}
+
+#oojPreviewModal .close:hover {
+  transform: scale(1.06);
+  opacity: 1;
+}
+
+#oojPreviewModal .modal-body {
+  padding: 16px 18px 8px 18px;
+  overflow-y: auto;
+}
+
+#oojPreviewModal .form-group {
+  margin-bottom: 12px;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+#oojPreviewModal .form-group label {
+  flex: 0 0 180px;
+  margin-top: 6px;
+  color: #eaf1ff;
+  font-weight: 600;
+  font-size: 14px; /* standardize label font size */
+}
+
+#oojPreviewModal .readonly-field,
+#oojPreviewModal .readonly-input,
+#oojPreviewModal textarea[disabled] {
+  background: #f7f9ff;
+  border: 1px solid #d9e1f5;
+  color: #0b1b45;
+  border-radius: 8px;
+  padding: 10px 12px;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 14px; /* standardize field font size */
+}
+
+#oojPreviewModal textarea[disabled] {
+  min-height: 110px;
+  resize: vertical;
+}
+
+#oojPreviewModal .checkbox-group-compact {
+  margin-left: 0; /* use intrinsic spacing */
+}
+
+#oojPreviewModal .checkbox-group-compact .checkbox-item-compact {
+  color: #ffffff; /* radio labels readable on blue bg */
+}
+
+#oojPreviewModal input[type="radio"][disabled] {
+  cursor: default;
+  opacity: 0.9; /* keep visible despite disabled */
+}
+
+#oojPreviewModal #oojOthersInputView[disabled] {
+  background: #f7f9ff;
+  border: 1px solid #d9e1f5;
+  color: #0b1b45;
+  border-radius: 8px;
+}
+
+#oojPreviewModal .modal-footer {
+  border-top: 1px solid rgba(255,255,255,0.12);
+  background: transparent;
+  padding: 12px 18px;
+}
+
+#oojPreviewModal .btn-secondary {
+  background: #ffffff;
+  color: #0d2fb3;
+  border: 1px solid transparent;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-weight: 700;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+#oojPreviewModal .btn-secondary:hover {
+  background: #f3f6ff;
+  border-color: #b7c6f6;
+  box-shadow: 0 2px 6px rgba(13, 47, 179, 0.25);
+}
+
+#oojPreviewModal .btn-secondary:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(94, 136, 255, 0.35);
+}
+
+/* Gentle entrance animation */
+#oojPreviewModal .modal {
+  animation: oojModalIn 120ms ease-out;
+}
+
+@keyframes oojModalIn {
+  from { transform: translateY(6px); opacity: 0.92; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Responsive tweaks */
+@media (max-width: 560px) {
+  #oojPreviewModal .form-group {
+    flex-direction: column;
+    gap: 6px;
+  }
+  #oojPreviewModal .form-group label {
+    flex: 0 0 auto;
+    margin-bottom: 2px;
+  }
+}
+
 select {
   width: 100%;
   padding: 10px;
