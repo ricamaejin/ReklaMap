@@ -6,6 +6,10 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <title>ReklaMap</title>
   <link rel="stylesheet" href="/css/complainants.css">
+  <!-- Load the same fuzzy modules used on admin to generate intelligent reasons -->
+  <script src="/js/fuzzy_rules_pathway.js" defer></script>
+  <script src="/js/fuzzy_rules_lot.js" defer></script>
+  <script src="/js/fuzzy_rules_unauthorized.js" defer></script>
   <style>
     .readonly-preview input[readonly],
     .readonly-preview input[disabled],
@@ -120,7 +124,7 @@
   <div class="main">
     <div class="form-container">
     {# Prefer showing complaint_stage for final-stage labels like 'Out of Jurisdiction' or 'Unresolved' #}
-    <h2 id="statusText" class="status-header" data-status="{{ complaint.status }}" data-stage="{{ complaint.complaint_stage }}">
+    <h2 id="statusText" class="status-header" data-status="{{ complaint.status }}" data-stage="{{ complaint.complaint_stage }}" data-type="{{ complaint.type_of_complaint }}">
       {% if complaint.complaint_stage in ['Out of Jurisdiction', 'Unresolved'] %}
         {{ complaint.complaint_stage }}
       {% else %}
@@ -538,7 +542,7 @@
   const statusesWithoutTimeline = ["Invalid", "Out of Jurisdiction", "Unresolved"];
 
   // Show popup immediately on page load
-  window.addEventListener('DOMContentLoaded', () => {
+  window.addEventListener('DOMContentLoaded', async () => {
     modalOverlay.style.display = "flex";
     updateDateTime();
     
@@ -552,7 +556,10 @@
     }
 
     // If marked Out of Jurisdiction, try to pull the specific reason from admin timeline entry
-    tryFillOOJReasonFromTimeline();
+    await tryFillOOJReasonFromTimeline();
+
+    // Then enhance with intelligent explanation using the same fuzzy logic used by admin
+    tryEnhanceOOJReasonWithFuzzy();
   });
 
   // Make status text clickable to reopen popup
@@ -588,6 +595,15 @@
 
     document.getElementById("date").textContent = date;
     document.getElementById("time").textContent = time;
+  }
+
+  // Remove leading action labels like "Out of Jurisdiction completed - " or "OOJ: " from reason text
+  function sanitizeReasonText(t) {
+    if (!t) return '';
+    let s = String(t);
+    // Strip a leading action label and optional suffixes like "completed", separators like '-' or ':'
+    s = s.replace(/^\s*(?:Out\s*of\s*Jurisdiction|OOJ)(?:\s*(?:completed|done|action|status))?(?:\s*[-:])?\s*/i, '');
+    return s.trim();
   }
 
   // Attempt to read Out of Jurisdiction reason from the latest admin action entry
@@ -636,12 +652,79 @@
         if (notes) parts.push(notes);
         text = parts.join(' - ');
       }
-      if (text) {
-        reasonEl.textContent = text;
+      const cleaned = sanitizeReasonText(text);
+      if (cleaned) {
+        reasonEl.textContent = cleaned;
       }
     } catch (e) {
       // Non-fatal; leave default text
       console.warn('[OOJ REASON] Failed to load admin reason from timeline:', e);
+    }
+  }
+
+  // Build a smarter reason based on the fuzzy recommendation logic (mirrors admin)
+  function tryEnhanceOOJReasonWithFuzzy(){
+    const isOOJ = (complaintStage === 'Out of Jurisdiction' || complaintStatus === 'Out of Jurisdiction');
+    if (!isOOJ) return;
+
+    const reasonEl = document.getElementById('reasonText');
+    if (!reasonEl) return;
+    const baseText = (reasonEl.textContent || '').trim();
+    const cleanBase = sanitizeReasonText(baseText);
+    // If the base text had an action label prefix, strip it immediately
+    if (cleanBase !== baseText) {
+      reasonEl.textContent = cleanBase;
+    }
+
+    const type = (statusText && statusText.dataset && statusText.dataset.type) ? statusText.dataset.type : '';
+    const explanations = [];
+
+    try {
+      if (/Pathway Dispute/i.test(type) && window.PathwayFuzzy) {
+        const answers = window.PathwayFuzzy.extractAnswers(document);
+        const res = window.PathwayFuzzy.computeRecommendation(answers);
+        const oojScore = (res && res.scores) ? (res.scores.out_of_jurisdiction || 0) : 0;
+        if (res && (res.action === 'out_of_jurisdiction' || oojScore >= 0.45)) {
+          const rs = Array.isArray(res.reasons) ? res.reasons.slice(0, 2) : [];
+          if (rs.length) explanations.push(rs.join(' '));
+        }
+      }
+      else if (/Lot Dispute/i.test(type) && window.LotFuzzy) {
+        const s = window.LotFuzzy.extractSignals(document);
+        const f = window.LotFuzzy.computeFeatures(s);
+        const raw = window.LotFuzzy.scoreActions(f);
+        const sum = Object.values(raw).reduce((a,b)=>a+b, 1e-6);
+        const normOOJ = (raw['Out of Jurisdiction']||0) / sum;
+        if (normOOJ >= 0.45) {
+          if (f.basis_weakness >= 0.5) explanations.push('The case shows weak basis (limited documentation/reporting or clarifications needed).');
+          if (f.doc_strength < 0.2) explanations.push('Supporting documents are insufficient or missing.');
+          if (f.reported_strength < 0.2) explanations.push('There is limited prior reporting to relevant bodies.');
+          if (f.urgency < 0.2) explanations.push('Signals indicate low urgency for HOA intervention.');
+        }
+      }
+      else if (/Unauthorized Occupation/i.test(type) && window.UnauthorizedFuzzy) {
+        const s = window.UnauthorizedFuzzy.extractSignals(document);
+        const f = window.UnauthorizedFuzzy.computeFeatures(s);
+        const raw = window.UnauthorizedFuzzy.scoreActions(f);
+        const sum = Object.values(raw).reduce((a,b)=>a+b, 1e-6);
+        const normOOJ = (raw['Out of Jurisdiction']||0) / sum;
+        if (normOOJ >= 0.45) {
+          if (f.jurisdiction_flag >= 0.4) explanations.push('Indicators suggest involvement of external authorities (e.g., NGC/USAD).');
+          if (f.basis_weakness >= 0.5) explanations.push('Insufficient basis from documents, reports, or clarity of claims.');
+          if (f.prior_reporting_strength < 0.2) explanations.push('Limited prior reporting to appropriate offices.');
+          if (f.urgency < 0.2) explanations.push('Low urgency indicated for HOA action.');
+        }
+      }
+    } catch(e) {
+      // Non-fatal
+      console.warn('[OOJ REASON] Fuzzy enhancement failed:', e);
+    }
+
+    if (explanations.length) {
+      const extra = explanations.slice(0, 2).join(' ');
+      // If we already have a specific admin reason, append the intelligent explanation; else replace the generic or empty text
+      const isGeneric = /The lot falls outside the project's jurisdiction\.|No additional information provided\.|The case remains unresolved/i.test(baseText) || cleanBase.length === 0;
+      reasonEl.textContent = (isGeneric ? extra : `${cleanBase} ${extra}`).trim();
     }
   }
   </script>
