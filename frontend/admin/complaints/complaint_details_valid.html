@@ -10,6 +10,7 @@
   <!-- Fuzzy recommendation modules (pathway + lot) and dispatcher -->
   <script src="/js/fuzzy_rules_pathway.js" defer></script>
   <script src="/js/fuzzy_rules_lot.js" defer></script>
+  <script src="/js/fuzzy_rules_unauthorized.js" defer></script>
   <script src="/js/fuzzy_rules_boundary.js" defer></script>
   <script src="/js/recommendation_dispatch.js" defer></script>
   <style>
@@ -219,7 +220,7 @@
         <!-- Loading State -->
         <div id="recommendationLoading" style="text-align: center; padding: 30px; display: block;">
           <div style="font-size: 18px; margin-bottom: 15px; color: #c8dff7;">🔄 Analyzing complaint details...</div>
-          <div style="color: #ffffff; font-size: 14px;">Fuzzy logic processing in progress</div>
+          <div style="color: #ffffff; font-size: 13px;">Generating recommendation in progress</div>
           <div style="margin-top: 15px;">
             <div style="width: 200px; height: 4px; background: #e0e0e0; border-radius: 2px; margin: 0 auto; overflow: hidden;">
               <div id="loadingBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #007bff, #28a745); border-radius: 2px; transition: width 0.3s ease;"></div>
@@ -231,8 +232,7 @@
 
         <!-- Error State -->
         <div id="recommendationError" style="display: none; padding: 20px; background: #f8d7da; color: #721c24; border-radius: 4px; margin: 10px 0; text-align: center;">
-          <div style="font-size: 16px; margin-bottom: 10px;">⚠️ Unable to generate intelligent recommendation</div>
-          <div style="font-size: 14px;">Using default manual process instead</div>
+          <div style="font-size: 16px; margin-bottom: 10px;">⚠️ Unable to generate recommendation</div>
         </div>
 
         <!-- System Recommendation (rendered by fuzzy modules) -->
@@ -1511,7 +1511,7 @@
   function mapActionToTimelineStatus(actionType, isCompleted = false, role = 'admin') {
     // ADMIN VIEW: Only allowed sequential flow statuses
     const statusMap = {
-      'Submitted': 'Submitted a Valid Complaint',
+      'Submitted': 'Submitted a Complaint',
       'Inspection': 'Inspection',
       'Inspection Done': 'Inspection Done',
       'Invitation': 'Send Invitation',  // Admin creates invitation task - show as assignment
@@ -1527,7 +1527,7 @@
   function getDefaultMessage(actionType, assignedTo) {
     const timelineStatus = mapActionToTimelineStatus(actionType);
     const messages = {
-      'Submitted a Valid Complaint': 'Complaint has been received',
+      'Submitted a Complaint': 'Complaint has been received',
       'Inspection': `Site inspection assigned to ${assignedTo || 'staff'}`,
       'Inspection Done': `Site inspection completed by ${assignedTo || 'staff'}`,
       'Send Invitation': `Invitation task assigned to ${assignedTo || 'staff'}`,
@@ -1789,7 +1789,7 @@
       
       let entries = await loadTimelineData();
 
-      // Ensure a 'Submitted' entry exists as first step (visible label becomes 'Submitted a Valid Complaint')
+      // Ensure a 'Submitted' entry exists as first step (visible label becomes 'Submitted a Complaint')
       const hasSubmitted = entries.some(e => {
         const t = (e.type_of_action || '').toLowerCase();
         return t === 'submitted' || t === 'submitted a valid complaint' || t === 'valid complaint' || t === 'complaint submitted' || t === 'received';

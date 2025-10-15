@@ -151,13 +151,16 @@
             // Check if this area has a corresponding SVG file
             const hasCorrespodingSvgFile = hasCorrespondingSvg(areaCode);
 
-            if (areaName && areaData[areaName]) {
-              const { name, beneficiaries, complaints, resolved } = areaData[areaName];
-              area.dataset.name = name;
-              area.dataset.beneficiaries = beneficiaries;
-              area.dataset.complaints = complaints;
-              area.dataset.resolved = resolved;
-            }
+            // Guard in case a legacy global areaData is not defined
+            try {
+              if (typeof areaData !== 'undefined' && areaName && areaData[areaName]) {
+                const { name, beneficiaries, complaints, resolved } = areaData[areaName];
+                area.dataset.name = name;
+                area.dataset.beneficiaries = beneficiaries;
+                area.dataset.complaints = complaints;
+                area.dataset.resolved = resolved;
+              }
+            } catch(_) {}
 
             // Only add interactive functionality if corresponding SVG file exists
             if (hasCorrespodingSvgFile) {
@@ -170,10 +173,15 @@
                 currentAreaData = await fetchAreaData(areaCode);
                 
                 // Use area_name from database, fallback to SVG attribute
-                const areaName = currentAreaData ? currentAreaData.area_name : (area.getAttribute('name') || area.id || 'Unknown Area');
-                const beneficiaries = currentAreaData ? currentAreaData.beneficiaries : 'N/A';
-                const complaints = currentAreaData ? currentAreaData.complaints : 'N/A';
-                const resolved = currentAreaData ? currentAreaData.resolved : 'N/A';
+                const areaName = currentAreaData ? (currentAreaData.area_name || currentAreaData.name) : (area.getAttribute('name') || area.id || 'Unknown Area');
+                const beneficiaries = currentAreaData && Number.isFinite(currentAreaData.beneficiaries) ? currentAreaData.beneficiaries : (currentAreaData?.counts?.beneficiaries ?? 'N/A');
+                const complaints = currentAreaData && Number.isFinite(currentAreaData.complaints) ? currentAreaData.complaints : (currentAreaData?.counts?.complaints ?? 'N/A');
+                const resolved = (currentAreaData && (
+                  Number.isFinite(currentAreaData.resolved) ? currentAreaData.resolved :
+                  Number.isFinite(currentAreaData.complaints_resolved) ? currentAreaData.complaints_resolved :
+                  Number.isFinite(currentAreaData.resolved_count) ? currentAreaData.resolved_count :
+                  (currentAreaData.counts && Number.isFinite(currentAreaData.counts.resolved) ? currentAreaData.counts.resolved : null)
+                )) ?? 'N/A';
                 
                 tooltip.innerHTML = `
                   <div class="tooltip-content">
@@ -198,39 +206,39 @@
                   </div>
                 `;
                 tooltip.style.display = 'block';
+
+                // Immediately position beside cursor (fixed positioning uses clientX/clientY)
+                const tooltipWidth = 220;
+                const tooltipHeight = 180;
+                const margin = 10;
+                const vw = window.innerWidth;
+                const vh = window.innerHeight;
+                let left = e.clientX + margin;
+                let top = e.clientY + margin;
+                if (left + tooltipWidth > vw) left = e.clientX - tooltipWidth - margin;
+                if (top + tooltipHeight > vh) top = e.clientY - tooltipHeight - margin;
+                left = Math.max(5, Math.min(left, vw - tooltipWidth - 5));
+                top = Math.max(5, Math.min(top, vh - tooltipHeight - 5));
+                tooltip.style.left = left + 'px';
+                tooltip.style.top = top + 'px';
               });
               
               area.addEventListener('mousemove', e => {
                 if (tooltip.style.display === 'block') {
                   // Position tooltip directly beside mouse cursor with minimal offset
-                  const tooltipWidth = 220; // tooltip width from CSS
-                  const tooltipHeight = 180; // approximate tooltip height
-                  const margin = 10; // small margin to prevent cursor overlap
-                  
-                  // Use pageX and pageY for accurate positioning relative to document
-                  let left = e.pageX + margin;
-                  let top = e.pageY + margin;
-                  
-                  // Prevent tooltip from going off-screen
-                  const viewportWidth = window.innerWidth;
-                  const viewportHeight = window.innerHeight;
-                  const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
-                  const scrollY = window.pageYOffset || document.documentElement.scrollTop;
-                  
-                  // Flip to left side of cursor if would go off right edge
-                  if (left + tooltipWidth > scrollX + viewportWidth) {
-                    left = e.pageX - tooltipWidth - margin;
-                  }
-                  
-                  // Flip to top of cursor if would go off bottom edge
-                  if (top + tooltipHeight > scrollY + viewportHeight) {
-                    top = e.pageY - tooltipHeight - margin;
-                  }
-                  
-                  // Ensure tooltip stays within viewport bounds as final safeguard
-                  left = Math.max(scrollX + 5, Math.min(left, scrollX + viewportWidth - tooltipWidth - 5));
-                  top = Math.max(scrollY + 5, Math.min(top, scrollY + viewportHeight - tooltipHeight - 5));
-                  
+                  const tooltipWidth = 220; // match CSS
+                  const tooltipHeight = 180; // approximate
+                  const margin = 10;
+                  const vw = window.innerWidth;
+                  const vh = window.innerHeight;
+
+                  let left = e.clientX + margin;
+                  let top = e.clientY + margin;
+                  if (left + tooltipWidth > vw) left = e.clientX - tooltipWidth - margin;
+                  if (top + tooltipHeight > vh) top = e.clientY - tooltipHeight - margin;
+                  left = Math.max(5, Math.min(left, vw - tooltipWidth - 5));
+                  top = Math.max(5, Math.min(top, vh - tooltipHeight - 5));
+
                   tooltip.style.left = left + 'px';
                   tooltip.style.top = top + 'px';
                 }
@@ -553,7 +561,7 @@
         const submittedDate = new Date(complaint.date_received);
         if (isNaN(submittedDate.getTime())) return null;
         // 6 days after submission (same as Deadline column logic)
-        return new Date(submittedDate.getTime() + 6 * 24 * 60 * 60 * 1000);
+        return new Date(submittedDate.getTime() + 7 * 24 * 60 * 60 * 1000);
       }
 
       // For Ongoing complaints - use same logic as Deadline column
@@ -753,9 +761,10 @@ function adminBuildDueSoonItems(complaints) {
       const urls = [
         `/admin/complaints/api/assigned?_=${Date.now()}`,
         `/admin/complaints/api/ongoing?_=${Date.now()}`,
+        `/admin/complaints/api/pending?_=${Date.now()}`,
         `/admin/complaints/api/all?_=${Date.now()}`
       ];
-      let loaded = false;
+      let merged = [];
 
       for (const url of urls) {
         try {
@@ -765,29 +774,30 @@ function adminBuildDueSoonItems(complaints) {
           const list = Array.isArray(data)
             ? data
             : (Array.isArray(data.complaints) ? data.complaints : (Array.isArray(data.items) ? data.items : []));
-
-          if (list.length) {
-            adminAssignedCache = list;
-            loaded = true;
-            break;
-          }
-        } catch (_) { /* try next */ }
+          if (list && list.length) merged = merged.concat(list);
+        } catch (_) { /* continue */ }
       }
 
-      // Fallback: also try staff view if admin endpoints empty
-      if (!loaded) {
-        try {
-          const res = await fetch(`/staff/api/complaints/assigned?_=${Date.now()}`);
-          if (res.ok) {
-            const data = await res.json();
-            adminAssignedCache = Array.isArray(data.complaints) ? data.complaints : [];
-          } else {
-            adminAssignedCache = [];
-          }
-        } catch (_) {
-          adminAssignedCache = [];
+      // Fallback: also try staff view to include staff-assigned items
+      try {
+        const res = await fetch(`/staff/api/complaints/assigned?_=${Date.now()}`);
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data.complaints) ? data.complaints : [];
+          if (list && list.length) merged = merged.concat(list);
         }
-      }
+      } catch (_) { /* ignore */ }
+
+      // De-duplicate by normalized complaint_id
+      const byId = new Map();
+      merged.forEach(raw => {
+        try {
+          const c = normalizeComplaint(raw);
+          const id = c && c.complaint_id;
+          if (id && !byId.has(id)) byId.set(id, raw);
+        } catch(_) {}
+      });
+      adminAssignedCache = Array.from(byId.values());
 
       updateInboxBadge();
     }

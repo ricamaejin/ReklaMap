@@ -506,7 +506,7 @@
                           } catch {}
                           entries.push({
                             type_of_action: 'Submitted',
-                            description: 'Submitted a Valid Complaint',
+                            description: 'Submitted a Complaint',
                             action_datetime: submittedISO || new Date().toISOString()
                           });
                         }
@@ -591,7 +591,7 @@
                           timelineHTML += `
                             <div class="timeline-entry" style="border-left:4px solid #17a2b8;background:#f4fcff;">
                               <h4 style="color:#0f6e7d;">${submittedDate} - Submitted</h4>
-                              <p>Submitted a Valid Complaint</p>
+                              <p>Submitted a Complaint</p>
                             </div>
                           `;
                           timelineContainer.innerHTML = timelineHTML;

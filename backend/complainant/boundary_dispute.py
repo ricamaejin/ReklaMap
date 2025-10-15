@@ -332,7 +332,7 @@ def submit_boundary_dispute():
             complaint_id=new_complaint.complaint_id,
             type_of_action='Submitted',
             assigned_to='',
-            details=timeline_json.dumps({'description': 'Submitted a Valid Complaint'}),
+            details=timeline_json.dumps({'description': 'Submitted a Complaint'}),
             action_datetime=new_complaint.date_received  # Use actual submission time from complaints table
         )
         db.session.add(submitted_timeline)
