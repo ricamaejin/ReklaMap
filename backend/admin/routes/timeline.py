@@ -348,3 +348,4 @@ def filter_entries_by_role(entries, role, complaint_id=None):
         return complainant_entries
     
     return entries
+
