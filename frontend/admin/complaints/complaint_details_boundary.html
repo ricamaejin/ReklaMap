@@ -1,4 +1,6 @@
 {# --- complaint_details_boundary.html --- #}
+{# Marker to signal Boundary complaint context to JS dispatcher #}
+<div id="__boundary_form_marker" style="display:none;" aria-hidden="true"></div>
 {# --- Dynamic Boundary Dispute Preview Partial --- #}
 
 {% if registration and registration.category == 'non_member' %}
