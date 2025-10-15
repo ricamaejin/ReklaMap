@@ -865,7 +865,10 @@ def api_report_summary():
             SELECT 
                 COUNT(*) AS total,
                 SUM(CASE WHEN status = 'Valid' THEN 1 ELSE 0 END) AS valid,
-                SUM(CASE WHEN status = 'Invalid' THEN 1 ELSE 0 END) AS invalid
+                SUM(CASE WHEN status = 'Invalid' THEN 1 ELSE 0 END) AS invalid,
+                SUM(CASE WHEN complaint_stage = 'Ongoing' AND status = 'Valid' THEN 1 ELSE 0 END) AS ongoing,
+                SUM(CASE WHEN status = 'Invalid' OR complaint_stage = 'Out of Jurisdiction' THEN 1 ELSE 0 END) AS out_of_jurisdiction,
+                SUM(CASE WHEN complaint_stage = 'Unresolved' THEN 1 ELSE 0 END) AS unresolved
             FROM complaints
             WHERE date_received BETWEEN :start_dt AND :end_dt
             """
@@ -874,6 +877,9 @@ def api_report_summary():
         complaints_received = int(comp_row.total or 0)
         complaints_valid = int(comp_row.valid or 0)
         complaints_invalid = int(comp_row.invalid or 0)
+        complaints_ongoing = int(getattr(comp_row, 'ongoing', 0) or 0)
+        complaints_ooj = int(getattr(comp_row, 'out_of_jurisdiction', 0) or 0)
+        complaints_unresolved = int(getattr(comp_row, 'unresolved', 0) or 0)
 
         # 2) Actions in complaint_history in period, grouped by type
         actions_query = text(
@@ -932,13 +938,14 @@ def api_report_summary():
         )
 
         narrative = (
-            f"The Accomplishment Report for {period_label} provides a detailed overview of activities and achievements in governance, community service, and housing. "
+            f"The Accomplishment Report for {period_label} provides a detailed overview of activities and achievements in Urban Settlers Assistance Department - PHASELAD. "
             f"A total of {total_activities} actions were recorded in the period, reflecting sustained engagement across complaints handling and field operations. "
-            f"A total of {complaints_received} complaints were received, of which {complaints_valid} were validated and {complaints_invalid} were marked invalid. "
+            f"A total of {complaints_received} complaints were received, of which {complaints_ooj} were out of jurisdiction. "
             f"Mediation and hearings: {mediations} mediation-related actions were conducted. "
             f"Invitations issued summoned approximately {individuals_summoned} individual(s) to hearings and meetings. "
             f"Inspections: {inspections_required} inspection-related actions were recorded for site validation and boundary identification. "
-            f"Resolved cases: {cases_settled} complaint(s) reached a resolution during this period."
+            f"Resolved cases: {cases_settled} complaint(s) reached a resolution during this period. "
+            f"Unresolved cases: {complaints_unresolved} complaint(s) remained unresolved, mostly due to parties involved not showing up for mediation. "
         )
 
         return jsonify({
@@ -953,6 +960,9 @@ def api_report_summary():
                 'complaints_received': complaints_received,
                 'complaints_valid': complaints_valid,
                 'complaints_invalid': complaints_invalid,
+                'complaints_ongoing': complaints_ongoing,
+                'complaints_out_of_jurisdiction': complaints_ooj,
+                'complaints_unresolved': complaints_unresolved,
                 'mediations': mediations,
                 'individuals_summoned': individuals_summoned,
                 'inspections': inspections_required,

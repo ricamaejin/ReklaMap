@@ -765,17 +765,33 @@
         const formatTimeOnly = (d) => d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         const computeStatusForPdf = (c) => {
           if (!c) return 'N/A';
-          // Unresolved markers
-          if (
-            c.action_needed === 'Unresolved' ||
-            c.latest_action === 'Unresolved' ||
-            c.complaint_stage === 'Unresolved' ||
-            c.is_unresolved
-          ) return 'Unresolved';
-          // Invalid maps to Out of Jurisdiction in report wording
-          if (c.status === 'Invalid') return 'Out of Jurisdiction';
-          if (c.complaint_stage === 'Resolved' || c.is_resolved) return 'Resolved';
-          if (c.complaint_stage === 'Pending' || !c.latest_action) return 'Received';
+          const norm = v => (v == null ? '' : String(v)).trim().toLowerCase().replace(/[-_]+/g, ' ');
+          const status = norm(c.status);
+          const stage = norm(c.complaint_stage);
+          const latest = norm(c.latest_action);
+          const needed = norm(c.action_needed);
+
+          // Unresolved markers (any source)
+          if (needed === 'unresolved' || latest === 'unresolved' || stage === 'unresolved' || c.is_unresolved) {
+            return 'Unresolved';
+          }
+
+          // Out of Jurisdiction mapping (aka Invalid)
+          if (status === 'invalid' || stage === 'invalid' || status === 'out of jurisdiction' || stage === 'out of jurisdiction') {
+            return 'Out of Jurisdiction';
+          }
+
+          // Resolved
+          if (stage === 'resolved' || c.is_resolved) {
+            return 'Resolved';
+          }
+
+          // Received
+          if (stage === 'pending' || !c.latest_action) {
+            return 'Received';
+          }
+
+          // Default
           return 'Ongoing';
         };
 
@@ -791,7 +807,12 @@ filteredComplaints.forEach(c => {
   const t = c.type_of_complaint || 'Unknown';
   countsByType[t] = (countsByType[t] || 0) + 1;
   const s = computeStatusForPdf(c);
-  if (s in countsByStatus) countsByStatus[s] += 1; else countsByStatus['Ongoing'] += 1;
+  if (s in countsByStatus) {
+    countsByStatus[s] += 1;
+  } else {
+    // Unknown statuses should not be silently added to Ongoing; classify as Received fallback
+    countsByStatus['Received'] += 1;
+  }
 });
 
 // Overdue Ongoing Complaints
@@ -989,33 +1010,32 @@ try {
 
         // Prepare table data using your deadline functions
         const tableData = filteredComplaints.map(c => {
-          let deadlineText = "N/A";
-          // Use only explicit deadlines; avoid automatic fallbacks
-          const explicitDeadline = explicitDeadlineForPdf(c);
-          if (explicitDeadline) {
-            const d = explicitDeadline;
-            const dateStr = formatDateOnly(d);
-            // Compute due annotation
-            const msPerDay = 24*60*60*1000;
-            const daysDiff = Math.ceil((d.getTime() - new Date().getTime()) / msPerDay);
-            let dueAnnot = '';
-            if (daysDiff < 0) {
-              dueAnnot = `(Overdue by ${Math.abs(daysDiff)} day/s)`;
-            } else if (daysDiff === 0) {
-              dueAnnot = `(Due today)`;
-            } else {
-              dueAnnot = `(${daysDiff} day/s left)`;
-            }
-            // Date on first line, due annotation on second line
-            deadlineText = `${dateStr}\n${dueAnnot}`;
-          }
-
-          // If explicit deadline exists, only annotate deadline text with (Due today)
-          const now = new Date();
-          const deadlineDate = explicitDeadline;
-          // no additional annotation here; already included above
-
           const statusDisplay = computeStatusForPdf(c);
+          let deadlineText = "N/A";
+
+          // For Resolved, Out of Jurisdiction, and Unresolved, always show N/A for Deadline
+          const naStatuses = ['Resolved', 'Out of Jurisdiction', 'Unresolved'];
+          if (!naStatuses.includes(statusDisplay)) {
+            // Use only explicit deadlines; avoid automatic fallbacks
+            const explicitDeadline = explicitDeadlineForPdf(c);
+            if (explicitDeadline) {
+              const d = explicitDeadline;
+              const dateStr = formatDateOnly(d);
+              // Compute due annotation
+              const msPerDay = 24*60*60*1000;
+              const daysDiff = Math.ceil((d.getTime() - new Date().getTime()) / msPerDay);
+              let dueAnnot = '';
+              if (daysDiff < 0) {
+                dueAnnot = `(Overdue by ${Math.abs(daysDiff)} day/s)`;
+              } else if (daysDiff === 0) {
+                dueAnnot = `(Due today)`;
+              } else {
+                dueAnnot = `(${daysDiff} day/s left)`;
+              }
+              // Date on first line, due annotation on second line
+              deadlineText = `${dateStr}\n${dueAnnot}`;
+            }
+          }
 
           deadlineText = sanitizeForPdf(deadlineText);
 
