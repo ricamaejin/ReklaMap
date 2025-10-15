@@ -282,7 +282,25 @@
         return;
       }
       
-      complaints.forEach(complaint => {
+      // Split into final vs non-final; keep non-final order as-is (current behavior)
+      const finals = [];
+      const nonFinals = [];
+      complaints.forEach(c => {
+        const stage = (c.complaint_stage || '').toLowerCase();
+        if (stage === 'resolved' || stage === 'unresolved' || stage === 'out of jurisdiction') finals.push(c); else nonFinals.push(c);
+      });
+
+      // Sort finals by most recent action date (action_datetime desc, then date_received desc)
+      finals.sort((a,b) => {
+        const aDate = a.action_datetime ? new Date(a.action_datetime) : (a.date_received ? new Date(a.date_received) : new Date(0));
+        const bDate = b.action_datetime ? new Date(b.action_datetime) : (b.date_received ? new Date(b.date_received) : new Date(0));
+        return bDate - aDate;
+      });
+
+      // Render non-finals first (existing order), then finals
+      const rows = [...nonFinals, ...finals];
+
+      rows.forEach(complaint => {
         const row = document.createElement('tr');
         row.style.cursor = 'pointer';
         
@@ -1545,7 +1563,6 @@ try {
         // Create dropdown content for Type of Complaint
         typeMenu.innerHTML = `
           <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="all">Show All</div>
-          <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="Overlapping">Overlapping</div>
           <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="Pathway Dispute">Pathway Dispute</div>
           <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="Lot Dispute">Lot Dispute</div>
           <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" data-sort="Boundary Dispute">Boundary Dispute</div>
