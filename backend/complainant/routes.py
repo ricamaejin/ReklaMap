@@ -710,7 +710,13 @@ def view_complaint(complaint_id):
         non_member_connections = None
         non_member_connections_list = None
 
-    template_name = "complaint_details_valid.html" if complaint.status == "Valid" else "complaint_details_invalid.html"
+    # Render 'valid' details only when complaint.status == 'Valid' and complaint_stage is not a final non-actionable stage.
+    # Treat 'Out of Jurisdiction' and 'Unresolved' complaint_stage as cases that should show the invalid/details popup.
+    non_actionable_stages = ("Out of Jurisdiction", "Unresolved")
+    if getattr(complaint, 'status', '') == "Valid" and (getattr(complaint, 'complaint_stage', None) not in non_actionable_stages):
+        template_name = "complaint_details_valid.html"
+    else:
+        template_name = "complaint_details_invalid.html"
     return render_template(
         template_name,
         complaint=complaint,
