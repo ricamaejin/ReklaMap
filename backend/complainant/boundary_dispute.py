@@ -372,13 +372,33 @@ def get_boundary_session_data():
 
     # Default HOA value is the registration.hoa field (may be an ID or name)
     hoa_value = getattr(reg, "hoa", "") or ""
+
+    # Helper: resolve hoa value (id or name) to a canonical area_id
+    def resolve_area_id_from_hoa(hoa_val):
+        if not hoa_val:
+            return None
+        try:
+            return int(hoa_val)
+        except Exception:
+            try:
+                from backend.database.models import Area
+                area = Area.query.filter_by(area_name=str(hoa_val)).first()
+                return area.area_id if area else None
+            except Exception:
+                return None
+
     # For non_member, hoa_member, and family_of_member, try to resolve area name from block/beneficiary
-    def resolve_area_name(block_no, lot_no):
+    # Use area context to avoid cross-area mismatches when block numbers repeat across areas
+    def resolve_area_name(block_no, lot_no, area_ctx=None):
         try:
             if block_no and lot_no:
                 bn = int(block_no)
                 ln = int(lot_no)
-                blk = Block.query.filter_by(block_no=bn).first()
+                blk = None
+                if area_ctx is not None:
+                    blk = Block.query.filter_by(area_id=area_ctx, block_no=bn).first()
+                if not blk:
+                    blk = Block.query.filter_by(block_no=bn).first()
                 if blk:
                     beneficiary = Beneficiary.query.filter_by(block_id=blk.block_id, lot_no=ln).first()
                     if beneficiary:
@@ -411,8 +431,11 @@ def get_boundary_session_data():
             pass
         return str(hoa_val)
 
+    # Establish area context from registration.hoa (id or name)
+    area_ctx = resolve_area_id_from_hoa(hoa_value)
+
     if reg.category == "non_member":
-        area_name = resolve_area_name(getattr(reg, "block_no", None), getattr(reg, "lot_no", None))
+        area_name = resolve_area_name(getattr(reg, "block_no", None), getattr(reg, "lot_no", None), area_ctx=area_ctx)
         if area_name:
             hoa_value = area_name
         else:
@@ -426,7 +449,7 @@ def get_boundary_session_data():
             except Exception:
                 pass
     elif reg.category in ("hoa_member", "family_of_member"):
-        area_name = resolve_area_name(getattr(reg, "block_no", None), getattr(reg, "lot_no", None))
+        area_name = resolve_area_name(getattr(reg, "block_no", None), getattr(reg, "lot_no", None), area_ctx=area_ctx)
         if area_name:
             hoa_value = area_name
     data = {
