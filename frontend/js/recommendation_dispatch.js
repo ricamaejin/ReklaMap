@@ -6,8 +6,6 @@
 
     // Detect complaint type by probing for distinctive fields
   const root = document.querySelector('.complaint-form') || document;
-    // Hard marker: only accept Boundary recommender if marker exists
-    const isBoundaryMarked = !!document.querySelector('[data-complaint-type="boundary"], #__boundary_form_marker');
 
     // Pathway has radio/checkbox names q1..q12, Lot has distinctive labels in .field-blocks
     const hasPathwaySignals = !!(root.querySelector('input[name="q1"], input[name="q2"], input[name="q3"], input[name="q4"]'));
@@ -27,19 +25,6 @@
     const hasUnauthorizedSignals = hasUnauthorizedByName || hasUnauthorizedByLabel;
 
     try {
-      // If page explicitly marked as Boundary, exclusively use Boundary recommender
-      if (isBoundaryMarked) {
-        if (window.BoundaryFuzzy) {
-          const computed = window.BoundaryFuzzy.computeRecommendation();
-          window.BoundaryFuzzy.renderRecommendation(computed);
-          const recData = modal.dataset;
-          const primary = computed && computed.choice ? computed.choice.primaryAction : '';
-          recData.suggestAssign = (primary === 'Inspection' || primary === 'Invitation') ? primary : '';
-          recData.suggestAction = (primary === 'Assessment' || primary === 'Out of Jurisdiction') ? primary : '';
-          return true;
-        }
-        return false; // marker present but module missing
-      }
       if (hasPathwaySignals && window.PathwayFuzzy) {
         const previewRoot = document.querySelector('.complaint-form') || document;
         const answers = window.PathwayFuzzy.extractAnswers(previewRoot);

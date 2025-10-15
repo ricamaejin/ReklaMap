@@ -46,7 +46,7 @@ def generate_action_description(action_type, assigned_to, role='admin'):
     else:
         descriptions = admin_descriptions
     
-    return descriptions.get(action_type, f'This complaint has been marked as {action_type}')
+    return descriptions.get(action_type, f'{action_type} completed')
 
 from sqlalchemy import text
 import json
@@ -348,3 +348,4 @@ def filter_entries_by_role(entries, role, complaint_id=None):
         return complainant_entries
     
     return entries
+
