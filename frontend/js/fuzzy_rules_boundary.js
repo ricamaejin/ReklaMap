@@ -254,7 +254,7 @@
     const r=[];
     if (f.physical_encroachment>=0.6) r.push('Structure or fence encroachment detected — field inspection required.');
     if (f.residency_conflict>=0.6) r.push('Respondent resides near boundary — inspection can verify encroachment.');
-    if (f.urgent_effects>=0.8) r.push('Threats or altercation reported — mediation (Invitation) needed.');
+    if (f.urgent_effects>=0.8) r.push('Threats /Altercation reported /Property damage — mediation (Invitation) needed.');
     if (f.opposing_doc_claim>=0.6) r.push('Both sides claim documents — assessment required to validate.');
     if (f.basis_weakness>=0.6) r.push('Weak evidence — inspection to verify facts before jurisdiction decision.');
     return r.length?r:['Signals mixed; further inspection recommended.'];
