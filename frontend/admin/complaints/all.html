@@ -374,7 +374,7 @@
           if (actionType.includes('inspection') && !actionType.includes('done')) {
             deadline = adminDeadline || new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
           } else if (actionType.includes('inspection done')) {
-            deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+            deadline = new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
           } else if (actionType.includes('send invitation') || (actionType.includes('invitation') && !actionType.includes('sent') && !actionType.includes('accepted'))) {
             deadline = new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
           } else if (actionType.includes('sent invitation')) {
@@ -576,7 +576,7 @@
       
       else if (actionType.includes('inspection done')) {
         // Inspection Done → Show "Send invite before:" + 3 days after this action
-        const deadline = new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+        const deadline = new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
         const dateStr = deadline.toLocaleDateString();
         return `Send invite before:<br/>${dateStr}`;
       }
@@ -1410,7 +1410,7 @@ try {
           if (actionType.includes('inspection') && !actionType.includes('done')) {
             return adminDeadline || new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
           } else if (actionType.includes('inspection done')) {
-            return new Date(actionDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+            return new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
           } else if (actionType.includes('send invitation') || (actionType.includes('invitation') && !actionType.includes('sent') && !actionType.includes('accepted'))) {
             return new Date(actionDate.getTime() + (1 * 24 * 60 * 60 * 1000));
           } else if (actionType.includes('sent invitation')) {

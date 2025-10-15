@@ -196,7 +196,7 @@
     const bullets = buildBullets(features);
     const bits = [];
     bits.push(`Recommended action: ${action} (${confPct}% ${confLabel}).`);
-    if (bullets.length){ bits.push(`Why this: ${bullets.join(' ')}`); }
+    if (bullets.length){ bits.push(`Reasoning: ${bullets.join(' ')}`); }
     if (confPct < 75) bits.push('Note: Confidence is not maximal. Additional documents (e.g., titles, contracts) and precise event dates can improve the recommendation.');
     return bits.join('\n\n');
   }
@@ -240,7 +240,7 @@
 
       const bars = renderScoreBars(norm, primary);
       const why = `
-        <div style="margin-top:8px; color:#1f2a4a;">Why this</div>
+        <div style="margin-top:8px; color:#1f2a4a;">Reasoning:</div>
         <ul style="margin:6px 0 0 18px; color: #00030dff">${reasons || '<li>Signals are mixed; additional details may improve accuracy.</li>'}</ul>`;
       box.innerHTML = header + bars + why;
 

@@ -329,7 +329,7 @@
 
     // Rationale
     const reasons = (result.reasons||[]).slice(0,4);
-    if(reasons.length){ bits.push(`Why this: ${reasons.join(' ')}.`); }
+    if(reasons.length){ bits.push(`Reasoning: ${reasons.join(' ')}.`); }
 
     // Next steps guidance per action
     const next = [];
@@ -406,7 +406,7 @@
       const bars = renderScoreBars(result.scores||{}, primary);
 
       const why = `
-        <div style="margin-top:8px; color:#1f2a4a;">Why this</div>
+        <div style="margin-top:8px; color:#1f2a4a;">Reasoning:</div>
         <ul style="margin:6px 0 0 18px; color: black;">${reasons || '<li>Available information is limited; please add more details to improve accuracy.</li>'}</ul>`;
 
       box.innerHTML = header + bars + why;

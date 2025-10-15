@@ -278,7 +278,7 @@
   function buildNarrative(s, norm, p){
     const conf=pct(norm[p]); const label=conf>=75?'high':conf>=50?'moderate':'low';
     const f=computeFeatures(s); const bullets=buildBullets(f);
-    return `Recommended action: ${p} (${conf}% ${label} confidence).\n\nWhy this:\n- ${bullets.join('\n- ')}\n\nConfidence may improve with more documents or inspection results.`;
+    return `Recommended action: ${p} (${conf}% ${label} confidence).\n\nReasoning:\n- ${bullets.join('\n- ')}\n\nConfidence may improve with more documents or inspection results.`;
   }
 
   function renderRecommendation(result){
@@ -307,7 +307,7 @@
           </div>
         </div>
         ${renderScoreBars(norm,p)}
-        <div style="margin-top:8px;color:#1f2a4a;">Why this</div>
+        <div style="margin-top:8px;color:#1f2a4a;">Reasoning:</div>
         <ul style="margin:6px 0 0 18px;color:#00030dff">${reasons}</ul>`;
       const t=document.getElementById('recommendText')||modal.querySelector('textarea');
       if(t)t.value=buildNarrative(result.signals,norm,p);
