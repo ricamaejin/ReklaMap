@@ -18,19 +18,21 @@
     if(!v) return 0;
     v = v.toLowerCase();
     if(v.includes('fully')) return 1.0;
-    if(v.includes('partial')) return 0.7;
-    if(v.includes('removed')) return 0.35;
+    if(v.includes('partial')) return 0.65;
+    if(v.includes('removed')) return 0.25;
     if(v === 'no') return 0.0;
     return 0.2; // not sure
   }
   function severityFromQ2(v){
     if(!v) return 0;
     v = v.toLowerCase();
-    if(v.includes('permanent')) return 0.85;
-    if(v.includes('fence') || v.includes('gate')) return 0.75;
-    if(v.includes('store') || v.includes('business')) return 0.7;
-    if(v.includes('parked')) return 0.45;
-    if(v.includes('debris') || v.includes('materials') || v.includes('temporary')) return 0.35;
+    // More granular severity mapping
+    if(v.includes('permanent')) return 0.9;            // house extension / wall
+    if(v.includes('fence') || v.includes('gate')) return 0.8; 
+    if(v.includes('store') || v.includes('business')) return 0.75;
+    if(v.includes('vehicle') || v.includes('parked')) return 0.5;  // typically barangay jurisdiction
+    if(v.includes('construction') || v.includes('debris') || v.includes('materials')) return 0.45;
+    if(v.includes('temporary') || v.includes('chairs') || v.includes('tables') || v.includes('stalls')) return 0.4;
     return 0.4;
   }
   function durationFromQ3(v){
@@ -42,6 +44,15 @@
     if(v.includes('not sure')) return 0.25;
     return 0.3;
   }
+  function typeFromQ1(v){
+    v = (v||'').toLowerCase();
+    return {
+      public_sidewalk: v.includes('public sidewalk') || v.includes('pedestrian'),
+      common_path: v.includes('common path') || v.includes('alley'),
+      gov_easement: v.includes('government-declared') || v.includes('right-of-way') || v.includes('right of way'),
+      utilities_path: v.includes('utilities') || v.includes('water lines') || v.includes('drainage')
+    };
+  }
   function impactFromQ5(arr){
     const list = toArray(arr);
     if(!list.length) return 0;
@@ -49,11 +60,11 @@
     list.forEach(v => {
       if(!v) return;
       const s = v.toLowerCase();
-      if(s.includes('cannot pass')) score += 0.35;
-      else if(s.includes('unsafe') || s.includes('narrow')) score += 0.25;
-      else if(s.includes('children') || s.includes('elderly') || s.includes('pwd')) score += 0.25;
+      if(s.includes('cannot pass')) score += 0.4;
+      else if(s.includes('emergency')) score += 0.4;
+      else if(s.includes('unsafe') || s.includes('narrow')) score += 0.3;
+      else if(s.includes('children') || s.includes('elderly') || s.includes('pwd')) score += 0.3;
       else if(s.includes('forced to walk')) score += 0.25;
-      else if(s.includes('emergency')) score += 0.35;
     });
     // squash to [0,1]
     return clamp01(score);
@@ -109,14 +120,16 @@
       if(v == null) return;
       if(Array.isArray(v)) {
         if(v.length){ answered++; }
-        if(v.some(x => /none|not applicable|not sure/i.test(x))) penalty += 0.05;
+        if(v.some(x => /not applicable|not sure/i.test(x))) penalty += 0.05;
+        if(v.some(x => /none/i.test(x))) penalty += 0.08; // slightly stronger penalty for "None"
       } else if(typeof v === 'string') {
         if(v.trim()) answered++;
-        if(/none|not applicable|not sure/i.test(v)) penalty += 0.05;
+        if(/not applicable|not sure/i.test(v)) penalty += 0.05;
+        if(/none/i.test(v)) penalty += 0.08;
       }
     });
     // Core signals
-    bonus += urgencyFromQ4(answers.q4)*0.2 + severityFromQ2(answers.q2)*0.1 + impactFromQ5(answers.q5)*0.1;
+    bonus += urgencyFromQ4(answers.q4)*0.2 + severityFromQ2(answers.q2)*0.12 + impactFromQ5(answers.q5)*0.12;
     const completeness = total ? answered/total : 0.5;
     return clamp01(completeness - penalty + bonus);
   }
@@ -124,6 +137,7 @@
   // --- Compute action scores ---
   function computeRecommendation(answers){
     answers = answers || {};
+    const type1 = typeFromQ1(answers.q1);
     const urg = urgencyFromQ4(answers.q4);
     const sev = severityFromQ2(answers.q2);
     const dur = durationFromQ3(answers.q3);
@@ -132,76 +146,89 @@
     const auth = authorityFromQ9(answers.q9);
     const inspOrg = inspectionOrgFromQ10(answers.q10);
     const res11 = resultFromQ11(answers.q11);
-      // Explicit overrides per user request:
-      // - If Q12 === 'Yes' (ongoing development / government project) => out_of_jurisdiction
-      // - If Q2 indicates parked vehicle => out_of_jurisdiction
-      // - If Q4 indicates removed / 'No – it was removed but may return' => assessment
-      const q12Yes = (answers.q12||'').toLowerCase().includes('yes');
-      const q2Parked = (answers.q2||'').toLowerCase().includes('parked');
-      const q4Removed = (answers.q4||'').toLowerCase().includes('removed') || (answers.q4||'').toLowerCase().includes('no – removed');
-      if(q12Yes || q2Parked){
-        return { action: 'out_of_jurisdiction', confidence: 0.98, scores: { inspection:0, mediation:0, assessment:0, out_of_jurisdiction:1 }, reasons: ['Selected option indicates out-of-jurisdiction (government project or parked vehicle).'] };
-      }
-      if(q4Removed){
-        return { action: 'assessment', confidence: 0.92, scores: { inspection:0, mediation:0, assessment:1, out_of_jurisdiction:0 }, reasons: ['Obstruction reported removed; assessment is recommended.'] };
-      }
-    const ongoing = ((answers.q12||'').toLowerCase().includes('yes')) ? 0.5 : 0;
-    const govEasement = (answers.q1||'').toLowerCase().includes('government-declared');
+    const ev = evidenceScore(answers);
+
+    const q12 = (answers.q12||'').toLowerCase();
+    const q2 = (answers.q2||'').toLowerCase();
+    const q4 = (answers.q4||'').toLowerCase();
+
+    // Strong overrides
+    // Vehicles parked long-term → typically barangay/traffic: out of jurisdiction for HOA context
+    const parked = q2.includes('vehicle') || q2.includes('parked');
+    if(parked) {
+      const scores = { inspection: 0.05, mediation: 0.05, assessment: 0.05, out_of_jurisdiction: 0.85 };
+      return { action: 'out_of_jurisdiction', confidence: 0.9, scores, reasons: ['Long-term parked vehicles are generally handled by barangay/traffic authorities.'] };
+    }
+    // Government project / ongoing development strongly suggests outside HOA scope
+    if(q12.includes('yes') || type1.gov_easement) {
+      const base = 0.8 + (type1.gov_easement?0.1:0) + ((auth.ngc||auth.usad||inspOrg.ngc)?0.05:0);
+      const scores = { inspection: 0.05, mediation: 0.05, assessment: 0.1, out_of_jurisdiction: clamp01(base) };
+      return { action: 'out_of_jurisdiction', confidence: clamp01(0.85 + (1-0.85)*ev), scores, reasons: ['Government easement or ongoing development indicates external jurisdiction.'] };
+    }
+    // Obstruction removed (or likely to return) → assessment
+    if(q4.includes('removed') || q4 === 'no') {
+      const scores = { inspection: 0.1, mediation: 0.15, assessment: 0.7, out_of_jurisdiction: 0.05 };
+      return { action: 'assessment', confidence: clamp01(0.8 + 0.15*ev), scores, reasons: ['Obstruction reported removed; verify status and documents through assessment.'] };
+    }
 
     // Base scores
     let inspection = 0, mediation = 0, assessment = 0, ooj = 0;
 
-    // Inspection: urgency, severity, impact, duration; boost if no action taken; reduce if inspection already done by barangay/hoa
-    inspection += urg*0.4 + sev*0.25 + imp*0.2 + dur*0.15;
-    if(res11.no_action || res11.under_investigation) inspection += 0.1;
-    if(inspOrg.barangay || inspOrg.hoa) inspection -= 0.15; // already inspected locally
+    // Inspection drivers: present + severe + high impact + long duration
+    inspection += urg*0.4 + sev*0.25 + imp*0.25 + dur*0.15;
+    if(type1.public_sidewalk || type1.utilities_path) inspection += 0.08; // public/utility access merits verification
+    if(res11.no_action) inspection += 0.08;                 // no action taken yet → act
+    if(res11.under_investigation) inspection += 0.04;       // keep pressure
+    if(inspOrg.barangay || inspOrg.hoa) inspection -= 0.12; // already inspected locally
 
-    // Mediation: social concern, fence/gate/store cases, partially blocked, reported to barangay/hoa
-    const partial = (answers.q4||'').toLowerCase().includes('partial');
-    const fenceLike = (answers.q2||'').toLowerCase().match(/fence|gate|store|business/);
-    mediation += soc*0.5 + (partial?0.15:0) + (fenceLike?0.2:0);
-    if(auth.barangay || auth.hoa) mediation += 0.1;
+    // Mediation drivers: social concern, partial obstruction, neighbor-to-neighbor structures, disputes escalating
+    const partial = q4.includes('partial');
+    const fenceLike = /fence|gate|store|business/.test(q2);
+    const escalations = toArray(answers.q8).map(s=>String(s||'').toLowerCase());
+    const hasViolence = escalations.some(s => /threats|harassment|altercation|damage/.test(s));
+    mediation += soc*0.5 + (partial?0.2:0) + (fenceLike?0.2:0);
+    if(auth.barangay || auth.hoa) mediation += 0.08;        // local bodies involved → convene
+    if(hasViolence) mediation += 0.12;                       // de-escalate via meeting
 
-    // Assessment: documentation/status uncertainty, gov easement, ongoing development, provide docs result, prior inspections
+    // Assessment drivers: uncertainty + doc requests + prior inspections + complex governance
     const unsure = [answers.q3, answers.q4, answers.q6, answers.q7].some(v => /not sure/i.test(v||''));
-    assessment += (unsure?0.15:0) + (govEasement?0.2:0) + ongoing*0.2 + (res11.provide_docs?0.25:0) + ((inspOrg.barangay||inspOrg.hoa)?0.1:0);
+    assessment += (unsure?0.18:0) + (res11.provide_docs?0.3:0) + ((inspOrg.barangay||inspOrg.hoa)?0.12:0);
+    if(type1.utilities_path) assessment += 0.08; // determine utility easement specifics
 
-    // Out of Jurisdiction: weak evidence, gov agencies involved, gov easement without strong HOA indicators, many NGC/USAD selections
-    const ev = evidenceScore(answers);
+    // Out of jurisdiction: weak HOA scope indicators or external agency presence
     const externalAgency = (auth.ngc || auth.usad || inspOrg.ngc);
-    ooj += (1 - ev)*0.4 + (govEasement?0.2:0) + (externalAgency?0.25:0);
-    if(auth.none && ev < 0.35) ooj += 0.15;
+    ooj += (externalAgency?0.35:0) + (type1.public_sidewalk?0.1:0) + (type1.gov_easement?0.2:0);
 
-    // Normalize and pick
+    // Normalize
     inspection = clamp01(inspection);
     mediation = clamp01(mediation);
     assessment = clamp01(assessment);
     ooj = clamp01(ooj);
-    const scores = { inspection, mediation, assessment, out_of_jurisdiction: ooj };
-    const total = inspection + mediation + assessment + ooj + 1e-6;
-    const norm = {
-      inspection: inspection/total,
-      mediation: mediation/total,
-      assessment: assessment/total,
-      out_of_jurisdiction: ooj/total
-    };
-    let action = 'inspection';
-    let best = norm.inspection;
-    Object.keys(norm).forEach(k => { if(norm[k] > best){ best = norm[k]; action = k; } });
+    const raw = { inspection, mediation, assessment, out_of_jurisdiction: ooj };
+    const sum = Object.values(raw).reduce((a,b)=>a+b, 1e-6);
+    const norm = Object.fromEntries(Object.entries(raw).map(([k,v])=>[k, v/sum]));
 
-    // Rationale
+    // Pick best & compute confidence using margin and evidence completeness
+    const entries = Object.entries(norm).sort((a,b)=>b[1]-a[1]);
+    const [bestK, bestV] = entries[0];
+    const secondV = (entries[1]||[])[1] || 0;
+    const margin = Math.max(0, bestV - secondV); // 0..1
+    const confidence = clamp01(0.6*margin + 0.4*ev);
+
+    // Reasons
     const reasons = [];
-    if(urg >= 0.7) reasons.push('Pathway is currently blocked (high urgency).');
-    if(sev >= 0.7) reasons.push('Encroachment is severe (e.g., permanent structure or gate).');
-    if(imp >= 0.5) reasons.push('Significant impact on mobility or safety.');
-    if(soc >= 0.5) reasons.push('Multiple residents or officials have raised/handled concerns.');
-    if(res11.provide_docs) reasons.push('Authorities requested more documents — further assessment is warranted.');
-    if(govEasement) reasons.push('Issue involves a government-declared easement/right-of-way.');
-    if(ongoing > 0) reasons.push('There is ongoing development that may affect jurisdiction.');
-    if((auth.ngc||auth.usad||inspOrg.ngc)) reasons.push('External agency involvement noted (NGC/USAD).');
-    if(best < 0.45) reasons.push('Overall evidence is mixed; consider verifying details.');
+    if(urg >= 0.8) reasons.push('Pathway is currently fully blocked (high urgency).');
+    else if(urg >= 0.6) reasons.push('Pathway is partially blocked (moderate urgency).');
+    if(sev >= 0.75) reasons.push('Encroachment is severe (e.g., permanent structure, fence, gate, or store).');
+    if(imp >= 0.5) reasons.push('Significant impact on mobility or safety was reported.');
+    if(soc >= 0.5) reasons.push('Multiple residents or barangay involvement suggests mediation value.');
+    if(res11.provide_docs) reasons.push('Authorities requested more documents — assessment recommended.');
+    if(type1.utilities_path) reasons.push('Pathway is used for utilities; verification/assessment may be necessary.');
+    if(externalAgency) reasons.push('External agencies (NGC/USAD) are involved.');
+    if(type1.public_sidewalk) reasons.push('Public sidewalk involvement may require barangay action.');
+    if(confidence < 0.5) reasons.push('Signals are mixed; consider collecting more evidence.');
 
-    return { action, confidence: best, scores: norm, reasons };
+    return { action: bestK, confidence, scores: norm, reasons };
   }
 
   // --- Extract answers from injected Pathway Dispute preview/form ---
@@ -358,8 +385,10 @@
     try {
       const primary = result.action;
       const action = ACTION_LABEL[primary] || titleCase(primary);
-      const confPct = pct(result.confidence);
-      const confMeta = confidenceLabel(result.confidence);
+      // Display the top action's score percent to avoid confusion with a different confidence metric
+      const primaryScore = clamp01(((result.scores||{})[primary]) || 0);
+      const displayPct = pct(primaryScore);
+      const confMeta = confidenceLabel(primaryScore);
       const reasons = (result.reasons||[]).slice(0,4).map(r=>`<li>${r}</li>`).join('');
 
       const header = `
@@ -370,7 +399,7 @@
           </div>
           <div style="display:flex; align-items:center; gap:10px;">
             <span style="padding:4px 10px; border-radius:999px; background:${ACTION_COLOR[primary]||'#1a33a0'}10; color:${ACTION_COLOR[primary]||'#1a33a0'}; font-weight:700;">${action}</span>
-            <span style="padding:4px 10px; border-radius:999px; background:${confMeta.color}10; color:${confMeta.color}; font-weight:700;">${confPct}%</span>
+            <span style="padding:4px 10px; border-radius:999px; background:${confMeta.color}10; color:${confMeta.color}; font-weight:700;">${displayPct}%</span>
           </div>
         </div>`;
 

@@ -981,9 +981,15 @@
     let assignedCache = [];
     const INBOX_THRESHOLD_DAYS = 3; // Same threshold as index.html and all.html
 
-    // Prefer explicit deadline from backend if available; otherwise derive from action type
+    // Prefer explicit deadline from backend ONLY for active inspections; otherwise derive from action type
     function getDeadlineDate(complaint) {
       const actionType = (complaint.action_needed || complaint.latest_action || '').toLowerCase();
+      const isInspection = actionType.includes('inspection');
+      const isInspectionDone = isInspection && actionType.includes('done');
+      const hasInvitation = actionType.includes('invitation');
+      const hasSend = actionType.includes('send');
+      const hasSent = actionType.includes('sent');
+      const hasAccepted = actionType.includes('accepted');
       
       // Get action datetime for time component (used for inspections)
       let actionDate = null;
@@ -993,59 +999,29 @@
         actionDate = new Date(complaint.date_received);
       }
       
-      // Use admin-set deadline when available (not just for inspections)
-      if (complaint.deadline && complaint.deadline !== null && complaint.deadline !== 'null') {
-        const adminDeadline = new Date(complaint.deadline);
-        if (!isNaN(adminDeadline.getTime())) {
-          // For inspections, combine admin deadline date with action time to match display format
-          if (actionType.includes('inspection') && !actionType.includes('done') && actionDate && !isNaN(actionDate.getTime())) {
-            // Create new date with admin deadline date but action time
-            const combinedDeadline = new Date(adminDeadline);
-            combinedDeadline.setHours(actionDate.getHours(), actionDate.getMinutes(), actionDate.getSeconds(), actionDate.getMilliseconds());
-            return combinedDeadline;
-          }
-          return adminDeadline;
+      // INSPECTION ONLY: use admin-set deadline, combined with action time
+      if (isInspection && !isInspectionDone) {
+        let adminDeadline = null;
+        if (complaint.deadline && complaint.deadline !== null && complaint.deadline !== 'null') {
+          adminDeadline = new Date(complaint.deadline);
+        } else if (complaint.inspection_deadline && complaint.inspection_deadline !== null && complaint.inspection_deadline !== 'null') {
+          adminDeadline = new Date(complaint.inspection_deadline);
+        } else if (complaint.details && typeof complaint.details === 'object' && complaint.details.deadline) {
+          adminDeadline = new Date(complaint.details.deadline);
+        } else if (complaint.details && typeof complaint.details === 'string') {
+          try {
+            const parsedDetails = JSON.parse(complaint.details);
+            if (parsedDetails.deadline) adminDeadline = new Date(parsedDetails.deadline);
+          } catch (_) {}
         }
-      } else if (complaint.inspection_deadline && complaint.inspection_deadline !== null && complaint.inspection_deadline !== 'null') {
-        const inspectionDeadline = new Date(complaint.inspection_deadline);
-        if (!isNaN(inspectionDeadline.getTime())) {
-          // For inspections, combine with action time
-          if (actionType.includes('inspection') && !actionType.includes('done') && actionDate && !isNaN(actionDate.getTime())) {
-            const combinedDeadline = new Date(inspectionDeadline);
-            combinedDeadline.setHours(actionDate.getHours(), actionDate.getMinutes(), actionDate.getSeconds(), actionDate.getMilliseconds());
-            return combinedDeadline;
-          }
-          return inspectionDeadline;
+
+        if (adminDeadline && !isNaN(adminDeadline.getTime()) && actionDate && !isNaN(actionDate.getTime())) {
+          const combinedDeadline = new Date(adminDeadline);
+          combinedDeadline.setHours(actionDate.getHours(), actionDate.getMinutes(), actionDate.getSeconds(), actionDate.getMilliseconds());
+          return combinedDeadline;
         }
-      } else if (complaint.details && typeof complaint.details === 'object' && complaint.details.deadline) {
-        const adminDeadline = new Date(complaint.details.deadline);
-        if (!isNaN(adminDeadline.getTime())) {
-          // For inspections, combine with action time
-          if (actionType.includes('inspection') && !actionType.includes('done') && actionDate && !isNaN(actionDate.getTime())) {
-            const combinedDeadline = new Date(adminDeadline);
-            combinedDeadline.setHours(actionDate.getHours(), actionDate.getMinutes(), actionDate.getSeconds(), actionDate.getMilliseconds());
-            return combinedDeadline;
-          }
-          return adminDeadline;
-        }
-      } else if (complaint.details && typeof complaint.details === 'string') {
-        try {
-          const parsedDetails = JSON.parse(complaint.details);
-          if (parsedDetails.deadline) {
-            const adminDeadline = new Date(parsedDetails.deadline);
-            if (!isNaN(adminDeadline.getTime())) {
-              // For inspections, combine with action time
-              if (actionType.includes('inspection') && !actionType.includes('done') && actionDate && !isNaN(actionDate.getTime())) {
-                const combinedDeadline = new Date(adminDeadline);
-                combinedDeadline.setHours(actionDate.getHours(), actionDate.getMinutes(), actionDate.getSeconds(), actionDate.getMilliseconds());
-                return combinedDeadline;
-              }
-              return adminDeadline;
-            }
-          }
-        } catch (e) {
-          // Ignore JSON parse errors
-        }
+        console.log(`[INBOX] No admin deadline found for inspection complaint ${complaint.complaint_id} - skipping from inbox`);
+        return null; // must have admin deadline for inspection
       }
       
       // Use meeting date/time for accepted invitations
@@ -1054,11 +1030,7 @@
         if (!isNaN(meetingDateTime.getTime())) return meetingDateTime;
       }
 
-      // For inspections, no fallback allowed - must have admin deadline
-      if (actionType.includes('inspection')) {
-        console.log(`[INBOX] No admin deadline found for inspection complaint ${complaint.complaint_id} - skipping from inbox`);
-        return null; // Don't include in inbox if no admin deadline
-      }
+      // Past this point, we are NOT in active inspection; derive via action mapping
       
       // Fallback to derive from action_datetime or date_received + mapped days for other actions
       let baseDate = null;
@@ -1069,10 +1041,23 @@
       }
       if (!baseDate || isNaN(baseDate.getTime())) return null;
 
-      let daysToAdd = 3; // default
-      if (actionType.includes('invitation')) daysToAdd = 1;
-      else if (actionType.includes('mediation')) daysToAdd = 1;
-      else if (actionType.includes('assessment')) daysToAdd = 1;
+      // Mirror the exact mapping used by calculateDeadlineDisplay (robust to wording order)
+      let daysToAdd = 3; // default fallback
+      if (isInspectionDone) {
+        daysToAdd = 3;
+      } else if (hasInvitation && !hasSent && !hasAccepted) { // send invitation or generic invitation awaiting send/accept
+        daysToAdd = 1;
+      } else if (hasInvitation && hasSent) { // 'sent invitation' or 'invitation sent'
+        daysToAdd = 20;
+      } else if (hasInvitation && hasAccepted) { // accepted invitation
+        // handled above by meeting date; if no meeting time, use baseDate (0 days)
+        daysToAdd = 0;
+      } else if (actionType.includes('mediation')) {
+        daysToAdd = 3;
+      } else if (actionType.includes('assessment')) {
+        // Do not show "assessment" in inbox (no countdown in table)
+        return null;
+      }
 
       return new Date(baseDate.getTime() + (daysToAdd * 24 * 60 * 60 * 1000));
     }
