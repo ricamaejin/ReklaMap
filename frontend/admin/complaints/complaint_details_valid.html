@@ -2006,7 +2006,65 @@
           // Add click handler to navigate to map.html
           svgContainer.addEventListener('click', function() {
             const areaCode = complaint.area_code.toLowerCase();
-            window.location.href = `/admin/map/${areaCode}`;
+
+            // Try to extract block/lot so the destination map can auto-highlight
+            function extractBlockLot(c) {
+              // Helper to normalize numeric-like strings
+              const toNumish = (val) => {
+                if (val === null || val === undefined) return null;
+                const m = String(val).match(/\d+/);
+                return m ? m[0] : String(val).trim() || null;
+              };
+
+              let b = toNumish(c.block_no || c.block);
+              let l = toNumish(c.lot_no || c.lot);
+
+              // Fallback A: parse from known text fields (e.g., "Block X, Lot Y")
+              const src = c.address || c.inspection_location_pretty || '';
+              if ((!b || !l) && src) {
+                const bMatch = src.match(/block\s*(\d+)/i);
+                const lMatch = src.match(/lot\s*(\d+)/i);
+                if (!b && bMatch) b = toNumish(bMatch[1]);
+                if (!l && lMatch) l = toNumish(lMatch[1]);
+              }
+
+              // Fallback B: scrape from the injected complaint form preview (non-member sections)
+              if (!b || !l) {
+                try {
+                  // Prefer structured pair rows when available
+                  const pairRows = document.querySelectorAll('#nonMemberBlockLotSection .pair-row, .pairs .pair-row');
+                  let foundB = null, foundL = null;
+                  for (const row of pairRows) {
+                    const bInput = row.querySelector('input[placeholder*="Block" i], input[title*="Block" i]');
+                    const lInput = row.querySelector('input[placeholder*="Lot" i], input[title*="Lot" i]');
+                    const bVal = bInput && bInput.value ? toNumish(bInput.value) : null;
+                    const lVal = lInput && lInput.value ? toNumish(lInput.value) : null;
+                    if (bVal && lVal) { foundB = bVal; foundL = lVal; break; }
+                  }
+                  // If not found in pair-rows, try any inputs in the document with placeholders/titles
+                  if (!foundB || !foundL) {
+                    const anyB = Array.from(document.querySelectorAll('input[placeholder*="Block" i], input[title*="Block" i]'))
+                      .map(i => toNumish(i.value)).find(Boolean);
+                    const anyL = Array.from(document.querySelectorAll('input[placeholder*="Lot" i], input[title*="Lot" i]'))
+                      .map(i => toNumish(i.value)).find(Boolean);
+                    if (anyB && anyL) { foundB = anyB; foundL = anyL; }
+                  }
+                  if (!b && foundB) b = foundB;
+                  if (!l && foundL) l = foundL;
+                } catch (e) {
+                  // ignore scraping errors
+                }
+              }
+
+              return { block: b, lot: l };
+            }
+
+            const { block, lot } = extractBlockLot(complaint);
+            let targetUrl = `/admin/map/${areaCode}`;
+            if (block && lot) {
+              targetUrl += `?highlight=block-${block}-lot-${lot}`;
+            }
+            window.location.href = targetUrl;
           });
         }
         
