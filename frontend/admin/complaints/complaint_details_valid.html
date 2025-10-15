@@ -491,7 +491,7 @@
           <div class="rk-modal-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#1a33a0" opacity="0.12"/><path d="M11 16h2v-2h-2v2zm0-8h2v6h-2V8z" fill="#1a33a0"/></svg>
           </div>
-          <p class="rk-modal-title" id="acceptInvitationTitle">Notice</p>
+          <p class="rk-modal-title" id="acceptInvitationTitle" style="color: #c62828;">Notice</p>
         </div>
         <div class="rk-modal-body">
           <p>Are you sure both parties have accepted the invitation?</p>
@@ -539,7 +539,7 @@
           <div class="rk-modal-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#1a33a0" opacity="0.12"/><path d="M11 16h2v-2h-2v2zm0-8h2v6h-2V8z" fill="#1a33a0"/></svg>
           </div>
-          <p class="rk-modal-title" id="resolveModalTitle">Notice</p>
+          <p class="rk-modal-title" id="resolveModalTitle" style="color: #c62828;">Notice</p>
         </div>
         <div class="rk-modal-body">
           <p>Are you sure to mark this complaint as Resolved?</p>
@@ -559,7 +559,7 @@
           <div class="rk-modal-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#1a33a0" opacity="0.12"/><path d="M11 16h2v-2h-2v2zm0-8h2v6h-2V8z" fill="#1a33a0"/></svg>
           </div>
-          <p class="rk-modal-title" id="unresolveModalTitle">Notice</p>
+          <p class="rk-modal-title" id="unresolveModalTitle" style="color: #c62828;">Notice</p>
         </div>
         <div class="rk-modal-body">
           <p>Are you sure to mark this complaint as Unresolved?</p>
@@ -579,7 +579,7 @@
           <div class="rk-modal-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#1a33a0" opacity="0.12"/><path d="M11 16h2v-2h-2v2zm0-8h2v6h-2V8z" fill="#1a33a0"/></svg>
           </div>
-          <p class="rk-modal-title" id="alertModalTitle">Notice</p>
+          <p class="rk-modal-title" id="alertModalTitle" style="color: #c62828;">Notice</p>
         </div>
         <div class="rk-modal-body">
           <p id="alertMessage"></p>
@@ -1103,7 +1103,40 @@
   });
 
 
-    function saveAction() {
+    // Upload mediation files to server and return saved filenames/paths paired with descriptions
+    async function uploadMediationFiles() {
+      try {
+        const fileInputs = Array.from(document.querySelectorAll("input[name='mediationFiles[]']"));
+        const descInputs = Array.from(document.querySelectorAll("input[name='fileDescription[]']"));
+        // Collect actual File objects and their descriptions in order
+        const filesToUpload = [];
+        const descs = [];
+        fileInputs.forEach((inp, idx) => {
+          if (inp && inp.files && inp.files.length) {
+            filesToUpload.push(inp.files[0]);
+            descs.push((descInputs[idx]?.value || '').trim());
+          }
+        });
+        if (!filesToUpload.length) return { filenames: [], paths: [], descs: [] };
+        const fd = new FormData();
+        filesToUpload.forEach(f => fd.append('files', f));
+        const res = await fetch('/uploads/staff', { method: 'POST', body: fd, credentials: 'same-origin' });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          console.error('Upload failed:', res.status, txt?.slice(0,300));
+          return { filenames: [], paths: [], descs: [] };
+        }
+        const data = await res.json().catch(() => ({}));
+        const filenames = Array.isArray(data.files) ? data.files : [];
+        const paths = Array.isArray(data.paths) ? data.paths : filenames.map(n => `/uploads/staff/${n}`);
+        return { filenames, paths, descs };
+      } catch (e) {
+        console.error('uploadMediationFiles error', e);
+        return { filenames: [], paths: [], descs: [] };
+      }
+    }
+
+    async function saveAction() {
       const complaintId = (typeof currentComplaintId !== 'undefined') ? currentComplaintId : null;
       console.log('currentComplaintId =', complaintId);
 
@@ -1123,7 +1156,7 @@
 
       //require field
       const missing = [];
-      if (actionType === 'Invitation') {
+  if (actionType === 'Invitation') {
         const invSelect = document.getElementById('invAssignedPersonnel');
         const invDate = document.getElementById('invDate');
         const invTime = document.getElementById('invTime');
@@ -1205,6 +1238,8 @@
       let description = "";
 
       if (actionType === "Mediation") {
+        // First upload files so we can include saved filenames in details
+        const uploadResult = await uploadMediationFiles();
         // Helper function to collect parties involved values from medPartiesInvolved div OR get from autofill cache
         const collectPartiesInvolved = () => {
           // First try to get from the autofill cache (which comes from invitation "to" field)
@@ -1233,6 +1268,9 @@
           return partiesFromInputs;
         };
 
+        // Build details with uploaded filenames and original descriptions
+        const uploadedNames = uploadResult.filenames || [];
+        const uploadedDescs = uploadResult.descs || [];
         details = {
           advisors: Array.from(document.querySelectorAll("input[name='witness[]']")).map(w => w.value),
           agenda: document.querySelector("input[name='agenda']")?.value || "",
@@ -1241,12 +1279,10 @@
           parties_involved: Array.from(document.querySelectorAll('#medPartiesInvolved input'))
             .map(i => (i.value || '').trim())
             .filter(Boolean),
-          files: Array.from(document.querySelectorAll("input[name='mediationFiles[]']")).map((fileInput, idx) => {
-            return {
-              filename: fileInput.value.split("\\").pop(),
-              type: document.querySelectorAll("input[name='fileDescription[]']")[idx]?.value || ""
-            }
-          })
+          // Keep a rich structure for admin preview
+          files: uploadedNames.map((name, idx) => ({ filename: name, type: uploadedDescs[idx] || '' })),
+          // Also store a plain list for staff uploads consumer
+          attached_files: uploadedNames
         };
         description = details.summary;  // use summary as description
         
@@ -1333,7 +1369,7 @@
       if (modalSaveBtn) modalSaveBtn.disabled = true;
       if (assignSaveBtn) assignSaveBtn.disabled = true;
 
-      fetch("/admin/complaints/api/action", {
+  fetch("/admin/complaints/api/action", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(payload)
@@ -1595,8 +1631,8 @@
       let fileIcon = '';
       const actionType = (entry.type_of_action || '').toLowerCase();
       
-      // For "Inspection Done" and "Sent Invitation" - check for attached_files from staff
-      if (actionType === 'inspection done' || actionType === 'sent invitation') {
+      // For "Inspection Done", "Sent Invitation", and "Mediation" - check for attached_files from staff
+      if (actionType === 'inspection done' || actionType === 'sent invitation' || actionType === 'mediation') {
         const attachedFiles = (entry.details && entry.details.attached_files) ? entry.details.attached_files : [];
         if (attachedFiles.length > 0) {
           const fileCount = attachedFiles.length > 1 ? ` (${attachedFiles.length})` : '';
@@ -2874,19 +2910,26 @@
         </div>
         
         <!-- File uploads -->
-        ${details.files && details.files.length > 0 ? `
-        <div class="form-group">
-          <label><strong>Uploaded Files:</strong></label>
-          <div class="readonly-field">
-            ${details.files.map((file, index) => `
-              <div style="margin-bottom: 5px;">
-                <strong>${file.type || file.description || 'File ' + (index + 1)}:</strong> ${file.filename || file.name || 'Uploaded file'}
-              </div>
-            `).join('')}
+        ${(() => {
+          const filesList = details.files || [];
+          const normalized = (Array.isArray(filesList) ? filesList.map(f => {
+            if (typeof f === 'string') return f;
+            return f.filename || f.name || f.url || f.path || '';
+          }).filter(Boolean) : []);
+
+          if (normalized.length === 0) return '';
+
+          // Use existing viewStaffFiles helper to show staff-uploaded files (same as Invitation/Inspection)
+          return `
+          <div class="form-group">
+            <label><strong>Uploaded Files:</strong></label>
+            <div class="readonly-field">
+              <button class="btn-save" type="button" onclick="viewStaffFiles(${JSON.stringify(normalized).replace(/"/g, '&quot;')}, 'Mediation', ${entry.history_id || 'null'})">View / Download Files</button>
+            </div>
           </div>
-        </div>
-        ` : ''}
-        
+          `;
+        })()}
+
         ${generateFileAttachments(details)}
       </div>
     `;

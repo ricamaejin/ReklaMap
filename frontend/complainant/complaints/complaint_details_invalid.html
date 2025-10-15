@@ -58,6 +58,48 @@
       display: block;
       margin-bottom: 6px;
     }
+    /* Template-local override: show status header as plain red text (no blue box) */
+    .status-header {
+      background: transparent !important;
+      color: #c62828 !important; /* Material red 800 */
+      border: none !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      margin: 0 0 8px 0 !important;
+      display: block !important;
+      font-weight: 700 !important;
+    }
+
+    /* Modal status card styles */
+    .status-card {
+      background: #ffffff;
+      border: 1px solid #e5e7eb; /* slate-200 */
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+      margin-top: 6px;
+    }
+    .status-card .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #fee2e2; /* red-100 */
+      color: #b91c1c; /* red-700 */
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: 0.2px;
+      margin-bottom: 8px;
+    }
+    .status-card .status-body {
+      color: #374151; /* gray-700 */
+      line-height: 1.5;
+      font-size: 0.95rem;
+    }
+    .status-card .status-reason .label {
+      color: #6b7280; /* gray-500 */
+      font-weight: 600;
+      margin-right: 6px;
+    }
   </style>
 </head>
 <body>
@@ -77,8 +119,15 @@
   <!-- Main Content -->
   <div class="main">
     <div class="form-container">
-  <h2 id="invalidText" class="invalid-header">Invalid Complaint</h2>
-  <h1 class="underlined-title">COMPLAINT FORM <br> {{ complaint.type_of_complaint|upper }}</h1>
+    {# Prefer showing complaint_stage for final-stage labels like 'Out of Jurisdiction' or 'Unresolved' #}
+    <h2 id="statusText" class="status-header" data-status="{{ complaint.status }}" data-stage="{{ complaint.complaint_stage }}">
+      {% if complaint.complaint_stage in ['Out of Jurisdiction', 'Unresolved'] %}
+        {{ complaint.complaint_stage }}
+      {% else %}
+        {{ complaint.status }}
+      {% endif %}
+    </h2>
+  <h1>COMPLAINT FORM <br> {{ complaint.type_of_complaint|upper }}</h1>
       <div class="instructions">
         <p><strong>INSTRUCTION</strong></p>
         <ul>
@@ -89,15 +138,13 @@
           <li>Ensure all required fields are filled before submitting the form.</li>
         </ul>
       </div>
+<form class="readonly-preview">
+          <input type="hidden" name="complaint_id" value="{{ complaint.complaint_id }}">
+          <input type="hidden" name="registration_id" value="{{ registration.registration_id }}">
 
-  <form class="readonly-preview">
-        <input type="hidden" name="complaint_id" value="{{ complaint.complaint_id }}">
-        <input type="hidden" name="registration_id" value="{{ registration.registration_id }}">
+          <div class="section-header">COMPLAINANT'S DETAILS:</div>
 
-        <div class="section-header">COMPLAINANT'S DETAILS:</div>
-
-        {# Unified conditional structure: family_of_member | non_member | hoa_member #}
-        {% if registration.category == 'family_of_member' %}
+          {% if registration.category == 'family_of_member' %}
           <!-- Family member layout -->
           <div class="pairs">
             <div class="pair-row">
@@ -107,8 +154,9 @@
                 {% set mi_clean = mi.strip() %}
                 {% if mi_clean and mi_clean|length == 1 %}
                   {% set mi_clean = mi_clean ~ '.' %}
-                {% elif mi_clean and mi_clean|length > 1 and mi_clean.endswith('.') == false and mi_clean|length <= 3 %}
-                  {% set mi_clean = mi_clean[0] ~ '.' %}
+                  {% elif mi_clean and mi_clean|length > 1 and mi_clean.endswith('.') == false and mi_clean|length <= 3 %}
+                    {# Handle cases like "B" or "b" or stray forms like "B.." -> ensure single dot #}
+                    {% set mi_clean = mi_clean[0] ~ '.' %}
                 {% endif %}
                 {% set full_name_display = (
                   (registration.first_name or '') ~ ' ' ~
@@ -116,369 +164,274 @@
                   (registration.last_name or '') ~ ( ' ' if registration.suffix ) ~
                   (registration.suffix or '')
                 ) %}
-                <input type="text" name="full_name" value="{{ full_name_display.strip() }}" readonly title="Full Name" aria-label="Full Name">
+                <input type="text" name="full_name" value="{{ full_name_display.strip() }}" readonly title="Full Name" aria-label="Full Name" style="width: 98.2%;">
+                </div>
               </div>
-            </div>
-            
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Date of Birth:</label>
-                <input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly title="Date of Birth" aria-label="Date of Birth">
-              </div>
-              <div class="col">
-                <label class="small">Sex:</label>
-                <input type="text" name="sex" value="{{ registration.sex }}" readonly title="Sex" aria-label="Sex">
-              </div>
-            </div>
-            
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Citizenship:</label>
-                <input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly title="Citizenship" aria-label="Citizenship">
-              </div>
-              <div class="col">
-                <label class="small">Age:</label>
-                <input type="text" name="age" value="{{ registration.age }}" readonly title="Age" aria-label="Age">
-              </div>
-            </div>
-            
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Phone Number:</label>
-                <input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly title="Phone Number" aria-label="Phone Number">
-              </div>
-              <div class="col">
-                <label class="small">Year of Residence:</label>
-                <input type="text" name="year_of_residence" value="{{ registration.year_of_residence }}" readonly title="Year of Residence" aria-label="Year of Residence">
-              </div>
-            </div>
-            
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Relationship:</label>
-                <input type="text" name="relationship" value="{{ relationship or '' }}" readonly title="Relationship" aria-label="Relationship">
-              </div>
-              <div class="col">
-                <label class="small">Current Address:</label>
-                <input type="text" name="cur_add" value="{{ registration.current_address }}" readonly title="Current Address" aria-label="Current Address">
-              </div>
-            </div>
-            
-            {# Removed supporting documents from personal section; will show in HOA Member Information below #}
-          </div>
-          
-          {% if parent_info %}
-          <div class="mt-20">
-            <div class="section-header">HOA MEMBER INFORMATION</div>
-            <div class="pairs">
+
               <div class="pair-row">
-                <div class="col">
-                  <label class="small">Full Name:</label>
-                  {% set p_full = (parent_info.full_name or '')|string %}
-                  {% set tokens = p_full.split(' ') %}
-                  {% set norm_tokens = [] %}
-                  {% for t in tokens %}
-                    {% set tt = t.strip() %}
-                    {% if tt|length == 1 %}
-                      {% set _ = norm_tokens.append(tt ~ '.') %}
-                    {% elif tt|length > 1 and tt|replace('.', '')|length == 1 %}
-                      {% set _ = norm_tokens.append(tt[0] ~ '.') %}
-                    {% else %}
-                      {% set _ = norm_tokens.append(tt) %}
-                    {% endif %}
-                  {% endfor %}
-                  {% set parent_full_name_display = ' '.join(norm_tokens) %}
-                  <input type="text" name="parent_full_name" value="{{ parent_full_name_display.strip() }}" readonly title="Full Name" aria-label="Parent Full Name">
-                </div>
+                <div class="col"><label class="small">Date of Birth:</label><input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly title="Date of Birth" aria-label="Date of Birth"></div>
+                <div class="col"><label class="small">Age:</label><input type="text" name="age" value="{{ registration.age }}" readonly title="Age" aria-label="Age"></div>
+                <div class="col"><label class="small">Sex:</label><input type="text" name="sex" value="{{ registration.sex }}" readonly title="Sex" aria-label="Sex"></div>
               </div>
+
               <div class="pair-row">
-                <div class="col">
-                  <label class="small">Date of Birth:</label>
-                  <input type="date" name="parent_date_of_birth" value="{{ parent_info.date_of_birth }}" readonly title="Date of Birth" aria-label="Parent Date of Birth">
-                </div>
-                <div class="col">
-                  <label class="small">Sex:</label>
-                  <input type="text" name="parent_sex" value="{{ parent_info.sex or '' }}" readonly title="Sex" aria-label="Parent Sex">
-                </div>
+                <div class="col"><label class="small">Civil Status:</label><input type="text" name="civil_status" value="{{ parent_info.civil_status }}" readonly title="Civil Status" aria-label="Civil Status"></div>
+                <div class="col"><label class="small">Year of Residence:</label><input type="text" name="year_of_residence" value="{{ registration.year_of_residence }}" readonly title="Year of Residence" aria-label="Year of Residence"></div>
+                <div class="col"><label class="small">Citizenship:</label><input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly title="Citizenship" aria-label="Citizenship"></div>
               </div>
+
+                <div class="pair-row">
+                  <div class="col"><label class="small">Current Address:</label><input type="text" name="cur_add" value="{{ registration.current_address }}" readonly title="Current Address" aria-label="Current Address" style="width: 98.2%;"></div>
+                </div>
+
               <div class="pair-row">
-                <div class="col">
-                  <label class="small">Citizenship:</label>
-                  <input type="text" name="parent_citizenship" value="{{ parent_info.citizenship or '' }}" readonly title="Citizenship" aria-label="Parent Citizenship">
-                </div>
-                <div class="col">
-                  <label class="small">Age:</label>
-                  <input type="text" name="parent_age" value="{{ parent_info.age or '' }}" readonly title="Age" aria-label="Parent Age">
-                </div>
+                <div class="col"><label class="small">Phone Number:</label><input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly title="Phone Number" aria-label="Phone Number"></div>
+                <div class="col"><label class="small">Recipient of Other Housing:</label><input type="text" name="recipient_of_other_housing" value="{{ parent_info.recipient_of_other_housing }}" readonly title="Recipient of Other Housing" aria-label="Recipient of Other Housing"></div>
+                <div class="col"><label class="small">Relationship:</label><input type="text" name="relationship" value="{{ relationship or '' }}" readonly title="Relationship" aria-label="Relationship"></div>
               </div>
-              
-              <div class="pair-row">
-                <div class="col">
-                  <label class="small">Year of Residence:</label>
-                  <input type="text" name="parent_year_of_residence" value="{{ parent_info.year_of_residence or '' }}" readonly title="Year of Residence" aria-label="Parent Year of Residence">
-                </div>
+
+              {# Removed supporting documents from family member personal section.
+              It will be shown inside HOA Member Information (parent_info) below. #}
               </div>
-              
-              <div class="pair-row">
-                <div class="col">
-                  <label class="small">HOA:</label>
-                  <input type="text" name="hoa" value="{{ parent_info.hoa or '' }}" readonly title="HOA" aria-label="HOA">
+
+              {% if parent_info %}
+                <div>
+                  <div class="section-header">HOA MEMBER INFORMATION</div>
+              <div class="pairs">
+                <div class="pair-row">
+                  <div class="col">
+                    <label class="small">Full Name:</label>
+                    {% set p_full = (parent_info.full_name or '')|string %}
+                    {% set p_full = p_full |replace('  ', ' ') %}
+                    {% set tokens = p_full.split(' ') %}
+                    {% set norm_tokens = [] %}
+                    {% for t in tokens %}
+                      {% set tt = t.strip() %}
+                        {% if tt|length == 1 %}
+                          {% set _ = norm_tokens.append(tt ~ '.') %}
+                            {% elif tt|length > 1 and tt|replace('.', '')|length == 1 %}
+                              {% set _ = norm_tokens.append(tt[0] ~ '.') %}
+                            {% else %}
+                            {% set _ = norm_tokens.append(tt) %}
+                          {% endif %}
+                        {% endfor %}
+                    {% set parent_full_name_display = ' '.join(norm_tokens) %}
+                    <input type="text" name="parent_full_name" value="{{ parent_full_name_display.strip() }}" readonly title="Full Name" aria-label="Parent Full Name" style="width: 98.2%;">
+                  </div>
                 </div>
-              </div>
-              <div class="pair-row">
-                <div class="col">
-                  <label class="small">Current Address:</label>
-                  <input type="text" name="parent_current_address" value="{{ parent_info.current_address or '' }}" readonly title="Current Address" aria-label="Parent Current Address">
+
+                <div class="pair-row">
+                  <div class="col"><label class="small">Date of Birth:</label><input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly title="Date of Birth" aria-label="Date of Birth"></div>
+                  <div class="col"><label class="small">Age:</label><input type="text" name="age" value="{{ registration.age }}" readonly title="Age" aria-label="Age"></div>
+                  <div class="col"><label class="small">Sex:</label><input type="text" name="sex" value="{{ registration.sex }}" readonly title="Sex" aria-label="Sex"></div>
                 </div>
-              </div>
-              
-              <div class="pair-row">
-                <div class="col">
-                  <label class="small">Block Assignment:</label>
-                  <input type="text" name="blk_num" value="{{ parent_info.block_no }}" readonly title="Block Assignment" aria-label="Block Assignment">
+
+                <div class="pair-row">
+                  <div class="col"><label class="small">Civil Status:</label><input type="text" name="civil_status" value="{{ parent_info.civil_status }}" readonly title="Civil Status" aria-label="Civil Status"></div>
+                  <div class="col"><label class="small">Year of Residence:</label><input type="text" name="year_of_residence" value="{{ registration.year_of_residence }}" readonly title="Year of Residence" aria-label="Year of Residence"></div>
+                  <div class="col"><label class="small">Citizenship:</label><input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly title="Citizenship" aria-label="Citizenship"></div>
                 </div>
-                <div class="col">
-                  <label class="small">Lot Assignment:</label>
-                  <input type="text" name="lot_num" value="{{ parent_info.lot_no }}" readonly title="Lot Assignment" aria-label="Lot Assignment">
+
+                <div class="pair-row">
+                  <div class="col"><label class="small">Current Address:</label><input type="text" name="parent_current_address" value="{{ parent_info.current_address or '' }}" readonly title="Current Address" aria-label="Parent Current Address" style="width: 98.2%;"></div>
                 </div>
-                <div class="col">
-                  <label class="small">Lot Size:</label>
-                  <input type="text" name="lot_size" value="{{ parent_info.lot_size }}" readonly title="Lot Size" aria-label="Lot Size">
+
+                <div class="pair-row">
+                  <div class="col"><label class="small">Recipient of Other Housing:</label><input type="text" name="recipient_of_other_housing" value="{{ parent_info.recipient_of_other_housing }}" readonly title="Recipient of Other Housing" aria-label="Recipient of Other Housing"></div>
+                  <div class="col"><label class="small">HOA:</label><input type="text" name="hoa" value="{{ parent_info.hoa or '' }}" readonly title="HOA" aria-label="HOA" style="width: 98.2%;"></div>
                 </div>
-              </div>
-              
-              <div class="pair-row">
-                <div class="col">
-                  <label class="small">Civil Status:</label>
-                  <input type="text" name="civil_status" value="{{ parent_info.civil_status }}" readonly title="Civil Status" aria-label="Civil Status">
+
+                <div class="pair-row">
+                  <div class="col"><label class="small">Block Assignment:</label><input type="text" name="blk_num" value="{{ parent_info.block_no }}" readonly title="Block Assignment" aria-label="Block Assignment"></div>
+                  <div class="col"><label class="small">Lot Assignment:</label><input type="text" name="lot_num" value="{{ parent_info.lot_no }}" readonly title="Lot Assignment" aria-label="Lot Assignment"></div>
+                  <div class="col"><label class="small">Lot Size:</label><input type="text" name="lot_size" value="{{ parent_info.lot_size }}" readonly title="Lot Size" aria-label="Lot Size"></div>
                 </div>
-                <div class="col">
-                  <label class="small">Recipient of Other Housing:</label>
-                  <input type="text" name="recipient_of_other_housing" value="{{ parent_info.recipient_of_other_housing }}" readonly title="Recipient of Other Housing" aria-label="Recipient of Other Housing">
-                </div>
-              </div>
-              
-              <!-- Supporting documents for parent member (grid, canonical keys), placed after Civil Status and Recipient -->
-              <div class="pair-row">
-                <div class="col">
-                  <label class="small">What Supporting Documents does your Family Member have?</label>
-                  {% set doc_options = [
-                    ('title', 'Title'),
-                    ('contract_to_sell', 'Contract to Sell'),
-                    ('certificate_of_full_payment', 'Certificate of Full Payment'),
-                    ('pre_qualification_stub', 'Pre-qualification Stub'),
-                    ('contract_agreement', 'Contract/Agreement'),
-                    ('deed_of_sale', 'Deed of Sale')
-                  ] %}
-                  {% set selected_docs = parent_info.supporting_documents or {} %}
-                  <div class="checkbox-group" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px;">
-                    {% for val, label in doc_options %}
-                      {% set is_checked = false %}
-                      {% if selected_docs is mapping and val in selected_docs %}
-                        {% set is_checked = selected_docs[val] %}
-                      {% endif %}
-                      <label style="white-space:nowrap;"><input type="checkbox" disabled {% if is_checked %}checked{% endif %}> {{ label }}</label>
-                    {% endfor %}
+
+                {# Supporting Documents for HOA member (parent) placed after Civil Status and Recipient #}
+                <div class="pair-row" style="margin-top:12px;">
+                  <div class="col" style="flex:1 1 100%;">
+                    <label style="font-weight:600; display:block; margin-bottom:2px;">What Supporting Documents does your Family Member have?</label>
+                    {% set doc_options = [
+                      ('title', 'Title'),
+                      ('contract_to_sell', 'Contract to Sell'),
+                      ('certificate_of_full_payment', 'Certificate of Full Payment'),
+                      ('pre_qualification_stub', 'Pre-qualification Stub'),
+                      ('contract_agreement', 'Contract/Agreement'),
+                      ('deed_of_sale', 'Deed of Sale')
+                    ] %}
+                    {% set selected_docs = parent_info.supporting_documents or {} %}
+                    <div class="checkbox-group" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px;">
+                      {% for val, label in doc_options %}
+                        {% set is_checked = false %}
+                          {% if selected_docs is mapping and val in selected_docs %}
+                            {% set is_checked = selected_docs[val] %}
+                          {% endif %}
+                          <label style="white-space:nowrap;"><input type="checkbox" disabled {% if is_checked %}checked{% endif %}> {{ label }}</label>
+                      {% endfor %}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-          {% endif %}
-
-        {% elif registration.category == 'non_member' %}
-          <!-- Non-member layout: two-column grouping like lot_dispute.html -->
-          <div class="pairs">
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Full Name:</label>
-                {% set mi = (registration.middle_name or '')|string %}
-                {% set mi_clean = mi.strip() %}
-                {% if mi_clean and mi_clean|length == 1 %}
-                  {% set mi_clean = mi_clean ~ '.' %}
-                {% elif mi_clean and mi_clean|length > 1 and mi_clean.endswith('.') == false and mi_clean|length <= 3 %}
-                  {% set mi_clean = mi_clean[0] ~ '.' %}
-                {% endif %}
-                {% set full_name_display = ((registration.first_name or '') ~ ' ' ~ (mi_clean or '') ~ ( ' ' if mi_clean ) ~ (registration.last_name or '') ~ ( ' ' if registration.suffix ) ~ (registration.suffix or '')) %}
-                <input type="text" name="full_name" value="{{ full_name_display.strip() }}" readonly title="Full Name" aria-label="Full Name">
-              </div>
-            </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Date of Birth:</label>
-                <input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly title="Date of Birth" aria-label="Date of Birth">
-              </div>
-              <div class="col">
-                <label class="small">Sex:</label>
-                <input type="text" name="sex" value="{{ registration.sex }}" readonly title="Sex" aria-label="Sex">
-              </div>
-            </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Citizenship:</label>
-                <input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly title="Citizenship" aria-label="Citizenship">
-              </div>
-              <div class="col">
-                <label class="small">Age:</label>
-                <input type="text" name="age" value="{{ registration.age }}" readonly title="Age" aria-label="Age">
-              </div>
-            </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Phone Number:</label>
-                <input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly title="Phone Number" aria-label="Phone Number">
-              </div>
-              <div class="col">
-                <label class="small">Year of Residence:</label>
-                <input type="text" name="year_of_residence" value="{{ registration.year_of_residence }}" readonly title="Year of Residence" aria-label="Year of Residence">
-              </div>
-            </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Civil Status:</label>
-                <input type="text" name="civil_status" value="{{ registration.civil_status }}" readonly title="Civil Status" aria-label="Civil Status">
-              </div>
-              <div class="col">
-                <label class="small">Recipient of Other Housing:</label>
-                <input type="text" name="recipient_of_other_housing" value="{{ registration.recipient_of_other_housing }}" readonly title="Recipient of other housing programs" aria-label="Recipient of other housing programs">
-              </div>
-            </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Current Address:</label>
-                <input type="text" name="cur_add" value="{{ registration.current_address }}" readonly title="Current Address" aria-label="Current Address">
-              </div>
-            </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Area (HOA):</label>
-                <input type="text" name="hoa" value="{{ get_area_name(registration.hoa) if registration.hoa else '' }}" readonly title="Area (HOA)" aria-label="Area (HOA)">
-              </div>
-            </div>
-          </div>
-
-        {% else %}
-          <!-- HOA member layout (original layout with lot information) -->
-          <div class="pairs">
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Full Name:</label>
-                {% set mi = (registration.middle_name or '')|string %}
-                {% set mi_clean = mi.strip() %}
-                {% if mi_clean and mi_clean|length == 1 %}
-                  {% set mi_clean = mi_clean ~ '.' %}
-                {% elif mi_clean and mi_clean|length > 1 and mi_clean.endswith('.') == false and mi_clean|length <= 3 %}
-                  {% set mi_clean = mi_clean[0] ~ '.' %}
-                {% endif %}
-                {% set full_name_display = (
-                  (registration.first_name or '') ~ ' ' ~
-                  (mi_clean or '') ~ ( ' ' if mi_clean ) ~
-                  (registration.last_name or '') ~ ( ' ' if registration.suffix ) ~
-                  (registration.suffix or '')
-                ) %}
-                <input type="text" name="full_name" value="{{ full_name_display.strip() }}" readonly title="Full Name" aria-label="Full Name">
-              </div>
-            </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Date of Birth:</label>
-                <input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly title="Date of Birth" aria-label="Date of Birth">
-              </div>
-              <div class="col">
-                <label class="small">Sex:</label>
-                <input type="text" name="sex" value="{{ registration.sex }}" readonly title="Sex" aria-label="Sex">
-              </div>
-            </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Citizenship:</label>
-                <input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly title="Citizenship" aria-label="Citizenship">
-              </div>
-              <div class="col">
-                <label class="small">Age:</label>
-                <input type="text" name="age" value="{{ registration.age }}" readonly title="Age" aria-label="Age">
-              </div>
-            </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Phone Number:</label>
-                <input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly title="Phone Number" aria-label="Phone Number">
-              </div>
-              <div class="col">
-                <label class="small">Year of Residence:</label>
-                <input type="text" name="year_of_residence" value="{{ registration.year_of_residence }}" readonly title="Year of Residence" aria-label="Year of Residence">
-              </div>
-            </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Current Address:</label>
-                <input type="text" name="cur_add" value="{{ registration.current_address }}" readonly title="Current Address" aria-label="Current Address">
-              </div>
-            </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">HOA:</label>
-                <input type="text" name="hoa" value="{{ get_area_name(registration.hoa) if registration.hoa else '' }}" readonly title="HOA" aria-label="HOA">
-              </div>
-            </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Block Assignment:</label>
-                <input type="text" name="blk_num" value="{{ registration.block_no }}" readonly title="Block Assignment" aria-label="Block Assignment">
-              </div>
-              <div class="col">
-                <label class="small">Lot Assignment:</label>
-                <input type="text" name="lot_num" value="{{ registration.lot_no }}" readonly title="Lot Assignment" aria-label="Lot Assignment">
-              </div>
-              <div class="col">
-                <label class="small">Lot Size:</label>
-                <input type="text" name="lot_size" value="{{ registration.lot_size }}" readonly title="Lot Size" aria-label="Lot Size">
-              </div>
-            </div>
-            <div class="pair-row">
-              <div class="col">
-                <label class="small">Civil Status:</label>
-                <input type="text" name="civil_status" value="{{ registration.civil_status }}" readonly title="Civil Status" aria-label="Civil Status">
-              </div>
-              <div class="col">
-                <label class="small">Recipient of Other Housing:</label>
-                <input type="text" name="recipient_of_other_housing" value="{{ registration.recipient_of_other_housing }}" readonly title="Recipient of other housing programs" aria-label="Recipient of other housing programs">
-              </div>
-            </div>
-            {% set show_supporting_docs = registration.category in ['hoa_member', 'family_of_member'] %}
-            {% if show_supporting_docs %}
-              <div class="pair-row" style="margin-top:18px; margin-bottom:8px;">
-                <div class="col" style="flex:1 1 100%;">
-                  {% set labelText = 'What Supporting Documents do you have?' %}
-                  {% if registration.category == 'family_of_member' %}
-                    {% set labelText = 'What Supporting Documents does your Family Member have?' %}
-                  {% endif %}
-                  <label style="font-weight:600; display:block; margin-bottom:2px;">{{ labelText }}</label>
-                  {% set doc_options = [
-                    ('title', 'Title'),
-                    ('contract_to_sell', 'Contract to Sell'),
-                    ('certificate_of_full_payment', 'Certificate of Full Payment'),
-                    ('pre_qualification_stub', 'Pre-qualification Stub'),
-                    ('contract_agreement', 'Contract/Agreement'),
-                    ('deed_of_sale', 'Deed of Sale')
-                  ] %}
-                  {% set selected_docs = registration.supporting_documents or {} %}
-                  <div class="checkbox-group" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px;">
-                    {% for val, label in doc_options %}
-                      {% set is_checked = false %}
-                      {% if selected_docs is mapping and val in selected_docs %}
-                        {% set is_checked = selected_docs[val] %}
-                      {% endif %}
-                      <label style="white-space:nowrap;">
-                        <input type="checkbox" disabled {% if is_checked %}checked{% endif %}> {{ label }}
-                      </label>
-                    {% endfor %}
-                  </div>
-                </div>
-              </div>
             {% endif %}
-          </div>
-        {% endif %}
+
+            {% else %}
+              <!-- HOA member or non-member layout -->
+              {% if registration.category == 'non_member' %}
+                <!-- Non-member layout -->
+                <div class="pairs">
+                  <div class="pair-row">
+                    <div class="col">
+                      <label class="small">Full Name:</label>
+                      {% set mi = (registration.middle_name or '')|string %}
+                      {% set mi_clean = mi.strip() %}
+                      {% if mi_clean and mi_clean|length == 1 %}
+                        {% set mi_clean = mi_clean ~ '.' %}
+                        {% elif mi_clean and mi_clean|length > 1 and mi_clean.endswith('.') == false and mi_clean|length <= 3 %}
+                          {# Handle cases like "B" or "b" or stray forms like "B.." -> ensure single dot #}
+                          {% set mi_clean = mi_clean[0] ~ '.' %}
+                      {% endif %}
+                      {% set full_name_display = (
+                        (registration.first_name or '') ~ ' ' ~
+                        (mi_clean or '') ~ ( ' ' if mi_clean ) ~
+                        (registration.last_name or '') ~ ( ' ' if registration.suffix ) ~
+                        (registration.suffix or '')
+                      ) %}
+                      <input type="text" name="full_name" value="{{ full_name_display.strip() }}" readonly title="Full Name" aria-label="Full Name" style="width: 98.2%;">
+                    </div>
+                  </div>
+
+                  <div class="pair-row">
+                    <div class="col"><label class="small">Date of Birth:</label><input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly title="Date of Birth" aria-label="Date of Birth"></div>
+                    <div class="col"><label class="small">Age:</label><input type="text" name="age" value="{{ registration.age }}" readonly title="Age" aria-label="Age"></div>
+                    <div class="col"><label class="small">Sex:</label><input type="text" name="sex" value="{{ registration.sex }}" readonly title="Sex" aria-label="Sex"></div>
+                  </div>
+
+                  <div class="pair-row">
+                    <div class="col"><label class="small">Civil Status:</label><input type="text" name="civil_status" value="{{ registration.civil_status }}" readonly title="Civil Status" aria-label="Civil Status"></div>
+                    <div class="col"><label class="small">Year of Residence:</label><input type="text" name="year_of_residence" value="{{ registration.year_of_residence }}" readonly title="Year of Residence" aria-label="Year of Residence"></div>
+                    <div class="col"><label class="small">Citizenship:</label><input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly title="Citizenship" aria-label="Citizenship"></div>
+                  </div>
+
+                  <div class="pair-row">
+                    <div class="col"><label class="small">Current Address:</label><input type="text" name="cur_add" value="{{ registration.current_address }}" readonly title="Current Address" aria-label="Current Address" style="width: 98.2%;"></div>
+                  </div>
+
+                  <div class="pair-row">
+                    <div class="col"><label class="small">Phone Number:</label><input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly title="Phone Number" aria-label="Phone Number"></div>
+                    <div class="col"><label class="small">Recipient of Other Housing:</label>                                    <input type="text" name="recipient_of_other_housing" value="{{ registration.recipient_of_other_housing }}" readonly title="Recipient of other housing programs" aria-label="Recipient of other housing programs"></div>
+                  </div>
+
+                  <div class="pair-row">
+                    <div class="col"><label class="small">Area (HOA):</label><input type="text" name="hoa" value="{{ get_area_name(registration.hoa) if registration.hoa else '' }}" readonly title="Area (HOA)" aria-label="Area (HOA)" style="width: 98.2%;"></div>
+                  </div>
+
+                  <div class="pair-row">
+                    <div class="col" >
+                    {% if complaint and (complaint.type_of_complaint|string|lower).strip() != 'unauthorized occupation' %}
+                      <label class="small">How are you connected to the lot you are complaining about?</label>
+                      {% if non_member_connections_list and non_member_connections_list|length > 0 %}
+                        {% for item in non_member_connections_list %}
+                          <input type="text" value="{{ item }}" readonly style="margin-bottom:6px; width: 98.2%;">
+                        {% endfor %}
+                      {% else %}
+                        <input type="text" value="{{ non_member_connections or '' }}" readonly>
+                      {% endif %}
+                    {% endif %}
+                  </div>
+              </div>
+            </div>
+
+              {% else %}
+                <!-- HOA member layout (original layout with lot information) -->
+                <div class="pairs">
+                  <div class="pair-row">
+                    <div class="col">
+                      <label class="small">Full Name:</label>
+                      {% set mi = (registration.middle_name or '')|string %}
+                      {% set mi_clean = mi.strip() %}
+                      {% if mi_clean and mi_clean|length == 1 %}
+                        {% set mi_clean = mi_clean ~ '.' %}
+                        {% elif mi_clean and mi_clean|length > 1 and mi_clean.endswith('.') == false and mi_clean|length <= 3 %}
+                          {# Handle cases like "B" or "b" or stray forms like "B.." -> ensure single dot #}
+                          {% set mi_clean = mi_clean[0] ~ '.' %}
+                      {% endif %}
+                      {% set full_name_display = (
+                        (registration.first_name or '') ~ ' ' ~
+                        (mi_clean or '') ~ ( ' ' if mi_clean ) ~
+                        (registration.last_name or '') ~ ( ' ' if registration.suffix ) ~
+                        (registration.suffix or '')
+                      ) %}
+                      <input type="text" name="full_name" value="{{ full_name_display.strip() }}" readonly title="Full Name" aria-label="Full Name" style="width: 98.2%;">
+                    </div>
+                  </div>
+
+                  <div class="pair-row">
+                    <div class="col"><label class="small">Date of Birth:</label><input type="date" name="date_of_birth" value="{{ registration.date_of_birth }}" readonly title="Date of Birth" aria-label="Date of Birth"></div>
+                    <div class="col"><label class="small">Age:</label><input type="text" name="age" value="{{ registration.age }}" readonly title="Age" aria-label="Age"></div>
+                    <div class="col"><label class="small">Sex:</label><input type="text" name="sex" value="{{ registration.sex }}" readonly title="Sex" aria-label="Sex"></div>
+                  </div>
+
+                  <div class="pair-row">
+                    <div class="col"><label class="small">Civil Status:</label><input type="text" name="civil_status" value="{{ registration.civil_status }}" readonly title="Civil Status" aria-label="Civil Status"></div>
+                    <div class="col"><label class="small">Year of Residence:</label><input type="text" name="year_of_residence" value="{{ registration.year_of_residence }}" readonly title="Year of Residence" aria-label="Year of Residence"></div>
+                    <div class="col"><label class="small">Citizenship:</label><input type="text" name="citizenship" value="{{ registration.citizenship }}" readonly title="Citizenship" aria-label="Citizenship"></div>
+                  </div>
+
+                  <div class="pair-row">
+                    <div class="col"><label class="small">Current Address:</label><input type="text" name="cur_add" value="{{ registration.current_address }}" readonly title="Current Address" aria-label="Current Address" style="width: 98.2%;"></div>
+                  </div>
+
+                  <div class="pair-row">
+                    <div class="col"><label class="small">Phone Number:</label><input type="text" name="phone_number" value="{{ registration.phone_number }}" readonly title="Phone Number" aria-label="Phone Number"></div>
+                    <div class="col"><label class="small">Recipient of Other Housing:</label>                                    <input type="text" name="recipient_of_other_housing" value="{{ registration.recipient_of_other_housing }}" readonly title="Recipient of other housing programs" aria-label="Recipient of other housing programs"></div>
+                  </div>
+
+                  <div class="pair-row">
+                    <div class="col"><label class="small">Area (HOA):</label><input type="text" name="hoa" value="{{ get_area_name(registration.hoa) if registration.hoa else '' }}" readonly title="Area (HOA)" aria-label="Area (HOA)" style="width: 98.2%;"></div>
+                  </div>
+
+                  <div class="pair-row">
+                    <div class="col"><label class="small">Block Assignment:</label><input type="text" name="blk_num" value="{{ registration.block_no }}" readonly title="Block Assignment" aria-label="Block Assignment"></div>
+                    <div class="col"><label class="small">Lot Assignment:</label><input type="text" name="lot_num" value="{{ registration.lot_no }}" readonly title="Lot Assignment" aria-label="Lot Assignment"></div>
+                    <div class="col"><label class="small">Lot Size:</label><input type="text" name="lot_size" value="{{ registration.lot_size }}" readonly title="Lot Size" aria-label="Lot Size"></div>
+                  </div>
+
+                  {% set show_supporting_docs = registration.category in ['hoa_member', 'family_of_member'] %}
+                  {% if show_supporting_docs %}
+                    <div class="pair-row" style="margin-top:18px; margin-bottom:8px;">
+                      <div class="col" style="flex:1 1 100%;">
+                        {% set labelText = 'What Supporting Documents do you have?' %}
+                        {% if registration.category == 'family_of_member' %}
+                          {% set labelText = 'What Supporting Documents does your Family Member have?' %}
+                        {% endif %}
+                        <label style="font-weight:600; display:block; margin-bottom:2px;">{{ labelText }}</label>
+                        {% set doc_options = [
+                          ('title', 'Title'),
+                          ('contract_to_sell', 'Contract to Sell'),
+                          ('certificate_of_full_payment', 'Certificate of Full Payment'),
+                          ('pre_qualification_stub', 'Pre-qualification Stub'),
+                          ('contract_agreement', 'Contract/Agreement'),
+                          ('deed_of_sale', 'Deed of Sale')
+                        ] %}
+                        {% set selected_docs = registration.supporting_documents or {} %}
+                        <div class="checkbox-group" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px;">
+                          {% for val, label in doc_options %}
+                            {% set is_checked = false %}
+                            {% if selected_docs is mapping and val in selected_docs %}
+                              {% set is_checked = selected_docs[val] %}
+                            {% endif %}
+                            <label style="white-space:nowrap;">
+                              <input type="checkbox" disabled {% if is_checked %}checked{% endif %}> {{ label }}
+                            </label>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+                  {% endif %}
+                </div> {# closes .pairs #}
+              {% endif %}
+            {% endif %}
 
         <div class="section-header">LOT DETAILS AND CLAIM:</div>
 
@@ -525,9 +478,6 @@
         <button id="submitAnotherBtn" class="add-btn hidden" type="button">Submit Another Complaint</button>
       </div>
       </div>
-      <div style="text-align: center; margin-top: 5px;">
-        <button class="resolved-btn" type="button" onclick="window.location.href='/complainant/complaints/submitted_complaints.html'">Close</button>
-      </div>
       </div>
     </div>
   </div>
@@ -544,44 +494,74 @@
       </div>
       <hr>
   <!-- Status Description -->
-  <textarea aria-label="Invalid complaint reason" readonly>Invalid Complaint
-{% if complaint.rejection_reason %}
-Reason: {{ complaint.rejection_reason }}
-{% else %}
-Reason: The name and/or block/lot do not match any registered beneficiary.
-{% endif %}
-</textarea>
+  {# Show the displayed status (prefer stage if it's a final label) and choose reason from stage or status #}
+  {% if complaint.complaint_stage in ['Out of Jurisdiction', 'Unresolved'] %}
+    {% set display_status = complaint.complaint_stage %}
+  {% else %}
+    {% set display_status = complaint.status %}
+  {% endif %}
+
+  <div class="status-card" role="status" aria-live="polite">
+    <div class="status-badge">{{ display_status }}</div>
+    <div class="status-body">
+      {# Always render a placeholder span we can update from timeline if needed #}
+      {% if complaint.rejection_reason %}
+        <div class="status-reason"><span class="label">Reason:</span> <span id="reasonText">{{ complaint.rejection_reason }}</span></div>
+      {% else %}
+        {% if display_status == 'Out of Jurisdiction' %}
+          <div class="status-reason"><span class="label">Reason:</span> <span id="reasonText">The lot falls outside the project's jurisdiction.</span></div>
+        {% elif display_status == 'Unresolved' %}
+          <div class="status-reason"><span class="label">Reason:</span> <span id="reasonText">The case remains unresolved as mediation could not proceed effectively due to the absence or lack of cooperation from the involved parties.</span></div>
+        {% elif display_status == 'Invalid' %}
+          <div class="status-reason"><span class="label">Reason:</span> <span id="reasonText">The name and/or block/lot do not match any registered beneficiary.</span></div>
+        {% else %}
+          <div class="status-reason"><span class="label">Reason:</span> <span id="reasonText">No additional information provided.</span></div>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
       <div class="modal-footer">
         <button class="btn-close" onclick="closeComplaint()">Close</button>
+        <button id="modalAddComplaintBtn" class="add-btn hidden" type="button" onclick="openAddComplaint()">Add Complaint</button>
       </div>
     </div>
   </div>
 
   <script>
   const modalOverlay = document.getElementById("modal");
-  const invalidText = document.getElementById("invalidText");
+  const statusText = document.getElementById("statusText");
+  // Read complaint status and stage from the DOM (avoids embedding raw template tags in script)
+  const complaintStatus = statusText ? statusText.dataset.status || '' : '';
+  const complaintStage = statusText ? statusText.dataset.stage || '' : '';
+
+  // List labels that don't have a timeline view (do not attempt to load timeline)
+  const statusesWithoutTimeline = ["Invalid", "Out of Jurisdiction", "Unresolved"];
 
   // Show popup immediately on page load
   window.addEventListener('DOMContentLoaded', () => {
     modalOverlay.style.display = "flex";
     updateDateTime();
     
-    // Prevent timeline 500 error by intercepting timeline functions
-    // This is only needed for invalid complaints that don't have a timeline
-    if (window.loadComplainantTimeline) {
-      console.log("[COMPLAINANT TIMELINE] Disabled timeline for invalid complaint");
+    // Prevent timeline 500 error by intercepting timeline functions when status has no timeline
+    if ((statusesWithoutTimeline.includes(complaintStatus) || statusesWithoutTimeline.includes(complaintStage)) && window.loadComplainantTimeline) {
+      console.log(`[COMPLAINANT TIMELINE] Disabled timeline for status/stage: ${complaintStatus || complaintStage}`);
       window.loadComplainantTimeline = function() {
-        console.log("[COMPLAINANT TIMELINE] Timeline loading skipped for invalid complaint");
+        console.log(`[COMPLAINANT TIMELINE] Timeline loading skipped for status/stage: ${complaintStatus || complaintStage}`);
         return;
       };
     }
+
+    // If marked Out of Jurisdiction, try to pull the specific reason from admin timeline entry
+    tryFillOOJReasonFromTimeline();
   });
 
-  // Make 'Invalid Complaint' text clickable to reopen popup
-  invalidText.onclick = () => {
-    modalOverlay.style.display = "flex";
-    updateDateTime();
-  };
+  // Make status text clickable to reopen popup
+  if (statusText) {
+    statusText.onclick = () => {
+      modalOverlay.style.display = "flex";
+      updateDateTime();
+    };
+  }
 
   function closeComplaint() {
     modalOverlay.style.display = "none";
@@ -608,6 +588,61 @@ Reason: The name and/or block/lot do not match any registered beneficiary.
 
     document.getElementById("date").textContent = date;
     document.getElementById("time").textContent = time;
+  }
+
+  // Attempt to read Out of Jurisdiction reason from the latest admin action entry
+  async function tryFillOOJReasonFromTimeline(){
+    const isOOJ = (complaintStage === 'Out of Jurisdiction' || complaintStatus === 'Out of Jurisdiction');
+    if (!isOOJ) return;
+
+    const reasonEl = document.getElementById('reasonText');
+    if (!reasonEl) return;
+
+    // If backend already provided a rejection_reason string, prefer it
+    const hasServerReason = reasonEl.textContent && reasonEl.textContent.trim().length > 0 && !/The lot falls outside the project's jurisdiction\.|No additional information provided\./.test(reasonEl.textContent);
+    if (hasServerReason) return;
+
+    const idInput = document.querySelector('input[name="complaint_id"]');
+    const complaintId = idInput ? idInput.value : '';
+    if (!complaintId) return;
+
+    try {
+      // Prefer complainant role; backend supports role filtering
+      let res = await fetch(`/admin/complaints/api/timeline/${complaintId}?role=complainant&_=${Date.now()}`, { credentials: 'include' });
+      if (!res.ok) {
+        // Fallback to admin role (same data, different filters on server)
+        res = await fetch(`/admin/complaints/api/timeline/${complaintId}?role=admin&_=${Date.now()}`, { credentials: 'include' });
+      }
+      if (!res.ok) return;
+      const data = await res.json();
+      const timeline = (data && data.timeline) ? data.timeline : [];
+      if (!Array.isArray(timeline) || !timeline.length) return;
+
+      // Find the most recent Out of Jurisdiction entry
+      const sorted = timeline.slice().sort((a,b) => new Date(b.action_datetime||0) - new Date(a.action_datetime||0));
+      const oojEntry = sorted.find(e => {
+        const t = String(e.type_of_action || e.action_type || '').toLowerCase();
+        return t.includes('out of jurisdiction');
+      });
+      if (!oojEntry) return;
+
+      // Prefer explicit notes/jurisdiction if available, else use description
+      const jurisdiction = (oojEntry.jurisdiction || '').toString().trim();
+      const notes = (oojEntry.notes || '').toString().trim();
+      let text = (oojEntry.description || '').toString().trim();
+      if (!text) {
+        const parts = [];
+        if (jurisdiction) parts.push(jurisdiction);
+        if (notes) parts.push(notes);
+        text = parts.join(' - ');
+      }
+      if (text) {
+        reasonEl.textContent = text;
+      }
+    } catch (e) {
+      // Non-fatal; leave default text
+      console.warn('[OOJ REASON] Failed to load admin reason from timeline:', e);
+    }
   }
   </script>
 
@@ -715,18 +750,28 @@ Reason: The name and/or block/lot do not match any registered beneficiary.
         });
       }
 
-      // Show/hide Submit Another Complaint depending on current complaints
+      // Show/hide Add Complaint buttons depending on current complaints
       document.addEventListener('DOMContentLoaded', async () => {
         try {
           const res = await fetch('/complainant/complaints/submitted');
           const data = await res.json();
           if (data.success) {
             const complaints = data.complaints || [];
-            const hasValidComplaint = complaints.some(c => c.status !== 'Invalid');
-            if (!hasValidComplaint) {
-              submitAnotherBtn.classList.remove('hidden');
+            const finalStatuses = new Set(['Resolved','Unresolved','Out of Jurisdiction','Invalid']);
+            const hasActiveComplaint = complaints.some(c => {
+              const s = (c.status || '').trim();
+              const st = (c.complaint_stage || '').trim();
+              const statusFinal = finalStatuses.has(s) || finalStatuses.has(st);
+              return !statusFinal;
+            });
+
+            const modalAddBtn = document.getElementById('modalAddComplaintBtn');
+            if (!hasActiveComplaint) {
+              if (submitAnotherBtn) submitAnotherBtn.classList.remove('hidden');
+              if (modalAddBtn) modalAddBtn.classList.remove('hidden');
             } else {
-              submitAnotherBtn.classList.add('hidden');
+              if (submitAnotherBtn) submitAnotherBtn.classList.add('hidden');
+              if (modalAddBtn) modalAddBtn.classList.add('hidden');
             }
           }
         } catch (err) {
