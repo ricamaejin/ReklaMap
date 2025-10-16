@@ -7,24 +7,48 @@
     // Detect complaint type by probing for distinctive fields
   const root = document.querySelector('.complaint-form') || document;
 
-    // Pathway has radio/checkbox names q1..q12, Lot has distinctive labels in .field-blocks
-    const hasPathwaySignals = !!(root.querySelector('input[name="q1"], input[name="q2"], input[name="q3"], input[name="q4"]'));
+    // Pathway detection: look for pathway-specific labels (avoid generic q1.. names shared by other forms)
+    const hasPathwaySignals = (function(){
+      const scope = document.querySelector('.complaint-form') || document;
+      const nodes = Array.from(scope.querySelectorAll('p, label, legend, h1, h2, h3'));
+      return nodes.some(el => /pathway|sidewalk|alley|right[- ]of[- ]way|easement/i.test((el.textContent||'')));
+    })();
     const hasLotSignals = (function(){
       // Probe for distinctive labels in field-blocks regardless of wrapper
       const scope = document.querySelector('.complaint-form') || document;
       const blocks = Array.from(scope.querySelectorAll('.field-block p'));
       return blocks.some(p => /How did you come into possession|nature of the ownership conflict|Do they reside on the disputed lot|legal documents/i.test((p.textContent||'')));
     })();
+    // Boundary Dispute: detect via distinctive boundary labels present in form/preview
+    const hasBoundarySignals = (function(){
+      // Strong signal: hidden marker injected by boundary preview partial
+      if (document.getElementById('__boundary_form_marker')) return true;
+      const scope = document.querySelector('.complaint-form') || document;
+      const nodes = Array.from(scope.querySelectorAll('p, label, legend, h1, h2, h3'));
+      return nodes.some(el => /nature of the boundary issue|boundary markers|How long has this encroachment existed|encroaching structure|site inspection|mohon|marker/i.test((el.textContent||'')));
+    })();
     // Unauthorized Occupation: detect by presence of its unique field names OR label text in preview blocks
     const hasUnauthorizedByName = !!(root.querySelector('input[name="legal_connection"], input[name="occupant_claim"], input[name="result"], input[name="boundary_reported_to[]"]'));
     const hasUnauthorizedByLabel = (function(){
       const scope = document.querySelector('.complaint-form') || document;
       const nodes = Array.from(scope.querySelectorAll('p, label, h1, h2, h3, h4, div'));
-      return nodes.some(el => /What is your legal connection|What activities are being done on the property|Have they claimed legal rights|Have you tried to resolve this directly|Have you reported this boundary issue|What was the result of that report/i.test((el.textContent||'')));
+      // Keep Unauthorized detection specific to its unique prompts; avoid boundary-shared phrases
+      return nodes.some(el => /What is your legal connection|What activities are being done on the property|Have they claimed legal rights|Have you tried to resolve this directly/i.test((el.textContent||'')));
     })();
     const hasUnauthorizedSignals = hasUnauthorizedByName || hasUnauthorizedByLabel;
 
     try {
+      // Prefer Boundary before Pathway to avoid overlap
+      if (hasBoundarySignals && window.BoundaryFuzzy) {
+        const computed = window.BoundaryFuzzy.computeRecommendation();
+        window.BoundaryFuzzy.renderRecommendation(computed);
+        // Also expose suggest dataset for downstream selects (module also sets these internally)
+        const recData = modal.dataset;
+        const primary = computed && computed.choice ? computed.choice.primaryAction : '';
+        recData.suggestAssign = (primary === 'Inspection' || primary === 'Invitation') ? primary : '';
+        recData.suggestAction = (primary === 'Assessment' || primary === 'Out of Jurisdiction') ? primary : '';
+        return true;
+      }
       if (hasPathwaySignals && window.PathwayFuzzy) {
         const previewRoot = document.querySelector('.complaint-form') || document;
         const answers = window.PathwayFuzzy.extractAnswers(previewRoot);

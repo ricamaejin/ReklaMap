@@ -307,7 +307,7 @@
           </div>
         </div>
         ${renderScoreBars(norm,p)}
-        <div style="margin-top:8px;color:#1f2a4a;">Reasoning:</div>
+        <div style="margin-top:8px;color:#1f2a4a;">Reasoning</div>
         <ul style="margin:6px 0 0 18px;color:#00030dff">${reasons}</ul>`;
       const t=document.getElementById('recommendText')||modal.querySelector('textarea');
       if(t)t.value=buildNarrative(result.signals,norm,p);
