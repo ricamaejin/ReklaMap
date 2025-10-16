@@ -126,6 +126,92 @@
 
 
   <script>
+    // Helper: safe JSON parse for details field
+    function parseDetailsSafe(details) {
+      if (!details) return null;
+      if (typeof details === 'object') return details;
+      try { return JSON.parse(details); } catch { return null; }
+    }
+
+    // Recursively find meeting datetime in an arbitrary details object
+    function findMeetingDateTime(details) {
+      if (!details || typeof details !== 'object') return null;
+      // Direct keys first
+      if (details.meeting_datetime) {
+        const d = new Date(details.meeting_datetime);
+        if (!isNaN(d.getTime())) return d;
+      }
+      if (details.meeting_date && details.meeting_time) {
+        const d = new Date(`${details.meeting_date}T${details.meeting_time}`);
+        if (!isNaN(d.getTime())) return d;
+      }
+      // Common alternates (defensive)
+      const altDate = details.meetingDate || details.date_of_meeting || details.mediation_date;
+      const altTime = details.meetingTime || details.time_of_meeting || details.mediation_time;
+      if (altDate && altTime) {
+        const d = new Date(`${altDate}T${altTime}`);
+        if (!isNaN(d.getTime())) return d;
+      }
+      const altDT = details.meetingDateTime || details.mediation_datetime || details.schedule_datetime;
+      if (altDT) {
+        const d = new Date(altDT);
+        if (!isNaN(d.getTime())) return d;
+      }
+      // Recurse through nested objects/arrays
+      for (const key of Object.keys(details)) {
+        const v = details[key];
+        if (v && typeof v === 'object') {
+          const nested = findMeetingDateTime(v);
+          if (nested) return nested;
+        }
+      }
+      return null;
+    }
+
+    // Async fallback: If Accepted Invitation lacks meeting data on the row payload,
+    // fetch timeline and derive meeting date/time from the Invitation action.
+    async function resolveAcceptedInvitationDeadline(complaintId, deadlineCell) {
+      try {
+        if (!complaintId || !deadlineCell) return;
+        console.log(`[ONGOING] 🤝 Fallback resolver for complaint ${complaintId} - fetching timeline`);
+        const res = await fetch(`/admin/complaints/api/timeline/${complaintId}?role=admin&_=${Date.now()}`);
+        if (!res.ok) throw new Error(`Timeline fetch failed: ${res.status}`);
+        const data = await res.json();
+        const timeline = Array.isArray(data) ? data : (Array.isArray(data.entries) ? data.entries : (data.timeline || []));
+        console.log(`[ONGOING] 🤝 Timeline entries for ${complaintId}:`, Array.isArray(timeline) ? timeline.length : 'N/A');
+        if (!Array.isArray(timeline) || timeline.length === 0) {
+          console.warn(`[ONGOING] 🤝 No timeline found for complaint ${complaintId}`);
+          return;
+        }
+        // Search from latest to oldest for an Invitation entry with meeting info
+        let found = null;
+        for (let i = timeline.length - 1; i >= 0; i--) {
+          const t = timeline[i];
+          const actionTxt = ((t.action || t.status || '') + '').toLowerCase();
+          const detailsObj = parseDetailsSafe(t.details) || t.details || null;
+          // Prefer invitation-like actions, but also accept any entry whose details contain meeting info
+          if (!actionTxt.includes('invitation') && !actionTxt.includes('mediation')) {
+            // still check details in case structure differs
+            const anyDT = findMeetingDateTime(detailsObj);
+            if (anyDT && !isNaN(anyDT.getTime())) { found = anyDT; break; }
+            continue;
+          }
+          const meetingDT = findMeetingDateTime(detailsObj);
+          if (meetingDT && !isNaN(meetingDT.getTime())) { found = meetingDT; break; }
+        }
+        if (found) {
+          const dateStr = found.toLocaleDateString();
+          const timeStr = found.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          deadlineCell.innerHTML = `${dateStr} | ${timeStr}<br/>(Mediation day)`;
+          console.log(`[ONGOING] 🤝 Fallback applied for ${complaintId}: ${dateStr} ${timeStr}`);
+        } else {
+          console.warn(`[ONGOING] 🤝 No invitation with meeting info found in timeline for ${complaintId}`);
+        }
+      } catch (e) {
+        console.warn(`[ONGOING] 🤝 Fallback resolver error for complaint ${complaintId}:`, e);
+      }
+    }
+
     // Format date with timestamp for display
     function formatDateWithTimestamp(dateString) {
       try {
@@ -308,6 +394,74 @@
             console.log(`[ONGOING] 🤝   - meetingDateTime: ${meetingDateTime}`);
             console.log(`[ONGOING] 🤝   - actionDate: ${actionDate}`);
             
+            // If no meetingDateTime yet, try to derive it from the original Invitation action in history
+            try {
+              if ((!meetingDateTime || isNaN(meetingDateTime.getTime())) && (complaint.details || complaint.complaint_history)) {
+                let originalInvitationId = null;
+                try {
+                  const acceptedDetailsObj = typeof complaint.details === 'string' ? JSON.parse(complaint.details) : complaint.details;
+                  if (acceptedDetailsObj && acceptedDetailsObj.original_invitation_id) {
+                    originalInvitationId = String(acceptedDetailsObj.original_invitation_id);
+                  }
+                } catch (e) {
+                  console.warn(`[ONGOING] 🤝   - Failed to parse Accepted Invitation details for original_invitation_id`, e);
+                }
+
+                const history = Array.isArray(complaint.complaint_history) ? complaint.complaint_history : [];
+                let foundDetails = null;
+
+                // First pass: exact match by id or details.invitation_id/original_invitation_id
+                for (const h of history) {
+                  if (foundDetails) break;
+                  const action = ((h.action || h.status || '') + '').toLowerCase();
+                  // Only consider invitation-type actions
+                  if (!action.includes('invitation')) continue;
+                  let detailsObj = null;
+                  try {
+                    detailsObj = typeof h.details === 'string' ? JSON.parse(h.details) : h.details;
+                  } catch (_) {}
+                  const hid = (h.id != null ? String(h.id) : (h.action_id != null ? String(h.action_id) : null));
+                  const invitationIdInDetails = detailsObj && (detailsObj.invitation_id || detailsObj.original_invitation_id) ? String(detailsObj.invitation_id || detailsObj.original_invitation_id) : null;
+                  const hasMeeting = detailsObj && ((detailsObj.meeting_datetime) || (detailsObj.meeting_date && detailsObj.meeting_time));
+                  if (!hasMeeting) continue;
+                  if (originalInvitationId && (hid === originalInvitationId || invitationIdInDetails === originalInvitationId)) {
+                    foundDetails = detailsObj;
+                    break;
+                  }
+                }
+
+                // Second pass: fallback to latest invitation with meeting info
+                if (!foundDetails) {
+                  for (let i = history.length - 1; i >= 0; i--) {
+                    const h = history[i];
+                    const action = ((h.action || h.status || '') + '').toLowerCase();
+                    if (!action.includes('invitation')) continue;
+                    let detailsObj = null;
+                    try {
+                      detailsObj = typeof h.details === 'string' ? JSON.parse(h.details) : h.details;
+                    } catch (_) {}
+                    if (detailsObj && (detailsObj.meeting_datetime || (detailsObj.meeting_date && detailsObj.meeting_time))) {
+                      foundDetails = detailsObj;
+                      break;
+                    }
+                  }
+                }
+
+                if (foundDetails) {
+                  if (foundDetails.meeting_datetime) {
+                    meetingDateTime = new Date(foundDetails.meeting_datetime);
+                  } else if (foundDetails.meeting_date && foundDetails.meeting_time) {
+                    meetingDateTime = new Date(`${foundDetails.meeting_date}T${foundDetails.meeting_time}`);
+                  }
+                  console.log(`[ONGOING] 🤝   - Derived meetingDateTime from history: ${meetingDateTime}`);
+                } else {
+                  console.warn(`[ONGOING] 🤝   - Could not derive meeting date/time from history`);
+                }
+              }
+            } catch (err) {
+              console.warn(`[ONGOING] 🤝   - Error while deriving meeting date/time from history`, err);
+            }
+            
             if (meetingDateTime && !isNaN(meetingDateTime.getTime())) {
               const dateStr = meetingDateTime.toLocaleDateString();
               const timeStr = meetingDateTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -389,6 +543,11 @@
         } else if (latestAction.includes('assessment')) {
           row.classList.add('status-assessment');
           row.style.backgroundColor = '#B5E48C'; // Light green for assessment
+        }
+        // If Accepted Invitation but the payload lacked meeting info, try resolving from timeline
+        if (latestAction.includes('accepted invitation')) {
+          const deadlineCell = row.cells && row.cells[6] ? row.cells[6] : row.querySelector('td:nth-child(7)');
+          resolveAcceptedInvitationDeadline(complaint.complaint_id, deadlineCell);
         }
         
         tbody.appendChild(row);

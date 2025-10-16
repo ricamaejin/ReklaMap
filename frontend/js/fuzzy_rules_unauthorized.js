@@ -437,14 +437,43 @@
 
   function buildBullets(f){
     const bullets = [];
-    if (f.occupancy_intensity >= 0.6) bullets.push('Strong on-site presence (living/structure/fenced/utilities).');
-    if (f.construction_activity >= 0.5) bullets.push('Construction or enclosure detected (structure/fence/utilities).');
-    if (f.resistance_level >= 0.5) bullets.push('Occupant shows resistance (hostile/refused to leave).');
-    if (f.doc_strength >= 0.6) bullets.push('Respondent claims strong documents (e.g., Title/Contract).');
-    if (f.prior_reporting_strength >= 0.4) bullets.push('Matter already raised to authorities (e.g., NGC/USAD/Barangay/HOA).');
-    if (f.action_progress >= 0.6) bullets.push('Authority already asked occupant to leave — proceed to mediation.');
-    if (f.basis_weakness >= 0.6) bullets.push('Basis appears weak (low docs/reporting and uncertain claims).');
-    if (!bullets.length) bullets.push('Signals are mixed; applying best-effort fuzzy match.');
+
+    // Site signals
+    if (f.occupancy_intensity >= 0.6) bullets.push('Clear on‑site presence (living/structure/fence/utilities) — needs official action.');
+    else if (f.occupancy_intensity >= 0.3) bullets.push('Some signs of occupancy — verify condition on the ground.');
+
+    if (f.construction_activity >= 0.5) bullets.push('Construction or enclosure observed — prioritize prompt inspection.');
+
+    // Behavior and engagement
+    if (f.resistance_level >= 0.5) bullets.push('Direct approach met resistance — mediation/coordination is appropriate.');
+    if (f.engagement_attempted) bullets.push('You already tried to resolve it directly — take the next formal step.');
+
+    // Evidence and claims
+    if (f.doc_strength >= 0.6) bullets.push('Strong documents are claimed — assessment to validate merits.');
+    else if (f.doc_strength > 0.2) bullets.push('Some documents are claimed — further review is needed.');
+    else bullets.push('Little to no documentation presented — start with verification on site.');
+
+    // Reporting and process state
+    if (f.prior_reporting_strength >= 0.4) bullets.push('Already reported to authorities (NGC/USAD/Barangay/HOA) — continue with coordinated action.');
+    else if (f.prior_reporting_strength === 0) bullets.push('Not yet reported to any authority — initiate formal steps.');
+
+    if (f.action_progress >= 0.6) bullets.push('Authority has asked the occupant to leave — proceed to mediation.');
+    else if (f.action_progress >= 0.3) bullets.push('Matter is already in process (investigation/pending) — keep momentum with inspection.');
+
+    // Jurisdiction indicators
+    if (f.jurisdiction_flag || f.explicit_weak) {
+      const parts = [];
+      if (f.doc_strength < 0.2) parts.push('weak documentation');
+      if (f.prior_reporting_strength === 0) parts.push('no prior reporting');
+      bullets.push(`Jurisdiction may be weak (${parts.join(' and ') || 'multiple indicators'}).`);
+    }
+
+    // Basis weakness and completeness
+    if (f.basis_weakness >= 0.6) bullets.push('Basis appears weak (low evidence and uncertain claims) — verify before escalation.');
+    if (f._completeness < 0.34) bullets.push('Only a few questions were answered — this is a preliminary suggestion.');
+
+    // Final fallback for mixed signals
+    if (!bullets.length) bullets.push('Mixed indicators (some occupancy but limited evidence) — recommending the safest next step.');
     return bullets;
   }
 
@@ -504,7 +533,7 @@
 
       const bars = renderScoreBars(norm, primary);
       const why = `
-        <div style="margin-top:8px; color:#1f2a4a;">Why this</div>
+        <div style="margin-top:8px; color:#1f2a4a;">Reasoning:</div>
         <ul style="margin:6px 0 0 18px; color:#00030dff">${reasons || '<li>Signals are mixed; additional details may improve accuracy.</li>'}</ul>`;
       box.innerHTML = header + bars + why;
 
