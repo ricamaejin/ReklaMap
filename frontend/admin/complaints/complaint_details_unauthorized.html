@@ -40,7 +40,7 @@
 
     <div id="nonMemberBlockLotSection">
         {% if block_lots and block_lots|length > 0 %}
-            <p>Please indicate your Block and Lot number.</p>
+            <p>What is the specific block and lot involved in the dispute?</p>
             <div class="pairs" id="pairsContainer" aria-live="polite">
                 {% for pair in block_lots %}
                     {% set block = pair.block if pair is mapping else '' %}
